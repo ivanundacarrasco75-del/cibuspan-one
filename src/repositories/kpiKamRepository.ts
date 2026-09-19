@@ -1,11 +1,35 @@
 import { supabase } from "../lib/supabase"
 import {
   CODIGOS_KPI_KAM,
+  type BaseCalculoKpiKam,
   type CodigoKpiKam,
   type ConfiguracionKpiKam,
   type RangoPuntuacionKpi,
   type ReglaCriticaKpi,
 } from "../types/kpiKam"
+
+type BaseProvisionalDb = {
+  periodo: string
+  kam_user_id: string
+  cliente_id: string
+  cliente_nombre: string
+  venta_bruta: number
+  venta_facturada_neta: number
+  devoluciones_valor: number
+  ajustes_venta_neta: number
+  fugas_comerciales_valor: number
+  presupuesto: number | null
+  costo_producto: number | null
+  transporte: number | null
+  costos_variables_comerciales: number | null
+  promociones_costo_adicional: number | null
+  contribucion_anterior: number | null
+  posiciones_sku_local_activas: number
+  posiciones_sku_local_objetivo: number
+  compromisos_cumplidos_a_tiempo: number
+  compromisos_con_vencimiento: number
+  advertencias: string[] | null
+}
 
 type DefinicionRelacion = {
   codigo: string
@@ -217,4 +241,75 @@ export async function obtenerClientesKamDb(
   }
 
   return (data ?? []) as unknown as ClienteKamDb[]
+}
+
+function numero(valor: unknown, respaldo = 0) {
+  const convertido = Number(valor)
+  return Number.isFinite(convertido) ? convertido : respaldo
+}
+
+function numeroOpcional(valor: unknown) {
+  if (valor == null) return null
+  const convertido = Number(valor)
+  return Number.isFinite(convertido) ? convertido : null
+}
+
+export async function obtenerBasesProvisionalesKpiKamDb(
+  periodo: string,
+  kamUserId?: string | null,
+  clienteId?: string | null,
+) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_base_provisional",
+    {
+      p_periodo: `${periodo.slice(0, 7)}-01`,
+      p_kam_user_id: kamUserId ?? null,
+      p_cliente_id: clienteId ?? null,
+    },
+  )
+
+  if (error) {
+    throw new Error(
+      `No se pudo construir la base provisional KPI KAM: ${error.message}`,
+    )
+  }
+
+  return ((data ?? []) as BaseProvisionalDb[]).map<BaseCalculoKpiKam>(
+    (fila) => ({
+      periodo: fila.periodo,
+      kamUserId: fila.kam_user_id,
+      clienteId: fila.cliente_id,
+      clienteNombre: fila.cliente_nombre,
+      ventaBruta: numero(fila.venta_bruta),
+      ventaFacturadaNeta: numero(fila.venta_facturada_neta),
+      devolucionesValor: numero(fila.devoluciones_valor),
+      ajustesVentaNeta: numero(fila.ajustes_venta_neta),
+      fugasComercialesValor: numero(fila.fugas_comerciales_valor),
+      presupuesto: numeroOpcional(fila.presupuesto),
+      costoProducto: numeroOpcional(fila.costo_producto),
+      transporte: numeroOpcional(fila.transporte),
+      costosVariablesComerciales: numeroOpcional(
+        fila.costos_variables_comerciales,
+      ),
+      promocionesCostoAdicional: numeroOpcional(
+        fila.promociones_costo_adicional,
+      ),
+      contribucionAnterior: numeroOpcional(fila.contribucion_anterior),
+      posicionesSkuLocalActivas: numero(
+        fila.posiciones_sku_local_activas,
+      ),
+      posicionesSkuLocalObjetivo: numero(
+        fila.posiciones_sku_local_objetivo,
+      ),
+      compromisosCumplidosATiempo: numero(
+        fila.compromisos_cumplidos_a_tiempo,
+      ),
+      compromisosConVencimiento: numero(
+        fila.compromisos_con_vencimiento,
+      ),
+      advertencias: Array.isArray(fila.advertencias)
+        ? fila.advertencias.filter(Boolean)
+        : [],
+    }),
+  )
 }

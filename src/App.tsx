@@ -40,6 +40,7 @@ const SimuladorRentabilidad = lazy(() => import("./pages/SimuladorRentabilidad")
 const UsuariosPermisos = lazy(() => import("./pages/UsuariosPermisos"))
 const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
+const KpiKam = lazy(() => import("./pages/KpiKam"))
 
 function PantallaEnConstruccion({
   titulo,
@@ -201,6 +202,10 @@ function App() {
 
       case "Comercial · Clientes":
         return <ComercialClientes cambiarPantalla={setPantalla} />
+
+      case "Comercial · KPI KAM":
+      case "KPI KAM":
+        return <KpiKam />
 
       case "Comercial · SKU":
         return <PantallaEnConstruccion titulo={pantalla} />
@@ -425,4 +430,3 @@ const iconoCarga = {
 }
 
 export default App
-
