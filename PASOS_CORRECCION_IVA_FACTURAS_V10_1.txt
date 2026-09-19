@@ -1,0 +1,12 @@
+CORRECCION CIBUSPAN ONE - IVA FUERA DE RANGO
+
+1. Copie el contenido de este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+2. Elija Reemplazar cuando Windows lo solicite.
+3. No es necesario ejecutar SQL en Supabase.
+4. Ejecute: npm run build
+5. Ejecute: npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+6. Abra el enlace nuevo que muestra Wrangler.
+7. Seleccione nuevamente el Excel y pulse Importar.
+
+La correccion evita que un IVA imposible detenga toda la importacion.
+La fila queda advertida y se importa sin IVA para revision manual.

@@ -1,0 +1,37 @@
+CIBUSPAN ONE - NÓMINA Y COSTOS POR CLIENTE V11
+
+1. Descomprime el ZIP dentro de:
+   D:\CIBUSPAN_ONE
+
+   Confirma "Reemplazar los archivos en el destino".
+
+2. En Supabase abre SQL Editor y crea una consulta nueva.
+
+3. Abre en VS Code este archivo:
+   D:\CIBUSPAN_ONE\supabase\migrations\202608130040_nomina_y_costos_cliente.sql
+
+   Copia todo su contenido, pégalo en SQL Editor y presiona Run.
+   Debe aparecer Success.
+
+4. En el terminal de VS Code ejecuta:
+
+   cd D:\CIBUSPAN_ONE
+   npm run build
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+5. Abre o actualiza la aplicación.
+
+CAMBIOS INCLUIDOS
+
+- Nuevas cuentas: mano de obra directa, mano de obra indirecta,
+  sueldos administrativos, comerciales y de distribución.
+- Cada factura se puede asignar al negocio completo o a un cliente.
+- El selector de cliente utiliza el catálogo actual de clientes.
+- El reporte comercial descuenta del margen del cliente solamente las
+  facturas directas asignadas a ese cliente y excluye el IVA.
+- La tabla por cliente muestra ventas netas, gastos directos,
+  contribución y margen preliminar.
+
+Las facturas importadas inicialmente quedan como "Negocio completo".
+Las que correspondan a transporte u otro gasto directo deben editarse
+y asignarse al cliente correcto.

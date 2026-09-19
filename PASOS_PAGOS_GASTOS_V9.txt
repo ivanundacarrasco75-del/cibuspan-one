@@ -1,0 +1,51 @@
+ACTUALIZACION CIBUSPAN ONE - PAGOS Y GASTOS
+
+Esta actualizacion agrega:
+- Modulo Administracion > Pagos y gastos.
+- Importacion del Excel acumulado de pagos.
+- Uso exclusivo de la hoja TRANSFERENCIAS cuando existe, para no duplicar las hojas semanales.
+- Clasificacion automatica por cuenta y proveedor.
+- Correccion manual y opcion Recordar proveedor.
+- Resumen semanal, filtros, principales cuentas y proveedores.
+- Indicadores de pagos y gastos en el dashboard Financiero.
+- Separacion entre egresos que afectan EBITDA, inventario, obligaciones, prestamos, activos y transferencias.
+
+PASO 1 - COPIAR ARCHIVOS
+Copie el contenido de este ZIP directamente dentro de:
+D:\CIBUSPAN_ONE
+
+Windows debe preguntar si desea reemplazar archivos. Elija Reemplazar.
+
+PASO 2 - CREAR EL MODULO EN SUPABASE
+Abra Supabase > SQL Editor > New query.
+Abra este archivo del ZIP:
+supabase\migrations\202608130020_pagos_gastos_clasificados.sql
+
+Copie todo su contenido, peguelo en el editor y pulse Run.
+El resultado esperado es Success.
+
+PASO 3 - COMPILAR
+En la terminal de VS Code, dentro de D:\CIBUSPAN_ONE, ejecute:
+npm run build
+
+La advertencia amarilla sobre archivos mayores de 500 kB no impide la compilacion.
+
+PASO 4 - PUBLICAR
+Ejecute:
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+PASO 5 - IMPORTAR LOS PAGOS
+Entre a Administracion > Pagos y gastos > Importar Excel.
+Seleccione APROBACION PAGOS 2026 NUEVOA.xlsx.
+
+El sistema debe reconocer:
+- 2.366 pagos.
+- USD 1.273.514,28 pagados.
+- Periodo desde 03/01/2025 hasta 15/08/2026.
+
+Revise la vista previa y pulse Importar pagos.
+
+IMPORTANTE
+Este modulo analiza salidas de caja. No reemplaza el balance contable por devengo.
+Los pagos ambiguos quedan como Por revisar y pueden clasificarse manualmente.
+Si activa Recordar proveedor, los siguientes pagos de ese proveedor usaran la misma cuenta.

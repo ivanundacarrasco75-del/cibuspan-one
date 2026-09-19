@@ -1,0 +1,45 @@
+CIBUSPAN ONE - ÓRDENES DE PRODUCCIÓN HISTÓRICAS 2026
+
+Este paquete incorpora las órdenes del sistema contable al historial de producción,
+reportes y dashboard. La importación histórica NO aumenta ni disminuye el inventario
+actual, porque esas producciones ya ocurrieron entre enero y julio de 2026.
+
+PASO 1
+Descomprimir este ZIP directamente dentro de:
+D:\CIBUSPAN_ONE
+
+Aceptar "Reemplazar los archivos en el destino".
+
+PASO 2
+En Supabase, abrir SQL Editor, crear una consulta nueva, copiar TODO el contenido de:
+supabase\migrations\202608120019_ordenes_produccion_historicas.sql
+
+Ejecutarlo y comprobar que diga Success.
+
+PASO 3
+En la terminal de Visual Studio Code, ubicada en D:\CIBUSPAN_ONE, ejecutar:
+npm run build
+
+PASO 4
+Cuando termine correctamente, ejecutar:
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+PASO 5
+Abrir la app y entrar en:
+Producción > Historial de producciones > Importar órdenes históricas
+
+Seleccionar el archivo original:
+ORDENES DE PRODUCCION 2026.xlsx
+
+La vista previa debe reconocer aproximadamente:
+- 1.553 órdenes en total
+- 1.258 órdenes de SKU
+- 295 órdenes de micros
+- 11.809 líneas de detalle
+
+Las órdenes que tengan fechas o datos inconsistentes aparecerán marcadas para
+revisión. El archivo puede seleccionarse nuevamente sin duplicar las órdenes,
+porque la importación se controla por número de orden y huella del archivo.
+
+Las producciones que se registren desde ahora en la app mantienen la lógica actual:
+se guardan en el historial y sí actualizan inventario o semielaborados.

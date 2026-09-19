@@ -1,0 +1,30 @@
+CIBUSPAN ONE V12.3 — FIX IMPORTADOR PDF VENTAS 2026
+
+CAUSA CONFIRMADA
+El PDF Admisys 2026 mueve la columna Fecha ligeramente hacia la izquierda.
+El parser anterior usaba x=109 como límite:
+- la fecha 01/08/2026 empieza aproximadamente en x=108.4;
+- por eso la fecha quedaba dentro del texto del comprobante;
+- todas las filas eran rechazadas y aparecía:
+  “El PDF no contiene movimientos de venta reconocibles.”
+
+CORRECCIÓN
+- Conserva el parser anterior para no romper reportes históricos.
+- Agrega compatibilidad con el formato Admisys 2026.
+- Corrige las filas partidas entre páginas.
+- Acepta tanto EAN de 13 dígitos como códigos internos cortos (ej. 00034).
+- No requiere SQL.
+
+VALIDACIÓN CONTRA EL PDF ENTREGADO
+- Periodo: 01/08/2026 a 31/08/2026
+- Movimientos esperados: 419
+- Unidades esperadas: 49.199
+- Venta sin impuestos esperada: $73.625,19
+
+INSTALACIÓN
+1. Descomprimir este ZIP en D:\CIBUSPAN_ONE y reemplazar.
+2. Ctrl + F5.
+3. Comercial > Importar facturación.
+4. Seleccionar otra vez “ventas agosto 2026 a.pdf”.
+5. Antes de guardar, confirmar 419 movimientos, 49.199 unidades y $73.625,19.
+6. Luego pulsar Guardar ventas.

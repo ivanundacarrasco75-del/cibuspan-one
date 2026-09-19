@@ -1,0 +1,22 @@
+CIBUSPAN ONE - DEVOLUCIONES ATRIBUIDAS POR VIDA UTIL
+
+1. Descomprimir este ZIP directamente en D:\CIBUSPAN_ONE.
+2. Seleccionar "Reemplazar los archivos en el destino".
+3. Abrir la terminal de VS Code y ejecutar:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abrir https://cibuspan-one.pages.dev y presionar Ctrl + Shift + R.
+5. Entrar en Reportes > Devoluciones.
+
+No se debe ejecutar SQL ni volver a cargar las devoluciones.
+
+NUEVA LOGICA
+- Cada devolucion usa la semana de origen ya calculada al importarla.
+- Vida util de 21 dias: se atribuye aproximadamente 3 semanas atras.
+- Vida util de 30 dias: se atribuye aproximadamente 4 semanas atras.
+- El calculo descuenta 2 dias por retiro anticipado de percha.
+- El porcentaje compara las devoluciones atribuidas con las unidades
+  enviadas y facturadas durante esa semana estimada de despacho.

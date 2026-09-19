@@ -1,0 +1,19 @@
+CIBUSPAN ONE · RESTAURACIÓN DEL DASHBOARD
+
+Este paquete restaura la última versión comprobada de DashboardV2 anterior a la integración del punto de equilibrio.
+
+1. Cierra la aplicación local.
+2. Reemplaza solamente:
+   src/pages/DashboardV2.tsx
+3. Ejecuta:
+   npm run build
+4. Ejecuta:
+   npm run dev
+
+Esta versión conserva:
+- Dashboard de Costos y Gastos por devengo.
+- tabInicial para abrir el tablero Comercial.
+- ventasDiarias y agrupación del tablero de Devoluciones.
+- Dashboard Comercial, Financiero, Producción, Inventario y Rentabilidad.
+
+No requiere ejecutar ningún SQL.

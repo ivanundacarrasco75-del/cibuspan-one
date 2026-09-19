@@ -1,0 +1,33 @@
+CIBUSPAN ONE - SERVICIOS COMERCIALES EXTERNOS V27
+
+Esta actualización agrega:
+- Cuenta Servicios comerciales externos en Facturas y pagos.
+- Clasificación como gasto comercial que afecta EBITDA.
+- Asignación a cliente específico o Negocio completo.
+- Dashboard con nómina interna de ventas, servicios externos y costo total comercial.
+
+PASO 1 - REEMPLAZAR ARCHIVOS
+1. Copia el ZIP dentro de D:\CIBUSPAN_ONE.
+2. Extráelo directamente en D:\CIBUSPAN_ONE.
+3. Acepta reemplazar los archivos.
+
+PASO 2 - SUPABASE
+1. Abre Supabase > SQL Editor > New query.
+2. Abre en VS Code:
+   supabase\migrations\202608150120_servicios_comerciales_externos.sql
+3. Copia todo, pégalo en Supabase y pulsa Run.
+4. Debe aparecer Success.
+
+PASO 3 - COMPILAR Y PUBLICAR
+En la terminal ejecuta:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+PASO 4 - PROBAR
+1. Actualiza la app con Ctrl + F5.
+2. En Facturas y pagos, crea o edita una factura.
+3. Selecciona la cuenta Servicios comerciales externos.
+4. Elige Negocio completo o el cliente afectado.
+5. En Dashboard > Financiero revisa Equipo comercial completo.

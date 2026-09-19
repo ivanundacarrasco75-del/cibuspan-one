@@ -1,0 +1,24 @@
+CIBUSPAN ONE - FILTROS DE PERIODOS Y GRÁFICOS SEMANALES
+
+Esta actualización incluye también la corrección para leer el historial completo
+de producción hasta julio.
+
+1. Descomprimir el ZIP dentro de D:\CIBUSPAN_ONE.
+2. Aceptar "Reemplazar los archivos en el destino".
+3. En la terminal de Visual Studio Code ejecutar:
+   npm run build
+4. Cuando termine correctamente ejecutar:
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+5. Abrir la app y actualizar con F5.
+
+No es necesario ejecutar código SQL en Supabase para esta actualización.
+
+CAMBIOS PRINCIPALES
+- Filtro común para todas las pestañas del Dashboard.
+- Periodos rápidos: últimas 8 semanas, mes actual, trimestre actual,
+  trimestre anterior y año actual.
+- Rango personalizado mediante fechas exactas.
+- Comparación contra el periodo anterior equivalente.
+- Producción agrupada semanalmente.
+- Ejes de tiempo identificados como Sem. 01, Sem. 02, etc.
+- Ventas y devoluciones se filtran por fechas y se grafican por semana.

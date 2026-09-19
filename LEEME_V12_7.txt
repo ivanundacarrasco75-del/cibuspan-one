@@ -1,0 +1,40 @@
+CIBUSPAN ONE V12.7 — ESCALA TRIMESTRAL/SEMESTRAL + FILTRO MULTICLIENTE
+
+CAMBIOS
+1. En Comercial > Ventas > Resumen, para PERIODO DE ANÁLISIS = AÑO,
+   “Ver el periodo por” ahora permite:
+   - Semana
+   - Mes
+   - Trimestre
+   - Semestre
+
+2. Para PERIODO DE ANÁLISIS = SEMESTRE también se habilita Trimestre.
+
+3. El filtro Cliente ahora es multiselección con casillas:
+   - Todos los clientes
+   - uno o varios clientes específicos
+   - el SKU se recalcula según los clientes seleccionados
+   - facturación, devolución estimada, KPIs, gráfico y rankings usan la misma selección
+
+4. Mantiene las correcciones de V12.6 y el importador V12.4B.
+
+NO REQUIERE SQL.
+
+INSTALACIÓN LOCAL
+1. Descomprimir en D:\CIBUSPAN_ONE y reemplazar.
+2. En CMD ejecutar:
+   cd /d D:\CIBUSPAN_ONE && npm run dev
+3. Ctrl + F5.
+4. Ir a Comercial > Ventas > Resumen.
+5. Debe verse “Análisis temporal · V12.7”.
+
+PRUEBAS RECOMENDADAS
+A. Periodo de análisis: Año / 2026 / Ver por: Trimestre.
+   Debe mostrar T1, T2, T3, T4.
+B. Año / 2026 / Ver por: Semestre.
+   Debe mostrar S1 y S2.
+C. En Clientes, marcar dos o más clientes y verificar que los KPIs y el gráfico cambien.
+
+PUBLICAR SOLO DESPUÉS DE VALIDAR LOCALMENTE:
+   npm run build
+   npx wrangler pages deploy dist --project-name=cibuspan-one

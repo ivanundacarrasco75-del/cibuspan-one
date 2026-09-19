@@ -1,0 +1,34 @@
+CIBUSPAN ONE · V12.42 · REVISIÓN 2
+Punto de equilibrio mensual en el Dashboard Comercial
+
+INSTALACIÓN
+1. Cerrar CIBUSPAN ONE en todas las computadoras y pestañas del navegador.
+2. Ejecutar completo CIBUSPAN_ONE_V12_42_PUNTO_EQUILIBRIO.sql en Supabase SQL Editor.
+3. Reemplazar en el proyecto:
+   src/pages/DashboardV2.tsx
+4. Ejecutar npm run build y publicar con el flujo habitual.
+
+QUÉ AGREGA
+- En Comercial: una referencia del punto de equilibrio del último mes contable.
+- En Financiero: punto de equilibrio, ventas netas, excedente o déficit y cobertura.
+- Gráfico comparativo de ventas netas frente al punto de equilibrio de hasta 12 meses.
+- Advertencia si existen costos que aún no están clasificados como fijos o variables.
+- Conserva la navegación con tabInicial y los datos diarios/agrupación del tablero actual.
+
+CRITERIO DE CÁLCULO
+Punto de equilibrio = costos fijos / margen de contribución porcentual.
+Los costos VARIABLE y SEMI_VARIABLE forman los costos variables.
+Los costos FIJO_RANGO y ESCALONADO forman los costos fijos.
+Las partidas FUERA_EBITDA no se incluyen.
+
+SEGURIDAD
+La actualización solo crea una vista de lectura y modifica el Dashboard.
+No cambia importaciones, asientos, saldos, clasificaciones ni periodos históricos.
+
+VERIFICACIÓN REALIZADA
+- Cálculo de ventas, costos variables, costos fijos, margen y punto de equilibrio.
+- Créditos y ajustes con signo contrario.
+- Advertencia de costos sin clasificar.
+- Reinstalación segura y permisos de lectura.
+- TypeScript estricto, incluyendo los contratos de App y DashboardDevolucionesPanel.
+- Revisión de código sin errores; permanecen únicamente dos avisos preexistentes de código no usado.

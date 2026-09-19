@@ -1,0 +1,19 @@
+CIBUSPAN ONE · V12.14 · PROMOCIONES FIX
+
+Esta version corrige la ubicacion del nuevo panel.
+
+INSTRUCCIONES:
+1. Extraer TODO este ZIP directamente en:
+   D:\CIBUSPAN_ONE
+
+2. Aceptar reemplazar archivos si Windows lo pregunta.
+
+3. Ejecutar con doble clic:
+   INSTALAR_V12_14_PROMOCIONES_FIX.bat
+
+El instalador:
+- respalda DashboardV2.tsx;
+- elimina una posible insercion anterior que quedo en una zona no visible;
+- conecta DashboardPromocionesPanel al render ACTIVO de la pestana Comercial;
+- ejecuta npm run build;
+- si falla, restaura DashboardV2.tsx automaticamente.

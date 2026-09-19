@@ -1,0 +1,32 @@
+CIBUSPAN ONE - TABLERO DE DEVOLUCIONES EN REPORTES
+
+1. Descomprimir este ZIP directamente en D:\CIBUSPAN_ONE.
+2. Seleccionar "Reemplazar los archivos en el destino".
+3. Abrir la terminal de VS Code y ejecutar:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abrir https://cibuspan-one.pages.dev y presionar Ctrl + Shift + R.
+5. Entrar en Reportes > Devoluciones.
+
+No se debe ejecutar ningun archivo SQL.
+
+EL NUEVO REPORTE INCLUYE
+- Rango de fechas.
+- Filtro por cliente.
+- Filtro por SKU.
+- Unidades enviadas/facturadas.
+- Unidades y valor devuelto.
+- Porcentaje de devolucion de la semana.
+- Meta maxima del 8%.
+- Grafico semanal de envios y devoluciones.
+- Grafico semanal del porcentaje de devolucion.
+- Grafico de devoluciones por cliente y SKU.
+- Tablas semanales y por cliente/SKU.
+- Exportacion CSV.
+
+FORMULA DEL INDICADOR
+Unidades devueltas recibidas en la semana / unidades enviadas y facturadas
+en la misma semana x 100.

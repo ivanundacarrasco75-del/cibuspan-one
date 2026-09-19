@@ -1,0 +1,21 @@
+CIBUSPAN ONE - CORRECCION LECTOR ROLES V26.1
+
+Esta corrección permite importar los PDF de enero y junio aunque la posición
+de la columna Mes cambie ligeramente entre archivos.
+
+1. Copia el ZIP dentro de D:\CIBUSPAN_ONE.
+2. Extráelo directamente ahí y acepta reemplazar el archivo.
+3. En la terminal ejecuta:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Actualiza la app con Ctrl + F5.
+5. Vuelve a cargar ROLES ENERO.pdf.
+
+La validación correcta debe mostrar:
+- 15 empleados
+- 123 rubros
+- Costo empresa: $14.716,62
+- Descuentos: $7.390,96

@@ -1,0 +1,39 @@
+CIBUSPAN ONE V12.4 — AJUSTE FINAL IMPORTADOR PDF VENTAS 2026
+
+PROBLEMA
+V12.3 ya reconocía el PDF 2026, pero omitía 11 líneas donde Admisys
+empaqueta la fecha y un nombre de cliente corto dentro del mismo bloque de texto.
+Ejemplos: MOYA MILTON, NATO VICTOR, GUANOTASIG VINICIO,
+TAPIA HENRY, AVILA AVILA JENNY y FLORES CARMEN.
+
+EFECTO EN AGOSTO 2026
+V12.3 importaba:
+- 49.087 unidades
+- $73.530,14 aprox.
+
+El PDF real contiene:
+- 419 movimientos
+- 49.199 unidades
+- $73.625,19
+
+V12.4 RECUPERA LAS 11 FILAS OMITIDAS.
+Validación realizada contra el PDF entregado:
+- 419 de 419 filas reconocidas
+- 49.199 unidades
+- $73.625,187 -> $73.625,19 mostrado
+
+NO REQUIERE SQL.
+
+INSTALACIÓN LOCAL
+1. Descomprimir en D:\CIBUSPAN_ONE y reemplazar.
+2. Ctrl + F5.
+3. Comercial > Importar facturación.
+4. Volver a cargar el mismo PDF de agosto 2026.
+5. Debe mostrar 419 movimientos, 49.199 unidades y $73.625,19.
+6. Pulsar Guardar ventas.
+   Las líneas existentes se actualizarán y las 11 faltantes se agregarán.
+
+PUBLICACIÓN
+Después de validar localmente:
+npm run build
+npx wrangler pages deploy dist --project-name=cibuspan-one

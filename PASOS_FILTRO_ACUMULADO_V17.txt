@@ -1,0 +1,24 @@
+ACTUALIZACION V17 - FILTRO ACUMULADO DE SEMANAS
+
+NO REQUIERE EJECUTAR SQL.
+
+PASO 1 - REEMPLAZAR EL ARCHIVO
+1. Descomprime este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+2. Cuando Windows pregunte, elige Reemplazar el archivo en el destino.
+
+PASO 2 - COMPILAR Y PUBLICAR
+1. Abre la terminal de Visual Studio Code en D:\CIBUSPAN_ONE.
+2. Ejecuta:
+
+   npm run build
+
+3. Si termina correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5.
+
+RESULTADO
+- Al elegir la semana 33 se muestran las facturas pendientes desde la semana 01 hasta la 33.
+- Las facturas ya escogidas permanecen arriba.
+- Las demas facturas se ordenan por semana y luego por vencimiento.

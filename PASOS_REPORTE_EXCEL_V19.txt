@@ -1,0 +1,27 @@
+ACTUALIZACION V19 - REPORTE DE PAGOS EN EXCEL
+
+NO REQUIERE EJECUTAR SQL NI VOLVER A IMPORTAR LAS FACTURAS.
+
+PASO 1 - REEMPLAZAR LOS ARCHIVOS
+1. Descomprime este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+2. Cuando Windows pregunte, elige Reemplazar los archivos en el destino.
+
+PASO 2 - COMPILAR Y PUBLICAR
+1. Abre la terminal de Visual Studio Code en D:\CIBUSPAN_ONE.
+2. Ejecuta:
+
+   npm run build
+
+3. Si termina correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5.
+
+RESULTADO
+- Descargar reporte genera un archivo XLSX real.
+- Cada dato aparece en su propia columna.
+- Incluye resumen superior, encabezados, filtros y total mensual.
+- La fila de encabezados queda congelada al desplazarse.
+- Las fechas y valores monetarios tienen formato de Excel.
+- Las referencias bancarias largas conservan todos sus digitos.

@@ -1,0 +1,22 @@
+CIBUSPAN ONE V12.1
+
+CORRECCIÓN
+La base real ya contiene public.fin_factura_clientes.participacion como NOT NULL.
+V12 omitía ese campo al insertar relaciones nuevas y PostgreSQL rechazaba el INSERT.
+
+V12.1:
+- conserva la columna participacion existente;
+- le asigna DEFAULT 1 para compatibilidad;
+- no modifica participaciones ya guardadas;
+- mantiene el reparto de transporte por unidades facturadas, no por proveedor;
+- mantiene intactos los módulos operativos protegidos.
+
+INSTALACIÓN
+1. En Supabase Cloud > SQL Editor, abrir una NUEVA consulta.
+2. Copiar y ejecutar COMPLETO EJECUTAR_V12_EN_SUPABASE.sql.
+3. Solo si termina correctamente, reemplazar la aplicación con este ZIP.
+4. Conservar tu .env.local.
+5. npm run dev y Ctrl+F5.
+
+El intento anterior falló dentro de BEGIN ... COMMIT antes de llegar al COMMIT,
+por lo que no debería haber dejado aplicada parcialmente la V12.

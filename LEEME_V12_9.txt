@@ -1,0 +1,17 @@
+CIBUSPAN ONE V12.9 — APROVECHAMIENTO DE ANCHO DEL DASHBOARD
+
+CAMBIOS
+- El Dashboard usa todo el ancho disponible entre el menú lateral y el borde derecho.
+- Se elimina el límite máximo de 1580 px que dejaba franjas laterales sin utilizar.
+- Se reduce el padding lateral del Dashboard de 28 px a 14 px.
+- El filtro de período pasa antes a diseño de 4 columnas en pantallas medianas/grandes (hasta 1500 px), evitando que el campo HASTA quede cortado.
+- Los campos de fecha y el botón Aplicar respetan el ancho de su celda.
+- No cambia ninguna lógica, dato, consulta ni módulo operativo.
+- No requiere SQL.
+
+INSTALACION
+1. Descomprimir en D:\CIBUSPAN_ONE y reemplazar.
+2. Ejecutar:
+   cd /d D:\CIBUSPAN_ONE && npm run dev
+3. Ctrl + F5.
+4. Validar Dashboard Comercial y filtro Desde/Hasta.

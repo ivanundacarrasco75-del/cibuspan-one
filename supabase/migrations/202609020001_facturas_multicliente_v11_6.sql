@@ -1,0 +1,8 @@
+-- CIBUSPAN ONE
+-- V11.6 SUPERSEDIDA.
+--
+-- Esta migración fue reemplazada por:
+--   202609100001_v12_consolidacion_multicliente_y_transporte.sql
+--
+-- Se deja intencionalmente como NO-OP para que una instalación desde cero
+-- no ejecute la versión antigua que asumía que fin_factura_clientes no existía.

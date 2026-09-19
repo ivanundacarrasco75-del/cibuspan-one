@@ -1,0 +1,33 @@
+CIBUSPAN ONE - FACTURAS Y NAVEGACIÓN V12
+
+1. Descomprime el ZIP dentro de:
+   D:\CIBUSPAN_ONE
+
+   Confirma "Reemplazar los archivos en el destino".
+
+2. En Supabase abre SQL Editor y crea una consulta nueva.
+
+3. Abre en VS Code este archivo:
+   D:\CIBUSPAN_ONE\supabase\migrations\202608130050_facturas_navegacion_referencia.sql
+
+   Copia todo, pégalo en SQL Editor y presiona Run.
+   Debe aparecer Success.
+
+4. En el terminal de VS Code ejecuta:
+
+   cd D:\CIBUSPAN_ONE
+   npm run build
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+5. Abre la aplicación y presiona Ctrl + F5.
+
+CAMBIOS INCLUIDOS
+
+- Facturas y pagos aparece directamente en el menú principal.
+- La app conserva la ventana y pestaña actuales al navegar o recargar.
+- El módulo no vuelve a cargarse cada vez que se cambia de ventana.
+- Pagadas tiene buscador por factura, referencia o concepto.
+- Pagadas tiene filtro por proveedor.
+- La tabla muestra el número de documento o transferencia del pago.
+- La tabla se ajusta al ancho disponible de la pantalla en computadora.
+- Se corrige la precisión de IVA que causaba "numeric field overflow".

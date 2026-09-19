@@ -1,0 +1,19 @@
+CIBUSPAN ONE V12.5 — FILTRO EXACTO DE FECHAS EN VENTAS
+
+Corrige Comercial > Ventas > Resumen.
+
+Problema: el filtro 01/08/2026–31/08/2026 se convertía internamente a semanas completas, por lo que incluía días de julio y septiembre. Eso inflaba facturación, unidades y movimientos.
+
+Corrección:
+- La pantalla consume el detalle oficial com_ventas_detalle.
+- Desde/Hasta se respetan como días exactos.
+- Solo después de filtrar se agrupan los datos por semana para el gráfico.
+- Los extremos del gráfico muestran rangos recortados (por ejemplo 1–2 ago y 31 ago), sin sugerir datos de septiembre.
+- Mantiene el importador V12.4B.
+- No requiere SQL.
+
+Para agosto 2026, sin filtros de cliente/SKU, debe mostrar:
+419 movimientos · 49.199 unidades · $73.625,19
+
+Instalación:
+Descomprimir en D:\CIBUSPAN_ONE y reemplazar. Luego npm run dev y Ctrl+F5.

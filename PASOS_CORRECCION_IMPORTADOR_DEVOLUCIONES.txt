@@ -1,0 +1,17 @@
+CIBUSPAN ONE - CORRECCION DEL IMPORTADOR DE DEVOLUCIONES
+
+1. Descomprimir este ZIP directamente en D:\CIBUSPAN_ONE.
+2. Seleccionar "Reemplazar los archivos en el destino".
+3. En la terminal de VS Code ejecutar:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Actualizar la aplicacion con F5.
+5. Volver a Devoluciones > Importacion masiva y seleccionar los archivos.
+
+No se debe ejecutar nuevamente ningun archivo SQL.
+
+La correccion omite automaticamente el documento 0202513700010 porque no
+contiene productos y su valor total es cero.

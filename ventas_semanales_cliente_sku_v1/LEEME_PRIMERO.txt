@@ -1,0 +1,36 @@
+CIBUSPAN ONE - VENTAS SEMANALES POR CLIENTE Y SKU
+
+Esta actualización agrega:
+- Botón "Importar ventas" dentro de Reportes.
+- Carga de archivos Excel semanales o acumulados.
+- Control de duplicados por comprobante y SKU.
+- Resumen semanal con facturación, unidades y variación.
+- Filtros por cliente y SKU.
+- Rankings por cliente y producto.
+- Historial de archivos importados.
+
+INSTALACIÓN
+
+1. Copia las carpetas src y supabase de este paquete dentro de:
+   D:\CIBUSPAN_ONE
+
+2. Cuando Windows pregunte, selecciona reemplazar los archivos existentes.
+
+3. Abre Supabase, entra al SQL Editor y ejecuta completo:
+   supabase\migrations\202608120017_ventas_cliente_sku_semanal.sql
+
+4. Cuando Supabase indique Success, abre la terminal de VS Code en:
+   D:\CIBUSPAN_ONE
+
+5. Ejecuta:
+   npm run build
+
+6. Si la compilación termina correctamente, publica con:
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+7. Actualiza la aplicación. En Reportes aparecerá el botón "Importar ventas".
+
+8. Selecciona el archivo VENTAS ENERO A JULIO 2026.xlsx y guarda la importación.
+
+En las siguientes semanas puedes subir solo la semana nueva o volver a cargar
+un reporte acumulado. Las líneas existentes se actualizan y no se duplican.

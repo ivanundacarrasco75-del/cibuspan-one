@@ -1,0 +1,23 @@
+ACTUALIZACION V13 - FACTURAS Y PAGOS
+
+1. Cierra la app y Visual Studio Code si estan usando archivos de CIBUSPAN_ONE.
+2. Descomprime este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+3. Cuando Windows pregunte, elige Reemplazar los archivos en el destino.
+4. Abre D:\CIBUSPAN_ONE en Visual Studio Code.
+5. En la terminal ejecuta:
+
+   npm run build
+
+6. Si termina correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+7. Abre la app y presiona Ctrl + F5 una vez.
+
+Esta actualizacion no requiere ejecutar SQL en Supabase.
+
+Cambios incluidos:
+- Conserva el modulo y la pestaña interna abiertos al cambiar de programa o recargar.
+- Conserva semana, filtros, busquedas, paginas y borrador de nueva factura.
+- Proveedor y descripcion muestran sugerencias existentes y permiten escribir valores nuevos.
+- Numeros, importes, tablas y campos tienen fuentes mas grandes.

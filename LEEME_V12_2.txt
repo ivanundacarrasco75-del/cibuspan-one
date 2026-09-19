@@ -1,0 +1,20 @@
+CIBUSPAN ONE V12.2 — FIX REPORTES DE VENTAS
+
+Causa:
+Reportes.tsx no estaba leyendo com_ventas_detalle/com_vw_ventas_semanales.
+La pantalla reconstruía las ventas desde pedidos despachados × precio vigente.
+Por eso importar agosto no cambiaba ese reporte.
+
+Corrección:
+- Reportes carga la facturación importada desde obtenerVentasSemanalesDb().
+- Agrega KPI Facturación real y Unidades facturadas.
+- La evolución comercial y el resumen por cliente usan la facturación importada
+  como fuente de ventas.
+- Pedidos, despachos, producción y devoluciones se mantienen como estaban.
+- No requiere SQL nuevo.
+
+Instalación:
+1. Descomprimir este ZIP en D:\CIBUSPAN_ONE y reemplazar.
+2. Ejecutar npm run dev si no está corriendo.
+3. Ctrl+F5.
+4. Ir a Comercial > Análisis y seleccionar agosto.

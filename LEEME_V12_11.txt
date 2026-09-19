@@ -1,0 +1,50 @@
+CIBUSPAN ONE · V12.11 · RENDIMIENTO FASE 1
+
+OBJETIVO
+Acelerar el arranque de la app y el Dashboard sin cambiar cálculos, reglas de negocio ni diseño aprobado.
+
+CAMBIOS
+1. Carga por demanda de módulos (lazy loading)
+   - La app ya no descarga al inicio todas las pantallas, importadores y dependencias pesadas.
+   - Cada módulo se descarga cuando el usuario realmente lo abre.
+
+2. Dashboard por pestaña activa
+   - Comercial carga ventas + devoluciones necesarias.
+   - Devoluciones carga ventas + devoluciones + catálogo necesario.
+   - Ejecutivo/Producción carga únicamente información operativa.
+   - Inventario carga stock.
+   - Financiero/Rentabilidad carga los conjuntos financieros cuando se abren.
+   - Ya no se consultan todos los módulos del dashboard al mismo tiempo al entrar.
+
+3. Consultas por rango
+   - Ventas diarias/semanales: solo el periodo necesario.
+   - Pedidos: solo periodo actual + periodo comparativo.
+   - Producción: solo rango necesario (preservando el KPI de producción de hoy).
+
+4. Detalle de pedidos por lotes
+   - Se reemplazan muchas consultas individuales (una por pedido) por consultas consolidadas por lotes.
+
+5. Caché de navegación dentro del Dashboard
+   - Si se vuelve a una pestaña ya cargada con el mismo periodo, no se consulta otra vez.
+   - El botón "Actualizar datos" fuerza una lectura nueva cuando se necesite.
+
+VALIDACIÓN
+- TypeScript completo: OK (tsc -b).
+- No requiere SQL.
+- No modifica tablas, datos, fórmulas, indicadores ni diseño.
+
+INSTALACIÓN LOCAL
+1. Descomprimir este ZIP dentro de D:\CIBUSPAN_ONE y reemplazar los archivos.
+2. En CMD:
+   cd /d D:\CIBUSPAN_ONE && npm run dev
+3. Ctrl + F5.
+4. Probar primero Inicio > Comercial y luego cambiar entre Comercial/Devoluciones y volver.
+5. Revisar que los valores coincidan con V12.10.
+
+PUBLICACIÓN (solo después de validar)
+cd /d D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name=cibuspan-one
+
+NOTA
+En modo npm run dev React puede sentirse algo más lento que la versión publicada. La prueba definitiva de arranque se hace después del build/deploy de producción.

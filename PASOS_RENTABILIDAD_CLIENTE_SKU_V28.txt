@@ -1,0 +1,33 @@
+CIBUSPAN ONE - RENTABILIDAD POR CLIENTE Y SKU V28
+
+1. Descomprime el ZIP dentro de D:\CIBUSPAN_ONE y acepta reemplazar los archivos existentes.
+
+2. Abre Supabase > SQL Editor y ejecuta completo:
+
+   supabase\migrations\202608150130_reglas_rentabilidad_cliente_sku.sql
+
+3. En la terminal de VS Code ejecuta:
+
+   cd D:\CIBUSPAN_ONE
+   npm run build
+
+4. Publica la actualizacion:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+5. Abre la app y presiona Ctrl + F5.
+
+6. Revisa Dashboard > Financiero > Rentabilidad por cliente y SKU.
+
+La nueva seccion incluye:
+- ventas reales menos devoluciones atribuidas;
+- materias primas y empaques;
+- mano de obra directa;
+- transporte;
+- gastos asignados;
+- margen de contribucion;
+- EBITDA estimado y margen EBITDA;
+- vistas por cliente y por SKU;
+- reglas de distribucion editables.
+
+El EBITDA estimado es gerencial. El EBITDA contable oficial sigue siendo el del balance de resultados.

@@ -1,0 +1,28 @@
+ACTUALIZACION V18 - REPORTE MENSUAL DE PAGOS
+
+NO REQUIERE EJECUTAR SQL.
+
+PASO 1 - REEMPLAZAR EL ARCHIVO
+1. Descomprime este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+2. Cuando Windows pregunte, elige Reemplazar el archivo en el destino.
+
+PASO 2 - COMPILAR Y PUBLICAR
+1. Abre la terminal de Visual Studio Code en D:\CIBUSPAN_ONE.
+2. Ejecuta:
+
+   npm run build
+
+3. Si termina correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5.
+
+RESULTADO
+- En Pagadas aparece el filtro Mes del reporte.
+- El historial muestra pagos completos y abonos del mes seleccionado.
+- Se muestra el numero de pagos y el total mensual.
+- El boton Descargar reporte genera un CSV compatible con Excel.
+- El reporte incluye fecha, proveedor, factura, descripcion, cuenta, cliente,
+  referencia, origen, estado y monto.
+- Los filtros de proveedor y busqueda tambien se aplican al reporte.

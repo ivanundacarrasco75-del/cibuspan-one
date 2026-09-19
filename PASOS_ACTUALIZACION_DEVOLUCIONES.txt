@@ -1,0 +1,48 @@
+CIBUSPAN ONE - ACTUALIZACION DE DEVOLUCIONES MASIVAS
+
+Esta actualizacion permite importar en una sola operacion:
+- ZIP o TXT de devoluciones de Supermaxi.
+- Excel XLSX o XLS de notas de credito de Santamaria.
+
+Tambien detecta documentos repetidos, evita guardarlos dos veces y muestra
+las devoluciones en el historial, Reportes y el Dashboard comercial.
+
+PASO 1
+Descomprimir este ZIP directamente dentro de:
+D:\CIBUSPAN_ONE
+
+Cuando Windows pregunte, seleccionar "Reemplazar los archivos en el destino".
+
+PASO 2
+Abrir Supabase > SQL Editor > New query.
+Abrir el archivo EJECUTAR_EN_SUPABASE.sql, copiar todo su contenido, pegarlo
+en el editor de Supabase y pulsar Run.
+Debe aparecer Success.
+
+PASO 3
+Abrir la terminal de VS Code y ejecutar:
+
+cd D:\CIBUSPAN_ONE
+npm install
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+PASO 4
+Abrir la aplicacion y presionar F5.
+Entrar en Devoluciones > Importacion masiva.
+
+PASO 5
+Seleccionar juntos todos los ZIP de Supermaxi y el Excel de Santamaria.
+La pantalla mostrara primero un resumen de validacion. Revisarlo y pulsar
+Guardar documentos.
+
+CONTROL DEL HISTORIAL ENTREGADO
+- Supermaxi: 442 documentos unicos, desde 12/04/2025 hasta 12/08/2026.
+- Santamaria: 22 documentos del archivo de ejemplo.
+- Total esperado si la base todavia no contiene esos documentos:
+  464 documentos, 80.686 unidades y USD 110.826,17.
+- Se detectaron 92 copias repetidas entre los ZIP de Supermaxi; la aplicacion
+  las omite automaticamente.
+
+Si algunos documentos ya fueron cargados anteriormente, la cantidad de
+documentos nuevos sera menor y apareceran como omitidos por duplicados.

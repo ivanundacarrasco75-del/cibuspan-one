@@ -1,0 +1,20 @@
+CIBUSPAN ONE - CONSERVAR PANTALLA AL CAMBIAR DE VENTANA V30
+
+1. Descomprime el ZIP dentro de D:\CIBUSPAN_ONE y acepta reemplazar los archivos.
+
+2. En la terminal de VS Code ejecuta:
+
+   cd D:\CIBUSPAN_ONE
+   npm run build
+
+3. Publica la actualizacion:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5.
+
+5. Prueba entrando en Facturas y pagos > Plan semanal, selecciona algunas facturas, cambia a otra ventana y regresa.
+
+La app debe conservar la misma pantalla, filtros y selecciones, sin mostrar nuevamente Cargando permisos.
+
+Esta actualizacion no requiere ejecutar SQL en Supabase.

@@ -1,0 +1,27 @@
+CIBUSPAN ONE · ACTUALIZACION V34
+DESCUENTOS, PROMOCIONES, NOTAS DE CREDITO Y MENSAJES
+
+Esta actualizacion incorpora:
+- Ventas con tres secciones: Ventas, Devoluciones y Descuentos y promociones.
+- Promociones por cliente, rango de fechas y varios SKU.
+- Descuento porcentual o valor fijo por unidad para cada SKU.
+- Calculo del descuento esperado con las ventas reales importadas.
+- Registro y conciliacion de notas de credito sin duplicarlas.
+- Recordatorios dirigidos a todos, a un rol o a un usuario.
+- Campana de mensajes y alertas en toda la aplicacion.
+- Avisos automaticos de inicio y finalizacion de promociones.
+
+INSTALACION
+
+1. En Supabase abre SQL Editor.
+2. Abre el archivo:
+   supabase\migrations\202608150160_descuentos_promociones_mensajes.sql
+3. Copia todo su contenido, pegalo en SQL Editor y pulsa Run.
+4. Verifica que Supabase muestre Success.
+5. Copia el contenido de este ZIP sobre D:\CIBUSPAN_ONE y acepta reemplazar los archivos.
+6. En la terminal de VS Code ejecuta:
+   npm run build
+7. Si termina correctamente, publica con:
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+No es necesario ejecutar npm install para esta actualizacion.

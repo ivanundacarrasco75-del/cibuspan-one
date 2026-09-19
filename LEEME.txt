@@ -1,0 +1,24 @@
+CIBUSPAN ONE · V11.6 · FACTURAS MULTICLIENTE
+
+OBJETIVO DE ESTA FASE
+Corregir el guardado real de “Uno o varios clientes” en Facturas de Proveedores.
+
+ORDEN DE INSTALACIÓN
+1. En Supabase Cloud > SQL Editor ejecuta completo:
+   supabase/migrations/202609020001_facturas_multicliente_v11_6.sql
+2. Descomprime este ZIP dentro de D:\CIBUSPAN_ONE y reemplaza:
+   src/pages/PagosGastos.tsx
+3. Abre CIBUSPAN ONE y presiona Ctrl+F5.
+
+VALIDACIÓN
+- Pagos y Finanzas > Cuentas por Pagar / Facturas.
+- Busca FACT 494 y FACT 532 de Moya.
+- En la tabla deben mostrarse Rosado · Favorita · Mega Santamaría.
+- Al editar, deben aparecer los 3 clientes marcados.
+- Prueba guardar una factura con 2 clientes, ciérrala y vuelve a abrirla:
+  los 2 deben seguir seleccionados.
+
+IMPORTANTE
+- Esta fase NO cambia todavía el reporte de Transporte.
+- Esta fase NO reclasifica las facturas de $60.
+- Primero validamos que la fuente oficial multicliente quede bien.

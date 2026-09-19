@@ -1,0 +1,27 @@
+CORRECCION V32 - RANGOS Y VENTAS DIARIAS
+
+Esta correccion no necesita ejecutar SQL en Supabase.
+
+1. Descomprime el ZIP.
+2. Copia la carpeta src dentro de D:\CIBUSPAN_ONE.
+3. Cuando Windows pregunte, elige reemplazar los archivos existentes.
+4. Abre la terminal de Visual Studio Code en D:\CIBUSPAN_ONE.
+5. Ejecuta:
+
+   npm run build
+
+6. Cuando termine correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+7. Abre la app y presiona Ctrl + F5.
+
+CORRECCIONES INCLUIDAS
+
+- En modo Dias, las ventas se consultan por su fecha real de emision.
+- El grafico incluye solamente las fechas comprendidas entre Desde y Hasta.
+- Las devoluciones se ubican en la fecha de despacho estimada segun su vida util.
+- Los filtros Dias, Semanas y Meses usan la misma informacion y el mismo rango.
+- El periodo anterior se identifica como comparacion y no como parte del grafico.
+- Se mantienen los botones Mes, Trimestre, Semestre y Ano.
+- Se mantiene la Vista piloto con filtros por autoservicio y SKU.

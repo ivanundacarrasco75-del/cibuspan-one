@@ -1,0 +1,36 @@
+CIBUSPAN ONE V12.8 — DASHBOARD COMERCIAL ÚNICO
+
+OBJETIVO
+Centralizar el análisis comercial en una sola pantalla oficial dentro de Inicio, evitando reportes repetidos en distintos módulos.
+
+CAMBIOS
+1. Inicio > Comercial usa como dashboard oficial el formato de la antigua Vista piloto.
+2. Se elimina la pestaña separada “Vista piloto”; su diseño pasa a ser la vista Comercial oficial.
+3. Comercial > Resumen y cualquier acceso a Comercial > Análisis llevan a la misma pantalla oficial del dashboard Comercial.
+4. Se quita “Análisis” del submenú Comercial para reducir duplicidad.
+5. Importación de ventas queda solo con Importar ventas e Historial. Ya no muestra un reporte/Resumen dentro del importador.
+6. Después de guardar una importación, pasa a Historial, no a un reporte duplicado.
+7. El dashboard Comercial permite seleccionar VARIOS CLIENTES con casillas.
+8. Se mantienen los filtros globales de periodo y escala del Dashboard: Mes/Trimestre/Semestre/Año y Día/Semana/Mes/Trimestre/Semestre según corresponda.
+9. Las tarjetas KPI de la vista oscura dejan de cortar valores con puntos suspensivos y se redistribuyen según el ancho disponible.
+10. Las tarjetas del importador tampoco cortan los valores con puntos suspensivos.
+11. Comercial > Ventas conserva el detalle operativo y su botón de análisis ahora dice “Dashboard comercial” y lleva a la pantalla oficial.
+
+NO REQUIERE SQL.
+
+INSTALACIÓN
+1. Descomprimir en D:\CIBUSPAN_ONE y reemplazar los archivos.
+2. Ejecutar:
+   cd /d D:\CIBUSPAN_ONE && npm run dev
+3. Hacer Ctrl + F5.
+4. Verificar en Inicio > Comercial.
+
+PRUEBAS RECOMENDADAS
+- Año 2026 > Trimestre y Semestre.
+- Seleccionar dos clientes simultáneamente.
+- Verificar que los KPI muestran el valor completo sin “...”.
+- Entrar a Comercial > Resumen: debe abrir el mismo dashboard Comercial.
+- Entrar a Comercial > Importar facturación: solo deben verse Importar ventas e Historial.
+- Comercial > Ventas > Dashboard comercial debe volver al dashboard oficial.
+
+Todavía no publicar a Cloudflare hasta validar localmente.

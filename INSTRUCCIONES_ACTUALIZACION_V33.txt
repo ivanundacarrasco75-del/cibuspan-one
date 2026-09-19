@@ -1,0 +1,22 @@
+ACTUALIZACION V33 - DEVOLUCIONES POR AUTOSERVICIO
+
+Esta actualizacion no necesita ejecutar SQL en Supabase.
+
+1. Descomprime el ZIP.
+2. Copia la carpeta src dentro de D:\CIBUSPAN_ONE.
+3. Acepta reemplazar el archivo existente.
+4. Ejecuta en la terminal:
+
+   npm run build
+
+5. Despues ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+6. Abre la app y presiona Ctrl + F5.
+
+CORRECCION
+
+- Favorita, Supermaxi y Megamaxi se reconocen como Corporacion Favorita.
+- Se unifican tambien los nombres alternativos de Santamaria, El Rosado y TUTI.
+- Las devoluciones aparecen al escoger el autoservicio correspondiente en Vista piloto.

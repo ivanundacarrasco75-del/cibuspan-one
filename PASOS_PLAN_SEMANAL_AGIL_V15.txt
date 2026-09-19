@@ -1,0 +1,40 @@
+ACTUALIZACION V15 - PLAN SEMANAL AGIL Y FILTRO POR SEMANA
+
+PASO 1 - SUPABASE
+1. Abre Supabase y entra en SQL Editor.
+2. Abre el archivo incluido:
+   supabase\migrations\202608140070_semana_pago_y_plan_rapido.sql
+3. Copia todo su contenido, pegalo en SQL Editor y presiona Run.
+4. Debe aparecer Success.
+
+PASO 2 - REEMPLAZAR ARCHIVOS
+1. Descomprime este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+2. Cuando Windows pregunte, elige Reemplazar los archivos en el destino.
+
+PASO 3 - COMPILAR Y PUBLICAR
+1. Abre D:\CIBUSPAN_ONE en Visual Studio Code.
+2. Ejecuta en la terminal:
+
+   npm run build
+
+3. Si termina correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5 una vez.
+
+PASO 4 - INCORPORAR LA COLUMNA SEMANA
+1. En la app entra a Facturas y pagos > Importar Excel.
+2. Selecciona nuevamente el archivo APROBACION PAGOS 2026 NUEVOA.xlsx.
+3. Importalo normalmente.
+4. No se duplicaran las facturas: se actualizaran las existentes y se guardara
+   la columna SEMANA para usarla en el filtro del Plan semanal.
+
+CAMBIOS INCLUIDOS
+- Barra de desplazamiento propia para el listado de facturas.
+- Los filtros y los totales permanecen visibles mientras se recorre el listado.
+- Nuevo filtro por la semana indicada en la columna SEMANA del Excel.
+- Cada factura muestra su semana sugerida.
+- La casilla responde de inmediato y guarda cada fila silenciosamente.
+- Ya no recarga todas las facturas cada vez que se marca una casilla.
+- Se pueden escoger varias facturas seguidas con mucha mayor rapidez.

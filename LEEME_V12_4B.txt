@@ -1,0 +1,32 @@
+CIBUSPAN ONE V12.4B — IMPORTADOR PDF 2026 VERIFICADO
+
+Este paquete incluye DOS archivos:
+- src/utils/ventasPdf.ts
+- src/pages/VentasClienteSku.tsx
+
+La pantalla mostrará de forma visible:
+  Lector PDF 2026 · V12.4B
+
+Eso permite confirmar que el reemplazo sí quedó cargado.
+
+VALIDACIÓN REAL CONTRA "ventas agosto 2026 a.pdf"
+- 419 de 419 movimientos reconocidos
+- 49.199 unidades
+- $73.625,19 venta sin impuestos
+- 12 clientes
+- 16 SKU/códigos del reporte
+
+INSTALACIÓN
+1. Descomprime el ZIP en D:\CIBUSPAN_ONE y reemplaza los dos archivos.
+2. Cierra cualquier npm run dev anterior.
+3. En CMD:
+   cd /d D:\CIBUSPAN_ONE
+   npm run dev
+4. Abre la URL LOCAL que muestra Vite (normalmente http://localhost:5173).
+5. Ctrl+F5.
+6. Comercial > Importar ventas.
+7. Confirma que aparezca "Lector PDF 2026 · V12.4B".
+8. Selecciona el PDF de agosto 2026.
+9. Debe mostrar 419 movimientos, 49.199 unidades y $73.625,19.
+
+NO REQUIERE SQL.

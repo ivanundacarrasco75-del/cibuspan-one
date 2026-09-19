@@ -1,0 +1,20 @@
+CORRECCION COSTO DE VENTAS V27.1
+
+1. Descomprime el ZIP dentro de D:\CIBUSPAN_ONE y acepta reemplazar el archivo existente.
+
+2. En la terminal de VS Code ejecuta:
+
+   cd D:\CIBUSPAN_ONE
+   npm run build
+
+3. Si la compilacion termina correctamente, publica:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5.
+
+5. En Dashboard > Financiero, la fila Ventas de Costo por area debe sumar:
+
+   Nomina interna de ventas + Servicios comerciales externos.
+
+Esta actualizacion no requiere ejecutar SQL en Supabase.

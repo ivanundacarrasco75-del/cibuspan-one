@@ -1,0 +1,15 @@
+CIBUSPAN ONE · V12.13 · DESCUENTOS
+
+1. Extraer TODO el ZIP directamente dentro de:
+   D:\CIBUSPAN_ONE
+
+2. Aceptar reemplazo de archivos si Windows lo pregunta.
+
+3. Hacer doble clic en:
+   INSTALAR_V12_13_DESCUENTOS.bat
+
+El instalador:
+- crea respaldo de DashboardV2.tsx;
+- conecta el nuevo Dashboard de Promociones;
+- ejecuta npm run build;
+- si la compilación falla, restaura DashboardV2.tsx automáticamente.

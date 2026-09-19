@@ -1,0 +1,25 @@
+CIBUSPAN ONE - PESTAÑAS DE REPORTES
+
+Esta actualización agrega dos pestañas principales dentro de Reportes:
+- Producción
+- Ventas
+
+La pestaña Ventas abre directamente el resumen de facturación. Desde allí
+se puede regresar a Producción y también acceder a Importar Excel e Historial.
+
+INSTALACIÓN
+
+1. Copia la carpeta src de este paquete dentro de:
+   D:\CIBUSPAN_ONE
+
+2. Cuando Windows pregunte, selecciona reemplazar los archivos existentes.
+
+3. Abre la terminal de VS Code en D:\CIBUSPAN_ONE y ejecuta:
+   npm run build
+
+4. Si termina correctamente, publica con:
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+5. Actualiza la aplicación y entra en Reportes.
+
+Esta actualización no requiere ejecutar ningún SQL en Supabase.

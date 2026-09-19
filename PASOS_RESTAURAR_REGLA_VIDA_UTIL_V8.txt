@@ -1,0 +1,18 @@
+CIBUSPAN ONE - VISUALIZACIÓN DE DEVOLUCIONES POR VIDA ÚTIL
+
+1. Descomprimir el ZIP dentro de D:\CIBUSPAN_ONE.
+2. Aceptar "Reemplazar los archivos en el destino".
+3. Ejecutar en la terminal:
+   npm run build
+4. Cuando termine correctamente, ejecutar:
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+5. Abrir la app, presionar F5 y entrar a Dashboard > Devoluciones.
+
+No es necesario ejecutar SQL en Supabase.
+
+La corrección mantiene activa la lógica ya guardada en cada devolución:
+- vida útil del SKU menos 2 días;
+- cálculo de la semana estimada de despacho;
+- inclusión automática de semanas calculadas anteriores al rango;
+- diferenciación entre semanas consolidadas y pendientes;
+- fechas calculadas visibles junto al número de semana.

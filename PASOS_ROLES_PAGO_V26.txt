@@ -1,0 +1,48 @@
+CIBUSPAN ONE - ROLES DE PAGO V26
+
+Esta actualización agrega:
+- Importación mensual del reporte PDF DETALLE RUBROS.
+- Validación previa de empleados, rubros, ingresos y egresos.
+- Clasificación del personal por área.
+- Costo empresa, descuentos y pago neto separados.
+- Resumen mensual por área.
+- Panel de nómina dentro del dashboard financiero.
+
+PASO 1 - REEMPLAZAR ARCHIVOS
+1. Cierra la app local si está abierta.
+2. Copia el ZIP dentro de D:\CIBUSPAN_ONE.
+3. Haz clic derecho y selecciona Extraer todo.
+4. Extrae directamente dentro de D:\CIBUSPAN_ONE.
+5. Acepta Reemplazar los archivos en el destino.
+
+PASO 2 - SUPABASE
+1. Abre Supabase > SQL Editor > New query.
+2. En VS Code abre:
+   supabase\migrations\202608150110_roles_pago_mensuales.sql
+3. Copia todo el contenido, pégalo en Supabase y pulsa Run.
+4. Debe aparecer Success.
+
+PASO 3 - INSTALAR Y COMPILAR
+En la terminal de VS Code ejecuta:
+
+cd D:\CIBUSPAN_ONE
+npm install
+npm run build
+
+La advertencia amarilla por tamaño de archivos no impide la compilación.
+
+PASO 4 - PUBLICAR
+Ejecuta:
+
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+PASO 5 - PROBAR
+1. Abre o actualiza CIBUSPAN ONE.
+2. Ingresa a Roles de pago desde el menú principal.
+3. Selecciona ROLES JUNIO(1).pdf.
+4. La validación debe mostrar:
+   - 13 empleados
+   - 97 rubros
+   - Costo empresa: $13.360,52
+   - Descuentos: $6.518,58
+5. Revisa las áreas y pulsa Guardar rol de junio de 2026.

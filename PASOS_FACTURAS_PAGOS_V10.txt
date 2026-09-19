@@ -1,0 +1,60 @@
+ACTUALIZACION CIBUSPAN ONE - FACTURAS Y PAGOS V10
+
+IMPORTANTE
+No importe el Excel con la version anterior del modulo.
+Esta actualizacion reemplaza la importacion simple de pagos por cuentas por pagar.
+
+INCLUYE
+- Importa solamente registros de 2026.
+- La letra P de la columna PAGADO identifica una factura pagada.
+- Las filas sin P se conservan como facturas pendientes.
+- Nueva factura y edicion de cualquier factura existente.
+- Calculo automatico del IVA con tasa editable, inicialmente 15%.
+- Retenciones y valor neto por pagar.
+- Fecha de emision y fecha de vencimiento.
+- Plan semanal con casilla de seleccion y total programado.
+- Las facturas no seleccionadas siguen visibles en color tenue.
+- Monto programado parcial para hacer abonos.
+- Registro de abonos hasta completar el saldo.
+- Clasificacion contable automatica y correccion manual.
+- Historial de facturas pagadas.
+- Pagos reales conectados al dashboard financiero.
+
+PASO 1 - COPIAR ARCHIVOS
+Copie el contenido de este ZIP directamente dentro de:
+D:\CIBUSPAN_ONE
+
+Windows debe preguntar si desea reemplazar archivos. Elija Reemplazar.
+
+PASO 2 - ACTUALIZAR SUPABASE
+Abra Supabase > SQL Editor > New query.
+Abra este archivo en VS Code:
+supabase\migrations\202608130030_cuentas_por_pagar_programacion.sql
+
+Copie todo el contenido, peguelo en Supabase y pulse Run.
+El resultado esperado es Success.
+
+PASO 3 - COMPILAR
+En la terminal de VS Code, dentro de D:\CIBUSPAN_ONE, ejecute:
+npm run build
+
+PASO 4 - PUBLICAR
+Ejecute:
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+PASO 5 - IMPORTAR
+Abra la app y entre en:
+Administracion > Facturas y pagos > Importar Excel
+
+Seleccione APROBACION PAGOS 2026 NUEVOA.xlsx.
+La vista previa esperada es:
+- 1.030 facturas de 2026.
+- 935 pagadas.
+- 95 pendientes.
+- Pendiente aproximado: USD 72.694,77.
+
+Luego pulse Importar facturas.
+
+REGLA DE CONTROL
+El color azul del Excel es una confirmacion visual.
+La regla operativa que usa la app es la letra P en la columna PAGADO.

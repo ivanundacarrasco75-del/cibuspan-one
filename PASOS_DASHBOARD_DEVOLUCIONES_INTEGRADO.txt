@@ -1,0 +1,26 @@
+CIBUSPAN ONE - DASHBOARD DE DEVOLUCIONES INTEGRADO
+
+1. Descomprimir este ZIP directamente en D:\CIBUSPAN_ONE.
+2. Seleccionar "Reemplazar los archivos en el destino".
+3. Abrir la terminal de VS Code y ejecutar:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abrir la nueva direccion mostrada por Wrangler.
+5. Entrar en Dashboard > Devoluciones.
+
+No se debe ejecutar SQL ni volver a importar datos.
+
+EL NUEVO DASHBOARD INCLUYE
+- Filtros por periodo, cliente y SKU.
+- Unidades enviadas y devueltas atribuidas por vida util.
+- Porcentaje consolidado que excluye semanas pendientes.
+- Semanas pendientes en color azul y consolidadas en rojo.
+- Valor devuelto segun notas de credito.
+- Graficos de unidades y porcentaje semanal.
+- Comparacion entre las dos ultimas semanas consolidadas.
+- Ranking de clientes y SKU con mas devoluciones.
+- Tabla semanal con fecha estimada de consolidacion.
+- Boton para abrir el reporte completo.

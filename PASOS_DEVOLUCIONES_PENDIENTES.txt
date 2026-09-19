@@ -1,0 +1,23 @@
+CIBUSPAN ONE - SEMANAS DE DEVOLUCIONES PENDIENTES
+
+1. Descomprimir este ZIP directamente en D:\CIBUSPAN_ONE.
+2. Seleccionar "Reemplazar los archivos en el destino".
+3. Abrir la terminal de VS Code y ejecutar:
+
+cd D:\CIBUSPAN_ONE
+npm run build
+npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abrir la direccion nueva mostrada por Wrangler.
+5. Entrar en Reportes > Devoluciones.
+
+No se debe ejecutar SQL ni volver a cargar datos.
+
+LECTURA DEL REPORTE
+- Rojo: devoluciones de semanas ya consolidadas.
+- Azul discontinuo: aun pueden llegar devoluciones.
+- Vida util 21 dias: aproximadamente 3 semanas pendientes.
+- Vida util 30 dias: aproximadamente 4 semanas pendientes.
+- El plazo cambia automaticamente al filtrar un SKU.
+- El porcentaje principal excluye las semanas pendientes y utiliza solamente
+  semanas consolidadas, evitando mostrar porcentajes artificialmente bajos.

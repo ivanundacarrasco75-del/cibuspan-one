@@ -1,0 +1,35 @@
+CIBUSPAN ONE V12.10 — ANCHO REAL + DEVOLUCIONES OSCURO MULTICLIENTE
+
+CAMBIOS
+1. Corrección estructural del ancho de toda la aplicación:
+   - El límite real estaba en src/index.css: #root tenía width: 1126px.
+   - Ahora #root usa width: 100%, max-width: none y sin bordes laterales.
+   - Esto permite que el dashboard use realmente todo el ancho disponible después del menú lateral.
+
+2. Dashboard > Devoluciones:
+   - Mantiene la misma estructura y cálculos existentes.
+   - Diseño convertido a modo oscuro, alineado con el dashboard Comercial.
+   - Filtro de clientes por casillas.
+   - Se pueden seleccionar varios clientes simultáneamente.
+   - "Todos los clientes" deja la selección específica vacía y analiza el conjunto completo.
+   - SKU, KPIs, gráficos, rankings y tabla responden a la selección múltiple.
+   - Marcador visible: CONTROL DE DEVOLUCIONES · V12.10.
+
+NO REQUIERE SQL.
+
+INSTALACIÓN
+Descomprimir dentro de D:\CIBUSPAN_ONE y reemplazar:
+- src\index.css
+- src\components\dashboard\DashboardDevolucionesPanel.tsx
+
+EJECUTAR LOCAL
+cd /d D:\CIBUSPAN_ONE && npm run dev
+
+VALIDACIÓN
+- El dashboard debe ocupar mucho más ancho en monitor de escritorio.
+- En la pestaña Devoluciones debe verse el modo oscuro.
+- Seleccionar 2 o más clientes y comprobar que KPIs/gráficos cambian.
+
+VALIDACIÓN TÉCNICA
+- TypeScript completo del proyecto: OK (npx tsc -b).
+- El build Vite no puede terminar en el entorno Linux de ChatGPT por una dependencia nativa de rolldown del paquete Windows; esto no es un error del código.

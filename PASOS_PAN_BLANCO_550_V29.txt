@@ -1,0 +1,15 @@
+CIBUSPAN ONE - PAN BLANCO 550G V29
+
+1. Descomprime el ZIP dentro de D:\CIBUSPAN_ONE.
+
+2. Abre Supabase > SQL Editor y ejecuta completo:
+
+   supabase\migrations\202608150140_pan_blanco_550g.sql
+
+3. Cuando aparezca Success, abre la app y presiona Ctrl + F5.
+
+4. Revisa Formulas > SKU y Formulas > Micros.
+
+5. Revisa Dashboard > Financiero > Rentabilidad por cliente y SKU > Por SKU.
+
+Esta actualizacion no requiere npm run build ni una nueva publicacion en Cloudflare.

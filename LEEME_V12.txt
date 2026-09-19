@@ -1,0 +1,64 @@
+CIBUSPAN ONE · V12 CONSOLIDADA · 10-09-2026
+
+BASE
+Esta versión fue construida directamente sobre el ZIP CIBUSPAN_ONE 10-09 entregado por el usuario.
+No se reconstruyó desde paquetes históricos.
+
+MODULOS PROTEGIDOS Y CONSERVADOS SIN CAMBIOS DE LOGICA
+- Importación de facturación: VentasClienteSku + ventasExcel/ventasPdf + ventasRepository.
+- Devoluciones: Devoluciones + devolucionRepository, incluida carga de documentos.
+- Pedidos: PedidosV2 + pedidoRepository, incluida lectura del archivo de Favorita.
+- Despachos: DespachosV2 + despachoRepository.
+- Programación/registro de producción: ProduccionV2 + produccionRepository.
+
+INTEGRACION V12
+- Comercial incluye acceso visible a “Importar facturación” sin modificar el importador existente.
+- Comercial > Devoluciones conserva el módulo actual de carga y seguimiento.
+- Producción > Resumen / Planificación / Producción llevan al módulo actual de producción.
+- Inventario y Despachos > Resumen conserva Inventario; Preparación / Despachos usan el módulo actual de despachos.
+- Compras > Facturas y Pagos y Finanzas > Cuentas por Pagar / Pagos / Historial usan la misma pantalla oficial de Facturas y pagos.
+- Producción > Fórmulas usa el módulo Formulas actual.
+- Se restauran accesos internos existentes: Ventas, Reporte de devoluciones, Descuentos y promociones, Pagos y gastos, Roles de pago, Costos indirectos, Rentabilidad por SKU, Simulador y Usuarios y permisos.
+- Se reincorpora el botón de instalación PWA cuando el navegador lo habilita.
+- Se corrigieron errores TypeScript que impedían compilar la versión recibida.
+
+FACTURAS MULTICLIENTE
+El SQL V12:
+- completa fin_factura_clientes aunque la tabla ya exista con una estructura anterior;
+- recupera relaciones seguras desde cliente_id y la auditoría V40.4e;
+- recupera FACT 494 y FACT 532 con Rosado + Favorita + Mega Santamaría;
+- crea fin_guardar_factura_v12 para guardar factura + pagos + periodo de servicio + todos los clientes seleccionados;
+- no reemplaza ni renombra las funciones financieras anteriores.
+
+TRANSPORTE
+- Se eliminan las reglas de clasificación por nombre de proveedor.
+- Una factura entra a Transporte únicamente si su cuenta oficial es 6.1.01.2.13.01 Transporte y fletes.
+- Si tiene un cliente: asignación directa.
+- Si tiene varios clientes: prorrateo por unidades facturadas del periodo entre los clientes seleccionados.
+- Sin cliente o sin driver objetivo: queda visible como no atribuido.
+
+IMPORTANTE SOBRE LAS FACTURAS DE $60 DE MOYA
+V12 NO cambia silenciosamente su cuenta contable. En la contabilidad siguen en Transporte y fletes y, al no tener cliente, quedan no atribuidas en el detalle por cliente. La reclasificación gerencial a Combustible/Producción debe implementarse como una clasificación explícita, no como una regla por proveedor o por monto.
+
+INSTALACION
+1. Haz una copia de D:\CIBUSPAN_ONE.
+2. En Supabase Cloud > SQL Editor ejecuta COMPLETO EJECUTAR_V12_EN_SUPABASE.sql.
+3. Descomprime CIBUSPAN_ONE_V12_REEMPLAZO_DIRECTO.zip directamente dentro de D:\CIBUSPAN_ONE y acepta Reemplazar.
+4. NO borres tu .env.local. Este ZIP no lo incluye.
+5. En D:\CIBUSPAN_ONE ejecuta npm run dev.
+6. En el navegador usa Ctrl+F5.
+
+VALIDACION RAPIDA
+- Comercial > Importar facturación abre el importador PDF/Excel que ya funcionaba.
+- Comercial > Devoluciones permite cargar los documentos como antes.
+- Comercial > Pedidos abre PedidosV2.
+- Inventario y Despachos > Despachos abre DespachosV2.
+- Producción > Planificación abre ProduccionV2.
+- Compras > Facturas abre Facturas y pagos.
+- Editar FACT 494 y FACT 532 debe mostrar los tres clientes tras ejecutar el SQL.
+- Pagos y Finanzas > Rentabilidad ya no debe usar reglas Daniel/Moya para atribuir transporte.
+
+VERIFICACION TECNICA REALIZADA
+- TypeScript: tsc -b sin errores.
+- Los módulos protegidos listados arriba fueron comparados por SHA-256 contra el ZIP recibido y permanecen idénticos.
+- El bundle Vite completo no se ejecutó en el entorno Linux porque node_modules del ZIP recibido contiene binarios opcionales de Windows; esta limitación no afecta la verificación TypeScript ni los archivos fuente.

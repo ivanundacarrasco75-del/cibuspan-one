@@ -1,0 +1,34 @@
+ACTUALIZACION V14 - PLAN SEMANAL COMPARTIDO
+
+PASO 1 - SUPABASE
+1. Abre Supabase y entra en SQL Editor.
+2. Abre el archivo incluido:
+   supabase\migrations\202608130060_flujo_plan_semanal_pagos.sql
+3. Copia todo su contenido, pegalo en SQL Editor y presiona Run.
+4. Debe aparecer Success.
+
+PASO 2 - REEMPLAZAR ARCHIVOS
+1. Descomprime este ZIP directamente dentro de D:\CIBUSPAN_ONE.
+2. Cuando Windows pregunte, elige Reemplazar los archivos en el destino.
+
+PASO 3 - COMPILAR Y PUBLICAR
+1. Abre D:\CIBUSPAN_ONE en Visual Studio Code.
+2. Ejecuta en la terminal:
+
+   npm run build
+
+3. Si termina correctamente, ejecuta:
+
+   npx wrangler pages deploy dist --project-name cibuspan-one --branch main
+
+4. Abre la app y presiona Ctrl + F5 una vez.
+
+CAMBIOS INCLUIDOS
+- Dinero disponible semanal compartido entre los usuarios.
+- Facturas seleccionadas en amarillo.
+- Pagos ejecutados en azul con la señal P.
+- Permite programar pagos completos o abonos.
+- Registro obligatorio de fecha y referencia bancaria.
+- Totales separados: plan, pagado, pendiente y saldo disponible.
+- Las filas pagadas permanecen en el historial de la semana.
+- Sincronizacion automatica al volver a la app y cada 45 segundos.
