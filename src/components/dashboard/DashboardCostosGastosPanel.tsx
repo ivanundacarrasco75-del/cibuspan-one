@@ -343,32 +343,42 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
       .sort((a, b) => Math.abs(b.impactoEbitda) - Math.abs(a.impactoEbitda))
   }, [rubros, ultima, anterior])
 
-  const puntoEquilibrio = useMemo(() => {
-    if (!ultima) return null
-    const delMes = rubros.filter((r) => r.periodo === ultima.periodo && r.impacta_ebitda)
-    const variablesNoCogs = delMes
-      .filter((r) => !r.incluida_costo_venta_contable && ["VARIABLE", "SEMI_VARIABLE"].includes(r.comportamiento))
-      .reduce((suma, r) => suma + Number(r.valor ?? 0), 0)
-    const fijosNoCogs = delMes
-      .filter((r) => !r.incluida_costo_venta_contable && !["VARIABLE", "SEMI_VARIABLE"].includes(r.comportamiento))
-      .reduce((suma, r) => suma + Number(r.valor ?? 0), 0)
-    const ventas = Number(ultima.ventas_netas ?? 0)
-    const costoVariableEstimado = Number(ultima.costo_venta ?? 0) + variablesNoCogs
-    const margenContribucion = ventas - costoVariableEstimado
-    const ratio = ventas > 0 ? margenContribucion / ventas : 0
-    const pe = ratio > 0 ? fijosNoCogs / ratio : null
-    const margenSeguridad = pe != null && ventas > 0 ? ((ventas - pe) / ventas) * 100 : null
-    return {
-      ventas,
-      variablesNoCogs,
-      costoVariableEstimado,
-      fijosNoCogs,
-      margenContribucion,
-      ratio,
-      pe,
-      margenSeguridad,
+  const puntosEquilibrio = useMemo(() => {
+    const calcular = (fila: FilaDashboard | null) => {
+      if (!fila) return null
+      const delMes = rubros.filter((r) => r.periodo === fila.periodo && r.impacta_ebitda)
+      const variablesNoCogs = delMes
+        .filter((r) => !r.incluida_costo_venta_contable && ["VARIABLE", "SEMI_VARIABLE"].includes(r.comportamiento))
+        .reduce((suma, r) => suma + Number(r.valor ?? 0), 0)
+      const fijosNoCogs = delMes
+        .filter((r) => !r.incluida_costo_venta_contable && !["VARIABLE", "SEMI_VARIABLE"].includes(r.comportamiento))
+        .reduce((suma, r) => suma + Number(r.valor ?? 0), 0)
+      const ventas = Number(fila.ventas_netas ?? 0)
+      const costoVariableEstimado = Number(fila.costo_venta ?? 0) + variablesNoCogs
+      const margenContribucion = ventas - costoVariableEstimado
+      const ratio = ventas > 0 ? margenContribucion / ventas : 0
+      const pe = ratio > 0 ? fijosNoCogs / ratio : null
+      const margenSeguridad = pe != null && ventas > 0 ? ((ventas - pe) / ventas) * 100 : null
+      return {
+        ventas,
+        variablesNoCogs,
+        costoVariableEstimado,
+        fijosNoCogs,
+        margenContribucion,
+        ratio,
+        pe,
+        margenSeguridad,
+      }
     }
-  }, [rubros, ultima])
+
+    return {
+      actual: calcular(ultima),
+      anterior: calcular(anterior),
+    }
+  }, [rubros, ultima, anterior])
+
+  const puntoEquilibrio = puntosEquilibrio.actual
+  const puntoEquilibrioAnterior = puntosEquilibrio.anterior
 
   const puenteEbitda = useMemo(() => {
     if (!ultima || !anterior) return [] as Array<{ etiqueta: string; impacto: number }>
@@ -441,11 +451,19 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
             Último mes cerrado: <strong>{nombreMes(ultima.periodo)}</strong>
             {anterior ? <> · comparación contra <strong>{nombreMes(anterior.periodo)}</strong></> : null}
           </div>
+          <div className="cg-kpi-legend" aria-label="Interpretación de tendencias">
+            <span className="positive">↑↓ Mejor</span>
+            <span className="negative">↑↓ Peor</span>
+            <span className="neutral">→ Relativamente igual</span>
+            <small>Naranja: variación de hasta ±2% o ±0,5 puntos porcentuales.</small>
+          </div>
 
           <div className="cg-kpis">
             <Kpi titulo="Ventas netas" valor={dinero(ultima.ventas_netas)} cambio={cambio(ultima.ventas_netas, anterior?.ventas_netas)} />
-            <Kpi titulo="Punto de equilibrio" valor={puntoEquilibrio?.pe != null ? dinero(puntoEquilibrio.pe) : "—"} cambio={null} />
-            <Kpi titulo="Margen de seguridad" valor={puntoEquilibrio?.margenSeguridad != null ? porcentaje(puntoEquilibrio.margenSeguridad) : "—"} cambio={null} />
+            <Kpi titulo="Devoluciones / notas de crédito" valor={dinero(ultima.devoluciones)} cambio={cambio(ultima.devoluciones, anterior?.devoluciones)} invertir />
+            <Kpi titulo="Descuentos sobre ventas" valor={dinero(ultima.descuentos)} cambio={cambio(ultima.descuentos, anterior?.descuentos)} invertir />
+            <Kpi titulo="Punto de equilibrio" valor={puntoEquilibrio?.pe != null ? dinero(puntoEquilibrio.pe) : "—"} cambio={cambio(puntoEquilibrio?.pe, puntoEquilibrioAnterior?.pe)} invertir />
+            <Kpi titulo="Margen de seguridad" valor={puntoEquilibrio?.margenSeguridad != null ? porcentaje(puntoEquilibrio.margenSeguridad) : "—"} cambio={cambioPuntos(puntoEquilibrio?.margenSeguridad, puntoEquilibrioAnterior?.margenSeguridad)} />
             <Kpi titulo="EBITDA" valor={dinero(ultima.ebitda)} cambio={cambio(ultima.ebitda, anterior?.ebitda)} />
             <Kpi titulo="Costo de venta / ventas" valor={porcentaje(ultima.costoVentaPct)} cambio={cambio(ultima.costoVentaPct, anterior?.costoVentaPct)} invertir />
             <Kpi titulo="MOD / unidad producida" valor={dineroUnitario(ultima.modUnidad)} cambio={cambio(ultima.modUnidad, anterior?.modUnidad)} invertir />
@@ -555,7 +573,8 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
             </div>
           )}
 
-          {anterior && <ParetoDesviaciones datos={desviaciones.filter((item) => item.impactoEbitda < -0.005).slice(0, 8)} />}
+          {anterior && <ParetoDesviaciones tipo="DETERIORO" datos={desviaciones.filter((item) => item.impactoEbitda < -0.005).slice(0, 8)} />}
+          {anterior && <ParetoDesviaciones tipo="MEJORA" datos={desviaciones.filter((item) => item.impactoEbitda > 0.005).slice(0, 8)} />}
 
           {rubroSeleccionado && (
             <article className="cg-card cg-detail-card">
@@ -683,16 +702,23 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
 
 function Kpi({ titulo, valor, cambio: cambioValor, invertir = false }: { titulo: string; valor: string; cambio: string | null; invertir?: boolean }) {
   let clase = ""
+  let flecha = ""
   if (cambioValor) {
     const numeroCambio = Number(cambioValor.replace(" pp", "").replace("%", ""))
-    const bueno = invertir ? numeroCambio <= 0 : numeroCambio >= 0
-    clase = bueno ? "positive" : "negative"
+    const umbralNeutral = cambioValor.includes(" pp") ? 0.5 : 2
+    flecha = Math.abs(numeroCambio) <= umbralNeutral ? "→" : numeroCambio > 0 ? "↑" : "↓"
+    if (Math.abs(numeroCambio) <= umbralNeutral) {
+      clase = "neutral"
+    } else {
+      const bueno = invertir ? numeroCambio < 0 : numeroCambio > 0
+      clase = bueno ? "positive" : "negative"
+    }
   }
   return (
-    <article className="cg-kpi">
+    <article className={`cg-kpi${clase ? ` cg-kpi--${clase}` : ""}`}>
       <span>{titulo}</span>
       <strong>{valor}</strong>
-      <small className={clase}>{cambioValor ? `${cambioValor} vs mes anterior` : "Último mes cerrado"}</small>
+      <small className={clase}>{cambioValor ? <><b aria-hidden="true">{flecha}</b> {cambioValor} vs mes anterior</> : "Sin comparación disponible"}</small>
     </article>
   )
 }
@@ -701,25 +727,31 @@ function MiniDato({ titulo, valor, destacado = false }: { titulo: string; valor:
   return <div className={destacado ? "cg-mini destacado" : "cg-mini"}><span>{titulo}</span><strong>{valor}</strong></div>
 }
 
-function ParetoDesviaciones({ datos }: { datos: Desviacion[] }) {
-  if (datos.length === 0) return null
+function ParetoDesviaciones({ datos, tipo }: { datos: Desviacion[]; tipo: "DETERIORO" | "MEJORA" }) {
+  const esMejora = tipo === "MEJORA"
   const maximo = Math.max(...datos.map((item) => Math.abs(item.impactoEbitda)), 1)
-  const totalDeterioro = datos.reduce((s, item) => s + Math.abs(item.impactoEbitda), 0)
+  const totalImpacto = datos.reduce((s, item) => s + Math.abs(item.impactoEbitda), 0)
   return (
-    <article className="cg-card">
+    <article className={`cg-card cg-pareto-card${esMejora ? " mejora" : " deterioro"}`}>
       <div className="cg-card-title">
         <div>
-          <span>PARETO DE DESVIACIONES</span>
-          <h3>¿Dónde se concentró el deterioro?</h3>
+          <span>{esMejora ? "PARETO DE MEJORAS" : "PARETO DE DESVIACIONES"}</span>
+          <h3>{esMejora ? "¿Qué impulsó el EBITDA?" : "¿Dónde se concentró el deterioro?"}</h3>
         </div>
-        <small>Prioriza los rubros que explican la mayor parte de la pérdida de EBITDA antes de revisar partidas menores.</small>
+        <small>{esMejora
+          ? "Prioriza los rubros que más aportaron a la mejora del EBITDA frente al mes anterior."
+          : "Prioriza los rubros que explican la mayor parte de la pérdida de EBITDA antes de revisar partidas menores."}</small>
       </div>
       <div className="cg-pareto">
-        {datos.map((item) => (
+        {datos.length === 0 ? (
+          <div className="cg-pareto-empty">
+            {esMejora ? "No se registraron rubros con aporte positivo al EBITDA frente al mes anterior." : "No se registraron rubros con deterioro del EBITDA frente al mes anterior."}
+          </div>
+        ) : datos.map((item) => (
           <div className="cg-pareto-row" key={item.clave}>
             <div className="cg-pareto-label"><strong>{item.cuentaNombre}</strong><span>{dineroConSigno(item.impactoEbitda)}</span></div>
             <div className="cg-pareto-track"><div style={{ width: `${Math.max(3, (Math.abs(item.impactoEbitda) / maximo) * 100)}%` }} /></div>
-            <small>{totalDeterioro > 0 ? `${((Math.abs(item.impactoEbitda) / totalDeterioro) * 100).toFixed(1)}% del deterioro mostrado` : ""}</small>
+            <small>{totalImpacto > 0 ? `${((Math.abs(item.impactoEbitda) / totalImpacto) * 100).toFixed(1)}% ${esMejora ? "de la mejora mostrada" : "del deterioro mostrado"}` : ""}</small>
           </div>
         ))}
       </div>
@@ -866,13 +898,20 @@ const css = `
   .cg-actions button { min-height:38px; padding:0 13px; border:0; border-radius:7px; background:${VINO}; color:#fff; font-size:10px; font-weight:900; cursor:pointer; }
   .cg-actions button.secondary { border:1px solid #d8cac3; background:#fff; color:${VINO}; }
   .cg-period-note { padding:9px 13px; border-radius:8px; background:#faf6f3; color:#6f625d; font-size:11px; }
+  .cg-kpi-legend { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-top:-8px; color:#7b6d67; font-size:9px; font-weight:800; }
+  .cg-kpi-legend small { color:#958780; font-size:8px; font-weight:600; }
   .cg-kpis { display:grid; grid-template-columns:repeat(5,minmax(150px,1fr)); gap:10px; }
   .cg-kpi { min-width:0; padding:14px; border:1px solid #e7ded9; border-radius:11px; background:#fff; box-shadow:0 4px 14px rgba(70,43,34,.035); }
   .cg-kpi > span { display:block; min-height:27px; color:#786b65; font-size:9px; font-weight:900; text-transform:uppercase; line-height:1.35; }
   .cg-kpi > strong { display:block; overflow:hidden; margin:5px 0 3px; color:#322b28; font-size:20px; text-overflow:ellipsis; white-space:nowrap; }
   .cg-kpi small { color:#887a73; font-size:9px; font-weight:700; }
+  .cg-kpi small b { display:inline-block; min-width:12px; font-size:13px; line-height:1; }
+  .cg-kpi--positive { border-top:3px solid #267341; }
+  .cg-kpi--negative { border-top:3px solid #b42631; }
+  .cg-kpi--neutral { border-top:3px solid ${NARANJA}; }
   .positive { color:#267341 !important; }
   .negative { color:#b42631 !important; }
+  .neutral { color:#c66a00 !important; }
   .cg-grid-two { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:14px; }
   .cg-analysis-grid { grid-template-columns:minmax(0,1.5fr) minmax(300px,.5fr); }
   .cg-card { min-width:0; padding:17px; border:1px solid #e6dcd6; border-radius:12px; background:#fff; }
@@ -913,7 +952,12 @@ const css = `
   .cg-pareto-label span { color:#b42631; font-weight:900; white-space:nowrap; }
   .cg-pareto-track { height:10px; overflow:hidden; border-radius:999px; background:#f0e7e3; }
   .cg-pareto-track > div { height:100%; border-radius:999px; background:${VINO}; }
+  .cg-pareto-card.mejora { border-left:4px solid #267341; }
+  .cg-pareto-card.mejora .cg-pareto-label span { color:#267341; }
+  .cg-pareto-card.mejora .cg-pareto-track > div { background:#267341; }
+  .cg-pareto-card.deterioro { border-left:4px solid ${VINO}; }
   .cg-pareto-row small { color:#8a7c75; font-size:9px; text-align:right; }
+  .cg-pareto-empty { padding:16px; border-radius:8px; background:#faf8f7; color:#7b6e68; font-size:10px; text-align:center; }
   .cg-detail-card { border-top:3px solid ${NARANJA}; }
   .cg-close { min-height:32px; padding:0 11px; border:1px solid #d8cac3; border-radius:7px; background:#fff; color:${VINO}; font-size:9px; font-weight:900; cursor:pointer; }
   .cg-info { padding:12px; border-radius:8px; background:#faf8f7; color:#766a64; font-size:10px; line-height:1.5; }
