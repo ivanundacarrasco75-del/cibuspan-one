@@ -127,6 +127,7 @@ const modulos: Modulo[] = [
       { pantalla: "Pagos y Finanzas · Cobros y Conciliación", etiqueta: "Cobros y Conciliación" },
       { pantalla: "Pagos y Finanzas · Cuentas por Pagar", etiqueta: "Cuentas por Pagar" },
       { pantalla: "Pagos y Finanzas · Pagos", etiqueta: "Pagos" },
+      { pantalla: "Pagos y Finanzas · Roles de pago", etiqueta: "Roles de pago" },
       { pantalla: "Pagos y Finanzas · Tesorería", etiqueta: "Tesorería" },
       { pantalla: "Pagos y Finanzas · Resultados", etiqueta: "Resultados" },
       { pantalla: "Pagos y Finanzas · Importación contable", etiqueta: "Importación contable" },

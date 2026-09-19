@@ -302,6 +302,7 @@ function App() {
       case "Pagos y gastos":
         return <PagosGastos />
 
+      case "Pagos y Finanzas · Roles de pago":
       case "Roles de pago":
         return <RolesPago />
 

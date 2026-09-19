@@ -2608,7 +2608,6 @@ function DashboardFinanciero({
         <EncabezadoDashboard kicker="RENTABILIDAD Y CAJA" titulo="Financiero" descripcion="Balance mensual por devengo y salidas reales de caja clasificadas sin mezclar conceptos." />
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <button type="button" onClick={() => cambiarPantalla("Pagos y gastos")}>Abrir facturas y pagos</button>
-          <button type="button" onClick={() => cambiarPantalla("Roles de pago")}>Abrir roles de pago</button>
         </div>
       </div>
 
