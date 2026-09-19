@@ -6,6 +6,7 @@ export const ROLES = [
   "BODEGUERO",
   "GERENTE_OPERACIONES",
   "JEFA_FACTURACION",
+  "KAM",
 ] as const
 
 export type AppRole = (typeof ROLES)[number]
@@ -16,6 +17,7 @@ export const ETIQUETAS_ROL: Record<AppRole, string> = {
   BODEGUERO: "Bodeguero",
   GERENTE_OPERACIONES: "Gerente de operaciones",
   JEFA_FACTURACION: "Jefa de facturación",
+  KAM: "KAM / Comercial",
 }
 
 export const PANTALLAS_APLICACION = [
@@ -37,6 +39,7 @@ export const PANTALLAS_APLICACION = [
   "Materias primas",
   "Preformulación",
   "Usuarios y permisos",
+  "KPI KAM",
 ] as const
 
 export type PantallaAplicacion =
@@ -66,6 +69,8 @@ export const PERMISOS_PREDETERMINADOS: Record<
     "Reportes",
     "Documentos",
   ],
+
+  KAM: ["KPI KAM"],
 }
 
 export type PerfilAplicacion = {

@@ -11,6 +11,7 @@ const roles = new Set([
   "BODEGUERO",
   "GERENTE_OPERACIONES",
   "JEFA_FACTURACION",
+  "KAM",
 ])
 
 const pantallas = new Set([
@@ -18,6 +19,7 @@ const pantallas = new Set([
   "Despachos", "Historial despachos", "Devoluciones", "Reportes",
   "Documentos", "Hoja de producción", "Hoja de despacho", "Anexo Supermaxi",
   "Administración", "Materias primas", "Preformulación", "Usuarios y permisos",
+  "KPI KAM",
 ])
 
 function respuesta(status: number, body: unknown) {
