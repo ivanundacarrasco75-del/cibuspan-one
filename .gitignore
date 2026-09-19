@@ -28,3 +28,4 @@ dist/
 .env.*
 !.env.example
 src/pages/DashboardV2_RESPALDO_*.tsx
+supabase/.temp/
