@@ -70,19 +70,20 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
   const fechaVigencia = `${periodo.slice(0, 7)}-01`
+  const fechaConsulta = finMes(periodo)
 
   const cargar = useCallback(async () => {
     setCargando(true)
     setError("")
     try {
-      setCatalogo(await obtenerCatalogoCoberturaKpiKamDb(clienteId || null, fechaVigencia))
+      setCatalogo(await obtenerCatalogoCoberturaKpiKamDb(clienteId || null, fechaConsulta))
     } catch (err) {
       setCatalogo(VACIO)
       setError(err instanceof Error ? err.message : "No se pudo cargar la cobertura.")
     } finally {
       setCargando(false)
     }
-  }, [clienteId, fechaVigencia])
+  }, [clienteId, fechaConsulta])
 
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => {
@@ -379,6 +380,12 @@ function FilaCobertura({ posicion, fechaVigencia, bloqueada, puedeCambiarObjetiv
 function fechaCorta(valor: string) {
   const [anio, mes, dia] = valor.slice(0, 10).split("-")
   return `${dia}/${mes}/${anio}`
+}
+
+function finMes(periodo: string) {
+  const [anio, mes] = periodo.slice(0, 7).split("-").map(Number)
+  const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate()
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`
 }
 
 function etiquetaEstado(valor: EstadoCoberturaKpiKamDb) {
