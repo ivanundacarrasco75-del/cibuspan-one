@@ -102,6 +102,25 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
     () => catalogo.locales.filter((item) => item.activo),
     [catalogo.locales],
   )
+  const posicionesLocal = useMemo(() => {
+    const mapa = new Map<string, PosicionCobertura>()
+    if (!localId) return mapa
+    catalogo.posiciones.forEach((item) => {
+      if (item.local_id === localId) mapa.set(item.producto_id, item)
+    })
+    return mapa
+  }, [catalogo.posiciones, localId])
+  const productosCobertura = useMemo(() => (
+    [...catalogo.productos].sort((a, b) => {
+      const posicionA = posicionesLocal.get(a.id)
+      const posicionB = posicionesLocal.get(b.id)
+      const activaA = posicionA?.estado === "ACTIVO" && posicionA.reportado_ultimo !== false
+      const activaB = posicionB?.estado === "ACTIVO" && posicionB.reportado_ultimo !== false
+      if (activaA !== activaB) return activaA ? -1 : 1
+      return a.nombre.localeCompare(b.nombre, "es")
+    })
+  ), [catalogo.productos, posicionesLocal])
+  const posicionSeleccionada = productoId ? posicionesLocal.get(productoId) : undefined
   const resumen = useMemo(() => {
     const objetivos = catalogo.posiciones.filter((item) => item.es_objetivo)
     const activas = objetivos.filter((item) => item.estado === "ACTIVO")
@@ -128,6 +147,31 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
       posiciones: actual.posiciones.map((item) => item.id === posicion.id ? posicion : item),
     }))
     onActualizado()
+  }
+
+  function cambiarLocal(valor: string) {
+    setLocalId(valor)
+    setProductoId("")
+    setEstado("PENDIENTE")
+    setEsObjetivo(false)
+    setMotivo("")
+  }
+
+  function seleccionarSku(productoIdSeleccionado: string) {
+    const posicion = posicionesLocal.get(productoIdSeleccionado)
+    const cubierta = posicion?.estado === "ACTIVO" && posicion.reportado_ultimo !== false
+    if (cubierta) return
+    if (productoId === productoIdSeleccionado) {
+      setProductoId("")
+      setEstado("PENDIENTE")
+      setEsObjetivo(false)
+      setMotivo("")
+      return
+    }
+    setProductoId(productoIdSeleccionado)
+    setEstado(posicion?.estado ?? "PENDIENTE")
+    setEsObjetivo(posicion?.es_objetivo ?? false)
+    setMotivo(posicion?.motivo ?? "")
   }
 
   async function guardarNueva() {
@@ -257,14 +301,33 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
           {localesActivos.length > 0 && <div className="cob-locales">{localesActivos.map((local) => <span key={local.id}><b>{local.codigo}</b>{local.nombre}</span>)}</div>}
         </section>}
         <section className="cob-nueva">
-          <header><div><span>EXPANSIÓN DE COBERTURA</span><h3>Agregar oportunidad SKU-local</h3><p>Los SKU no autorizados se registran como pendientes hasta conseguir su codificación.</p></div></header>
+          <header><div><span>COBERTURA POR LOCAL</span><h3>Seleccionar SKU y registrar oportunidades</h3><p>Los SKU reportados aparecen marcados. Los demás pueden seleccionarse para gestionar una ampliación de cobertura.</p></div></header>
           <div className="cob-nueva-grid">
-            <label><span>Local</span><select value={localId} onChange={(event) => setLocalId(event.target.value)}><option value="">Seleccionar local</option>{localesActivos.map((local) => <option key={local.id} value={local.id}>{local.codigo} · {local.nombre}</option>)}</select></label>
-            <label><span>SKU</span><select value={productoId} onChange={(event) => setProductoId(event.target.value)}><option value="">Seleccionar SKU</option>{catalogo.productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre} · {producto.codigo}{producto.autorizado ? "" : " · OPORTUNIDAD"}</option>)}</select></label>
+            <label><span>Local</span><select value={localId} onChange={(event) => cambiarLocal(event.target.value)}><option value="">Seleccionar local</option>{localesActivos.map((local) => <option key={local.id} value={local.id}>{local.codigo} · {local.nombre}</option>)}</select></label>
             <label><span>Estado</span><select value={estado} onChange={(event) => setEstado(event.target.value as EstadoCoberturaKpiKamDb)}>{ESTADOS.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}</select></label>
             {catalogo.puede_gestionar_locales && <label className="cob-check"><input type="checkbox" checked={esObjetivo} onChange={(event) => setEsObjetivo(event.target.checked)} /><span>Meta aprobada</span></label>}
+            <div className="cob-skus-campo">
+              <span>SKU y cobertura actual</span>
+              {!localId ? <div className="cob-skus-vacio">Selecciona primero un local.</div> : <div className="cob-skus-lista">{productosCobertura.map((producto) => {
+                const posicion = posicionesLocal.get(producto.id)
+                const cubierta = posicion?.estado === "ACTIVO" && posicion.reportado_ultimo !== false
+                const seleccionada = !cubierta && productoId === producto.id
+                const estadoVisible = cubierta
+                  ? "COBERTURA ACTIVA"
+                  : posicion?.reportado_ultimo === false
+                    ? "NO APARECE EN EL ÚLTIMO REPORTE"
+                    : posicion
+                      ? etiquetaEstado(posicion.estado).toUpperCase()
+                      : "SIN COBERTURA"
+                return <label key={producto.id} className={`cob-sku-opcion ${cubierta ? "activa" : "sin-cobertura"} ${seleccionada ? "seleccionada" : ""}`}>
+                  <input type="checkbox" checked={cubierta || seleccionada} disabled={cubierta} onChange={() => seleccionarSku(producto.id)} />
+                  <span><strong>{producto.nombre}</strong><small>{producto.codigo}{producto.autorizado ? "" : " · NO AUTORIZADO"}</small></span>
+                  <em>{estadoVisible}</em>
+                </label>
+              })}</div>}
+            </div>
             <label className="cob-motivo"><span>Motivo / gestión realizada</span><input value={motivo} onChange={(event) => setMotivo(event.target.value)} placeholder={REQUIERE_MOTIVO.has(estado) ? "Obligatorio para este estado" : "Opcional"} /></label>
-            <button type="button" disabled={Boolean(guardando) || !localId || !productoId} onClick={() => void guardarNueva()}>{guardando === "NUEVA" ? "Guardando…" : "Guardar oportunidad"}</button>
+            <button type="button" disabled={Boolean(guardando) || !localId || !productoId} onClick={() => void guardarNueva()}>{guardando === "NUEVA" ? "Guardando…" : posicionSeleccionada ? "Actualizar gestión" : "Guardar oportunidad"}</button>
           </div>
         </section>
         <section className="cob-listado">
@@ -318,6 +381,10 @@ function fechaCorta(valor: string) {
   return `${dia}/${mes}/${anio}`
 }
 
+function etiquetaEstado(valor: EstadoCoberturaKpiKamDb) {
+  return ESTADOS.find((item) => item.valor === valor)?.etiqueta ?? valor
+}
+
 const css = `
-.cobertura-kam{display:grid;gap:14px}.cob-carga,.cob-bloqueada,.cob-vacio,.cob-error,.cob-exito,.cob-aviso{padding:16px;border:1px solid #e6dad4;border-radius:13px;background:white}.cob-error{color:#a1212a;background:#fff5f5;border-color:#edc8ca}.cob-exito{color:#147542;background:#eef9f2;border-color:#c6e7d2}.cob-aviso{color:#865b12;background:#fff6e7;border-color:#efd8b1}.cob-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding:20px;border:1px solid #e6dad4;border-radius:14px;background:white}.cob-head>div>span,.cob-panel header span,.cob-nueva header span,.cob-listado>header span{display:block;color:#f28c18;font-size:10px;font-weight:900;letter-spacing:.09em}.cob-head h2,.cob-panel h3,.cob-nueva h3,.cob-listado h3{margin:4px 0;color:#8f1d24}.cob-head p,.cob-panel header p,.cob-nueva header p{margin:0;color:#786b66}.cob-head label{display:grid;gap:5px;min-width:190px}.cob-head label>span,.cob-filtros label>span,.cob-filtros>div>span,.cob-nueva-grid label>span{font-size:10px;font-weight:900;text-transform:uppercase;color:#746660}.cobertura-kam input,.cobertura-kam select{border:1px solid #ddcfc8;border-radius:9px;background:#fbf9f7;padding:10px;color:#3b2d29;font-weight:700}.cobertura-kam button{border:0;border-radius:9px;background:#991f28;color:white;padding:10px 14px;font-weight:800;cursor:pointer}.cobertura-kam button:disabled{opacity:.5;cursor:not-allowed}.cob-filtros{display:grid;grid-template-columns:minmax(260px,1.5fr) repeat(3,1fr);gap:10px;padding:13px;border:1px solid #e6dad4;border-radius:14px;background:white}.cob-filtros label{display:grid;gap:5px}.cob-filtros>div{display:flex;flex-direction:column;justify-content:center;padding-left:14px;border-left:1px solid #eadfd9}.cob-filtros strong{font-size:20px;color:#8f1d24}.cob-filtros small{color:#af6220}.cob-panel,.cob-nueva,.cob-listado{border:1px solid #e6dad4;border-radius:14px;background:white;overflow:hidden}.cob-panel>header,.cob-nueva>header,.cob-listado>header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:17px}.cob-import-preview{display:grid;grid-template-columns:1.5fr repeat(3,1fr) auto;gap:9px;align-items:center;padding:0 17px 17px}.cob-import-preview>div{min-height:62px;padding:10px;border:1px solid #eadfd9;border-radius:9px}.cob-import-preview span,.cob-import-preview small{display:block;color:#81736d;font-size:9px}.cob-import-preview strong{display:block;margin:4px 0;color:#5b3232;font-size:11px}.cob-history{display:grid;gap:5px;padding:12px 17px;border-top:1px solid #eee4de;color:#746660;font-size:9px}.cob-local-form{display:grid;grid-template-columns:120px minmax(220px,1fr) auto;gap:8px}.cob-locales{display:flex;flex-wrap:wrap;gap:7px;padding:0 17px 17px}.cob-locales span{display:flex;gap:5px;padding:6px 9px;border-radius:99px;background:#f5efeb;color:#6b5b55;font-size:9px}.cob-nueva-grid{display:grid;grid-template-columns:1fr 1.2fr .8fr auto;gap:10px;align-items:end;padding:0 17px 17px}.cob-nueva-grid label{display:grid;gap:5px}.cob-check{display:flex!important;flex-direction:row;align-items:center;padding-bottom:11px}.cob-motivo{grid-column:1/-2}.cob-busqueda{display:flex;gap:8px}.cob-tabla{overflow:auto}.cob-tabla table{width:100%;min-width:1120px;border-collapse:collapse}.cob-tabla th{padding:10px 12px;background:#f7f3f0;text-align:left;color:#6f605b;font-size:9px;text-transform:uppercase}.cob-tabla td{padding:9px 12px;border-top:1px solid #eee4de;font-size:10px}.cob-tabla td strong,.cob-tabla td small{display:block}.cob-tabla td small{margin-top:2px;color:#897b75}.cob-tabla td input:not([type=checkbox]){width:100%;min-width:180px}.cob-tabla td select{min-width:140px}.cob-tabla td:last-child{text-align:right}.cob-tabla input[type=checkbox]{width:18px;height:18px}.cob-pendiente{color:#b26c17!important;font-weight:800}.positivo{color:#148248!important}.negativo{color:#ad2630!important}.neutral{color:#857873!important}@media(max-width:1000px){.cob-head,.cob-filtros,.cob-import-preview,.cob-nueva-grid{display:grid;grid-template-columns:1fr}.cob-head label{min-width:0}.cob-filtros>div{border-left:0;padding-left:0}.cob-panel>header,.cob-nueva>header,.cob-listado>header{align-items:stretch;display:grid}.cob-local-form,.cob-busqueda{display:grid;grid-template-columns:1fr}.cob-motivo{grid-column:auto}}
+.cobertura-kam{display:grid;gap:14px}.cob-carga,.cob-bloqueada,.cob-vacio,.cob-error,.cob-exito,.cob-aviso{padding:16px;border:1px solid #e6dad4;border-radius:13px;background:white}.cob-error{color:#a1212a;background:#fff5f5;border-color:#edc8ca}.cob-exito{color:#147542;background:#eef9f2;border-color:#c6e7d2}.cob-aviso{color:#865b12;background:#fff6e7;border-color:#efd8b1}.cob-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding:20px;border:1px solid #e6dad4;border-radius:14px;background:white}.cob-head>div>span,.cob-panel header span,.cob-nueva header span,.cob-listado>header span{display:block;color:#f28c18;font-size:10px;font-weight:900;letter-spacing:.09em}.cob-head h2,.cob-panel h3,.cob-nueva h3,.cob-listado h3{margin:4px 0;color:#8f1d24}.cob-head p,.cob-panel header p,.cob-nueva header p{margin:0;color:#786b66}.cob-head label{display:grid;gap:5px;min-width:190px}.cob-head label>span,.cob-filtros label>span,.cob-filtros>div>span,.cob-nueva-grid label>span,.cob-skus-campo>span{font-size:10px;font-weight:900;text-transform:uppercase;color:#746660}.cobertura-kam input,.cobertura-kam select{border:1px solid #ddcfc8;border-radius:9px;background:#fbf9f7;padding:10px;color:#3b2d29;font-weight:700}.cobertura-kam button{border:0;border-radius:9px;background:#991f28;color:white;padding:10px 14px;font-weight:800;cursor:pointer}.cobertura-kam button:disabled{opacity:.5;cursor:not-allowed}.cob-filtros{display:grid;grid-template-columns:minmax(260px,1.5fr) repeat(3,1fr);gap:10px;padding:13px;border:1px solid #e6dad4;border-radius:14px;background:white}.cob-filtros label{display:grid;gap:5px}.cob-filtros>div{display:flex;flex-direction:column;justify-content:center;padding-left:14px;border-left:1px solid #eadfd9}.cob-filtros strong{font-size:20px;color:#8f1d24}.cob-filtros small{color:#af6220}.cob-panel,.cob-nueva,.cob-listado{border:1px solid #e6dad4;border-radius:14px;background:white;overflow:hidden}.cob-panel>header,.cob-nueva>header,.cob-listado>header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:17px}.cob-import-preview{display:grid;grid-template-columns:1.5fr repeat(3,1fr) auto;gap:9px;align-items:center;padding:0 17px 17px}.cob-import-preview>div{min-height:62px;padding:10px;border:1px solid #eadfd9;border-radius:9px}.cob-import-preview span,.cob-import-preview small{display:block;color:#81736d;font-size:9px}.cob-import-preview strong{display:block;margin:4px 0;color:#5b3232;font-size:11px}.cob-history{display:grid;gap:5px;padding:12px 17px;border-top:1px solid #eee4de;color:#746660;font-size:9px}.cob-local-form{display:grid;grid-template-columns:120px minmax(220px,1fr) auto;gap:8px}.cob-locales{display:flex;flex-wrap:wrap;gap:7px;padding:0 17px 17px}.cob-locales span{display:flex;gap:5px;padding:6px 9px;border-radius:99px;background:#f5efeb;color:#6b5b55;font-size:9px}.cob-nueva-grid{display:grid;grid-template-columns:1.2fr .8fr auto;gap:10px;align-items:end;padding:0 17px 17px}.cob-nueva-grid label{display:grid;gap:5px}.cob-check{display:flex!important;flex-direction:row;align-items:center;padding-bottom:11px}.cob-skus-campo{display:grid;grid-column:1/-1;gap:6px}.cob-skus-vacio{padding:16px;border:1px dashed #dacbc4;border-radius:10px;color:#897b75;background:#fbf9f7}.cob-skus-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:7px}.cob-sku-opcion{display:grid!important;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:10px;border:1px solid #e3d8d2;border-radius:10px;background:#fbfaf9;cursor:pointer;transition:.15s ease}.cob-sku-opcion input{width:18px;height:18px;accent-color:#18834b}.cob-sku-opcion span strong,.cob-sku-opcion span small{display:block}.cob-sku-opcion span strong{color:#512f2f}.cob-sku-opcion span small{margin-top:2px;color:#83756f;font-size:9px}.cob-sku-opcion em{font-size:8px;font-style:normal;font-weight:900;color:#8f817b;text-align:right}.cob-sku-opcion.activa{border-color:#b9dfc9;background:#f1faf5}.cob-sku-opcion.activa em{color:#16814a}.cob-sku-opcion.sin-cobertura{opacity:.52}.cob-sku-opcion.sin-cobertura:hover,.cob-sku-opcion.seleccionada{opacity:1}.cob-sku-opcion.seleccionada{border-color:#f0a449;background:#fff8ed;box-shadow:0 0 0 2px rgba(240,140,24,.12)}.cob-sku-opcion.seleccionada input{accent-color:#f28c18}.cob-motivo{grid-column:1/-2}.cob-busqueda{display:flex;gap:8px}.cob-tabla{overflow:auto}.cob-tabla table{width:100%;min-width:1120px;border-collapse:collapse}.cob-tabla th{padding:10px 12px;background:#f7f3f0;text-align:left;color:#6f605b;font-size:9px;text-transform:uppercase}.cob-tabla td{padding:9px 12px;border-top:1px solid #eee4de;font-size:10px}.cob-tabla td strong,.cob-tabla td small{display:block}.cob-tabla td small{margin-top:2px;color:#897b75}.cob-tabla td input:not([type=checkbox]){width:100%;min-width:180px}.cob-tabla td select{min-width:140px}.cob-tabla td:last-child{text-align:right}.cob-tabla input[type=checkbox]{width:18px;height:18px}.cob-pendiente{color:#b26c17!important;font-weight:800}.positivo{color:#148248!important}.negativo{color:#ad2630!important}.neutral{color:#857873!important}@media(max-width:1000px){.cob-head,.cob-filtros,.cob-import-preview,.cob-nueva-grid{display:grid;grid-template-columns:1fr}.cob-head label{min-width:0}.cob-filtros>div{border-left:0;padding-left:0}.cob-panel>header,.cob-nueva>header,.cob-listado>header{align-items:stretch;display:grid}.cob-local-form,.cob-busqueda{display:grid;grid-template-columns:1fr}.cob-motivo,.cob-skus-campo{grid-column:auto}.cob-skus-lista{grid-template-columns:1fr}}
 `
