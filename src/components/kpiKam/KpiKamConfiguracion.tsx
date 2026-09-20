@@ -189,7 +189,21 @@ export default function KpiKamConfiguracion({
         })
       }
       setMensaje("Responsable y presupuesto guardados correctamente.")
-      await cargar()
+      setCatalogo((actual) => ({
+        ...actual,
+        clientes: actual.clientes.map((cliente) =>
+          cliente.cliente_id === clienteId
+            ? {
+                ...cliente,
+                kam_user_id: kamUserId,
+                kam_nombre: catalogo.usuarios.find(
+                  (usuario) => usuario.user_id === kamUserId,
+                )?.nombre ?? null,
+                presupuesto,
+              }
+            : cliente,
+        ),
+      }))
       onActualizado()
     } catch (err) {
       setError(
