@@ -540,6 +540,29 @@ export async function guardarCoberturaKpiKamDb(datos: {
   return String(data ?? "")
 }
 
+export async function revisarCoberturaKpiKamDb(datos: {
+  clienteId: string
+  localId: string
+  productoId: string
+  estado: EstadoCoberturaKpiKamDb
+  fechaRevision: string
+}) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_revisar_cobertura",
+    {
+      p_cliente_id: datos.clienteId,
+      p_local_id: datos.localId,
+      p_producto_id: datos.productoId,
+      p_estado: datos.estado,
+      p_fecha_revision: datos.fechaRevision,
+    },
+  )
+  if (error) {
+    throw new Error(`No se pudo registrar la revisión: ${error.message}`)
+  }
+  return String(data ?? "")
+}
+
 export type ClienteKamDb = {
   id: string
   kam_user_id: string

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  guardarCoberturaKpiKamDb,
   guardarLocalMonitoreadoKpiKamDb,
   incorporarLocalesExistentesKpiKamDb,
   importarCoberturaFavoritaKpiKamDb,
   obtenerCatalogoCoberturaKpiKamDb,
+  revisarCoberturaKpiKamDb,
   type CatalogoCoberturaKpiKamDb,
   type EstadoCoberturaKpiKamDb,
 } from "../../repositories/kpiKamRepository"
@@ -35,7 +35,7 @@ const VACIO: CatalogoCoberturaKpiKamDb = {
 }
 
 const ESTADOS: Array<{ valor: EstadoCoberturaKpiKamDb; etiqueta: string }> = [
-  { valor: "ACTIVO", etiqueta: "Activo" },
+  { valor: "ACTIVO", etiqueta: "Codificado" },
   { valor: "PENDIENTE", etiqueta: "Pendiente" },
   { valor: "DESCODIFICADO", etiqueta: "Descodificado" },
   { valor: "SUSPENDIDO", etiqueta: "Suspendido" },
@@ -43,22 +43,11 @@ const ESTADOS: Array<{ valor: EstadoCoberturaKpiKamDb; etiqueta: string }> = [
   { valor: "INACTIVO", etiqueta: "Inactivo" },
 ]
 
-const REQUIERE_MOTIVO = new Set<EstadoCoberturaKpiKamDb>([
-  "DESCODIFICADO",
-  "SUSPENDIDO",
-  "NO_AUTORIZADO",
-  "INACTIVO",
-])
-
 export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado }: Props) {
   const archivoRef = useRef<HTMLInputElement>(null)
   const [catalogo, setCatalogo] = useState(VACIO)
   const [clienteId, setClienteId] = useState("")
-  const [localId, setLocalId] = useState("")
-  const [productoId, setProductoId] = useState("")
-  const [estado, setEstado] = useState<EstadoCoberturaKpiKamDb>("PENDIENTE")
-  const [esObjetivo, setEsObjetivo] = useState(false)
-  const [motivo, setMotivo] = useState("")
+  const [fechaRevision, setFechaRevision] = useState(fechaHoyLocal)
   const [nuevoCodigo, setNuevoCodigo] = useState("")
   const [nuevoNombre, setNuevoNombre] = useState("")
   const [candidatosSeleccionados, setCandidatosSeleccionados] = useState<string[]>([])
@@ -74,8 +63,7 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
   const [guardando, setGuardando] = useState("")
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
-  const fechaVigencia = `${periodo.slice(0, 7)}-01`
-  const fechaConsulta = finMes(periodo)
+  const fechaConsulta = fechaRevision
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -92,11 +80,13 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
 
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => {
-    setLocalId("")
-    setProductoId("")
-    setEstado("PENDIENTE")
-    setEsObjetivo(false)
-    setMotivo("")
+    if (fechaRevision.slice(0, 7) === periodo.slice(0, 7)) return
+    const hoy = fechaHoyLocal()
+    setFechaRevision(
+      hoy.slice(0, 7) === periodo.slice(0, 7) ? hoy : finMes(periodo),
+    )
+  }, [fechaRevision, periodo])
+  useEffect(() => {
     setBusqueda("")
     setFiltroMatriz("TODOS")
     setProductoFiltro("TODOS")
@@ -144,11 +134,6 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
       return true
     })
   }, [busqueda, filtroMatriz, localesActivos, posicionesPorCelda, productosVisibles])
-  const localSeleccionado = catalogo.locales.find((item) => item.id === localId)
-  const productoSeleccionado = catalogo.productos.find((item) => item.id === productoId)
-  const posicionSeleccionada = localId && productoId
-    ? posicionesPorCelda.get(claveCelda(localId, productoId))
-    : undefined
   const resumen = useMemo(() => {
     const activas = catalogo.posiciones.filter(coberturaActiva)
     return {
@@ -159,46 +144,28 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
     }
   }, [catalogo.posiciones])
 
-  function abrirCelda(localSeleccionadoId: string, productoSeleccionadoId: string) {
-    const posicion = posicionesPorCelda.get(claveCelda(localSeleccionadoId, productoSeleccionadoId))
-    setLocalId(localSeleccionadoId)
-    setProductoId(productoSeleccionadoId)
-    setEstado(posicion?.estado ?? "PENDIENTE")
-    setEsObjetivo(posicion?.es_objetivo ?? false)
-    setMotivo(posicion?.motivo ?? "")
-    setError("")
-  }
-
-  function cerrarCelda() {
-    setLocalId("")
-    setProductoId("")
-    setEstado("PENDIENTE")
-    setEsObjetivo(false)
-    setMotivo("")
-  }
-
-  async function guardarNueva() {
-    if (!clienteId || !localId || !productoId) return setError("Selecciona cliente, local y SKU.")
-    if (REQUIERE_MOTIVO.has(estado) && !motivo.trim()) return setError("Registra el motivo del estado seleccionado.")
-    const producto = catalogo.productos.find((item) => item.id === productoId)
-    if (estado === "ACTIVO" && !producto?.autorizado) {
-      return setError("El SKU todavía no está autorizado para este cliente. Regístralo como pendiente.")
-    }
-    setGuardando("NUEVA")
+  async function revisarCelda(
+    localId: string,
+    productoId: string,
+    estado: EstadoCoberturaKpiKamDb,
+  ) {
+    const celda = claveCelda(localId, productoId)
+    setGuardando(celda)
     setError("")
     setMensaje("")
-    const estabaRegistrada = Boolean(posicionSeleccionada)
     try {
-      await guardarCoberturaKpiKamDb({
-        clienteId, localId, productoId, esObjetivo, estado,
-        vigenteDesde: fechaVigencia, motivo: motivo.trim() || null,
+      await revisarCoberturaKpiKamDb({
+        clienteId,
+        localId,
+        productoId,
+        estado,
+        fechaRevision,
       })
-      setMensaje(estabaRegistrada ? "Posición actualizada correctamente." : "Oportunidad SKU-local guardada correctamente.")
-      cerrarCelda()
+      setMensaje(`Cambio registrado en la revisión del ${fechaCorta(fechaRevision)}.`)
       await cargar()
       onActualizado()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar la posición.")
+      setError(err instanceof Error ? err.message : "No se pudo registrar la revisión.")
     } finally { setGuardando("") }
   }
 
@@ -304,8 +271,8 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
     <section className="cobertura-kam">
       <style>{css}</style>
       <header className="cob-head">
-        <div><span>COBERTURA COMERCIAL</span><h2>Matriz de alcance SKU-local</h2><p>Una vista rápida de los productos presentes, las brechas y las oportunidades.</p></div>
-        <label><span>Periodo</span><input type="month" value={periodo} onChange={(event) => cambiarPeriodo(event.target.value)} /></label>
+        <div><span>COBERTURA COMERCIAL</span><h2>Revisión semanal SKU-local</h2><p>Selecciona únicamente las posiciones que cambiaron. Los demás estados se conservan.</p></div>
+        <label><span>Fecha de revisión</span><input type="date" value={fechaRevision} onChange={(event) => { setFechaRevision(event.target.value); cambiarPeriodo(event.target.value.slice(0, 7)) }} /></label>
       </header>
       <section className="cob-filtros">
         <label><span>Cliente</span><select value={clienteId} onChange={(event) => setClienteId(event.target.value)}><option value="">Seleccionar cliente</option>{catalogo.clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}</select></label>
@@ -351,34 +318,22 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
         </section>}
         <section className="cob-matriz-panel">
           <header className="cob-matriz-head">
-            <div><span>MATRIZ DE COBERTURA</span><h3>Locales × SKU</h3><p>Pulsa cualquier símbolo para revisar o gestionar esa posición.</p></div>
+            <div><span>MATRIZ DE COBERTURA</span><h3>Locales × SKU</h3><p>Cambia el estado dentro de la casilla. Se guarda inmediatamente con la fecha de revisión.</p></div>
             <div className="cob-matriz-filtros">
               <input value={busqueda} onChange={(event) => setBusqueda(event.target.value)} placeholder="Buscar local" />
               <select value={productoFiltro} onChange={(event) => setProductoFiltro(event.target.value)}><option value="TODOS">Todos los SKU</option>{productosMatriz.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre}</option>)}</select>
               <select value={filtroMatriz} onChange={(event) => setFiltroMatriz(event.target.value)}><option value="TODOS">Todos los locales</option><option value="BRECHAS">Con brechas</option><option value="PENDIENTES">Con oportunidades</option><option value="ALERTAS">Con alertas</option></select>
             </div>
           </header>
-          <div className="cob-leyenda"><span><i className="verde">✓</i>Cobertura activa</span><span><i className="gris">○</i>Sin cobertura</span><span><i className="naranja">!</i>Oportunidad pendiente</span><span><i className="rojo">×</i>Alerta o inactivo</span></div>
-          {localesMatriz.length === 0 || productosVisibles.length === 0 ? <div className="cob-vacio">No existen resultados para estos filtros.</div> : <div className="cob-matriz-scroll"><table style={{ minWidth: `${Math.max(760, 250 + productosVisibles.length * 96)}px` }}><thead><tr><th className="local-col">Local monitoreado</th>{productosVisibles.map((producto) => <th key={producto.id} title={`${producto.nombre} · ${producto.codigo}`}><strong>{producto.nombre}</strong><small>{producto.codigo}</small></th>)}</tr></thead><tbody>{localesMatriz.map((local) => <tr key={local.id}><th className="local-col"><strong>{local.codigo}</strong><span>{local.nombre}</span></th>{productosVisibles.map((producto) => {
+          <div className="cob-leyenda"><span><i className="verde">✓</i>Codificado</span><span><i className="gris">○</i>Sin revisar</span><span><i className="naranja">!</i>Pendiente</span><span><i className="rojo">×</i>Descodificado / inactivo</span></div>
+          {localesMatriz.length === 0 || productosVisibles.length === 0 ? <div className="cob-vacio">No existen resultados para estos filtros.</div> : <div className="cob-matriz-scroll"><table style={{ minWidth: `${Math.max(760, 250 + productosVisibles.length * 125)}px` }}><thead><tr><th className="local-col">Local monitoreado</th>{productosVisibles.map((producto) => <th key={producto.id} title={`${producto.nombre} · ${producto.codigo}`}><strong>{producto.nombre}</strong><small>{producto.codigo}</small></th>)}</tr></thead><tbody>{localesMatriz.map((local) => <tr key={local.id}><th className="local-col"><strong>{local.codigo}</strong><span>{local.nombre}</span></th>{productosVisibles.map((producto) => {
             const posicion = posicionesPorCelda.get(claveCelda(local.id, producto.id))
             const visual = visualCelda(posicion)
-            return <td key={producto.id}><button type="button" className={`cob-celda ${visual.clase}`} title={`${local.nombre} · ${producto.nombre}: ${visual.etiqueta}`} aria-label={`${local.nombre}, ${producto.nombre}, ${visual.etiqueta}`} onClick={() => abrirCelda(local.id, producto.id)}>{visual.simbolo}</button></td>
+            const clave = claveCelda(local.id, producto.id)
+            return <td key={producto.id}><select className={`cob-celda-select ${visual.clase}`} value={posicion?.estado ?? "SIN_COBERTURA"} disabled={Boolean(guardando)} title={`${local.nombre} · ${producto.nombre}: ${visual.etiqueta}`} aria-label={`${local.nombre}, ${producto.nombre}, ${visual.etiqueta}`} onChange={(event) => void revisarCelda(local.id, producto.id, event.target.value as EstadoCoberturaKpiKamDb)}><option value="SIN_COBERTURA" disabled>{guardando === clave ? "Guardando…" : "Sin revisar"}</option>{ESTADOS.map((item) => <option key={item.valor} value={item.valor} disabled={item.valor === "ACTIVO" && !producto.autorizado}>{item.etiqueta}</option>)}</select></td>
           })}</tr>)}</tbody></table></div>}
           <footer><span>Mostrando {localesMatriz.length} de {localesActivos.length} locales</span><span>{productosVisibles.length} SKU visibles</span></footer>
         </section>
-        {localId && productoId && localSeleccionado && productoSeleccionado && <div className="cob-modal-fondo" role="presentation" onMouseDown={cerrarCelda}><aside className="cob-detalle" role="dialog" aria-modal="true" aria-label="Gestionar posición SKU-local" onMouseDown={(event) => event.stopPropagation()}>
-          <header><div><span>DETALLE DE POSICIÓN</span><h3>{productoSeleccionado.nombre}</h3><p>{localSeleccionado.codigo} · {localSeleccionado.nombre}</p></div><button className="cob-cerrar" type="button" onClick={cerrarCelda} aria-label="Cerrar">×</button></header>
-          <div className={`cob-estado-actual ${visualCelda(posicionSeleccionada).clase}`}><strong>{visualCelda(posicionSeleccionada).simbolo}</strong><span>{visualCelda(posicionSeleccionada).etiqueta}</span></div>
-          <dl><div><dt>Código SKU</dt><dd>{productoSeleccionado.codigo}</dd></div><div><dt>Fuente</dt><dd>{posicionSeleccionada ? etiquetaOrigen(posicionSeleccionada.origen) : "Sin registro"}</dd></div>{posicionSeleccionada?.ultima_fecha_reporte && <div><dt>Último reporte</dt><dd>{fechaCorta(posicionSeleccionada.ultima_fecha_reporte)}</dd></div>}</dl>
-          {error && <div className="cob-error cob-error-modal">{error}</div>}
-          <div className="cob-detalle-form">
-            <label><span>Estado</span><select value={estado} onChange={(event) => setEstado(event.target.value as EstadoCoberturaKpiKamDb)}>{ESTADOS.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}</select></label>
-            {catalogo.puede_gestionar_locales && <label className="cob-check"><input type="checkbox" checked={esObjetivo} onChange={(event) => setEsObjetivo(event.target.checked)} /><span>Meta aprobada</span></label>}
-            <label><span>Motivo / gestión realizada</span><textarea value={motivo} onChange={(event) => setMotivo(event.target.value)} placeholder={REQUIERE_MOTIVO.has(estado) ? "Obligatorio para este estado" : "Opcional"} /></label>
-            {!productoSeleccionado.autorizado && <small className="cob-nota">Este SKU aún no está autorizado para el cliente. Una nueva oportunidad debe guardarse como pendiente.</small>}
-            <button type="button" disabled={Boolean(guardando)} onClick={() => void guardarNueva()}>{guardando === "NUEVA" ? "Guardando…" : posicionSeleccionada ? "Guardar cambios" : "Registrar oportunidad"}</button>
-          </div>
-        </aside></div>}
       </>}
     </section>
   )
@@ -387,6 +342,12 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
 function fechaCorta(valor: string) {
   const [anio, mes, dia] = valor.slice(0, 10).split("-")
   return `${dia}/${mes}/${anio}`
+}
+
+function fechaHoyLocal() {
+  const fecha = new Date()
+  const desfase = fecha.getTimezoneOffset() * 60_000
+  return new Date(fecha.getTime() - desfase).toISOString().slice(0, 10)
 }
 
 function finMes(periodo: string) {
@@ -421,12 +382,6 @@ function visualCelda(posicion?: PosicionCobertura) {
   return { clase: "inactiva", simbolo: "×", etiqueta: etiquetaEstado(posicion.estado) }
 }
 
-function etiquetaOrigen(origen: string) {
-  if (origen === "FAVORITA_REPORTE") return "Reporte Favorita"
-  if (origen === "OPORTUNIDAD") return "Oportunidad"
-  return "Registro manual"
-}
-
 const css = `
 .cobertura-kam{display:grid;gap:14px}.cob-carga,.cob-bloqueada,.cob-vacio,.cob-error,.cob-exito,.cob-aviso{padding:16px;border:1px solid #e6dad4;border-radius:13px;background:white}.cob-error{color:#a1212a;background:#fff5f5;border-color:#edc8ca}.cob-exito{color:#147542;background:#eef9f2;border-color:#c6e7d2}.cob-aviso{color:#865b12;background:#fff6e7;border-color:#efd8b1}.cob-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding:20px;border:1px solid #e6dad4;border-radius:14px;background:white}.cob-head>div>span,.cob-panel header span,.cob-nueva header span,.cob-listado>header span{display:block;color:#f28c18;font-size:10px;font-weight:900;letter-spacing:.09em}.cob-head h2,.cob-panel h3,.cob-nueva h3,.cob-listado h3{margin:4px 0;color:#8f1d24}.cob-head p,.cob-panel header p,.cob-nueva header p{margin:0;color:#786b66}.cob-head label{display:grid;gap:5px;min-width:190px}.cob-head label>span,.cob-filtros label>span,.cob-filtros>div>span,.cob-nueva-grid label>span,.cob-skus-campo>span{font-size:10px;font-weight:900;text-transform:uppercase;color:#746660}.cobertura-kam input,.cobertura-kam select{border:1px solid #ddcfc8;border-radius:9px;background:#fbf9f7;padding:10px;color:#3b2d29;font-weight:700}.cobertura-kam button{border:0;border-radius:9px;background:#991f28;color:white;padding:10px 14px;font-weight:800;cursor:pointer}.cobertura-kam button:disabled{opacity:.5;cursor:not-allowed}.cob-filtros{display:grid;grid-template-columns:minmax(260px,1.5fr) repeat(3,1fr);gap:10px;padding:13px;border:1px solid #e6dad4;border-radius:14px;background:white}.cob-filtros label{display:grid;gap:5px}.cob-filtros>div{display:flex;flex-direction:column;justify-content:center;padding-left:14px;border-left:1px solid #eadfd9}.cob-filtros strong{font-size:20px;color:#8f1d24}.cob-filtros small{color:#af6220}.cob-panel,.cob-nueva,.cob-listado{border:1px solid #e6dad4;border-radius:14px;background:white;overflow:hidden}.cob-panel>header,.cob-nueva>header,.cob-listado>header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:17px}.cob-import-preview{display:grid;grid-template-columns:1.5fr repeat(3,1fr) auto;gap:9px;align-items:center;padding:0 17px 17px}.cob-import-preview>div{min-height:62px;padding:10px;border:1px solid #eadfd9;border-radius:9px}.cob-import-preview span,.cob-import-preview small{display:block;color:#81736d;font-size:9px}.cob-import-preview strong{display:block;margin:4px 0;color:#5b3232;font-size:11px}.cob-history{display:grid;gap:5px;padding:12px 17px;border-top:1px solid #eee4de;color:#746660;font-size:9px}.cob-local-form{display:grid;grid-template-columns:120px minmax(220px,1fr) auto;gap:8px}.cob-locales{display:flex;flex-wrap:wrap;gap:7px;padding:0 17px 17px}.cob-locales span{display:flex;gap:5px;padding:6px 9px;border-radius:99px;background:#f5efeb;color:#6b5b55;font-size:9px}.cob-nueva-grid{display:grid;grid-template-columns:1.2fr .8fr auto;gap:10px;align-items:end;padding:0 17px 17px}.cob-nueva-grid label{display:grid;gap:5px}.cob-check{display:flex!important;flex-direction:row;align-items:center;padding-bottom:11px}.cob-skus-campo{display:grid;grid-column:1/-1;gap:6px}.cob-skus-vacio{padding:16px;border:1px dashed #dacbc4;border-radius:10px;color:#897b75;background:#fbf9f7}.cob-skus-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:7px}.cob-sku-opcion{display:grid!important;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:10px;border:1px solid #e3d8d2;border-radius:10px;background:#fbfaf9;cursor:pointer;transition:.15s ease}.cob-sku-opcion input{width:18px;height:18px;accent-color:#18834b}.cob-sku-opcion span strong,.cob-sku-opcion span small{display:block}.cob-sku-opcion span strong{color:#512f2f}.cob-sku-opcion span small{margin-top:2px;color:#83756f;font-size:9px}.cob-sku-opcion em{font-size:8px;font-style:normal;font-weight:900;color:#8f817b;text-align:right}.cob-sku-opcion.activa{border-color:#b9dfc9;background:#f1faf5}.cob-sku-opcion.activa em{color:#16814a}.cob-sku-opcion.sin-cobertura{opacity:.52}.cob-sku-opcion.sin-cobertura:hover,.cob-sku-opcion.seleccionada{opacity:1}.cob-sku-opcion.seleccionada{border-color:#f0a449;background:#fff8ed;box-shadow:0 0 0 2px rgba(240,140,24,.12)}.cob-sku-opcion.seleccionada input{accent-color:#f28c18}.cob-motivo{grid-column:1/-2}.cob-busqueda{display:flex;gap:8px}.cob-tabla{overflow:auto}.cob-tabla table{width:100%;min-width:1120px;border-collapse:collapse}.cob-tabla th{padding:10px 12px;background:#f7f3f0;text-align:left;color:#6f605b;font-size:9px;text-transform:uppercase}.cob-tabla td{padding:9px 12px;border-top:1px solid #eee4de;font-size:10px}.cob-tabla td strong,.cob-tabla td small{display:block}.cob-tabla td small{margin-top:2px;color:#897b75}.cob-tabla td input:not([type=checkbox]){width:100%;min-width:180px}.cob-tabla td select{min-width:140px}.cob-tabla td:last-child{text-align:right}.cob-tabla input[type=checkbox]{width:18px;height:18px}.cob-pendiente{color:#b26c17!important;font-weight:800}.positivo{color:#148248!important}.negativo{color:#ad2630!important}.neutral{color:#857873!important}@media(max-width:1000px){.cob-head,.cob-filtros,.cob-import-preview,.cob-nueva-grid{display:grid;grid-template-columns:1fr}.cob-head label{min-width:0}.cob-filtros>div{border-left:0;padding-left:0}.cob-panel>header,.cob-nueva>header,.cob-listado>header{align-items:stretch;display:grid}.cob-local-form,.cob-busqueda{display:grid;grid-template-columns:1fr}.cob-motivo,.cob-skus-campo{grid-column:auto}.cob-skus-lista{grid-template-columns:1fr}}
 .cob-filtros{grid-template-columns:minmax(250px,1.5fr) repeat(4,minmax(105px,.65fr))}
@@ -437,4 +392,5 @@ const css = `
 @media(max-width:700px){.cob-filtros{grid-template-columns:1fr 1fr}.cob-filtros label{grid-column:1/-1}.cob-barra-admin{align-items:stretch;display:grid}.cob-barra-admin nav{justify-content:flex-start}.cob-matriz-filtros{grid-template-columns:1fr}.cob-history span{grid-template-columns:1fr;gap:3px}.cob-import-preview{grid-template-columns:1fr}.cob-local-form{grid-template-columns:1fr}.cob-detalle{width:100vw}.cob-matriz-panel>footer{gap:8px;flex-wrap:wrap}}
 .cob-error-modal{margin-bottom:12px}
 .cob-candidatos{display:grid;gap:10px;padding:0 14px 14px;border-top:1px solid #eee4de}.cob-candidatos-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding-top:13px}.cob-candidatos-head strong,.cob-candidatos-head small{display:block}.cob-candidatos-head strong{color:#8f1d24}.cob-candidatos-head small{margin-top:3px;color:#81736d;font-size:10px}.cob-candidatos-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:7px;max-height:240px;overflow:auto}.cob-candidatos-lista label{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:center;padding:10px;border:1px solid #e3d8d2;border-radius:10px;background:#fbfaf9;cursor:pointer}.cob-candidatos-lista label.seleccionado{border-color:#e7a45a;background:#fff8ee}.cob-candidatos-lista input{width:18px;height:18px;accent-color:#991f28}.cob-candidatos-lista strong,.cob-candidatos-lista small{display:block}.cob-candidatos-lista strong{color:#513d38;font-size:10px}.cob-candidatos-lista small{margin-top:3px;color:#8a7c76;font-size:8px}.cob-candidatos footer{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#81736d;font-size:9px}
+.cobertura-kam select.cob-celda-select{width:112px;min-width:112px;height:34px;padding:4px 22px 4px 7px;border:0;border-radius:8px;font-size:8px;font-weight:900;text-transform:uppercase;cursor:pointer}.cobertura-kam select.cob-celda-select.activa{color:#147542;background:#e8f7ee}.cobertura-kam select.cob-celda-select.sin-cobertura{color:#877a74;background:#f0ece9}.cobertura-kam select.cob-celda-select.pendiente{color:#a65f08;background:#fff1da}.cobertura-kam select.cob-celda-select.alerta,.cobertura-kam select.cob-celda-select.inactiva{color:#a8252e;background:#fdebed}.cobertura-kam select.cob-celda-select:disabled{opacity:.62;cursor:wait}
 `
