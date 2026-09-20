@@ -218,6 +218,18 @@ export type CatalogoConfiguracionKpiKamDb = {
   clientes: ClienteConfiguracionKpiKamDb[]
 }
 
+export type PropuestaPresupuestoKpiKamDb = {
+  cliente_id: string
+  periodo_desde: string
+  periodo_hasta: string
+  meses_base: number
+  meses_con_ventas: number
+  venta_facturada_promedio: number
+  devoluciones_promedio: number
+  ajustes_promedio: number
+  venta_neta_promedio: number
+}
+
 export async function obtenerCatalogoConfiguracionKpiKamDb(periodo: string) {
   const { data, error } = await supabase.rpc(
     "com_kpi_kam_catalogo_configuracion",
@@ -236,6 +248,33 @@ export async function obtenerCatalogoConfiguracionKpiKamDb(periodo: string) {
     usuarios: Array.isArray(catalogo.usuarios) ? catalogo.usuarios : [],
     clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
   } satisfies CatalogoConfiguracionKpiKamDb
+}
+
+export async function obtenerPropuestaPresupuestoKpiKamDb(periodo: string) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_propuesta_presupuesto",
+    { p_periodo: `${periodo.slice(0, 7)}-01` },
+  )
+
+  if (error) {
+    throw new Error(
+      `No se pudo calcular la propuesta de presupuesto: ${error.message}`,
+    )
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map(
+    (fila): PropuestaPresupuestoKpiKamDb => ({
+      cliente_id: String(fila.cliente_id ?? ""),
+      periodo_desde: String(fila.periodo_desde ?? ""),
+      periodo_hasta: String(fila.periodo_hasta ?? ""),
+      meses_base: Number(fila.meses_base ?? 0),
+      meses_con_ventas: Number(fila.meses_con_ventas ?? 0),
+      venta_facturada_promedio: Number(fila.venta_facturada_promedio ?? 0),
+      devoluciones_promedio: Number(fila.devoluciones_promedio ?? 0),
+      ajustes_promedio: Number(fila.ajustes_promedio ?? 0),
+      venta_neta_promedio: Number(fila.venta_neta_promedio ?? 0),
+    }),
+  )
 }
 
 export async function habilitarUsuarioKpiKamDb(userId: string) {
