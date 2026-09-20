@@ -188,18 +188,93 @@ export type KamKpiDb = {
 }
 
 export async function obtenerKamsKpiDb() {
-  const { data, error } = await supabase
-    .from("app_profiles")
-    .select("user_id,nombre,email")
-    .eq("rol", "KAM")
-    .eq("activo", true)
-    .order("nombre")
+  const { data, error } = await supabase.rpc("com_kpi_kam_responsables")
 
   if (error) {
     throw new Error(`No se pudieron cargar los KAM: ${error.message}`)
   }
 
   return (data ?? []) as KamKpiDb[]
+}
+
+export type UsuarioConfiguracionKpiKamDb = {
+  user_id: string
+  nombre: string | null
+  email: string
+  rol: string
+}
+
+export type ClienteConfiguracionKpiKamDb = {
+  cliente_id: string
+  cliente_nombre: string
+  kam_user_id: string | null
+  kam_nombre: string | null
+  presupuesto: number | null
+}
+
+export type CatalogoConfiguracionKpiKamDb = {
+  puede_configurar: boolean
+  usuarios: UsuarioConfiguracionKpiKamDb[]
+  clientes: ClienteConfiguracionKpiKamDb[]
+}
+
+export async function obtenerCatalogoConfiguracionKpiKamDb(periodo: string) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_catalogo_configuracion",
+    { p_periodo: `${periodo.slice(0, 7)}-01` },
+  )
+
+  if (error) {
+    throw new Error(
+      `No se pudo cargar la configuración KPI KAM: ${error.message}`,
+    )
+  }
+
+  const catalogo = (data ?? {}) as Partial<CatalogoConfiguracionKpiKamDb>
+  return {
+    puede_configurar: Boolean(catalogo.puede_configurar),
+    usuarios: Array.isArray(catalogo.usuarios) ? catalogo.usuarios : [],
+    clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
+  } satisfies CatalogoConfiguracionKpiKamDb
+}
+
+export async function habilitarUsuarioKpiKamDb(userId: string) {
+  const { error } = await supabase.rpc("com_kpi_kam_habilitar_usuario", {
+    p_user_id: userId,
+  })
+  if (error) {
+    throw new Error(`No se pudo habilitar el usuario KAM: ${error.message}`)
+  }
+}
+
+export async function guardarAsignacionKpiKamDb(datos: {
+  periodo: string
+  clienteId: string
+  kamUserId: string | null
+}) {
+  const { error } = await supabase.rpc("com_kpi_kam_guardar_asignacion", {
+    p_periodo: `${datos.periodo.slice(0, 7)}-01`,
+    p_cliente_id: datos.clienteId,
+    p_kam_user_id: datos.kamUserId,
+  })
+  if (error) {
+    throw new Error(`No se pudo guardar el responsable: ${error.message}`)
+  }
+}
+
+export async function guardarPresupuestoKpiKamDb(datos: {
+  periodo: string
+  clienteId: string
+  presupuesto: number
+}) {
+  const { error } = await supabase.rpc("com_kpi_kam_guardar_presupuesto", {
+    p_periodo: `${datos.periodo.slice(0, 7)}-01`,
+    p_cliente_id: datos.clienteId,
+    p_presupuesto: datos.presupuesto,
+  })
+  if (error) {
+    throw new Error(`No se pudo guardar el presupuesto: ${error.message}`)
+  }
 }
 
 export type ClienteKamDb = {
