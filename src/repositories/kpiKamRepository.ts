@@ -372,18 +372,44 @@ export type CatalogoCoberturaKpiKamDb = {
     skus_no_encontrados: string[]
     creado_en: string
   }>
+  candidatos_locales: CandidatoLocalKpiKamDb[]
+}
+
+export type CandidatoLocalKpiKamDb = {
+  clave: string
+  tipo: "BODEGA" | "DOCUMENTO"
+  referencia_id: string
+  codigo_sugerido: string
+  nombre: string
+  origen: string
 }
 
 export async function obtenerCatalogoCoberturaKpiKamDb(
   clienteId: string | null,
   fecha: string,
 ) {
-  const { data, error } = await supabase.rpc(
-    "com_kpi_kam_catalogo_cobertura",
-    { p_cliente_id: clienteId, p_fecha: fecha },
-  )
+  const [{ data, error }, candidatosResultado] = await Promise.all([
+    supabase.rpc(
+      "com_kpi_kam_catalogo_cobertura",
+      { p_cliente_id: clienteId, p_fecha: fecha },
+    ),
+    clienteId
+      ? supabase.rpc("com_kpi_kam_candidatos_locales", {
+          p_cliente_id: clienteId,
+        })
+      : Promise.resolve({ data: [], error: null }),
+  ])
   if (error) {
     throw new Error(`No se pudo cargar la cobertura: ${error.message}`)
+  }
+
+  const candidatosNoDisponibles = candidatosResultado.error?.message
+    .toLocaleLowerCase("es")
+    .includes("com_kpi_kam_candidatos_locales")
+  if (candidatosResultado.error && !candidatosNoDisponibles) {
+    throw new Error(
+      `No se pudieron cargar los locales existentes: ${candidatosResultado.error.message}`,
+    )
   }
 
   const catalogo = (data ?? {}) as Partial<CatalogoCoberturaKpiKamDb>
@@ -396,6 +422,9 @@ export async function obtenerCatalogoCoberturaKpiKamDb(
     productos: Array.isArray(catalogo.productos) ? catalogo.productos : [],
     posiciones: Array.isArray(catalogo.posiciones) ? catalogo.posiciones : [],
     importaciones: Array.isArray(catalogo.importaciones) ? catalogo.importaciones : [],
+    candidatos_locales: Array.isArray(candidatosResultado.data)
+      ? candidatosResultado.data as CandidatoLocalKpiKamDb[]
+      : [],
   } satisfies CatalogoCoberturaKpiKamDb
 }
 
@@ -416,6 +445,33 @@ export async function guardarLocalMonitoreadoKpiKamDb(datos: {
     throw new Error(`No se pudo guardar el local: ${error.message}`)
   }
   return String(data ?? "")
+}
+
+export async function incorporarLocalesExistentesKpiKamDb(datos: {
+  clienteId: string
+  candidatos: CandidatoLocalKpiKamDb[]
+}) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_incorporar_locales_existentes",
+    {
+      p_cliente_id: datos.clienteId,
+      p_candidatos: datos.candidatos.map((item) => ({
+        tipo: item.tipo,
+        referencia_id: item.referencia_id,
+      })),
+    },
+  )
+  if (error) {
+    throw new Error(`No se pudieron incorporar los locales: ${error.message}`)
+  }
+  const resultado = (data ?? {}) as {
+    incorporados?: number
+    ya_existian?: number
+  }
+  return {
+    incorporados: Number(resultado.incorporados ?? 0),
+    yaExistian: Number(resultado.ya_existian ?? 0),
+  }
 }
 
 export type ResultadoImportacionCoberturaKpiKamDb = {

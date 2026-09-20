@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   guardarCoberturaKpiKamDb,
   guardarLocalMonitoreadoKpiKamDb,
+  incorporarLocalesExistentesKpiKamDb,
   importarCoberturaFavoritaKpiKamDb,
   obtenerCatalogoCoberturaKpiKamDb,
   type CatalogoCoberturaKpiKamDb,
@@ -30,6 +31,7 @@ const VACIO: CatalogoCoberturaKpiKamDb = {
   productos: [],
   posiciones: [],
   importaciones: [],
+  candidatos_locales: [],
 }
 
 const ESTADOS: Array<{ valor: EstadoCoberturaKpiKamDb; etiqueta: string }> = [
@@ -59,6 +61,7 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
   const [motivo, setMotivo] = useState("")
   const [nuevoCodigo, setNuevoCodigo] = useState("")
   const [nuevoNombre, setNuevoNombre] = useState("")
+  const [candidatosSeleccionados, setCandidatosSeleccionados] = useState<string[]>([])
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoHash, setArchivoHash] = useState("")
   const [lectura, setLectura] = useState<ResultadoCoberturaFavoritaExcel | null>(null)
@@ -98,6 +101,7 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
     setFiltroMatriz("TODOS")
     setProductoFiltro("TODOS")
     setPanelAdmin("")
+    setCandidatosSeleccionados([])
     setArchivo(null)
     setArchivoHash("")
     setLectura(null)
@@ -214,6 +218,35 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
     } finally { setGuardando("") }
   }
 
+  async function incorporarLocalesExistentes() {
+    const seleccionados = catalogo.candidatos_locales.filter((item) =>
+      candidatosSeleccionados.includes(item.clave))
+    if (!clienteId || seleccionados.length === 0) {
+      return setError("Selecciona al menos un local existente.")
+    }
+    setGuardando("EXISTENTES")
+    setError("")
+    setMensaje("")
+    try {
+      const resultado = await incorporarLocalesExistentesKpiKamDb({
+        clienteId,
+        candidatos: seleccionados,
+      })
+      setCandidatosSeleccionados([])
+      setMensaje(`${resultado.incorporados} locales incorporados al seguimiento.${resultado.yaExistian > 0 ? ` ${resultado.yaExistian} ya estaban registrados.` : ""}`)
+      await cargar()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron incorporar los locales.")
+    } finally { setGuardando("") }
+  }
+
+  function alternarCandidato(clave: string) {
+    setCandidatosSeleccionados((actuales) =>
+      actuales.includes(clave)
+        ? actuales.filter((item) => item !== clave)
+        : [...actuales, clave])
+  }
+
   async function seleccionarArchivo(evento: React.ChangeEvent<HTMLInputElement>) {
     const seleccionado = evento.target.files?.[0] ?? null
     evento.target.value = ""
@@ -306,6 +339,11 @@ export default function KpiKamCobertura({ periodo, cambiarPeriodo, onActualizado
         </section>}
         {panelAdmin === "LOCAL" && catalogo.puede_gestionar_locales && <section className="cob-panel cob-panel-compacto">
           <header><div><span>LOCALES MONITOREADOS</span><h3>Agregar una nueva sucursal</h3><p>Usa el código que aparecerá al inicio de UNIDAD_OPERATIVA en los reportes futuros.</p></div><div className="cob-local-form"><input value={nuevoCodigo} onChange={(event) => setNuevoCodigo(event.target.value)} placeholder="Código, ej. 718" /><input value={nuevoNombre} onChange={(event) => setNuevoNombre(event.target.value)} placeholder="Nombre del local" /><button type="button" onClick={() => void guardarLocal()} disabled={Boolean(guardando)}>{guardando === "LOCAL" ? "Guardando…" : "Agregar local"}</button></div></header>
+          {catalogo.candidatos_locales.length > 0 && <div className="cob-candidatos">
+            <div className="cob-candidatos-head"><div><strong>Traer locales existentes</strong><small>Encontrados en el catálogo operativo y en documentos ya importados. Selecciona únicamente los que se van a monitorear.</small></div><button className="secundario" type="button" onClick={() => setCandidatosSeleccionados(candidatosSeleccionados.length === catalogo.candidatos_locales.length ? [] : catalogo.candidatos_locales.map((item) => item.clave))}>{candidatosSeleccionados.length === catalogo.candidatos_locales.length ? "Quitar selección" : "Seleccionar todos"}</button></div>
+            <div className="cob-candidatos-lista">{catalogo.candidatos_locales.map((item) => <label key={item.clave} className={candidatosSeleccionados.includes(item.clave) ? "seleccionado" : ""}><input type="checkbox" checked={candidatosSeleccionados.includes(item.clave)} onChange={() => alternarCandidato(item.clave)} /><span><strong>{item.nombre}</strong><small>{item.origen} · {item.codigo_sugerido}</small></span></label>)}</div>
+            <footer><span>{candidatosSeleccionados.length} de {catalogo.candidatos_locales.length} seleccionados</span><button type="button" disabled={Boolean(guardando) || candidatosSeleccionados.length === 0} onClick={() => void incorporarLocalesExistentes()}>{guardando === "EXISTENTES" ? "Incorporando…" : "Incorporar seleccionados"}</button></footer>
+          </div>}
         </section>}
         {panelAdmin === "HISTORIAL" && <section className="cob-panel cob-panel-compacto">
           <header><div><span>HISTORIAL</span><h3>Últimas importaciones</h3><p>Trazabilidad de los archivos que alimentaron la matriz.</p></div></header>
@@ -398,4 +436,5 @@ const css = `
 @media(max-width:1100px){.cob-filtros{grid-template-columns:1.5fr repeat(2,1fr)}.cob-matriz-head{align-items:stretch;display:grid}.cob-matriz-filtros{display:grid;grid-template-columns:1fr 1fr 1fr}.cob-matriz-filtros input,.cob-matriz-filtros select{max-width:none;min-width:0}}
 @media(max-width:700px){.cob-filtros{grid-template-columns:1fr 1fr}.cob-filtros label{grid-column:1/-1}.cob-barra-admin{align-items:stretch;display:grid}.cob-barra-admin nav{justify-content:flex-start}.cob-matriz-filtros{grid-template-columns:1fr}.cob-history span{grid-template-columns:1fr;gap:3px}.cob-import-preview{grid-template-columns:1fr}.cob-local-form{grid-template-columns:1fr}.cob-detalle{width:100vw}.cob-matriz-panel>footer{gap:8px;flex-wrap:wrap}}
 .cob-error-modal{margin-bottom:12px}
+.cob-candidatos{display:grid;gap:10px;padding:0 14px 14px;border-top:1px solid #eee4de}.cob-candidatos-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding-top:13px}.cob-candidatos-head strong,.cob-candidatos-head small{display:block}.cob-candidatos-head strong{color:#8f1d24}.cob-candidatos-head small{margin-top:3px;color:#81736d;font-size:10px}.cob-candidatos-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:7px;max-height:240px;overflow:auto}.cob-candidatos-lista label{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:center;padding:10px;border:1px solid #e3d8d2;border-radius:10px;background:#fbfaf9;cursor:pointer}.cob-candidatos-lista label.seleccionado{border-color:#e7a45a;background:#fff8ee}.cob-candidatos-lista input{width:18px;height:18px;accent-color:#991f28}.cob-candidatos-lista strong,.cob-candidatos-lista small{display:block}.cob-candidatos-lista strong{color:#513d38;font-size:10px}.cob-candidatos-lista small{margin-top:3px;color:#8a7c76;font-size:8px}.cob-candidatos footer{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#81736d;font-size:9px}
 `
