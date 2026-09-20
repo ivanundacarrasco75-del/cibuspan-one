@@ -316,6 +316,95 @@ export async function guardarPresupuestoKpiKamDb(datos: {
   }
 }
 
+export type EstadoCoberturaKpiKamDb =
+  | "ACTIVO"
+  | "DESCODIFICADO"
+  | "SUSPENDIDO"
+  | "NO_AUTORIZADO"
+  | "PENDIENTE"
+  | "INACTIVO"
+
+export type CatalogoCoberturaKpiKamDb = {
+  puede_configurar: boolean
+  clientes: Array<{ id: string; nombre: string }>
+  locales: Array<{ id: string; nombre: string }>
+  productos: Array<{ id: string; codigo: string; nombre: string }>
+  posiciones: Array<{
+    id: string
+    cliente_id: string
+    local_id: string
+    local_nombre: string
+    producto_id: string
+    producto_codigo: string
+    producto_nombre: string
+    es_objetivo: boolean
+    estado: EstadoCoberturaKpiKamDb
+    vigente_desde: string
+    vigente_hasta: string | null
+    motivo: string | null
+  }>
+}
+
+export async function obtenerCatalogoCoberturaKpiKamDb(
+  clienteId: string | null,
+  fecha: string,
+) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_catalogo_cobertura",
+    { p_cliente_id: clienteId, p_fecha: fecha },
+  )
+  if (error) {
+    throw new Error(`No se pudo cargar la cobertura: ${error.message}`)
+  }
+
+  const catalogo = (data ?? {}) as Partial<CatalogoCoberturaKpiKamDb>
+  return {
+    puede_configurar: Boolean(catalogo.puede_configurar),
+    clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
+    locales: Array.isArray(catalogo.locales) ? catalogo.locales : [],
+    productos: Array.isArray(catalogo.productos) ? catalogo.productos : [],
+    posiciones: Array.isArray(catalogo.posiciones) ? catalogo.posiciones : [],
+  } satisfies CatalogoCoberturaKpiKamDb
+}
+
+export async function guardarCoberturaKpiKamDb(datos: {
+  clienteId: string
+  localId: string
+  productoId: string
+  esObjetivo: boolean
+  estado: EstadoCoberturaKpiKamDb
+  vigenteDesde: string
+  motivo: string | null
+}) {
+  const { data, error } = await supabase.rpc("com_kpi_kam_guardar_cobertura", {
+    p_cliente_id: datos.clienteId,
+    p_bodega_id: datos.localId,
+    p_producto_id: datos.productoId,
+    p_es_objetivo: datos.esObjetivo,
+    p_estado: datos.estado,
+    p_vigente_desde: datos.vigenteDesde,
+    p_motivo: datos.motivo,
+  })
+  if (error) {
+    throw new Error(`No se pudo guardar la cobertura: ${error.message}`)
+  }
+  return String(data ?? "")
+}
+
+export async function inicializarCoberturaKpiKamDb(
+  clienteId: string,
+  vigenteDesde: string,
+) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_inicializar_cobertura",
+    { p_cliente_id: clienteId, p_vigente_desde: vigenteDesde },
+  )
+  if (error) {
+    throw new Error(`No se pudo crear la matriz de cobertura: ${error.message}`)
+  }
+  return Number(data ?? 0)
+}
+
 export type ClienteKamDb = {
   id: string
   kam_user_id: string

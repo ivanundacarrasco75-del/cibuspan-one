@@ -6,6 +6,7 @@ import {
   useState,
 } from "react"
 import KpiKamConfiguracion from "../components/kpiKam/KpiKamConfiguracion"
+import KpiKamCobertura from "../components/kpiKam/KpiKamCobertura"
 import {
   obtenerBasesProvisionalesKpiKamDb,
   obtenerConfiguracionesKpiKamDb,
@@ -192,7 +193,7 @@ function avisosResultado(resultado: ResultadoKpiKam) {
 }
 
 export default function KpiKam() {
-  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION">("RESULTADOS")
+  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "COBERTURA">("RESULTADOS")
   const [periodo, setPeriodo] = useState(periodoActual())
   const [kamId, setKamId] = useState("TODOS")
   const [clienteId, setClienteId] = useState("TODOS")
@@ -325,12 +326,19 @@ export default function KpiKam() {
         <div className="kam-head-actions">
           <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Resultados</button>
           <button type="button" className={vista === "CONFIGURACION" ? "activo" : "secundario"} onClick={() => setVista("CONFIGURACION")}>Configurar</button>
+          <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Cobertura SKU-local</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
       </header>
 
       {vista === "CONFIGURACION" ? (
         <KpiKamConfiguracion
+          periodo={periodo}
+          cambiarPeriodo={setPeriodo}
+          onActualizado={() => setActualizacion((valor) => valor + 1)}
+        />
+      ) : vista === "COBERTURA" ? (
+        <KpiKamCobertura
           periodo={periodo}
           cambiarPeriodo={setPeriodo}
           onActualizado={() => setActualizacion((valor) => valor + 1)}
