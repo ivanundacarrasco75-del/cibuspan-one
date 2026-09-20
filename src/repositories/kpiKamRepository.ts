@@ -7,6 +7,7 @@ import {
   type RangoPuntuacionKpi,
   type ReglaCriticaKpi,
 } from "../types/kpiKam"
+import type { FilaCoberturaFavorita } from "../utils/coberturaFavoritaExcel"
 
 type BaseProvisionalDb = {
   periodo: string
@@ -326,13 +327,26 @@ export type EstadoCoberturaKpiKamDb =
 
 export type CatalogoCoberturaKpiKamDb = {
   puede_configurar: boolean
+  puede_importar: boolean
+  puede_gestionar_locales: boolean
   clientes: Array<{ id: string; nombre: string }>
-  locales: Array<{ id: string; nombre: string }>
-  productos: Array<{ id: string; codigo: string; nombre: string }>
+  locales: Array<{
+    id: string
+    codigo: string
+    nombre: string
+    activo: boolean
+  }>
+  productos: Array<{
+    id: string
+    codigo: string
+    nombre: string
+    autorizado: boolean
+  }>
   posiciones: Array<{
     id: string
     cliente_id: string
     local_id: string
+    local_codigo: string
     local_nombre: string
     producto_id: string
     producto_codigo: string
@@ -342,6 +356,21 @@ export type CatalogoCoberturaKpiKamDb = {
     vigente_desde: string
     vigente_hasta: string | null
     motivo: string | null
+    origen: "MANUAL" | "FAVORITA_REPORTE" | "OPORTUNIDAD"
+    reportado_ultimo: boolean | null
+    ultima_fecha_reporte: string | null
+    confirmado_en: string | null
+  }>
+  importaciones: Array<{
+    id: string
+    archivo_nombre: string
+    fecha_reporte: string
+    tipo: "INICIAL_QUITO" | "SEGUIMIENTO"
+    locales_archivo: number
+    posiciones_importadas: number
+    locales_ignorados: number
+    skus_no_encontrados: string[]
+    creado_en: string
   }>
 }
 
@@ -360,11 +389,75 @@ export async function obtenerCatalogoCoberturaKpiKamDb(
   const catalogo = (data ?? {}) as Partial<CatalogoCoberturaKpiKamDb>
   return {
     puede_configurar: Boolean(catalogo.puede_configurar),
+    puede_importar: Boolean(catalogo.puede_importar),
+    puede_gestionar_locales: Boolean(catalogo.puede_gestionar_locales),
     clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
     locales: Array.isArray(catalogo.locales) ? catalogo.locales : [],
     productos: Array.isArray(catalogo.productos) ? catalogo.productos : [],
     posiciones: Array.isArray(catalogo.posiciones) ? catalogo.posiciones : [],
+    importaciones: Array.isArray(catalogo.importaciones) ? catalogo.importaciones : [],
   } satisfies CatalogoCoberturaKpiKamDb
+}
+
+export async function guardarLocalMonitoreadoKpiKamDb(datos: {
+  clienteId: string
+  codigo: string
+  nombre: string
+}) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_guardar_local_monitoreado",
+    {
+      p_cliente_id: datos.clienteId,
+      p_codigo_externo: datos.codigo,
+      p_nombre: datos.nombre,
+    },
+  )
+  if (error) {
+    throw new Error(`No se pudo guardar el local: ${error.message}`)
+  }
+  return String(data ?? "")
+}
+
+export type ResultadoImportacionCoberturaKpiKamDb = {
+  importacion_id: string
+  locales_monitoreados: number
+  posiciones_importadas: number
+  locales_ignorados: number
+  skus_no_encontrados: string[]
+}
+
+export async function importarCoberturaFavoritaKpiKamDb(datos: {
+  clienteId: string
+  archivoNombre: string
+  archivoHash: string
+  fechaReporte: string
+  inicialQuito: boolean
+  filas: FilaCoberturaFavorita[]
+}) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_importar_alcance_favorita",
+    {
+      p_cliente_id: datos.clienteId,
+      p_archivo_nombre: datos.archivoNombre,
+      p_archivo_hash: datos.archivoHash,
+      p_fecha_reporte: datos.fechaReporte,
+      p_inicial_quito: datos.inicialQuito,
+      p_filas: datos.filas,
+    },
+  )
+  if (error) {
+    throw new Error(`No se pudo importar el reporte: ${error.message}`)
+  }
+  const resultado = (data ?? {}) as Partial<ResultadoImportacionCoberturaKpiKamDb>
+  return {
+    importacion_id: String(resultado.importacion_id ?? ""),
+    locales_monitoreados: Number(resultado.locales_monitoreados ?? 0),
+    posiciones_importadas: Number(resultado.posiciones_importadas ?? 0),
+    locales_ignorados: Number(resultado.locales_ignorados ?? 0),
+    skus_no_encontrados: Array.isArray(resultado.skus_no_encontrados)
+      ? resultado.skus_no_encontrados.map(String)
+      : [],
+  } satisfies ResultadoImportacionCoberturaKpiKamDb
 }
 
 export async function guardarCoberturaKpiKamDb(datos: {
@@ -389,20 +482,6 @@ export async function guardarCoberturaKpiKamDb(datos: {
     throw new Error(`No se pudo guardar la cobertura: ${error.message}`)
   }
   return String(data ?? "")
-}
-
-export async function inicializarCoberturaKpiKamDb(
-  clienteId: string,
-  vigenteDesde: string,
-) {
-  const { data, error } = await supabase.rpc(
-    "com_kpi_kam_inicializar_cobertura",
-    { p_cliente_id: clienteId, p_vigente_desde: vigenteDesde },
-  )
-  if (error) {
-    throw new Error(`No se pudo crear la matriz de cobertura: ${error.message}`)
-  }
-  return Number(data ?? 0)
 }
 
 export type ClienteKamDb = {
