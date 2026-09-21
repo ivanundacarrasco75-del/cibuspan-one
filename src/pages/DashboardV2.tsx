@@ -3,6 +3,7 @@ import DashboardDevolucionesPanel from "../components/dashboard/DashboardDevoluc
 import DashboardPilotoPanel from "../components/dashboard/DashboardPilotoPanel"
 import DashboardRentabilidadPilotoPanel from "../components/dashboard/DashboardRentabilidadPilotoPanel"
 import DashboardCostosGastosPanel from "../components/dashboard/DashboardCostosGastosPanel"
+import KpiKam from "./KpiKam"
 import { supabase } from "../lib/supabase"
 import {
   obtenerDetallesPedidosPorIdsDb,
@@ -212,6 +213,7 @@ type TabId =
   | "financiero"
   | "costos_gastos"
   | "rentabilidad_piloto"
+  | "kpi_kam"
   | "piloto"
 
 type AgrupacionDashboard =
@@ -270,6 +272,7 @@ const TABS: { id: TabId; etiqueta: string; icono: string }[] = [
   { id: "financiero", etiqueta: "Financiero", icono: "$" },
   { id: "costos_gastos", etiqueta: "Costos y gastos", icono: "▤" },
   { id: "rentabilidad_piloto", etiqueta: "Rentabilidad piloto", icono: "%" },
+  { id: "kpi_kam", etiqueta: "KPI KAM", icono: "◎" },
 ]
 
 const VINO = "#8F1D24"
@@ -363,6 +366,7 @@ export default function DashboardV2({
   const [avisoFinanciero, setAvisoFinanciero] = useState("")
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
+  const [actualizacionKpiKam, setActualizacionKpiKam] = useState(0)
   const solicitudCargaRef = useRef(0)
 
   const hoy = fechaIsoLocal(new Date())
@@ -1483,6 +1487,10 @@ export default function DashboardV2({
               window.dispatchEvent(new Event("cibuspan-costos-refresh"))
               return
             }
+            if (tabActiva === "kpi_kam") {
+              setActualizacionKpiKam((valor) => valor + 1)
+              return
+            }
             void cargar(fechaDesde, fechaHasta, tabActiva, true)
           }}
           disabled={cargando}
@@ -1506,7 +1514,7 @@ export default function DashboardV2({
         ))}
       </nav>
 
-      {tabActiva !== "costos_gastos" && (
+      {tabActiva !== "costos_gastos" && tabActiva !== "kpi_kam" && (
       <section className="dashboard-period-filter">
         <div className="dashboard-period-buttons">
           <span>Vista por periodo</span>
@@ -1676,6 +1684,10 @@ export default function DashboardV2({
           costosSinAsignar={rentabilidadCalculo.costosSinAsignar}
           aviso={avisoRentabilidad}
         />
+      )}
+
+      {tabActiva === "kpi_kam" && (
+        <KpiKam integradoDashboard refreshToken={actualizacionKpiKam} />
       )}
     </main>
   )
