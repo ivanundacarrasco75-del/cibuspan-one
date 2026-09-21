@@ -77,6 +77,7 @@ async function consultarConfiguraciones(
   alcance: "GENERAL" | "CLIENTE",
   clienteId?: string,
 ) {
+  const desde = `${periodo.slice(0, 7)}-01`
   const hasta = fechaFinMes(periodo)
   let consulta = supabase
     .from("com_kpi_configuraciones")
@@ -101,7 +102,7 @@ async function consultarConfiguraciones(
     .eq("activo", true)
     .eq("alcance", alcance)
     .lte("vigente_desde", hasta)
-    .or(`vigente_hasta.is.null,vigente_hasta.gte.${periodo}`)
+    .or(`vigente_hasta.is.null,vigente_hasta.gte.${desde}`)
     .order("vigente_desde", { ascending: false })
 
   if (alcance === "CLIENTE") {
