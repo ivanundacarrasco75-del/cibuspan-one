@@ -220,6 +220,45 @@ export type CatalogoConfiguracionKpiKamDb = {
   clientes: ClienteConfiguracionKpiKamDb[]
 }
 
+export type EstadoCompromisoKpiKamDb =
+  | "PENDIENTE"
+  | "EN_GESTION"
+  | "CUMPLIDO"
+  | "VENCIDO"
+  | "CANCELADO"
+
+export type PrioridadCompromisoKpiKamDb = "BAJA" | "MEDIA" | "ALTA"
+
+export type ClienteCompromisoKpiKamDb = {
+  cliente_id: string
+  cliente_nombre: string
+  kam_user_id: string
+  kam_nombre: string | null
+}
+
+export type CompromisoKpiKamDb = {
+  id: string
+  descripcion: string
+  cliente_id: string
+  cliente_nombre: string
+  kam_user_id: string
+  kam_nombre: string | null
+  fecha_creacion: string
+  fecha_limite: string
+  estado: Exclude<EstadoCompromisoKpiKamDb, "VENCIDO">
+  estado_efectivo: EstadoCompromisoKpiKamDb
+  prioridad: PrioridadCompromisoKpiKamDb
+  fecha_cumplimiento: string | null
+  observaciones: string | null
+  motivo_cancelacion: string | null
+}
+
+export type CatalogoCompromisosKpiKamDb = {
+  puede_gestionar: boolean
+  clientes: ClienteCompromisoKpiKamDb[]
+  compromisos: CompromisoKpiKamDb[]
+}
+
 export type PropuestaPresupuestoKpiKamDb = {
   cliente_id: string
   periodo_desde: string
@@ -250,6 +289,76 @@ export async function obtenerCatalogoConfiguracionKpiKamDb(periodo: string) {
     usuarios: Array.isArray(catalogo.usuarios) ? catalogo.usuarios : [],
     clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
   } satisfies CatalogoConfiguracionKpiKamDb
+}
+
+export async function obtenerCatalogoCompromisosKpiKamDb(periodo: string) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_catalogo_compromisos",
+    { p_periodo: `${periodo.slice(0, 7)}-01` },
+  )
+
+  if (error) {
+    throw new Error(
+      `No se pudieron cargar los compromisos: ${error.message}`,
+    )
+  }
+
+  const catalogo = (data ?? {}) as Partial<CatalogoCompromisosKpiKamDb>
+  return {
+    puede_gestionar: Boolean(catalogo.puede_gestionar),
+    clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
+    compromisos: Array.isArray(catalogo.compromisos)
+      ? catalogo.compromisos
+      : [],
+  } satisfies CatalogoCompromisosKpiKamDb
+}
+
+export async function guardarCompromisoKpiKamDb(datos: {
+  id?: string | null
+  clienteId: string
+  descripcion: string
+  fechaLimite: string
+  prioridad: PrioridadCompromisoKpiKamDb
+  observaciones?: string | null
+}) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_guardar_compromiso",
+    {
+      p_id: datos.id ?? null,
+      p_cliente_id: datos.clienteId,
+      p_descripcion: datos.descripcion,
+      p_fecha_limite: datos.fechaLimite,
+      p_prioridad: datos.prioridad,
+      p_observaciones: datos.observaciones ?? null,
+    },
+  )
+
+  if (error) {
+    throw new Error(`No se pudo guardar el compromiso: ${error.message}`)
+  }
+  return String(data ?? "")
+}
+
+export async function actualizarEstadoCompromisoKpiKamDb(datos: {
+  id: string
+  estado: Exclude<EstadoCompromisoKpiKamDb, "VENCIDO">
+  motivoCancelacion?: string | null
+  fechaCumplimiento?: string | null
+}) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_actualizar_estado_compromiso",
+    {
+      p_id: datos.id,
+      p_estado: datos.estado,
+      p_motivo_cancelacion: datos.motivoCancelacion ?? null,
+      p_fecha_cumplimiento: datos.fechaCumplimiento ?? null,
+    },
+  )
+
+  if (error) {
+    throw new Error(`No se pudo actualizar el compromiso: ${error.message}`)
+  }
+  return String(data ?? "")
 }
 
 export async function obtenerPropuestaPresupuestoKpiKamDb(periodo: string) {
