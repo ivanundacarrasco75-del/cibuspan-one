@@ -52,6 +52,16 @@ const ETIQUETAS_CORTAS: Record<CodigoKpiKam, string> = {
   COMPROMISOS: "Compromisos",
 }
 
+const PESOS_KPI_KAM: Record<CodigoKpiKam, number> = {
+  VENTAS_PRESUPUESTO: 20,
+  MARGEN_CONTRIBUCION: 20,
+  DEVOLUCIONES: 15,
+  FUGAS_COMERCIALES: 15,
+  CRECIMIENTO_RENTABLE: 10,
+  COBERTURA_SKU: 10,
+  COMPROMISOS: 10,
+}
+
 function periodoActual() {
   const fecha = new Date()
   const anio = fecha.getFullYear()
@@ -188,7 +198,7 @@ function resumirResultados(resultados: ResultadoKpiKam[]) {
           valor: item.detalle.pesoConfigurado,
           peso: Math.max(0, item.resultado.ventaNeta),
         })),
-      ),
+      ) ?? PESOS_KPI_KAM[codigo],
       puntos: ponderar("puntos"),
       alertas: filas.reduce(
         (total, item) => total + item.detalle.alertas.length,
@@ -457,13 +467,13 @@ export default function KpiKam({
 
       {!error && !cargando && resultados.length === 0 && (
         <div className="kam-vacio">
-          <span>CONFIGURACIÓN PENDIENTE</span>
-          <h2>Aún no existen clientes asignados a un KAM para este periodo</h2>
-          <p>Primero se debe registrar el responsable de cada cliente. El tablero no mostrará cifras simuladas.</p>
+          <span>TABLERO LISTO PARA COMENZAR</span>
+          <h2>Los siete KPI todavía no tienen información calculable</h2>
+          <p>Las fichas permanecen visibles para trabajar cada indicador. Los resultados aparecerán automáticamente al completar sus fuentes.</p>
         </div>
       )}
 
-      {!error && resultados.length > 0 && (
+      {!error && !cargando && (
         <>
           <section className="kam-avance">
             <div className="kam-avance-intro">
@@ -498,7 +508,7 @@ export default function KpiKam({
             <div className="kam-score-estado">
               <span>Estado general</span>
               <strong>{resumen.clasificacion ?? "INCOMPLETO"}</strong>
-              <small>{resumen.completo ? "Las siete mediciones están disponibles." : `${incompletos.length} cliente(s) necesitan completar información.`}</small>
+              <small>{resumen.completo ? "Las siete mediciones están disponibles." : seleccionados.length === 0 ? "Aún no existen clientes con datos para este periodo." : `${incompletos.length} cliente(s) necesitan completar información.`}</small>
             </div>
             <div className="kam-score-cambio">
               <span>Variación mensual</span>
@@ -523,10 +533,10 @@ export default function KpiKam({
               return (
                 <article key={detalle.codigo} className={`kam-card ${detalle.estado.toLowerCase()} ${semaforoDetalle(detalle)}`}>
                   <header>
-                    <div><span>{detalle.nombre}</span><small>Peso {detalle.pesoConfigurado == null ? "—" : `${detalle.pesoConfigurado.toFixed(0)}%`} · {detalle.estado === "CALCULADO" ? "Completo" : detalle.estado === "NO_APLICA" ? "No aplica" : "Parcial"}</small></div>
+                    <div><span>{detalle.nombre}</span><small>Peso {detalle.pesoConfigurado == null ? "—" : `${detalle.pesoConfigurado.toFixed(0)}%`} · {detalle.estado === "CALCULADO" ? "Completo" : detalle.estado === "NO_APLICA" ? "No aplica" : detalle.valor == null ? "Sin datos" : "Parcial"}</small></div>
                     {detalle.alertas > 0 && <b>{detalle.alertas} alerta{detalle.alertas === 1 ? "" : "s"}</b>}
                   </header>
-                  <strong>{detalle.estado === "NO_APLICA" ? "N/A" : porcentaje(detalle.valor)}</strong>
+                  <strong>{detalle.estado === "NO_APLICA" ? "N/A" : detalle.valor == null ? "No disponible" : porcentaje(detalle.valor)}</strong>
                   <p>{baseDetalle(detalle)}</p>
                   <div className="kam-card-meta"><span>Meta {porcentaje(detalle.meta)}</span><b>{detalle.nota == null ? "Sin nota" : `${detalle.nota.toFixed(0)}/100`}</b><em>{detalle.puntos == null ? "—" : `${detalle.puntos.toFixed(1)} pts`}</em></div>
                   <div className="kam-card-barra"><i style={{ width: `${Math.max(0, Math.min(100, detalle.nota ?? 0))}%` }} /></div>
@@ -551,6 +561,7 @@ export default function KpiKam({
               <table>
                 <thead><tr><th>Cliente</th><th>Puntaje</th><th>Ventas</th><th>Margen</th><th>Devoluciones</th><th>Fugas</th><th>Crecimiento</th><th>Cobertura</th><th>Compromisos</th></tr></thead>
                 <tbody>
+                  {seleccionados.length === 0 && <tr><td colSpan={9} className="kam-tabla-vacia">Aún no existen resultados por cliente para este periodo.</td></tr>}
                   {seleccionados.map((resultado) => {
                     const detalle = new Map(resultado.detalles.map((item) => [item.codigo, item]))
                     return (
@@ -611,4 +622,5 @@ const css = `
 @media(max-width:1100px){.kam-avance{grid-template-columns:1fr 1fr 1fr}.kam-avance-intro{grid-column:1/-1}.kam-avance-dato:first-of-type{border-left:0}}
 @media(max-width:720px){.kam-avance{grid-template-columns:1fr}.kam-avance-intro{grid-column:auto}.kam-avance-dato{border-left:0;border-top:1px solid #eee5e0}.kam-cards{grid-template-columns:1fr}}
 .kam-page.kam-page-integrado{max-width:none;padding:4px 0 36px}.kam-page-integrado .kam-filtros{margin-top:0}
+.kam-card.incompleto>strong{color:#756964;font-size:23px}.kam-tabla-wrap td.kam-tabla-vacia{padding:28px;color:#817570;text-align:center;font-size:12px;cursor:default}
 `
