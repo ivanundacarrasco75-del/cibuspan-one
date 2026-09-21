@@ -1687,7 +1687,11 @@ export default function DashboardV2({
       )}
 
       {tabActiva === "kpi_kam" && (
-        <KpiKam integradoDashboard refreshToken={actualizacionKpiKam} />
+        <KpiKam
+          integradoDashboard
+          refreshToken={actualizacionKpiKam}
+          cambiarPantalla={cambiarPantalla}
+        />
       )}
     </main>
   )
