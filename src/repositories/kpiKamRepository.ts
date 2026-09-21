@@ -220,6 +220,25 @@ export type CatalogoConfiguracionKpiKamDb = {
   clientes: ClienteConfiguracionKpiKamDb[]
 }
 
+export type ParametroKpiKamDb = {
+  codigo: CodigoKpiKam
+  nombre: string
+  descripcion: string | null
+  aplica: boolean
+  peso: number
+  meta: number | null
+  rangos_puntuacion: RangoPuntuacionKpi[]
+  reglas_criticas: ReglaCriticaKpi[]
+  origen: "GENERAL" | "CLIENTE"
+  vigente_desde: string
+}
+
+export type CatalogoParametrosKpiKamDb = {
+  puede_configurar: boolean
+  clientes: Array<{ id: string; nombre: string }>
+  configuraciones: ParametroKpiKamDb[]
+}
+
 export type EstadoCompromisoKpiKamDb =
   | "PENDIENTE"
   | "EN_GESTION"
@@ -289,6 +308,77 @@ export async function obtenerCatalogoConfiguracionKpiKamDb(periodo: string) {
     usuarios: Array.isArray(catalogo.usuarios) ? catalogo.usuarios : [],
     clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
   } satisfies CatalogoConfiguracionKpiKamDb
+}
+
+export async function obtenerCatalogoParametrosKpiKamDb(
+  periodo: string,
+  clienteId?: string | null,
+) {
+  const { data, error } = await supabase.rpc(
+    "com_kpi_kam_catalogo_parametros",
+    {
+      p_periodo: `${periodo.slice(0, 7)}-01`,
+      p_cliente_id: clienteId ?? null,
+    },
+  )
+
+  if (error) {
+    throw new Error(`No se pudieron cargar las metas KPI: ${error.message}`)
+  }
+
+  const catalogo = (data ?? {}) as Partial<CatalogoParametrosKpiKamDb>
+  const configuraciones = Array.isArray(catalogo.configuraciones)
+    ? catalogo.configuraciones
+        .filter((fila) => esCodigoKpi(String(fila.codigo)))
+        .map((fila): ParametroKpiKamDb => ({
+          ...fila,
+          codigo: fila.codigo as CodigoKpiKam,
+          nombre: String(fila.nombre ?? fila.codigo),
+          descripcion: fila.descripcion == null
+            ? null
+            : String(fila.descripcion),
+          aplica: Boolean(fila.aplica),
+          peso: Number(fila.peso ?? 0),
+          meta: fila.meta == null ? null : Number(fila.meta),
+          rangos_puntuacion: Array.isArray(fila.rangos_puntuacion)
+            ? fila.rangos_puntuacion
+            : [],
+          reglas_criticas: Array.isArray(fila.reglas_criticas)
+            ? fila.reglas_criticas
+            : [],
+          origen: fila.origen === "CLIENTE" ? "CLIENTE" : "GENERAL",
+          vigente_desde: String(fila.vigente_desde ?? ""),
+        }))
+    : []
+
+  return {
+    puede_configurar: Boolean(catalogo.puede_configurar),
+    clientes: Array.isArray(catalogo.clientes) ? catalogo.clientes : [],
+    configuraciones,
+  } satisfies CatalogoParametrosKpiKamDb
+}
+
+export async function guardarParametrosKpiKamDb(datos: {
+  periodo: string
+  clienteId?: string | null
+  configuraciones: Array<{
+    codigo: CodigoKpiKam
+    aplica: boolean
+    peso: number
+    meta: number | null
+    rangos_puntuacion: RangoPuntuacionKpi[]
+    reglas_criticas: ReglaCriticaKpi[]
+  }>
+}) {
+  const { error } = await supabase.rpc("com_kpi_kam_guardar_parametros", {
+    p_periodo: `${datos.periodo.slice(0, 7)}-01`,
+    p_cliente_id: datos.clienteId ?? null,
+    p_configuraciones: datos.configuraciones,
+  })
+
+  if (error) {
+    throw new Error(`No se pudieron guardar las metas KPI: ${error.message}`)
+  }
 }
 
 export async function obtenerCatalogoCompromisosKpiKamDb(periodo: string) {
