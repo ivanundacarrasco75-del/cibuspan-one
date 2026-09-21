@@ -40,6 +40,7 @@ type ResumenDetalle = {
 type Props = {
   integradoDashboard?: boolean
   refreshToken?: number
+  cambiarPantalla?: (pantalla: string) => void
 }
 
 const ETIQUETAS_CORTAS: Record<CodigoKpiKam, string> = {
@@ -272,6 +273,7 @@ function avisosResultado(resultado: ResultadoKpiKam) {
 export default function KpiKam({
   integradoDashboard = false,
   refreshToken,
+  cambiarPantalla,
 }: Props = {}) {
   const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "COBERTURA">("RESULTADOS")
   const [periodo, setPeriodo] = useState(periodoActual())
@@ -405,6 +407,28 @@ export default function KpiKam({
     (kpisConResultado / CODIGOS_KPI_KAM.length) * 100,
   )
 
+  const volverResultados = () => setVista("RESULTADOS")
+
+  const abrirFuenteDatos = (codigo: CodigoKpiKam) => {
+    if (codigo === "VENTAS_PRESUPUESTO") {
+      setVista("CONFIGURACION")
+      return
+    }
+    if (codigo === "COBERTURA_SKU") {
+      setVista("COBERTURA")
+      return
+    }
+
+    const destino: Partial<Record<CodigoKpiKam, string>> = {
+      DEVOLUCIONES: "Comercial · Devoluciones",
+      FUGAS_COMERCIALES: "Comercial · Descuentos",
+      MARGEN_CONTRIBUCION: "Pagos y Finanzas · Rentabilidad",
+      CRECIMIENTO_RENTABLE: "Pagos y Finanzas · Rentabilidad",
+    }
+    const pantalla = destino[codigo]
+    if (pantalla && cambiarPantalla) cambiarPantalla(pantalla)
+  }
+
   return (
     <section className={`kam-page ${integradoDashboard ? "kam-page-integrado" : ""}`}>
       <style>{css}</style>
@@ -422,6 +446,13 @@ export default function KpiKam({
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
       </header>}
+
+      {integradoDashboard && vista !== "RESULTADOS" && (
+        <div className="kam-regreso-tablero">
+          <button type="button" onClick={volverResultados}>← Volver al tablero KPI KAM</button>
+          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : "Cobertura SKU-local"}</span>
+        </div>
+      )}
 
       {vista === "CONFIGURACION" ? (
         <KpiKamConfiguracion
@@ -531,7 +562,20 @@ export default function KpiKam({
                 ? null
                 : menorEsMejor ? cambio <= 0 : cambio >= 0
               return (
-                <article key={detalle.codigo} className={`kam-card ${detalle.estado.toLowerCase()} ${semaforoDetalle(detalle)}`}>
+                <article
+                  key={detalle.codigo}
+                  className={`kam-card ${detalle.estado.toLowerCase()} ${semaforoDetalle(detalle)} ${detalle.codigo === "COMPROMISOS" ? "sin-fuente" : "clicable"}`}
+                  role={detalle.codigo === "COMPROMISOS" ? undefined : "button"}
+                  tabIndex={detalle.codigo === "COMPROMISOS" ? undefined : 0}
+                  onClick={() => detalle.codigo !== "COMPROMISOS" && abrirFuenteDatos(detalle.codigo)}
+                  onKeyDown={(evento) => {
+                    if (detalle.codigo === "COMPROMISOS") return
+                    if (evento.key === "Enter" || evento.key === " ") {
+                      evento.preventDefault()
+                      abrirFuenteDatos(detalle.codigo)
+                    }
+                  }}
+                >
                   <header>
                     <div><span>{detalle.nombre}</span><small>Peso {detalle.pesoConfigurado == null ? "—" : `${detalle.pesoConfigurado.toFixed(0)}%`} · {detalle.estado === "CALCULADO" ? "Completo" : detalle.estado === "NO_APLICA" ? "No aplica" : detalle.valor == null ? "Sin datos" : "Parcial"}</small></div>
                     {detalle.alertas > 0 && <b>{detalle.alertas} alerta{detalle.alertas === 1 ? "" : "s"}</b>}
@@ -543,6 +587,7 @@ export default function KpiKam({
                   <small className={`kam-card-cambio ${mejora == null ? "neutral" : mejora ? "positivo" : "negativo"}`}>
                     {cambio == null ? detalle.motivo ?? "Sin comparación mensual" : `${cambio >= 0 ? "↑" : "↓"} ${Math.abs(cambio).toFixed(1)} pp vs mes anterior`}
                   </small>
+                  <span className="kam-card-accion">{detalle.codigo === "COMPROMISOS" ? "Formulario pendiente de implementar" : "Abrir fuente de datos →"}</span>
                 </article>
               )
             })}
@@ -556,7 +601,13 @@ export default function KpiKam({
           )}
 
           <section className="kam-tabla-panel">
-            <header><div><span>RESULTADO POR CLIENTE</span><h2>¿Dónde se concentra el desempeño?</h2></div><small>Selecciona una fila para revisar ese cliente.</small></header>
+            <header>
+              <div><span>RESULTADO POR CLIENTE</span><h2>¿Dónde se concentra el desempeño?</h2></div>
+              <div className="kam-tabla-acciones">
+                {clienteId !== "TODOS" && <button type="button" onClick={() => setClienteId("TODOS")}>← Volver a todos los clientes</button>}
+                <small>{clienteId === "TODOS" ? "Selecciona una fila para revisar ese cliente." : "Vista individual activa."}</small>
+              </div>
+            </header>
             <div className="kam-tabla-wrap">
               <table>
                 <thead><tr><th>Cliente</th><th>Puntaje</th><th>Ventas</th><th>Margen</th><th>Devoluciones</th><th>Fugas</th><th>Crecimiento</th><th>Cobertura</th><th>Compromisos</th></tr></thead>
@@ -623,4 +674,6 @@ const css = `
 @media(max-width:720px){.kam-avance{grid-template-columns:1fr}.kam-avance-intro{grid-column:auto}.kam-avance-dato{border-left:0;border-top:1px solid #eee5e0}.kam-cards{grid-template-columns:1fr}}
 .kam-page.kam-page-integrado{max-width:none;padding:4px 0 36px}.kam-page-integrado .kam-filtros{margin-top:0}
 .kam-card.incompleto>strong{color:#756964;font-size:23px}.kam-tabla-wrap td.kam-tabla-vacia{padding:28px;color:#817570;text-align:center;font-size:12px;cursor:default}
+.kam-regreso-tablero{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:12px 15px;border:1px solid #e6d9d2;border-radius:12px;background:#fff}.kam-regreso-tablero button,.kam-tabla-acciones button{border:1px solid #981f28;border-radius:9px;background:#981f28;color:#fff;padding:9px 13px;font-weight:900;cursor:pointer}.kam-regreso-tablero span{color:#746761;font-size:12px;font-weight:800}.kam-card.clicable{cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}.kam-card.clicable:hover,.kam-card.clicable:focus-visible{transform:translateY(-2px);border-color:#cdaaa8;box-shadow:0 8px 20px rgba(83,39,34,.12);outline:none}.kam-card-accion{display:block;margin-top:10px;padding-top:10px;border-top:1px solid #eee5e0;color:#981f28;font-size:11px;font-weight:900}.kam-card.sin-fuente .kam-card-accion{color:#8b7d77}.kam-tabla-acciones{display:flex;align-items:flex-end;gap:10px;flex-direction:column}.kam-tabla-acciones button{padding:8px 12px}.kam-tabla-acciones small{text-align:right}
+@media(max-width:720px){.kam-regreso-tablero{align-items:flex-start;flex-direction:column}.kam-regreso-tablero button{width:100%}.kam-tabla-acciones{align-items:stretch}.kam-tabla-acciones button{width:100%}.kam-tabla-acciones small{text-align:left}}
 `
