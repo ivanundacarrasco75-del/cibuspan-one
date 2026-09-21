@@ -191,10 +191,16 @@ function analizarFilaAdmisys2026(
 
   const cliente = textoRango(fila.items, 105, 239)
     .replace(fechaTexto, "")
+    .replace(sku, "")
+    .replace(/^Emisión\s+/i, "")
+    .replace(/\s+Fecha$/i, "")
     .replace(/\s+/g, " ")
     .trim()
 
-  const producto = textoRango(fila.items, 305, 419)
+  // Microsoft Print to PDF puede ubicar Nombre del Item en x=304.0.
+  // El límite anterior (305) dejaba el producto vacío y descartaba todas
+  // las filas aunque el resto de columnas fuera válido.
+  const producto = textoRango(fila.items, 299, 419)
     .replace(/\s+/g, " ")
     .trim()
 
@@ -368,3 +374,4 @@ export async function leerArchivoVentasPdf(
     advertencias,
   }
 }
+
