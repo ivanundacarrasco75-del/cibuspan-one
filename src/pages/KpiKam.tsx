@@ -8,6 +8,7 @@ import {
 import KpiKamConfiguracion from "../components/kpiKam/KpiKamConfiguracion"
 import KpiKamCobertura from "../components/kpiKam/KpiKamCobertura"
 import KpiKamCompromisos from "../components/kpiKam/KpiKamCompromisos"
+import KpiKamParametros from "../components/kpiKam/KpiKamParametros"
 import {
   obtenerBasesProvisionalesKpiKamDb,
   obtenerConfiguracionesKpiKamDb,
@@ -276,7 +277,7 @@ export default function KpiKam({
   refreshToken,
   cambiarPantalla,
 }: Props = {}) {
-  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "COBERTURA" | "COMPROMISOS">("RESULTADOS")
+  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COBERTURA" | "COMPROMISOS">("RESULTADOS")
   const [periodo, setPeriodo] = useState(periodoActual())
   const [kamId, setKamId] = useState("TODOS")
   const [clienteId, setClienteId] = useState("TODOS")
@@ -447,6 +448,7 @@ export default function KpiKam({
         <div className="kam-head-actions">
           <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Inicio</button>
           <button type="button" className={vista === "CONFIGURACION" ? "activo" : "secundario"} onClick={() => setVista("CONFIGURACION")}>Configurar</button>
+          <button type="button" className={vista === "PARAMETROS" ? "activo" : "secundario"} onClick={() => setVista("PARAMETROS")}>Metas y pesos</button>
           <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Cobertura SKU-local</button>
           <button type="button" className={vista === "COMPROMISOS" ? "activo" : "secundario"} onClick={() => setVista("COMPROMISOS")}>Compromisos</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
@@ -456,12 +458,18 @@ export default function KpiKam({
       {integradoDashboard && vista !== "RESULTADOS" && (
         <div className="kam-regreso-tablero">
           <button type="button" onClick={volverResultados}>← Volver al tablero KPI KAM</button>
-          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "COBERTURA" ? "Cobertura SKU-local" : "Compromisos comerciales"}</span>
+          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : vista === "COBERTURA" ? "Cobertura SKU-local" : "Compromisos comerciales"}</span>
         </div>
       )}
 
       {vista === "CONFIGURACION" ? (
         <KpiKamConfiguracion
+          periodo={periodo}
+          cambiarPeriodo={setPeriodo}
+          onActualizado={() => setActualizacion((valor) => valor + 1)}
+        />
+      ) : vista === "PARAMETROS" ? (
+        <KpiKamParametros
           periodo={periodo}
           cambiarPeriodo={setPeriodo}
           onActualizado={() => setActualizacion((valor) => valor + 1)}
