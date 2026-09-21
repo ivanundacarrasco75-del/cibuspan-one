@@ -37,6 +37,11 @@ type ResumenDetalle = {
   motivo: string | null
 }
 
+type Props = {
+  integradoDashboard?: boolean
+  refreshToken?: number
+}
+
 const ETIQUETAS_CORTAS: Record<CodigoKpiKam, string> = {
   VENTAS_PRESUPUESTO: "Ventas vs presupuesto",
   MARGEN_CONTRIBUCION: "Margen de contribución",
@@ -254,7 +259,10 @@ function avisosResultado(resultado: ResultadoKpiKam) {
   ]))
 }
 
-export default function KpiKam() {
+export default function KpiKam({
+  integradoDashboard = false,
+  refreshToken,
+}: Props = {}) {
   const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "COBERTURA">("RESULTADOS")
   const [periodo, setPeriodo] = useState(periodoActual())
   const [kamId, setKamId] = useState("TODOS")
@@ -264,7 +272,7 @@ export default function KpiKam() {
   const [resultadosAnteriores, setResultadosAnteriores] = useState<ResultadoKpiKam[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
-  const [actualizacion, setActualizacion] = useState(0)
+  const [actualizacion, setActualizacion] = useState(refreshToken ?? 0)
   const solicitudRef = useRef(0)
 
   const cargar = useCallback(async () => {
@@ -322,6 +330,11 @@ export default function KpiKam() {
   useEffect(() => {
     void cargar()
   }, [cargar, actualizacion])
+
+  useEffect(() => {
+    if (refreshToken == null) return
+    setActualizacion(refreshToken)
+  }, [refreshToken])
 
   const clientes = useMemo(
     () => resultados
@@ -383,10 +396,10 @@ export default function KpiKam() {
   )
 
   return (
-    <section className="kam-page">
+    <section className={`kam-page ${integradoDashboard ? "kam-page-integrado" : ""}`}>
       <style>{css}</style>
 
-      <header className="kam-head">
+      {!integradoDashboard && <header className="kam-head">
         <div>
           <span>COMERCIAL · GESTIÓN RENTABLE</span>
           <h1>KPI KAM</h1>
@@ -398,7 +411,7 @@ export default function KpiKam() {
           <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Cobertura SKU-local</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
-      </header>
+      </header>}
 
       {vista === "CONFIGURACION" ? (
         <KpiKamConfiguracion
@@ -597,4 +610,5 @@ const css = `
 .kam-cards{grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px}.kam-card{min-height:250px;padding:17px;border-top:5px solid #aaa}.kam-card.verde{border-top-color:#18864b}.kam-card.amarillo{border-top-color:#e59b16}.kam-card.rojo{border-top-color:#aa2630}.kam-card.incompleto{border-top-color:#9a8e88}.kam-card header div{display:grid;gap:5px}.kam-card header span{font-size:13px}.kam-card header small{color:#8b7d77;font-size:11px;font-weight:800}.kam-card>strong{margin:15px 0 6px;font-size:31px}.kam-card>p{min-height:34px;margin:0 0 12px;color:#6f625d;font-size:12px;line-height:1.4}.kam-card>.kam-card-meta{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding-top:10px;border-top:1px solid #eee5e0;color:#695c57;font-size:11px}.kam-card-meta em{font-style:normal;font-weight:900;color:#8f1d24}.kam-card>.kam-card-barra{display:block;height:7px;margin:10px 0 0;padding:0;border:0;border-radius:999px;background:#eee8e4;overflow:hidden}.kam-card-barra i{display:block;height:100%;border-radius:inherit;background:#9a8e88}.kam-card.verde .kam-card-barra i{background:#18864b}.kam-card.amarillo .kam-card-barra i{background:#e59b16}.kam-card.rojo .kam-card-barra i{background:#aa2630}.kam-card>.kam-card-cambio{display:block;margin-top:auto;padding-top:11px;font-size:11px;line-height:1.35}.kam-tabla-wrap table{min-width:1250px}
 @media(max-width:1100px){.kam-avance{grid-template-columns:1fr 1fr 1fr}.kam-avance-intro{grid-column:1/-1}.kam-avance-dato:first-of-type{border-left:0}}
 @media(max-width:720px){.kam-avance{grid-template-columns:1fr}.kam-avance-intro{grid-column:auto}.kam-avance-dato{border-left:0;border-top:1px solid #eee5e0}.kam-cards{grid-template-columns:1fr}}
+.kam-page.kam-page-integrado{max-width:none;padding:4px 0 36px}.kam-page-integrado .kam-filtros{margin-top:0}
 `
