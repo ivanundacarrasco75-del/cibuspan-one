@@ -465,7 +465,7 @@ export default function KpiKam({
 
       {error && <div className="kam-error"><strong>No se pudo calcular el tablero.</strong><span>{error}</span></div>}
 
-      {!error && !cargando && resultados.length === 0 && (
+      {!cargando && resultados.length === 0 && (
         <div className="kam-vacio">
           <span>TABLERO LISTO PARA COMENZAR</span>
           <h2>Los siete KPI todavía no tienen información calculable</h2>
@@ -473,7 +473,7 @@ export default function KpiKam({
         </div>
       )}
 
-      {!error && !cargando && (
+      {!cargando && (
         <>
           <section className="kam-avance">
             <div className="kam-avance-intro">
