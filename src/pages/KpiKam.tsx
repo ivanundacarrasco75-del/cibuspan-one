@@ -7,6 +7,7 @@ import {
 } from "react"
 import KpiKamConfiguracion from "../components/kpiKam/KpiKamConfiguracion"
 import KpiKamCobertura from "../components/kpiKam/KpiKamCobertura"
+import KpiKamCompromisos from "../components/kpiKam/KpiKamCompromisos"
 import {
   obtenerBasesProvisionalesKpiKamDb,
   obtenerConfiguracionesKpiKamDb,
@@ -275,7 +276,7 @@ export default function KpiKam({
   refreshToken,
   cambiarPantalla,
 }: Props = {}) {
-  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "COBERTURA">("RESULTADOS")
+  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "COBERTURA" | "COMPROMISOS">("RESULTADOS")
   const [periodo, setPeriodo] = useState(periodoActual())
   const [kamId, setKamId] = useState("TODOS")
   const [clienteId, setClienteId] = useState("TODOS")
@@ -418,6 +419,10 @@ export default function KpiKam({
       setVista("COBERTURA")
       return
     }
+    if (codigo === "COMPROMISOS") {
+      setVista("COMPROMISOS")
+      return
+    }
 
     const destino: Partial<Record<CodigoKpiKam, string>> = {
       DEVOLUCIONES: "Comercial · Devoluciones",
@@ -443,6 +448,7 @@ export default function KpiKam({
           <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Inicio</button>
           <button type="button" className={vista === "CONFIGURACION" ? "activo" : "secundario"} onClick={() => setVista("CONFIGURACION")}>Configurar</button>
           <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Cobertura SKU-local</button>
+          <button type="button" className={vista === "COMPROMISOS" ? "activo" : "secundario"} onClick={() => setVista("COMPROMISOS")}>Compromisos</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
       </header>}
@@ -450,7 +456,7 @@ export default function KpiKam({
       {integradoDashboard && vista !== "RESULTADOS" && (
         <div className="kam-regreso-tablero">
           <button type="button" onClick={volverResultados}>← Volver al tablero KPI KAM</button>
-          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : "Cobertura SKU-local"}</span>
+          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "COBERTURA" ? "Cobertura SKU-local" : "Compromisos comerciales"}</span>
         </div>
       )}
 
@@ -464,6 +470,13 @@ export default function KpiKam({
         <KpiKamCobertura
           periodo={periodo}
           cambiarPeriodo={setPeriodo}
+          onActualizado={() => setActualizacion((valor) => valor + 1)}
+        />
+      ) : vista === "COMPROMISOS" ? (
+        <KpiKamCompromisos
+          periodo={periodo}
+          cambiarPeriodo={setPeriodo}
+          clienteInicial={clienteId === "TODOS" ? null : clienteId}
           onActualizado={() => setActualizacion((valor) => valor + 1)}
         />
       ) : (
@@ -564,12 +577,11 @@ export default function KpiKam({
               return (
                 <article
                   key={detalle.codigo}
-                  className={`kam-card ${detalle.estado.toLowerCase()} ${semaforoDetalle(detalle)} ${detalle.codigo === "COMPROMISOS" ? "sin-fuente" : "clicable"}`}
-                  role={detalle.codigo === "COMPROMISOS" ? undefined : "button"}
-                  tabIndex={detalle.codigo === "COMPROMISOS" ? undefined : 0}
-                  onClick={() => detalle.codigo !== "COMPROMISOS" && abrirFuenteDatos(detalle.codigo)}
+                  className={`kam-card ${detalle.estado.toLowerCase()} ${semaforoDetalle(detalle)} clicable`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => abrirFuenteDatos(detalle.codigo)}
                   onKeyDown={(evento) => {
-                    if (detalle.codigo === "COMPROMISOS") return
                     if (evento.key === "Enter" || evento.key === " ") {
                       evento.preventDefault()
                       abrirFuenteDatos(detalle.codigo)
@@ -587,7 +599,7 @@ export default function KpiKam({
                   <small className={`kam-card-cambio ${mejora == null ? "neutral" : mejora ? "positivo" : "negativo"}`}>
                     {cambio == null ? detalle.motivo ?? "Sin comparación mensual" : `${cambio >= 0 ? "↑" : "↓"} ${Math.abs(cambio).toFixed(1)} pp vs mes anterior`}
                   </small>
-                  <span className="kam-card-accion">{detalle.codigo === "COMPROMISOS" ? "Formulario pendiente de implementar" : "Abrir fuente de datos →"}</span>
+                  <span className="kam-card-accion">Abrir fuente de datos →</span>
                 </article>
               )
             })}
