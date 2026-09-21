@@ -205,7 +205,7 @@ function App() {
 
       case "Comercial · KPI KAM":
       case "KPI KAM":
-        return <KpiKam />
+        return <KpiKam cambiarPantalla={setPantalla} />
 
       case "Comercial · SKU":
         return <PantallaEnConstruccion titulo={pantalla} />
