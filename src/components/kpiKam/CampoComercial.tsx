@@ -78,6 +78,7 @@ export default function CampoComercial({
   const [fotosPercha, setFotosPercha] = useState<File[]>([])
   const [rutasCapturas, setRutasCapturas] = useState<string[]>([])
   const [lectura, setLectura] = useState<LecturaFavorita>(LECTURA_VACIA)
+  const [lecturaConfirmada, setLecturaConfirmada] = useState(false)
   const [codificado, setCodificado] = useState<boolean | null>(null)
   const [presencia, setPresencia] = useState<PresenciaPercha>("NO_REVISADO")
   const [observaciones, setObservaciones] = useState("")
@@ -145,6 +146,7 @@ export default function CampoComercial({
     })
     setRutasCapturas([])
     setLectura(LECTURA_VACIA)
+    setLecturaConfirmada(false)
     setCodificado(null)
     setMensaje("")
     setError("")
@@ -154,6 +156,7 @@ export default function CampoComercial({
     setCapturas([])
     setRutasCapturas([])
     setLectura(LECTURA_VACIA)
+    setLecturaConfirmada(false)
     setCodificado(null)
     setMensaje("")
     setError("")
@@ -173,11 +176,16 @@ export default function CampoComercial({
         : await subirImagenesCampo(capturas, "captura")
       setRutasCapturas(rutas)
       const resultado = await analizarCapturasFavorita(rutas)
+      if (!lecturaTieneDatos(resultado)) {
+        throw new Error("No se reconocieron datos en las imágenes. Verifica que la función de lectura esté configurada y que las capturas sean legibles.")
+      }
       setLectura(resultado)
+      setLecturaConfirmada(true)
       setCodificado(true)
       sugerirLocalYProducto(resultado)
       setMensaje("Lectura terminada. Revisa los valores antes de guardar.")
     } catch (err) {
+      setLecturaConfirmada(false)
       setError(err instanceof Error ? err.message : "No se pudieron analizar las capturas.")
     } finally {
       setProcesando(false)
@@ -260,6 +268,7 @@ export default function CampoComercial({
       setFotosPercha([])
       setRutasCapturas([])
       setLectura(LECTURA_VACIA)
+      setLecturaConfirmada(false)
       setCodificado(null)
       setPresencia("NO_REVISADO")
       setObservaciones("")
@@ -320,9 +329,10 @@ export default function CampoComercial({
             </label>
             {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas}>Quitar imágenes</button></>}
             <button className="campo-principal" type="button" disabled={procesando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? "Leyendo capturas…" : "Leer información automáticamente"}</button>
+            {error && <div className="campo-error campo-error-lectura">{error}</div>}
           </section>
 
-          {rutasCapturas.length > 0 && <section className="campo-paso campo-revision">
+          {lecturaConfirmada && <section className="campo-paso campo-revision">
             <header><b>3</b><div><span>CONFIRMACIÓN</span><h3>Revisa y corrige antes de guardar</h3></div></header>
             {lectura.advertencias.length > 0 && <div className="campo-advertencia">{lectura.advertencias.join(" · ")}</div>}
             <div className="campo-grid campo-grid-2">
@@ -410,6 +420,17 @@ function normalizar(valor: string | null) {
 
 function normalizarCodigo(valor: string | null) {
   return (valor ?? "").replace(/[^0-9A-Z]/gi, "").toUpperCase()
+}
+
+function lecturaTieneDatos(lectura: LecturaFavorita) {
+  return Boolean(
+    lectura.local_nombre ||
+    lectura.codigo_barras ||
+    lectura.codigo_referencia ||
+    lectura.nombre_producto ||
+    lectura.rotacion_diaria_unidades != null ||
+    lectura.stock_local_unidades != null,
+  )
 }
 
 const css = `
