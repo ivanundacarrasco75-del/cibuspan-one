@@ -288,6 +288,9 @@ function App() {
       // ---------------------------------------------------------
       // PRODUCCIÓN
       // ---------------------------------------------------------
+      case "Producción · Pedidos":
+        return <PedidosV2 />
+
       case "Producción · Resumen":
       case "Producción · Planificación":
       case "Producción · Producción":

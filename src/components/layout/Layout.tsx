@@ -76,6 +76,7 @@ const modulos: Modulo[] = [
     entrada: "Producción · Resumen",
     items: [
       { pantalla: "Producción · Resumen", etiqueta: "Resumen" },
+      { pantalla: "Producción · Pedidos", etiqueta: "Pedidos" },
       { pantalla: "Producción · Planificación", etiqueta: "Planificación" },
       { pantalla: "Producción · Producción", etiqueta: "Producción" },
       { pantalla: "Producción · Fórmulas", etiqueta: "Fórmulas" },
