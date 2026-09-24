@@ -121,22 +121,12 @@ export async function subirImagenesCampo(
   }))
 }
 
-export async function analizarCapturasFavorita(rutas: string[]) {
-  const { data, error } = await supabase.functions.invoke<{
-    ok: boolean
-    data?: LecturaFavorita
-    error?: string
-  }>("analizar-visita-favorita", { body: { rutas } })
-  if (error) {
-    const contexto = (error as { context?: Response }).context
-    if (contexto) {
-      const body = await contexto.clone().json().catch(() => null) as { error?: string } | null
-      if (body?.error) throw new Error(body.error)
-    }
-    throw new Error(error.message || "No se pudieron analizar las capturas.")
-  }
-  if (!data?.ok || !data.data) throw new Error(data?.error || "La IA no devolvió una lectura válida.")
-  return data.data
+export async function analizarCapturasFavorita(
+  archivos: File[],
+  onProgreso?: (porcentaje: number, mensaje: string) => void,
+) {
+  const { leerCapturasFavoritaOcr } = await import("../utils/ocrFavorita")
+  return leerCapturasFavoritaOcr(archivos, onProgreso)
 }
 
 export type GuardarVisitaCampo = {

@@ -85,6 +85,7 @@ export default function CampoComercial({
   const [ubicacion, setUbicacion] = useState<{ latitud: number; longitud: number; precision: number } | null>(null)
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState(false)
+  const [progresoLectura, setProgresoLectura] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
@@ -168,6 +169,7 @@ export default function CampoComercial({
       return
     }
     setProcesando(true)
+    setProgresoLectura("Preparando lector gratuito…")
     setError("")
     setMensaje("")
     try {
@@ -175,9 +177,12 @@ export default function CampoComercial({
         ? rutasCapturas
         : await subirImagenesCampo(capturas, "captura")
       setRutasCapturas(rutas)
-      const resultado = await analizarCapturasFavorita(rutas)
+      const resultado = await analizarCapturasFavorita(
+        capturas,
+        (porcentaje, texto) => setProgresoLectura(`${texto} ${porcentaje}%`),
+      )
       if (!lecturaTieneDatos(resultado)) {
-        throw new Error("No se reconocieron datos en las imágenes. Verifica que la función de lectura esté configurada y que las capturas sean legibles.")
+        throw new Error("No se reconocieron datos en las imágenes. Verifica que las capturas estén completas y sean legibles.")
       }
       setLectura(resultado)
       setLecturaConfirmada(true)
@@ -189,6 +194,7 @@ export default function CampoComercial({
       setError(err instanceof Error ? err.message : "No se pudieron analizar las capturas.")
     } finally {
       setProcesando(false)
+      setProgresoLectura("")
     }
   }
 
@@ -328,7 +334,7 @@ export default function CampoComercial({
               <small>Incluye la cabecera y la parte inferior si la información ocupa dos pantallas.</small>
             </label>
             {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas}>Quitar imágenes</button></>}
-            <button className="campo-principal" type="button" disabled={procesando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? "Leyendo capturas…" : "Leer información automáticamente"}</button>
+            <button className="campo-principal" type="button" disabled={procesando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? progresoLectura || "Leyendo capturas…" : "Leer información automáticamente · sin costo"}</button>
             {error && <div className="campo-error campo-error-lectura">{error}</div>}
           </section>
 
