@@ -8,6 +8,11 @@ import {
   type LecturaFavorita,
   type PresenciaPercha,
 } from "../../repositories/campoComercialRepository"
+import {
+  guardarArchivosCampo,
+  leerArchivosCampo,
+  limpiarArchivosCampo,
+} from "../../utils/borradorCampoComercial"
 import KpiKamCobertura from "./KpiKamCobertura"
 
 type Props = {
@@ -61,6 +66,33 @@ const CATALOGO_VACIO: CatalogoCampoComercial = {
   registros: [],
 }
 
+type VistaCampo = "REGISTRO" | "DASHBOARD" | "ADMIN"
+
+type BorradorCampo = {
+  vista?: VistaCampo
+  clienteId?: string
+  localId?: string
+  productoId?: string
+  fechaVisita?: string
+  rutasCapturas?: string[]
+  lectura?: LecturaFavorita
+  lecturaConfirmada?: boolean
+  codificado?: boolean | null
+  presencia?: PresenciaPercha
+  observaciones?: string
+  ubicacion?: { latitud: number; longitud: number; precision: number } | null
+}
+
+const CLAVE_BORRADOR_CAMPO = "cibuspan-one:campo-comercial:borrador:v1"
+
+function leerBorradorCampo(): BorradorCampo {
+  try {
+    return JSON.parse(window.localStorage.getItem(CLAVE_BORRADOR_CAMPO) || "{}")
+  } catch {
+    return {}
+  }
+}
+
 export default function CampoComercial({
   periodo,
   cambiarPeriodo,
@@ -68,27 +100,79 @@ export default function CampoComercial({
   soloCampo = false,
 }: Props) {
   const semana = useMemo(() => semanaActual(), [])
-  const [vista, setVista] = useState<"REGISTRO" | "DASHBOARD" | "ADMIN">("REGISTRO")
+  const [borradorInicial] = useState<BorradorCampo>(leerBorradorCampo)
+  const [vista, setVista] = useState<VistaCampo>(borradorInicial.vista ?? "REGISTRO")
   const [catalogo, setCatalogo] = useState(CATALOGO_VACIO)
-  const [clienteId, setClienteId] = useState("")
-  const [localId, setLocalId] = useState("")
-  const [productoId, setProductoId] = useState("")
-  const [fechaVisita, setFechaVisita] = useState(fechaHoy())
+  const [clienteId, setClienteId] = useState(borradorInicial.clienteId ?? "")
+  const [localId, setLocalId] = useState(borradorInicial.localId ?? "")
+  const [productoId, setProductoId] = useState(borradorInicial.productoId ?? "")
+  const [fechaVisita, setFechaVisita] = useState(borradorInicial.fechaVisita ?? fechaHoy())
   const [capturas, setCapturas] = useState<File[]>([])
   const [fotosPercha, setFotosPercha] = useState<File[]>([])
-  const [rutasCapturas, setRutasCapturas] = useState<string[]>([])
-  const [lectura, setLectura] = useState<LecturaFavorita>(LECTURA_VACIA)
-  const [lecturaConfirmada, setLecturaConfirmada] = useState(false)
-  const [codificado, setCodificado] = useState<boolean | null>(null)
-  const [presencia, setPresencia] = useState<PresenciaPercha>("NO_REVISADO")
-  const [observaciones, setObservaciones] = useState("")
-  const [ubicacion, setUbicacion] = useState<{ latitud: number; longitud: number; precision: number } | null>(null)
+  const [rutasCapturas, setRutasCapturas] = useState<string[]>(borradorInicial.rutasCapturas ?? [])
+  const [lectura, setLectura] = useState<LecturaFavorita>({
+    ...LECTURA_VACIA,
+    ...borradorInicial.lectura,
+  })
+  const [lecturaConfirmada, setLecturaConfirmada] = useState(borradorInicial.lecturaConfirmada ?? false)
+  const [codificado, setCodificado] = useState<boolean | null>(borradorInicial.codificado ?? null)
+  const [presencia, setPresencia] = useState<PresenciaPercha>(borradorInicial.presencia ?? "NO_REVISADO")
+  const [observaciones, setObservaciones] = useState(borradorInicial.observaciones ?? "")
+  const [ubicacion, setUbicacion] = useState<{ latitud: number; longitud: number; precision: number } | null>(borradorInicial.ubicacion ?? null)
   const [cargando, setCargando] = useState(true)
   const [procesando, setProcesando] = useState(false)
   const [progresoLectura, setProgresoLectura] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    try {
+      const borrador: BorradorCampo = {
+        vista,
+        clienteId,
+        localId,
+        productoId,
+        fechaVisita,
+        rutasCapturas,
+        lectura,
+        lecturaConfirmada,
+        codificado,
+        presencia,
+        observaciones,
+        ubicacion,
+      }
+      window.localStorage.setItem(CLAVE_BORRADOR_CAMPO, JSON.stringify(borrador))
+    } catch {
+      // La visita sigue operativa aunque el navegador bloquee el almacenamiento.
+    }
+  }, [
+    clienteId,
+    codificado,
+    fechaVisita,
+    lectura,
+    lecturaConfirmada,
+    localId,
+    observaciones,
+    presencia,
+    productoId,
+    rutasCapturas,
+    ubicacion,
+    vista,
+  ])
+
+  useEffect(() => {
+    let activo = true
+    void Promise.all([
+      leerArchivosCampo("capturas"),
+      leerArchivosCampo("percha"),
+    ]).then(([capturasGuardadas, fotosGuardadas]) => {
+      if (!activo) return
+      setCapturas(capturasGuardadas)
+      setFotosPercha(fotosGuardadas)
+    }).catch(() => undefined)
+    return () => { activo = false }
+  }, [])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -111,8 +195,8 @@ export default function CampoComercial({
 
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => {
-    if (!catalogo.locales.some((local) => local.id === localId)) setLocalId("")
-  }, [catalogo.locales, localId])
+    if (!cargando && !catalogo.locales.some((local) => local.id === localId)) setLocalId("")
+  }, [cargando, catalogo.locales, localId])
 
   const productosOrdenados = useMemo(() => [...catalogo.productos].sort((a, b) => {
     if (a.autorizado !== b.autorizado) return a.autorizado ? -1 : 1
@@ -133,18 +217,17 @@ export default function CampoComercial({
   function seleccionarCapturas(event: React.ChangeEvent<HTMLInputElement>) {
     const nuevas = Array.from(event.target.files ?? [])
     event.target.value = ""
-    setCapturas((actuales) => {
-      const archivos = [...actuales]
-      for (const archivo of nuevas) {
-        const repetido = archivos.some((item) =>
-          item.name === archivo.name &&
-          item.size === archivo.size &&
-          item.lastModified === archivo.lastModified
-        )
-        if (!repetido && archivos.length < 3) archivos.push(archivo)
-      }
-      return archivos
-    })
+    const archivos = [...capturas]
+    for (const archivo of nuevas) {
+      const repetido = archivos.some((item) =>
+        item.name === archivo.name &&
+        item.size === archivo.size &&
+        item.lastModified === archivo.lastModified
+      )
+      if (!repetido && archivos.length < 3) archivos.push(archivo)
+    }
+    setCapturas(archivos)
+    void guardarArchivosCampo("capturas", archivos).catch(() => undefined)
     setRutasCapturas([])
     setLectura(LECTURA_VACIA)
     setLecturaConfirmada(false)
@@ -155,12 +238,20 @@ export default function CampoComercial({
 
   function limpiarCapturas() {
     setCapturas([])
+    void guardarArchivosCampo("capturas", []).catch(() => undefined)
     setRutasCapturas([])
     setLectura(LECTURA_VACIA)
     setLecturaConfirmada(false)
     setCodificado(null)
     setMensaje("")
     setError("")
+  }
+
+  function seleccionarFotosPercha(event: React.ChangeEvent<HTMLInputElement>) {
+    const archivos = Array.from(event.target.files ?? []).slice(0, 3)
+    event.target.value = ""
+    setFotosPercha(archivos)
+    void guardarArchivosCampo("percha", archivos).catch(() => undefined)
   }
 
   async function analizar() {
@@ -278,6 +369,7 @@ export default function CampoComercial({
       setCodificado(null)
       setPresencia("NO_REVISADO")
       setObservaciones("")
+      void limpiarArchivosCampo().catch(() => undefined)
       await cargar()
       onActualizado()
     } catch (err) {
@@ -357,7 +449,7 @@ export default function CampoComercial({
               <fieldset><legend>¿Está codificado en la app?</legend><button type="button" className={codificado === true ? "si activo" : "si"} onClick={() => setCodificado(true)}>Sí</button><button type="button" className={codificado === false ? "no activo" : "no"} onClick={() => setCodificado(false)}>No</button></fieldset>
               <fieldset><legend>¿Está físicamente en percha?</legend>{(["PRESENTE", "AUSENTE", "NO_REVISADO"] as PresenciaPercha[]).map((item) => <button type="button" key={item} className={presencia === item ? "activo" : ""} onClick={() => setPresencia(item)}>{item === "PRESENTE" ? "Sí" : item === "AUSENTE" ? "No" : "Sin revisar"}</button>)}</fieldset>
             </div>
-            <label className="campo-foto-percha"><span>Fotos de percha (opcionales)</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onChange={(e) => setFotosPercha(Array.from(e.target.files ?? []).slice(0, 3))} /><small>{fotosPercha.length ? `${fotosPercha.length} foto(s) lista(s)` : "Sirven como evidencia de presencia, ausencia o ubicación."}</small></label>
+            <label className="campo-foto-percha"><span>Fotos de percha (opcionales)</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onChange={seleccionarFotosPercha} /><small>{fotosPercha.length ? `${fotosPercha.length} foto(s) lista(s)` : "Sirven como evidencia de presencia, ausencia o ubicación."}</small></label>
             <label className="campo-observaciones"><span>Observaciones</span><textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ubicación en percha, faltante, novedad, gestión realizada…" /></label>
             <button className="campo-guardar" type="button" disabled={guardando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar visita y actualizar indicadores"}</button>
           </section>}

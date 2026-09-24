@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import type { Session } from "@supabase/supabase-js"
 
 import { supabase } from "./lib/supabase"
@@ -43,6 +43,16 @@ const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
 const KpiKam = lazy(() => import("./pages/KpiKam"))
 const CampoComercialMovil = lazy(() => import("./pages/CampoComercialMovil"))
+
+const CLAVE_PANTALLA_ACTIVA = "cibuspan-one:pantalla-activa:v1"
+
+function obtenerPantallaGuardada() {
+  try {
+    return window.localStorage.getItem(CLAVE_PANTALLA_ACTIVA) || "Dashboard"
+  } catch {
+    return "Dashboard"
+  }
+}
 
 function PantallaEnConstruccion({
   titulo,
@@ -95,10 +105,19 @@ function App() {
   const [cargandoSesion, setCargandoSesion] = useState(true)
   const [perfil, setPerfil] = useState<PerfilAplicacion | null>(null)
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
-  const [pantalla, setPantalla] = useState("Dashboard")
+  const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
+  const usuarioConPerfilRef = useRef<string | null>(null)
 
   const parametros = new URLSearchParams(window.location.search)
   const modo = parametros.get("modo")
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CLAVE_PANTALLA_ACTIVA, pantalla)
+    } catch {
+      // La navegación sigue funcionando aunque el navegador bloquee el almacenamiento.
+    }
+  }, [pantalla])
 
   useEffect(() => {
     async function revisarSesion() {
@@ -111,8 +130,10 @@ function App() {
         try {
           const acceso = await obtenerAccesoActual(session.user.id)
           setPerfil(acceso.perfil)
+          usuarioConPerfilRef.current = session.user.id
         } catch {
           setPerfil(null)
+          usuarioConPerfilRef.current = session.user.id
         }
       }
       setCargandoPerfil(false)
@@ -127,13 +148,24 @@ function App() {
       setSesion(session)
       if (!session) {
         setPerfil(null)
+        usuarioConPerfilRef.current = null
+        setCargandoPerfil(false)
+      } else if (usuarioConPerfilRef.current === session.user.id) {
+        // Al volver a la pestaña Supabase puede renovar el token. No hay que
+        // desmontar la pantalla ni perder el formulario por esa renovación.
         setCargandoPerfil(false)
       } else {
         setCargandoPerfil(true)
         window.setTimeout(() => {
           void obtenerAccesoActual(session.user.id)
-            .then((acceso) => setPerfil(acceso.perfil))
-            .catch(() => setPerfil(null))
+            .then((acceso) => {
+              setPerfil(acceso.perfil)
+              usuarioConPerfilRef.current = session.user.id
+            })
+            .catch(() => {
+              setPerfil(null)
+              usuarioConPerfilRef.current = session.user.id
+            })
             .finally(() => setCargandoPerfil(false))
         }, 0)
       }
@@ -150,6 +182,11 @@ function App() {
       scope: "local",
     })
 
+    try {
+      window.localStorage.removeItem(CLAVE_PANTALLA_ACTIVA)
+    } catch {
+      // No bloquear el cierre de sesión por almacenamiento local.
+    }
     setPantalla("Dashboard")
   }
 

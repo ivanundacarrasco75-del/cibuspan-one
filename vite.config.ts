@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // No activar una versión nueva mientras el usuario está llenando formularios.
+      // La actualización se instalará al cerrar y volver a abrir la app.
+      registerType: 'prompt',
       injectRegister: 'auto',
       manifest: {
         name: 'CIBUSPAN ONE',
@@ -41,8 +43,8 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
+        clientsClaim: false,
+        skipWaiting: false,
         navigateFallback: 'index.html',
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
       },

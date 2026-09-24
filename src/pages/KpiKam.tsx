@@ -48,6 +48,25 @@ type Props = {
   cambiarPantalla?: (pantalla: string) => void
 }
 
+type VistaKpiKam = "RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COBERTURA" | "COMPROMISOS"
+
+type NavegacionKpiKamGuardada = {
+  vista?: VistaKpiKam
+  periodo?: string
+  kamId?: string
+  clienteId?: string
+}
+
+const CLAVE_NAVEGACION_KPI_KAM = "cibuspan-one:kpi-kam:navegacion:v1"
+
+function leerNavegacionKpiKam(): NavegacionKpiKamGuardada {
+  try {
+    return JSON.parse(window.localStorage.getItem(CLAVE_NAVEGACION_KPI_KAM) || "{}")
+  } catch {
+    return {}
+  }
+}
+
 const ETIQUETAS_CORTAS: Record<CodigoKpiKam, string> = {
   VENTAS_PRESUPUESTO: "Ventas vs presupuesto",
   MARGEN_CONTRIBUCION: "Margen de contribución",
@@ -294,10 +313,13 @@ export default function KpiKam({
   refreshToken,
   cambiarPantalla,
 }: Props = {}) {
-  const [vista, setVista] = useState<"RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COBERTURA" | "COMPROMISOS">("RESULTADOS")
-  const [periodo, setPeriodo] = useState(periodoActual())
-  const [kamId, setKamId] = useState("TODOS")
-  const [clienteId, setClienteId] = useState("TODOS")
+  const [navegacionInicial] = useState<NavegacionKpiKamGuardada>(() =>
+    integradoDashboard ? {} : leerNavegacionKpiKam(),
+  )
+  const [vista, setVista] = useState<VistaKpiKam>(navegacionInicial.vista ?? "RESULTADOS")
+  const [periodo, setPeriodo] = useState(navegacionInicial.periodo ?? periodoActual())
+  const [kamId, setKamId] = useState(navegacionInicial.kamId ?? "TODOS")
+  const [clienteId, setClienteId] = useState(navegacionInicial.clienteId ?? "TODOS")
   const [kams, setKams] = useState<KamKpiDb[]>([])
   const [resultados, setResultados] = useState<ResultadoKpiKam[]>([])
   const [resultadosAnteriores, setResultadosAnteriores] = useState<ResultadoKpiKam[]>([])
@@ -308,6 +330,20 @@ export default function KpiKam({
   const [error, setError] = useState("")
   const [actualizacion, setActualizacion] = useState(refreshToken ?? 0)
   const solicitudRef = useRef(0)
+
+  useEffect(() => {
+    if (integradoDashboard) return
+    try {
+      window.localStorage.setItem(CLAVE_NAVEGACION_KPI_KAM, JSON.stringify({
+        vista,
+        periodo,
+        kamId,
+        clienteId,
+      }))
+    } catch {
+      // La pantalla sigue operativa aunque el almacenamiento local no esté disponible.
+    }
+  }, [clienteId, integradoDashboard, kamId, periodo, vista])
 
   const cargar = useCallback(async () => {
     const solicitud = solicitudRef.current + 1
