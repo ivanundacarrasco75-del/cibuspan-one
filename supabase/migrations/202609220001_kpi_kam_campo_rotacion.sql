@@ -549,7 +549,8 @@ begin
           motivo = 'Confirmado desde visita de campo',
           actualizado_por = auth.uid(), actualizado_en = now()
       where id = v_cobertura;
-    elsif v_cobertura is null or v_estado <> case when v_codificado then 'ACTIVO' else 'DESCODIFICADO' end then
+    elsif v_cobertura is null
+      or v_estado <> (case when v_codificado then 'ACTIVO' else 'DESCODIFICADO' end) then
       if v_cobertura is not null then
         update public.com_cobertura_sku_local
         set vigente_hasta = v_fecha - 1, actualizado_por = auth.uid(), actualizado_en = now()
