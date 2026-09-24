@@ -5,6 +5,7 @@ export const CODIGOS_KPI_KAM = [
   "FUGAS_COMERCIALES",
   "CRECIMIENTO_RENTABLE",
   "COBERTURA_SKU",
+  "ROTACION_DIARIA",
   "COMPROMISOS",
 ] as const
 
@@ -76,6 +77,9 @@ export type BaseCalculoKpiKam = {
 
   posicionesSkuLocalActivas: number
   posicionesSkuLocalObjetivo: number
+
+  rotacionDiariaPromedio: number | null
+  observacionesRotacion: number
 
   compromisosCumplidosATiempo: number
   compromisosConVencimiento: number

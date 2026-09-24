@@ -32,6 +32,12 @@ type BaseProvisionalDb = {
   advertencias: string[] | null
 }
 
+type RotacionKpiKamDb = {
+  cliente_id: string
+  rotacion_diaria_promedio: number | null
+  observaciones: number
+}
+
 type DefinicionRelacion = {
   codigo: string
   nombre: string
@@ -820,14 +826,15 @@ export async function obtenerBasesProvisionalesKpiKamDb(
   kamUserId?: string | null,
   clienteId?: string | null,
 ) {
-  const { data, error } = await supabase.rpc(
-    "com_kpi_kam_base_provisional",
-    {
-      p_periodo: `${periodo.slice(0, 7)}-01`,
-      p_kam_user_id: kamUserId ?? null,
-      p_cliente_id: clienteId ?? null,
-    },
-  )
+  const parametros = {
+    p_periodo: `${periodo.slice(0, 7)}-01`,
+    p_kam_user_id: kamUserId ?? null,
+    p_cliente_id: clienteId ?? null,
+  }
+  const [{ data, error }, rotacionResultado] = await Promise.all([
+    supabase.rpc("com_kpi_kam_base_provisional", parametros),
+    supabase.rpc("com_kpi_kam_rotacion", parametros),
+  ])
 
   if (error) {
     throw new Error(
@@ -835,8 +842,23 @@ export async function obtenerBasesProvisionalesKpiKamDb(
     )
   }
 
+  const funcionRotacionNoInstalada = rotacionResultado.error?.message
+    .toLocaleLowerCase("es")
+    .includes("com_kpi_kam_rotacion")
+  if (rotacionResultado.error && !funcionRotacionNoInstalada) {
+    throw new Error(`No se pudo cargar la rotación diaria: ${rotacionResultado.error.message}`)
+  }
+  const rotacionPorCliente = new Map(
+    ((rotacionResultado.data ?? []) as RotacionKpiKamDb[]).map((fila) => [
+      fila.cliente_id,
+      fila,
+    ]),
+  )
+
   return ((data ?? []) as BaseProvisionalDb[]).map<BaseCalculoKpiKam>(
-    (fila) => ({
+    (fila) => {
+      const rotacion = rotacionPorCliente.get(fila.cliente_id)
+      return ({
       periodo: fila.periodo,
       kamUserId: fila.kam_user_id,
       clienteId: fila.cliente_id,
@@ -862,6 +884,10 @@ export async function obtenerBasesProvisionalesKpiKamDb(
       posicionesSkuLocalObjetivo: numero(
         fila.posiciones_sku_local_objetivo,
       ),
+      rotacionDiariaPromedio: numeroOpcional(
+        rotacion?.rotacion_diaria_promedio,
+      ),
+      observacionesRotacion: numero(rotacion?.observaciones),
       compromisosCumplidosATiempo: numero(
         fila.compromisos_cumplidos_a_tiempo,
       ),
@@ -871,6 +897,54 @@ export async function obtenerBasesProvisionalesKpiKamDb(
       advertencias: Array.isArray(fila.advertencias)
         ? fila.advertencias.filter(Boolean)
         : [],
-    }),
+      })
+    },
   )
+}
+
+export type ResumenClientesNuevosKpiKamDb = {
+  desde: string
+  hasta: string
+  meta: number
+  actual: number
+  porcentaje: number
+  puede_configurar: boolean
+}
+
+export async function obtenerClientesNuevosKpiKamDb(
+  periodo: string,
+  kamUserId?: string | null,
+) {
+  const { data, error } = await supabase.rpc("com_kpi_kam_clientes_nuevos", {
+    p_periodo: `${periodo.slice(0, 7)}-01`,
+    p_kam_user_id: kamUserId ?? null,
+  })
+  if (error) {
+    const noInstalada = error.message.toLocaleLowerCase("es")
+      .includes("com_kpi_kam_clientes_nuevos")
+    if (noInstalada) return null
+    throw new Error(`No se pudo cargar el KPI de clientes nuevos: ${error.message}`)
+  }
+  const fila = (data ?? {}) as Partial<ResumenClientesNuevosKpiKamDb>
+  return {
+    desde: String(fila.desde ?? ""),
+    hasta: String(fila.hasta ?? ""),
+    meta: numero(fila.meta, 1),
+    actual: numero(fila.actual),
+    porcentaje: numero(fila.porcentaje),
+    puede_configurar: Boolean(fila.puede_configurar),
+  } satisfies ResumenClientesNuevosKpiKamDb
+}
+
+export async function guardarMetaClientesNuevosKpiKamDb(
+  periodo: string,
+  kamUserId: string | null,
+  meta: number,
+) {
+  const { error } = await supabase.rpc("com_kpi_kam_guardar_meta_clientes_nuevos", {
+    p_periodo: `${periodo.slice(0, 7)}-01`,
+    p_kam_user_id: kamUserId,
+    p_meta: meta,
+  })
+  if (error) throw new Error(`No se pudo guardar la meta trimestral: ${error.message}`)
 }

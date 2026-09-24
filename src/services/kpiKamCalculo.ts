@@ -212,6 +212,15 @@ function calcularMetricas(base: BaseCalculoKpiKam) {
           ? "No existen posiciones SKU-local objetivo configuradas."
           : null,
     },
+    ROTACION_DIARIA: {
+      valor: base.rotacionDiariaPromedio,
+      numerador: base.rotacionDiariaPromedio,
+      denominador: base.observacionesRotacion,
+      motivo:
+        base.rotacionDiariaPromedio == null || base.observacionesRotacion <= 0
+          ? "Aún no existen capturas de rotación confirmadas en el periodo."
+          : null,
+    },
     COMPROMISOS: {
       valor: dividir(
         base.compromisosCumplidosATiempo,
@@ -414,7 +423,7 @@ export function calcularResultadoKpiKam(
     advertencias: [
       ...(base.advertencias ?? []),
       ...(!configuracionCompleta
-        ? ["La configuración no contiene exactamente los siete KPI."]
+        ? [`La configuración no contiene exactamente los ${CODIGOS_KPI_KAM.length} KPI.`]
         : []),
       ...(!pesosValidos
         ? [

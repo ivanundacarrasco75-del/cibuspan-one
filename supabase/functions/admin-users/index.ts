@@ -12,6 +12,7 @@ const roles = new Set([
   "GERENTE_OPERACIONES",
   "JEFA_FACTURACION",
   "KAM",
+  "MERCADERISTA",
 ])
 
 const pantallas = new Set([
@@ -20,6 +21,7 @@ const pantallas = new Set([
   "Documentos", "Hoja de producción", "Hoja de despacho", "Anexo Supermaxi",
   "Administración", "Materias primas", "Preformulación", "Usuarios y permisos",
   "KPI KAM",
+  "Campo comercial",
 ])
 
 function respuesta(status: number, body: unknown) {
@@ -163,6 +165,27 @@ Deno.serve(async (req) => {
       })
       if (profileError) throw profileError
 
+      if (rol === "MERCADERISTA") {
+        const { data: clientes, error: clientesError } = await admin
+          .from("clientes")
+          .select("id")
+          .eq("activo", true)
+        if (clientesError) throw clientesError
+        if (clientes?.length) {
+          const hoy = new Date().toISOString().slice(0, 10)
+          const { error: asignacionError } = await admin
+            .from("com_mercaderista_clientes")
+            .upsert(clientes.map((cliente) => ({
+              mercaderista_user_id: data.user.id,
+              cliente_id: cliente.id,
+              vigente_desde: hoy,
+              activo: true,
+              creado_por: actor.id,
+            })), { onConflict: "mercaderista_user_id,cliente_id,vigente_desde" })
+          if (asignacionError) throw asignacionError
+        }
+      }
+
       await auditar("USUARIO_CREADO", data.user.id, { email, nombre, rol })
       return respuesta(200, {
         ok: true,
@@ -217,6 +240,27 @@ Deno.serve(async (req) => {
         .select("*")
         .single()
       if (error) throw error
+
+      if (rol === "MERCADERISTA") {
+        const { data: clientes, error: clientesError } = await admin
+          .from("clientes")
+          .select("id")
+          .eq("activo", true)
+        if (clientesError) throw clientesError
+        if (clientes?.length) {
+          const hoy = new Date().toISOString().slice(0, 10)
+          const { error: asignacionError } = await admin
+            .from("com_mercaderista_clientes")
+            .upsert(clientes.map((cliente) => ({
+              mercaderista_user_id: userId,
+              cliente_id: cliente.id,
+              vigente_desde: hoy,
+              activo: true,
+              creado_por: actor.id,
+            })), { onConflict: "mercaderista_user_id,cliente_id,vigente_desde" })
+          if (asignacionError) throw asignacionError
+        }
+      }
 
       const { error: authUpdateError } = await admin.auth.admin.updateUserById(userId, {
         ban_duration: activo ? "none" : "876000h",

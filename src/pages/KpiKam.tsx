@@ -6,14 +6,17 @@ import {
   useState,
 } from "react"
 import KpiKamConfiguracion from "../components/kpiKam/KpiKamConfiguracion"
-import KpiKamCobertura from "../components/kpiKam/KpiKamCobertura"
+import CampoComercial from "../components/kpiKam/CampoComercial"
 import KpiKamCompromisos from "../components/kpiKam/KpiKamCompromisos"
 import KpiKamParametros from "../components/kpiKam/KpiKamParametros"
 import {
   obtenerBasesProvisionalesKpiKamDb,
   obtenerConfiguracionesKpiKamDb,
   obtenerKamsKpiDb,
+  obtenerClientesNuevosKpiKamDb,
+  guardarMetaClientesNuevosKpiKamDb,
   type KamKpiDb,
+  type ResumenClientesNuevosKpiKamDb,
 } from "../repositories/kpiKamRepository"
 import { calcularResultadoKpiKam } from "../services/kpiKamCalculo"
 import {
@@ -52,6 +55,7 @@ const ETIQUETAS_CORTAS: Record<CodigoKpiKam, string> = {
   FUGAS_COMERCIALES: "Fugas comerciales",
   CRECIMIENTO_RENTABLE: "Crecimiento rentable",
   COBERTURA_SKU: "Cobertura SKU",
+  ROTACION_DIARIA: "Rotación diaria",
   COMPROMISOS: "Compromisos",
 }
 
@@ -59,10 +63,11 @@ const PESOS_KPI_KAM: Record<CodigoKpiKam, number> = {
   VENTAS_PRESUPUESTO: 20,
   MARGEN_CONTRIBUCION: 20,
   DEVOLUCIONES: 15,
-  FUGAS_COMERCIALES: 15,
+  FUGAS_COMERCIALES: 10,
   CRECIMIENTO_RENTABLE: 10,
   COBERTURA_SKU: 10,
-  COMPROMISOS: 10,
+  ROTACION_DIARIA: 10,
+  COMPROMISOS: 5,
 }
 
 function periodoActual() {
@@ -94,6 +99,15 @@ function porcentaje(valor: number | null) {
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
       })}%`
+}
+
+function valorKpi(codigo: CodigoKpiKam, valor: number | null) {
+  if (codigo === "ROTACION_DIARIA") {
+    return valor == null || !Number.isFinite(valor)
+      ? "—"
+      : `${valor.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} u/día`
+  }
+  return porcentaje(valor)
 }
 
 function clasificar(puntaje: number): ClasificacionKpiKam {
@@ -244,6 +258,9 @@ function baseDetalle(detalle: ResumenDetalle) {
   if (detalle.codigo === "COBERTURA_SKU") {
     return `${Math.round(numerador)} de ${Math.round(denominador ?? 0)} posiciones activas`
   }
+  if (detalle.codigo === "ROTACION_DIARIA") {
+    return `${numerador.toLocaleString("es-EC", { maximumFractionDigits: 2 })} unidades/día · ${Math.round(denominador ?? 0)} observaciones`
+  }
   if (detalle.codigo === "COMPROMISOS") {
     return `${Math.round(numerador)} de ${Math.round(denominador ?? 0)} compromisos a tiempo`
   }
@@ -284,6 +301,9 @@ export default function KpiKam({
   const [kams, setKams] = useState<KamKpiDb[]>([])
   const [resultados, setResultados] = useState<ResultadoKpiKam[]>([])
   const [resultadosAnteriores, setResultadosAnteriores] = useState<ResultadoKpiKam[]>([])
+  const [clientesNuevos, setClientesNuevos] = useState<ResumenClientesNuevosKpiKamDb | null>(null)
+  const [metaClientesNuevos, setMetaClientesNuevos] = useState("1")
+  const [guardandoMetaNuevos, setGuardandoMetaNuevos] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
   const [actualizacion, setActualizacion] = useState(refreshToken ?? 0)
@@ -298,10 +318,11 @@ export default function KpiKam({
     try {
       const anterior = periodoAnterior(periodo)
       const kamFiltro = kamId === "TODOS" ? null : kamId
-      const [bases, basesAnteriores, listaKams] = await Promise.all([
+      const [bases, basesAnteriores, listaKams, nuevos] = await Promise.all([
         obtenerBasesProvisionalesKpiKamDb(periodo, kamFiltro),
         obtenerBasesProvisionalesKpiKamDb(anterior, kamFiltro),
         obtenerKamsKpiDb().catch(() => [] as KamKpiDb[]),
+        obtenerClientesNuevosKpiKamDb(periodo, kamFiltro).catch(() => null),
       ])
       const [configuraciones, configuracionesAnteriores] = await Promise.all([
         Promise.all(
@@ -317,6 +338,7 @@ export default function KpiKam({
       ])
       if (solicitud !== solicitudRef.current) return
       setKams(listaKams)
+      setClientesNuevos(nuevos)
       setResultados(
         bases.map((base, indice) =>
           calcularResultadoKpiKam(base, configuraciones[indice]),
@@ -331,6 +353,7 @@ export default function KpiKam({
       if (solicitud !== solicitudRef.current) return
       setResultados([])
       setResultadosAnteriores([])
+      setClientesNuevos(null)
       setError(
         err instanceof Error
           ? err.message
@@ -349,6 +372,10 @@ export default function KpiKam({
     if (refreshToken == null) return
     setActualizacion(refreshToken)
   }, [refreshToken])
+
+  useEffect(() => {
+    if (clientesNuevos) setMetaClientesNuevos(String(clientesNuevos.meta))
+  }, [clientesNuevos])
 
   const clientes = useMemo(
     () => resultados
@@ -411,12 +438,38 @@ export default function KpiKam({
 
   const volverResultados = () => setVista("RESULTADOS")
 
+  async function guardarMetaClientesNuevos() {
+    const meta = Number(metaClientesNuevos)
+    if (!Number.isInteger(meta) || meta <= 0) {
+      setError("La meta trimestral de clientes nuevos debe ser un número entero mayor que cero.")
+      return
+    }
+    setGuardandoMetaNuevos(true)
+    setError("")
+    try {
+      await guardarMetaClientesNuevosKpiKamDb(
+        periodo,
+        kamId === "TODOS" ? null : kamId,
+        meta,
+      )
+      setActualizacion((valor) => valor + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la meta trimestral.")
+    } finally {
+      setGuardandoMetaNuevos(false)
+    }
+  }
+
   const abrirFuenteDatos = (codigo: CodigoKpiKam) => {
     if (codigo === "VENTAS_PRESUPUESTO") {
       setVista("CONFIGURACION")
       return
     }
     if (codigo === "COBERTURA_SKU") {
+      setVista("COBERTURA")
+      return
+    }
+    if (codigo === "ROTACION_DIARIA") {
       setVista("COBERTURA")
       return
     }
@@ -449,7 +502,7 @@ export default function KpiKam({
           <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Inicio</button>
           <button type="button" className={vista === "CONFIGURACION" ? "activo" : "secundario"} onClick={() => setVista("CONFIGURACION")}>Configurar</button>
           <button type="button" className={vista === "PARAMETROS" ? "activo" : "secundario"} onClick={() => setVista("PARAMETROS")}>Metas y pesos</button>
-          <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Cobertura SKU-local</button>
+          <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Visitas y rotación</button>
           <button type="button" className={vista === "COMPROMISOS" ? "activo" : "secundario"} onClick={() => setVista("COMPROMISOS")}>Compromisos</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
@@ -458,7 +511,7 @@ export default function KpiKam({
       {integradoDashboard && vista !== "RESULTADOS" && (
         <div className="kam-regreso-tablero">
           <button type="button" onClick={volverResultados}>← Volver al tablero KPI KAM</button>
-          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : vista === "COBERTURA" ? "Cobertura SKU-local" : "Compromisos comerciales"}</span>
+          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : vista === "COBERTURA" ? "Visitas, cobertura y rotación" : "Compromisos comerciales"}</span>
         </div>
       )}
 
@@ -475,7 +528,7 @@ export default function KpiKam({
           onActualizado={() => setActualizacion((valor) => valor + 1)}
         />
       ) : vista === "COBERTURA" ? (
-        <KpiKamCobertura
+        <CampoComercial
           periodo={periodo}
           cambiarPeriodo={setPeriodo}
           onActualizado={() => setActualizacion((valor) => valor + 1)}
@@ -520,13 +573,26 @@ export default function KpiKam({
       {!cargando && resultados.length === 0 && (
         <div className="kam-vacio">
           <span>TABLERO LISTO PARA COMENZAR</span>
-          <h2>Los siete KPI todavía no tienen información calculable</h2>
+          <h2>Los KPI todavía no tienen información calculable</h2>
           <p>Las fichas permanecen visibles para trabajar cada indicador. Los resultados aparecerán automáticamente al completar sus fuentes.</p>
         </div>
       )}
 
       {!cargando && (
         <>
+          <section className="kam-extra">
+            <div>
+              <span>KPI EXTRA · TRIMESTRAL</span>
+              <h2>Clientes nuevos</h2>
+              <p>Cuenta únicamente clientes cuya primera venta facturada ocurrió dentro del trimestre. No altera el puntaje mensual principal.</p>
+            </div>
+            <div className="kam-extra-resultado">
+              <strong>{clientesNuevos == null ? "—" : `${clientesNuevos.porcentaje.toFixed(0)}%`}</strong>
+              <span>{clientesNuevos == null ? "Configuración pendiente" : `${clientesNuevos.actual} de ${clientesNuevos.meta} cliente(s)`}</span>
+              <small>{clientesNuevos == null ? "Se activará al instalar la migración de campo." : `${clientesNuevos.desde} a ${clientesNuevos.hasta}`}</small>
+              {clientesNuevos?.puede_configurar && <div className="kam-extra-meta"><label>Meta trimestral<input type="number" min="1" step="1" value={metaClientesNuevos} onChange={(e) => setMetaClientesNuevos(e.target.value)} /></label><button type="button" disabled={guardandoMetaNuevos} onClick={() => void guardarMetaClientesNuevos()}>{guardandoMetaNuevos ? "Guardando…" : "Guardar meta"}</button></div>}
+            </div>
+          </section>
           <section className="kam-avance">
             <div className="kam-avance-intro">
               <span>AVANCE DEL TABLERO</span>
@@ -560,7 +626,7 @@ export default function KpiKam({
             <div className="kam-score-estado">
               <span>Estado general</span>
               <strong>{resumen.clasificacion ?? "INCOMPLETO"}</strong>
-              <small>{resumen.completo ? "Las siete mediciones están disponibles." : seleccionados.length === 0 ? "Aún no existen clientes con datos para este periodo." : `${incompletos.length} cliente(s) necesitan completar información.`}</small>
+              <small>{resumen.completo ? `Las ${CODIGOS_KPI_KAM.length} mediciones están disponibles.` : seleccionados.length === 0 ? "Aún no existen clientes con datos para este periodo." : `${incompletos.length} cliente(s) necesitan completar información.`}</small>
             </div>
             <div className="kam-score-cambio">
               <span>Variación mensual</span>
@@ -600,9 +666,9 @@ export default function KpiKam({
                     <div><span>{detalle.nombre}</span><small>Peso {detalle.pesoConfigurado == null ? "—" : `${detalle.pesoConfigurado.toFixed(0)}%`} · {detalle.estado === "CALCULADO" ? "Completo" : detalle.estado === "NO_APLICA" ? "No aplica" : detalle.valor == null ? "Sin datos" : "Parcial"}</small></div>
                     {detalle.alertas > 0 && <b>{detalle.alertas} alerta{detalle.alertas === 1 ? "" : "s"}</b>}
                   </header>
-                  <strong>{detalle.estado === "NO_APLICA" ? "N/A" : detalle.valor == null ? "No disponible" : porcentaje(detalle.valor)}</strong>
+                  <strong>{detalle.estado === "NO_APLICA" ? "N/A" : detalle.valor == null ? "No disponible" : valorKpi(detalle.codigo, detalle.valor)}</strong>
                   <p>{baseDetalle(detalle)}</p>
-                  <div className="kam-card-meta"><span>Meta {porcentaje(detalle.meta)}</span><b>{detalle.nota == null ? "Sin nota" : `${detalle.nota.toFixed(0)}/100`}</b><em>{detalle.puntos == null ? "—" : `${detalle.puntos.toFixed(1)} pts`}</em></div>
+                  <div className="kam-card-meta"><span>Meta {valorKpi(detalle.codigo, detalle.meta)}</span><b>{detalle.nota == null ? "Sin nota" : `${detalle.nota.toFixed(0)}/100`}</b><em>{detalle.puntos == null ? "—" : `${detalle.puntos.toFixed(1)} pts`}</em></div>
                   <div className="kam-card-barra"><i style={{ width: `${Math.max(0, Math.min(100, detalle.nota ?? 0))}%` }} /></div>
                   <small className={`kam-card-cambio ${mejora == null ? "neutral" : mejora ? "positivo" : "negativo"}`}>
                     {cambio == null ? detalle.motivo ?? "Sin comparación mensual" : `${cambio >= 0 ? "↑" : "↓"} ${Math.abs(cambio).toFixed(1)} pp vs mes anterior`}
@@ -630,9 +696,9 @@ export default function KpiKam({
             </header>
             <div className="kam-tabla-wrap">
               <table>
-                <thead><tr><th>Cliente</th><th>Puntaje</th><th>Ventas</th><th>Margen</th><th>Devoluciones</th><th>Fugas</th><th>Crecimiento</th><th>Cobertura</th><th>Compromisos</th></tr></thead>
+                <thead><tr><th>Cliente</th><th>Puntaje</th><th>Ventas</th><th>Margen</th><th>Devoluciones</th><th>Fugas</th><th>Crecimiento</th><th>Cobertura</th><th>Rotación</th><th>Compromisos</th></tr></thead>
                 <tbody>
-                  {seleccionados.length === 0 && <tr><td colSpan={9} className="kam-tabla-vacia">Aún no existen resultados por cliente para este periodo.</td></tr>}
+                  {seleccionados.length === 0 && <tr><td colSpan={10} className="kam-tabla-vacia">Aún no existen resultados por cliente para este periodo.</td></tr>}
                   {seleccionados.map((resultado) => {
                     const detalle = new Map(resultado.detalles.map((item) => [item.codigo, item]))
                     return (
@@ -645,6 +711,7 @@ export default function KpiKam({
                         <CeldaKpi detalle={detalle.get("FUGAS_COMERCIALES")} />
                         <CeldaKpi detalle={detalle.get("CRECIMIENTO_RENTABLE")} />
                         <CeldaKpi detalle={detalle.get("COBERTURA_SKU")} />
+                        <CeldaKpi detalle={detalle.get("ROTACION_DIARIA")} />
                         <CeldaKpi detalle={detalle.get("COMPROMISOS")} />
                       </tr>
                     )
@@ -681,7 +748,7 @@ function CeldaKpi({ detalle }: { detalle?: ResultadoKpiKamDetalle }) {
         ? "N/A"
         : detalle?.valor == null
           ? "—"
-          : porcentaje(detalle.valor)}
+          : valorKpi(detalle.codigo, detalle.valor)}
     </td>
   )
 }
@@ -696,4 +763,5 @@ const css = `
 .kam-card.incompleto>strong{color:#756964;font-size:23px}.kam-tabla-wrap td.kam-tabla-vacia{padding:28px;color:#817570;text-align:center;font-size:12px;cursor:default}
 .kam-regreso-tablero{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:12px 15px;border:1px solid #e6d9d2;border-radius:12px;background:#fff}.kam-regreso-tablero button,.kam-tabla-acciones button{border:1px solid #981f28;border-radius:9px;background:#981f28;color:#fff;padding:9px 13px;font-weight:900;cursor:pointer}.kam-regreso-tablero span{color:#746761;font-size:12px;font-weight:800}.kam-card.clicable{cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}.kam-card.clicable:hover,.kam-card.clicable:focus-visible{transform:translateY(-2px);border-color:#cdaaa8;box-shadow:0 8px 20px rgba(83,39,34,.12);outline:none}.kam-card-accion{display:block;margin-top:10px;padding-top:10px;border-top:1px solid #eee5e0;color:#981f28;font-size:11px;font-weight:900}.kam-card.sin-fuente .kam-card-accion{color:#8b7d77}.kam-tabla-acciones{display:flex;align-items:flex-end;gap:10px;flex-direction:column}.kam-tabla-acciones button{padding:8px 12px}.kam-tabla-acciones small{text-align:right}
 @media(max-width:720px){.kam-regreso-tablero{align-items:flex-start;flex-direction:column}.kam-regreso-tablero button{width:100%}.kam-tabla-acciones{align-items:stretch}.kam-tabla-acciones button{width:100%}.kam-tabla-acciones small{text-align:left}}
+.kam-extra{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;margin-bottom:14px;padding:18px 22px;border:1px solid #ead7bd;border-left:6px solid #f28c18;border-radius:15px;background:#fffaf2}.kam-extra>div>span{color:#f28c18;font-size:10px;font-weight:900;letter-spacing:.09em}.kam-extra h2{margin:4px 0;color:#8f1d24}.kam-extra p{margin:0;color:#756862}.kam-extra-resultado{display:grid;min-width:220px;text-align:right}.kam-extra-resultado strong{color:#8f1d24;font-size:36px}.kam-extra-resultado span{font-weight:900}.kam-extra-resultado small{color:#82746e}.kam-extra-meta{display:flex;justify-content:flex-end;align-items:end;gap:7px;margin-top:8px}.kam-extra-meta label{display:grid;gap:3px;color:#756862;font-size:9px;font-weight:900;text-transform:uppercase}.kam-extra-meta input{width:75px;border:1px solid #dbc7ba;border-radius:7px;padding:7px}.kam-extra-meta button{border:0;border-radius:7px;background:#981f28;color:#fff;padding:8px 10px;font-weight:900;cursor:pointer}@media(max-width:720px){.kam-extra{grid-template-columns:1fr}.kam-extra-resultado{text-align:left}.kam-extra-meta{justify-content:flex-start}}
 `

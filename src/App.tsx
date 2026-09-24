@@ -6,6 +6,7 @@ import { supabase } from "./lib/supabase"
 import Layout from "./components/layout/Layout"
 import Login from "./pages/Login"
 import InstalarApp from "./components/InstalarApp"
+import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
 // Esto reduce mucho el JavaScript inicial de la app y evita cargar importadores,
@@ -41,6 +42,7 @@ const UsuariosPermisos = lazy(() => import("./pages/UsuariosPermisos"))
 const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
 const KpiKam = lazy(() => import("./pages/KpiKam"))
+const CampoComercialMovil = lazy(() => import("./pages/CampoComercialMovil"))
 
 function PantallaEnConstruccion({
   titulo,
@@ -91,6 +93,8 @@ function PantallaEnConstruccion({
 function App() {
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargandoSesion, setCargandoSesion] = useState(true)
+  const [perfil, setPerfil] = useState<PerfilAplicacion | null>(null)
+  const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState("Dashboard")
 
   const parametros = new URLSearchParams(window.location.search)
@@ -103,6 +107,15 @@ function App() {
       } = await supabase.auth.getSession()
 
       setSesion(session)
+      if (session?.user.id) {
+        try {
+          const acceso = await obtenerAccesoActual(session.user.id)
+          setPerfil(acceso.perfil)
+        } catch {
+          setPerfil(null)
+        }
+      }
+      setCargandoPerfil(false)
       setCargandoSesion(false)
     }
 
@@ -112,6 +125,18 @@ function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_evento, session) => {
       setSesion(session)
+      if (!session) {
+        setPerfil(null)
+        setCargandoPerfil(false)
+      } else {
+        setCargandoPerfil(true)
+        window.setTimeout(() => {
+          void obtenerAccesoActual(session.user.id)
+            .then((acceso) => setPerfil(acceso.perfil))
+            .catch(() => setPerfil(null))
+            .finally(() => setCargandoPerfil(false))
+        }, 0)
+      }
       setCargandoSesion(false)
     })
 
@@ -128,7 +153,7 @@ function App() {
     setPantalla("Dashboard")
   }
 
-  if (cargandoSesion) {
+  if (cargandoSesion || cargandoPerfil) {
     return (
       <main style={paginaCarga}>
         <div style={cargador}>
@@ -151,6 +176,14 @@ function App() {
 
   if (!sesion) {
     return <Login />
+  }
+
+  if (perfil?.rol === "MERCADERISTA") {
+    return (
+      <Suspense fallback={<CargandoModulo />}>
+        <CampoComercialMovil usuario={sesion.user.email} cerrarSesion={cerrarSesion} />
+      </Suspense>
+    )
   }
 
   if (modo === "imprimir-anexo-supermaxi") {

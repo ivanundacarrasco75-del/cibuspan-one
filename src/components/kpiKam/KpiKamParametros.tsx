@@ -5,6 +5,7 @@ import {
   type CatalogoParametrosKpiKamDb,
   type ParametroKpiKamDb,
 } from "../../repositories/kpiKamRepository"
+import { CODIGOS_KPI_KAM } from "../../types/kpiKam"
 
 type Props = {
   periodo: string
@@ -86,8 +87,8 @@ export default function KpiKamParametros({
   }
 
   async function guardar() {
-    if (filas.length !== 7) {
-      setError("La configuración debe contener los siete KPI.")
+    if (filas.length !== CODIGOS_KPI_KAM.length) {
+      setError(`La configuración debe contener los ${CODIGOS_KPI_KAM.length} KPI.`)
       return
     }
     if (Math.abs(totalPeso - 100) > 0.01) {
@@ -262,7 +263,7 @@ export default function KpiKamParametros({
                         placeholder={fila.aplica ? "Obligatoria" : "No aplica"}
                         onChange={(event) => cambiarFila(fila.codigo, { metaTexto: event.target.value })}
                       />
-                      <span>%</span>
+                      <span>{fila.codigo === "ROTACION_DIARIA" ? "u/día" : "%"}</span>
                     </div>
                   </td>
                   <td>
