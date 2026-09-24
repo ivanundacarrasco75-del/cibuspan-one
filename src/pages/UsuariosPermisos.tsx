@@ -332,7 +332,7 @@ function EditorUsuario({
               disabled={pantalla === "Usuarios y permisos"}
               onChange={() => alternar(pantalla)}
             />
-            <span>{pantalla}</span>
+            <span>{pantalla === "Campo comercial" ? "Visitas y rotación" : pantalla}</span>
           </label>
         ))}
       </div>

@@ -6,7 +6,6 @@ import {
   useState,
 } from "react"
 import KpiKamConfiguracion from "../components/kpiKam/KpiKamConfiguracion"
-import CampoComercial from "../components/kpiKam/CampoComercial"
 import KpiKamCompromisos from "../components/kpiKam/KpiKamCompromisos"
 import KpiKamParametros from "../components/kpiKam/KpiKamParametros"
 import {
@@ -48,7 +47,7 @@ type Props = {
   cambiarPantalla?: (pantalla: string) => void
 }
 
-type VistaKpiKam = "RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COBERTURA" | "COMPROMISOS"
+type VistaKpiKam = "RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COMPROMISOS"
 
 type NavegacionKpiKamGuardada = {
   vista?: VistaKpiKam
@@ -61,7 +60,21 @@ const CLAVE_NAVEGACION_KPI_KAM = "cibuspan-one:kpi-kam:navegacion:v1"
 
 function leerNavegacionKpiKam(): NavegacionKpiKamGuardada {
   try {
-    return JSON.parse(window.localStorage.getItem(CLAVE_NAVEGACION_KPI_KAM) || "{}")
+    const guardada = JSON.parse(
+      window.localStorage.getItem(CLAVE_NAVEGACION_KPI_KAM) || "{}",
+    ) as NavegacionKpiKamGuardada & { vista?: string }
+    const vistasValidas: VistaKpiKam[] = [
+      "RESULTADOS",
+      "CONFIGURACION",
+      "PARAMETROS",
+      "COMPROMISOS",
+    ]
+    return {
+      ...guardada,
+      vista: vistasValidas.includes(guardada.vista as VistaKpiKam)
+        ? guardada.vista as VistaKpiKam
+        : "RESULTADOS",
+    }
   } catch {
     return {}
   }
@@ -501,12 +514,8 @@ export default function KpiKam({
       setVista("CONFIGURACION")
       return
     }
-    if (codigo === "COBERTURA_SKU") {
-      setVista("COBERTURA")
-      return
-    }
-    if (codigo === "ROTACION_DIARIA") {
-      setVista("COBERTURA")
+    if (codigo === "COBERTURA_SKU" || codigo === "ROTACION_DIARIA") {
+      cambiarPantalla?.("Comercial · Visitas y rotación")
       return
     }
     if (codigo === "COMPROMISOS") {
@@ -538,7 +547,6 @@ export default function KpiKam({
           <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Inicio</button>
           <button type="button" className={vista === "CONFIGURACION" ? "activo" : "secundario"} onClick={() => setVista("CONFIGURACION")}>Configurar</button>
           <button type="button" className={vista === "PARAMETROS" ? "activo" : "secundario"} onClick={() => setVista("PARAMETROS")}>Metas y pesos</button>
-          <button type="button" className={vista === "COBERTURA" ? "activo" : "secundario"} onClick={() => setVista("COBERTURA")}>Visitas y rotación</button>
           <button type="button" className={vista === "COMPROMISOS" ? "activo" : "secundario"} onClick={() => setVista("COMPROMISOS")}>Compromisos</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
@@ -547,7 +555,7 @@ export default function KpiKam({
       {integradoDashboard && vista !== "RESULTADOS" && (
         <div className="kam-regreso-tablero">
           <button type="button" onClick={volverResultados}>← Volver al tablero KPI KAM</button>
-          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : vista === "COBERTURA" ? "Visitas, cobertura y rotación" : "Compromisos comerciales"}</span>
+          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : "Compromisos comerciales"}</span>
         </div>
       )}
 
@@ -559,12 +567,6 @@ export default function KpiKam({
         />
       ) : vista === "PARAMETROS" ? (
         <KpiKamParametros
-          periodo={periodo}
-          cambiarPeriodo={setPeriodo}
-          onActualizado={() => setActualizacion((valor) => valor + 1)}
-        />
-      ) : vista === "COBERTURA" ? (
-        <CampoComercial
           periodo={periodo}
           cambiarPeriodo={setPeriodo}
           onActualizado={() => setActualizacion((valor) => valor + 1)}
