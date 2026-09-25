@@ -15,8 +15,35 @@ import {
   type ProductoPedidoDb,
 } from "../repositories/pedidoRepository"
 import ModalMensaje from "../components/ModalMensaje"
+import { extraerPedidosSantamariaCsv } from "../utils/pedidosSantamariaCsv"
 
 type CantidadesPedido = Record<string, string>
+
+type LineaImportacionSantamaria = {
+  codigoBarras: string
+  nombre: string
+  cantidadEmpaques: number
+  unidadManejoArchivo: number
+  totalUnidades: number
+  producto: ProductoPedidoDb | null
+}
+
+type OrdenImportacionSantamaria = {
+  numeroPedido: string
+  unidadNegocio: string
+  fechaEntrega: string
+  lineas: LineaImportacionSantamaria[]
+  errores: string[]
+  seleccionada: boolean
+  registrada: boolean
+}
+
+type ImportacionSantamariaPreparada = {
+  cliente: ClientePedidoDb
+  bodega: BodegaPedidoDb
+  archivo: string
+  ordenes: OrdenImportacionSantamaria[]
+}
 
 function fechaManana() {
   const fecha = new Date()
@@ -110,9 +137,13 @@ function extraerPedidoFavorita(texto: string) {
 export default function PedidosV2() {
   const archivoFavoritaRef =
     useRef<HTMLInputElement | null>(null)
+  const archivoSantamariaRef =
+    useRef<HTMLInputElement | null>(null)
 
   const [cargandoArchivo, setCargandoArchivo] =
     useState(false)
+  const [importacionSantamaria, setImportacionSantamaria] =
+    useState<ImportacionSantamariaPreparada | null>(null)
 
   const [clientes, setClientes] = useState<
     ClientePedidoDb[]
@@ -347,6 +378,295 @@ export default function PedidosV2() {
         archivoFavoritaRef.current.value = ""
       }
     }
+  }
+
+  async function cargarArchivoSantamaria(
+    archivo: File,
+  ) {
+    setCargandoArchivo(true)
+    setImportacionSantamaria(null)
+    setMensaje("")
+    setError("")
+
+    try {
+      const texto = await archivo.text()
+      const ordenesArchivo = extraerPedidosSantamariaCsv(texto)
+
+      if (ordenesArchivo.length === 0) {
+        throw new Error(
+          "El CSV no contiene órdenes reconocibles de Mega Santamaría.",
+        )
+      }
+
+      const clienteSantamaria = clientes.find((cliente) => {
+        const nombre = cliente.nombre
+          .toUpperCase()
+          .replace(/[^A-Z]/g, "")
+
+        return nombre.includes("SANTAMARIA")
+      })
+
+      if (!clienteSantamaria) {
+        throw new Error(
+          "No se encontró Mega Santamaría en la lista de clientes activos.",
+        )
+      }
+
+      const [bodegasDb, productosDb] = await Promise.all([
+        obtenerBodegasClienteDb(clienteSantamaria.id),
+        obtenerProductosClienteDb(clienteSantamaria.id),
+      ])
+
+      if (bodegasDb.length === 0) {
+        throw new Error(
+          "Mega Santamaría no tiene una bodega activa configurada.",
+        )
+      }
+
+      const bodegaDetectada =
+        bodegasDb.find((bodega) => {
+          const nombre = bodega.nombre.toUpperCase()
+          return (
+            nombre.includes("CENTRAL") ||
+            nombre.includes("CENTRO") ||
+            nombre === "CD"
+          )
+        }) ?? bodegasDb[0]
+
+      const numerosEnArchivo = new Set<string>()
+      const numerosRegistrados = new Set(
+        pedidos.map((pedido) =>
+          pedido.numero_pedido_cliente.trim().toUpperCase(),
+        ),
+      )
+
+      const ordenes = ordenesArchivo.map<OrdenImportacionSantamaria>(
+        (orden) => {
+          const errores: string[] = []
+          const numeroPedido = orden.numeroPedido.trim().toUpperCase()
+
+          if (!numeroPedido) {
+            errores.push("No tiene número de orden.")
+          } else if (numerosEnArchivo.has(numeroPedido)) {
+            errores.push("La orden está repetida dentro del archivo.")
+          } else {
+            numerosEnArchivo.add(numeroPedido)
+          }
+
+          if (numerosRegistrados.has(numeroPedido)) {
+            errores.push("Esta orden ya está registrada en CIBUSPAN ONE.")
+          }
+
+          if (!orden.fechaEntrega) {
+            errores.push("No tiene fecha de cancelación válida.")
+          }
+
+          if (orden.productos.length === 0) {
+            errores.push("No contiene productos.")
+          }
+
+          const lineas = orden.productos.map<LineaImportacionSantamaria>(
+            (linea) => {
+              const producto =
+                productosDb.find(
+                  (item) => item.codigo.trim() === linea.codigoBarras,
+                ) ?? null
+
+              if (!producto) {
+                errores.push(
+                  `Código ${linea.codigoBarras} no configurado para Santamaría.`,
+                )
+              } else if (
+                Math.abs(
+                  producto.unidad_manejo - linea.unidadManejoArchivo,
+                ) > 0.001
+              ) {
+                errores.push(
+                  `${producto.corto}: el archivo usa ${linea.unidadManejoArchivo} unidades por empaque y el sistema ${producto.unidad_manejo}.`,
+                )
+              }
+
+              const totalCalculado =
+                linea.cantidadEmpaques * linea.unidadManejoArchivo
+
+              if (
+                Math.abs(totalCalculado - linea.totalUnidades) > 0.001
+              ) {
+                errores.push(
+                  `${linea.codigoBarras}: cantidad y total de unidades no coinciden.`,
+                )
+              }
+
+              return {
+                ...linea,
+                producto,
+              }
+            },
+          )
+
+          return {
+            numeroPedido,
+            unidadNegocio: orden.unidadNegocio,
+            fechaEntrega: orden.fechaEntrega,
+            lineas,
+            errores,
+            seleccionada: errores.length === 0,
+            registrada: false,
+          }
+        },
+      )
+
+      setImportacionSantamaria({
+        cliente: clienteSantamaria,
+        bodega: bodegaDetectada,
+        archivo: archivo.name,
+        ordenes,
+      })
+
+      const validas = ordenes.filter(
+        (orden) => orden.errores.length === 0,
+      ).length
+
+      setMensaje(
+        `Se detectaron ${ordenes.length} órdenes de Mega Santamaría. ${validas} están listas para registrar.`,
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo leer el CSV de Mega Santamaría.",
+      )
+    } finally {
+      setCargandoArchivo(false)
+
+      if (archivoSantamariaRef.current) {
+        archivoSantamariaRef.current.value = ""
+      }
+    }
+  }
+
+  function cambiarSeleccionOrdenSantamaria(
+    numeroPedido: string,
+    seleccionada: boolean,
+  ) {
+    setImportacionSantamaria((actual) => {
+      if (!actual) return actual
+
+      return {
+        ...actual,
+        ordenes: actual.ordenes.map((orden) =>
+          orden.numeroPedido === numeroPedido
+            ? { ...orden, seleccionada }
+            : orden,
+        ),
+      }
+    })
+  }
+
+  async function registrarPedidosSantamaria() {
+    if (!importacionSantamaria) return
+
+    const pendientes = importacionSantamaria.ordenes.filter(
+      (orden) =>
+        orden.seleccionada &&
+        !orden.registrada &&
+        orden.errores.length === 0,
+    )
+
+    if (pendientes.length === 0) {
+      setError("Selecciona al menos una orden válida para registrar.")
+      return
+    }
+
+    setCargandoArchivo(true)
+    setMensaje("")
+    setError("")
+
+    const resultados = new Map<
+      string,
+      { registrada: boolean; error?: string }
+    >()
+
+    for (const orden of pendientes) {
+      try {
+        await crearPedidoDb({
+          numeroPedidoCliente: orden.numeroPedido,
+          clienteId: importacionSantamaria.cliente.id,
+          bodegaId: importacionSantamaria.bodega.id,
+          fechaEntrega: orden.fechaEntrega,
+          horaEntrega: "",
+          prioridad: "NORMAL",
+          tipoEmpaque: importacionSantamaria.bodega.tipo_empaque,
+          detalles: orden.lineas.map((linea) => ({
+            productoId: linea.producto?.id ?? "",
+            totalUnidades: linea.totalUnidades,
+            unidadManejo: linea.producto?.unidad_manejo ?? 0,
+          })),
+        })
+
+        resultados.set(orden.numeroPedido, { registrada: true })
+      } catch (err) {
+        resultados.set(orden.numeroPedido, {
+          registrada: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo registrar la orden.",
+        })
+      }
+    }
+
+    const registradas = Array.from(resultados.values()).filter(
+      (resultado) => resultado.registrada,
+    ).length
+    const fallidas = resultados.size - registradas
+
+    setImportacionSantamaria((actual) => {
+      if (!actual) return actual
+
+      return {
+        ...actual,
+        ordenes: actual.ordenes.map((orden) => {
+          const resultado = resultados.get(orden.numeroPedido)
+          if (!resultado) return orden
+
+          return resultado.registrada
+            ? {
+                ...orden,
+                registrada: true,
+                seleccionada: false,
+              }
+            : {
+                ...orden,
+                seleccionada: false,
+                errores: [
+                  ...orden.errores,
+                  resultado.error ?? "No se pudo registrar la orden.",
+                ],
+              }
+        }),
+      }
+    })
+
+    try {
+      setPedidos(await obtenerPedidosDb())
+    } catch {
+      // El registro ya terminó; el botón Actualizar permite recargar la lista.
+    }
+
+    if (registradas > 0) {
+      setMensaje(
+        `${registradas} orden${registradas === 1 ? "" : "es"} de Mega Santamaría registrada${registradas === 1 ? "" : "s"} correctamente.`,
+      )
+    }
+
+    if (fallidas > 0) {
+      setError(
+        `${fallidas} orden${fallidas === 1 ? "" : "es"} no se pudo${fallidas === 1 ? "" : "ieron"} registrar. Revisa el detalle.`,
+      )
+    }
+
+    setCargandoArchivo(false)
   }
 
   async function seleccionarCliente(
@@ -747,13 +1067,13 @@ export default function PedidosV2() {
           </span>
 
           <h2 style={{ margin: "5px 0" }}>
-            Cargar pedido de Favorita
+            Cargar pedidos de clientes
           </h2>
 
           <p style={descripcionPanel}>
-            Selecciona el archivo TXT de la orden.
-            El sistema completará número, cliente,
-            bodega, fecha y cantidades por SKU.
+            Importa el TXT de Favorita o el CSV de
+            Mega Santamaría. El sistema reconocerá
+            número, bodega, fecha y cantidades por SKU.
           </p>
         </div>
 
@@ -769,6 +1089,21 @@ export default function PedidosV2() {
 
               if (archivo) {
                 cargarArchivoFavorita(archivo)
+              }
+            }}
+            style={{ display: "none" }}
+          />
+
+          <input
+            ref={archivoSantamariaRef}
+            type="file"
+            accept=".csv,text/csv"
+            disabled={cargandoArchivo}
+            onChange={(evento) => {
+              const archivo = evento.target.files?.[0]
+
+              if (archivo) {
+                cargarArchivoSantamaria(archivo)
               }
             }}
             style={{ display: "none" }}
@@ -791,8 +1126,174 @@ export default function PedidosV2() {
               ? "Leyendo archivo..."
               : "Seleccionar TXT Favorita"}
           </button>
+
+          <button
+            type="button"
+            onClick={() => archivoSantamariaRef.current?.click()}
+            disabled={cargandoArchivo}
+            style={{
+              ...botonImportarSantamaria,
+              opacity: cargandoArchivo ? 0.5 : 1,
+            }}
+          >
+            {cargandoArchivo
+              ? "Procesando..."
+              : "Seleccionar CSV Santamaría"}
+          </button>
         </div>
       </section>
+
+      {importacionSantamaria && (
+        <section className="orders-panel" style={panelImportacionSantamaria}>
+          <div style={tituloPanel}>
+            <div>
+              <span style={etiqueta}>VISTA PREVIA</span>
+              <h2 style={{ margin: "5px 0" }}>
+                Órdenes de Mega Santamaría
+              </h2>
+              <p style={descripcionPanel}>
+                {importacionSantamaria.archivo} · {importacionSantamaria.bodega.nombre}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setImportacionSantamaria(null)}
+              disabled={cargandoArchivo}
+              style={botonCerrarImportacion}
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={tabla}>
+              <thead>
+                <tr>
+                  <th style={encabezado}>Importar</th>
+                  <th style={encabezado}>Orden</th>
+                  <th style={encabezado}>Entrega</th>
+                  <th style={encabezado}>SKU</th>
+                  <th style={encabezado}>Cajas</th>
+                  <th style={encabezado}>Unidades</th>
+                  <th style={encabezado}>Estado</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {importacionSantamaria.ordenes.map((orden) => {
+                  const totalCajas = orden.lineas.reduce(
+                    (total, linea) => total + linea.cantidadEmpaques,
+                    0,
+                  )
+                  const totalOrden = orden.lineas.reduce(
+                    (total, linea) => total + linea.totalUnidades,
+                    0,
+                  )
+                  const bloqueada =
+                    orden.registrada || orden.errores.length > 0
+
+                  return (
+                    <tr key={orden.numeroPedido || orden.unidadNegocio}>
+                      <td style={celda}>
+                        <input
+                          type="checkbox"
+                          checked={orden.seleccionada}
+                          disabled={bloqueada || cargandoArchivo}
+                          onChange={(evento) =>
+                            cambiarSeleccionOrdenSantamaria(
+                              orden.numeroPedido,
+                              evento.target.checked,
+                            )
+                          }
+                          aria-label={`Importar orden ${orden.numeroPedido}`}
+                          style={checkImportacion}
+                        />
+                      </td>
+                      <td style={celda}>
+                        <strong>{orden.numeroPedido || "Sin número"}</strong>
+                        <br />
+                        <small>{orden.unidadNegocio}</small>
+                      </td>
+                      <td style={celda}>{orden.fechaEntrega || "Sin fecha"}</td>
+                      <td style={celda}>{orden.lineas.length}</td>
+                      <td style={celda}>{totalCajas}</td>
+                      <td style={celda}>
+                        <strong>{totalOrden}</strong>
+                      </td>
+                      <td style={{ ...celda, whiteSpace: "normal" }}>
+                        {orden.registrada ? (
+                          <span style={badgeCorrecto}>REGISTRADA</span>
+                        ) : orden.errores.length === 0 ? (
+                          <span style={badgeCorrecto}>LISTA</span>
+                        ) : (
+                          <div>
+                            <span style={badgeErrorImportacion}>REVISAR</span>
+                            <ul style={listaErroresImportacion}>
+                              {orden.errores.map((detalle, indice) => (
+                                <li key={`${detalle}-${indice}`}>{detalle}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={pieImportacionSantamaria}>
+            <div>
+              <strong>
+                {
+                  importacionSantamaria.ordenes.filter(
+                    (orden) =>
+                      orden.seleccionada &&
+                      !orden.registrada &&
+                      orden.errores.length === 0,
+                  ).length
+                } órdenes seleccionadas
+              </strong>
+              <p style={descripcionPanel}>
+                Las órdenes con errores no se guardarán incompletas.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={registrarPedidosSantamaria}
+              disabled={
+                cargandoArchivo ||
+                !importacionSantamaria.ordenes.some(
+                  (orden) =>
+                    orden.seleccionada &&
+                    !orden.registrada &&
+                    orden.errores.length === 0,
+                )
+              }
+              style={{
+                ...botonGuardar,
+                opacity:
+                  cargandoArchivo ||
+                  !importacionSantamaria.ordenes.some(
+                    (orden) =>
+                      orden.seleccionada &&
+                      !orden.registrada &&
+                      orden.errores.length === 0,
+                  )
+                    ? 0.5
+                    : 1,
+              }}
+            >
+              {cargandoArchivo
+                ? "Registrando órdenes..."
+                : "Registrar órdenes seleccionadas"}
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="orders-panel orders-data" style={panel}>
         <div className="orders-panel-title" style={tituloPanel}>
@@ -2004,6 +2505,9 @@ const panelImportacion = {
 
 const accionesImportacion = {
   display: "flex",
+  flexWrap: "wrap" as const,
+  justifyContent: "flex-end",
+  gap: "10px",
   flexShrink: 0,
 }
 
@@ -2016,6 +2520,58 @@ const botonImportar = {
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
+}
+
+const botonImportarSantamaria = {
+  ...botonImportar,
+  background: "#8f1d24",
+}
+
+const panelImportacionSantamaria = {
+  ...panel,
+  borderColor: "#f0d2ad",
+  background: "#fffdf9",
+}
+
+const botonCerrarImportacion = {
+  padding: "9px 14px",
+  border: "1px solid #cfd4da",
+  borderRadius: "8px",
+  background: "white",
+  color: "#374151",
+  fontWeight: "bold",
+  cursor: "pointer",
+}
+
+const checkImportacion = {
+  width: "20px",
+  height: "20px",
+  accentColor: "#8f1d24",
+  cursor: "pointer",
+}
+
+const badgeErrorImportacion = {
+  ...badge,
+  background: "#fee2e2",
+  color: "#991b1b",
+}
+
+const listaErroresImportacion = {
+  margin: "7px 0 0",
+  paddingLeft: "18px",
+  color: "#991b1b",
+  fontSize: "12px",
+}
+
+const pieImportacionSantamaria = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "16px",
+  marginTop: "18px",
+  paddingTop: "18px",
+  borderTop: "1px solid #eee3dd",
 }
 
 const pedidosResponsiveCss = `
