@@ -10,7 +10,9 @@ export default defineConfig({
       // No activar una versión nueva mientras el usuario está llenando formularios.
       // La actualización se instalará al cerrar y volver a abrir la app.
       registerType: 'prompt',
-      injectRegister: 'auto',
+      // El registro se controla desde ActualizacionPwa para mostrar un aviso
+      // antes de recargar y no perder formularios en curso.
+      injectRegister: null,
       manifest: {
         name: 'CIBUSPAN ONE',
         short_name: 'CIBUSPAN',
