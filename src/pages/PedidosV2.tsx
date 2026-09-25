@@ -16,10 +16,15 @@ import {
 } from "../repositories/pedidoRepository"
 import ModalMensaje from "../components/ModalMensaje"
 import { extraerPedidosSantamariaCsv } from "../utils/pedidosSantamariaCsv"
+import {
+  leerPedidosRosadoPdf,
+  leerPedidosTutiPdf,
+  type PedidoClientePdf,
+} from "../utils/pedidosClientesPdf"
 
 type CantidadesPedido = Record<string, string>
 
-type LineaImportacionSantamaria = {
+type LineaImportacionPedido = {
   codigoBarras: string
   nombre: string
   cantidadEmpaques: number
@@ -28,21 +33,23 @@ type LineaImportacionSantamaria = {
   producto: ProductoPedidoDb | null
 }
 
-type OrdenImportacionSantamaria = {
+type OrdenImportacionPedido = {
   numeroPedido: string
   unidadNegocio: string
   fechaEntrega: string
-  lineas: LineaImportacionSantamaria[]
+  bodega: BodegaPedidoDb | null
+  lineas: LineaImportacionPedido[]
   errores: string[]
+  advertencias: string[]
   seleccionada: boolean
   registrada: boolean
 }
 
-type ImportacionSantamariaPreparada = {
+type ImportacionPedidosPreparada = {
   cliente: ClientePedidoDb
-  bodega: BodegaPedidoDb
+  fuente: string
   archivo: string
-  ordenes: OrdenImportacionSantamaria[]
+  ordenes: OrdenImportacionPedido[]
 }
 
 function fechaManana() {
@@ -134,16 +141,47 @@ function extraerPedidoFavorita(texto: string) {
     productos,
   }
 }
+
+function normalizarImportacion(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+}
+
+function encontrarBodegaImportacion(
+  bodegaTexto: string,
+  bodegas: BodegaPedidoDb[],
+) {
+  const texto = normalizarImportacion(bodegaTexto)
+  if (!texto) return null
+
+  return (
+    bodegas
+      .filter((bodega) => {
+        const nombre = normalizarImportacion(bodega.nombre)
+        return texto.includes(nombre) || nombre.includes(texto)
+      })
+      .sort((a, b) => b.nombre.length - a.nombre.length)[0] ?? null
+  )
+}
+
 export default function PedidosV2() {
   const archivoFavoritaRef =
     useRef<HTMLInputElement | null>(null)
   const archivoSantamariaRef =
     useRef<HTMLInputElement | null>(null)
+  const archivoTutiRef =
+    useRef<HTMLInputElement | null>(null)
+  const archivoRosadoRef =
+    useRef<HTMLInputElement | null>(null)
 
   const [cargandoArchivo, setCargandoArchivo] =
     useState(false)
-  const [importacionSantamaria, setImportacionSantamaria] =
-    useState<ImportacionSantamariaPreparada | null>(null)
+  const [importacionPedidos, setImportacionPedidos] =
+    useState<ImportacionPedidosPreparada | null>(null)
+  const [progresoImportacion, setProgresoImportacion] = useState("")
 
   const [clientes, setClientes] = useState<
     ClientePedidoDb[]
@@ -384,7 +422,8 @@ export default function PedidosV2() {
     archivo: File,
   ) {
     setCargandoArchivo(true)
-    setImportacionSantamaria(null)
+    setImportacionPedidos(null)
+    setProgresoImportacion("Leyendo CSV de Mega Santamaría…")
     setMensaje("")
     setError("")
 
@@ -440,7 +479,7 @@ export default function PedidosV2() {
         ),
       )
 
-      const ordenes = ordenesArchivo.map<OrdenImportacionSantamaria>(
+      const ordenes = ordenesArchivo.map<OrdenImportacionPedido>(
         (orden) => {
           const errores: string[] = []
           const numeroPedido = orden.numeroPedido.trim().toUpperCase()
@@ -465,7 +504,7 @@ export default function PedidosV2() {
             errores.push("No contiene productos.")
           }
 
-          const lineas = orden.productos.map<LineaImportacionSantamaria>(
+          const lineas = orden.productos.map<LineaImportacionPedido>(
             (linea) => {
               const producto =
                 productosDb.find(
@@ -508,17 +547,19 @@ export default function PedidosV2() {
             numeroPedido,
             unidadNegocio: orden.unidadNegocio,
             fechaEntrega: orden.fechaEntrega,
+            bodega: bodegaDetectada,
             lineas,
             errores,
+            advertencias: [],
             seleccionada: errores.length === 0,
             registrada: false,
           }
         },
       )
 
-      setImportacionSantamaria({
+      setImportacionPedidos({
         cliente: clienteSantamaria,
-        bodega: bodegaDetectada,
+        fuente: "Mega Santamaría",
         archivo: archivo.name,
         ordenes,
       })
@@ -538,6 +579,7 @@ export default function PedidosV2() {
       )
     } finally {
       setCargandoArchivo(false)
+      setProgresoImportacion("")
 
       if (archivoSantamariaRef.current) {
         archivoSantamariaRef.current.value = ""
@@ -545,11 +587,182 @@ export default function PedidosV2() {
     }
   }
 
-  function cambiarSeleccionOrdenSantamaria(
+  async function prepararImportacionPdf(
+    archivo: File,
+    fuente: "TUTI" | "Corporación El Rosado",
+    pedidosLeidos: PedidoClientePdf[],
+  ) {
+    const claveCliente = fuente === "TUTI" ? "TUTI" : "ROSADO"
+    const cliente = clientes.find((item) =>
+      normalizarImportacion(item.nombre).includes(claveCliente),
+    )
+
+    if (!cliente) {
+      throw new Error(`No se encontró ${fuente} en la lista de clientes activos.`)
+    }
+
+    const [bodegasDb, productosDb] = await Promise.all([
+      obtenerBodegasClienteDb(cliente.id),
+      obtenerProductosClienteDb(cliente.id),
+    ])
+
+    if (bodegasDb.length === 0) {
+      throw new Error(`${fuente} no tiene bodegas activas configuradas.`)
+    }
+
+    const numerosEnArchivo = new Set<string>()
+    const numerosRegistrados = new Set(
+      pedidos.map((pedido) =>
+        pedido.numero_pedido_cliente.trim().toUpperCase(),
+      ),
+    )
+
+    const ordenes = pedidosLeidos.map<OrdenImportacionPedido>((pedido) => {
+      const errores = [...pedido.advertencias]
+      const numeroPedido = pedido.numeroPedido.trim().toUpperCase()
+      const bodega = encontrarBodegaImportacion(
+        pedido.bodegaTexto,
+        bodegasDb,
+      )
+
+      if (!numeroPedido) {
+        errores.push("No tiene número de orden.")
+      } else if (numerosEnArchivo.has(numeroPedido)) {
+        errores.push("La orden está repetida dentro del archivo.")
+      } else {
+        numerosEnArchivo.add(numeroPedido)
+      }
+
+      if (numerosRegistrados.has(numeroPedido)) {
+        errores.push("Esta orden ya está registrada en CIBUSPAN ONE.")
+      }
+
+      if (!pedido.fechaEntrega) errores.push("No tiene una fecha de entrega válida.")
+      if (!bodega) {
+        errores.push(
+          `No se encontró la bodega “${pedido.bodegaTexto || "sin identificar"}” en CIBUSPAN ONE.`,
+        )
+      }
+      if (pedido.productos.length === 0) errores.push("No contiene productos reconocibles.")
+
+      const lineas = pedido.productos.map<LineaImportacionPedido>((linea) => {
+        const producto =
+          productosDb.find(
+            (item) => item.codigo.trim() === linea.codigoBarras,
+          ) ?? null
+
+        if (!producto) {
+          errores.push(
+            `Código ${linea.codigoBarras} no configurado para ${fuente}.`,
+          )
+        }
+
+        if (
+          producto &&
+          linea.unidadManejoArchivo &&
+          producto.unidad_manejo !== linea.unidadManejoArchivo
+        ) {
+          errores.push(
+            `${producto.corto}: el PDF usa ${linea.unidadManejoArchivo} unidades por empaque y el sistema ${producto.unidad_manejo}.`,
+          )
+        }
+
+        return {
+          codigoBarras: linea.codigoBarras,
+          nombre: linea.nombre,
+          cantidadEmpaques: linea.cantidadEmpaques,
+          unidadManejoArchivo:
+            linea.unidadManejoArchivo ?? producto?.unidad_manejo ?? 0,
+          totalUnidades:
+            linea.cantidadEmpaques * (producto?.unidad_manejo ?? 0),
+          producto,
+        }
+      })
+
+      return {
+        numeroPedido,
+        unidadNegocio: pedido.bodegaTexto,
+        fechaEntrega: pedido.fechaEntrega,
+        bodega,
+        lineas,
+        errores: Array.from(new Set(errores)),
+        advertencias: [],
+        seleccionada: errores.length === 0,
+        registrada: false,
+      }
+    })
+
+    setImportacionPedidos({
+      cliente,
+      fuente,
+      archivo: archivo.name,
+      ordenes,
+    })
+
+    const validas = ordenes.filter((orden) => orden.errores.length === 0).length
+    setMensaje(
+      `Se detectaron ${ordenes.length} órdenes de ${fuente}. ${validas} están listas para registrar.`,
+    )
+  }
+
+  async function cargarArchivoTuti(archivo: File) {
+    setCargandoArchivo(true)
+    setImportacionPedidos(null)
+    setMensaje("")
+    setError("")
+
+    try {
+      const pedidosLeidos = await leerPedidosTutiPdf(
+        archivo,
+        (_porcentaje, detalle) => setProgresoImportacion(detalle),
+      )
+      await prepararImportacionPdf(archivo, "TUTI", pedidosLeidos)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo leer el PDF de TUTI.",
+      )
+    } finally {
+      setCargandoArchivo(false)
+      setProgresoImportacion("")
+      if (archivoTutiRef.current) archivoTutiRef.current.value = ""
+    }
+  }
+
+  async function cargarArchivoRosado(archivo: File) {
+    setCargandoArchivo(true)
+    setImportacionPedidos(null)
+    setMensaje("")
+    setError("")
+
+    try {
+      const pedidosLeidos = await leerPedidosRosadoPdf(
+        archivo,
+        (porcentaje, detalle) =>
+          setProgresoImportacion(`${detalle} ${porcentaje}%`),
+      )
+      await prepararImportacionPdf(
+        archivo,
+        "Corporación El Rosado",
+        pedidosLeidos,
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo leer el PDF de Corporación El Rosado.",
+      )
+    } finally {
+      setCargandoArchivo(false)
+      setProgresoImportacion("")
+      if (archivoRosadoRef.current) archivoRosadoRef.current.value = ""
+    }
+  }
+
+  function cambiarSeleccionOrdenImportacion(
     numeroPedido: string,
     seleccionada: boolean,
   ) {
-    setImportacionSantamaria((actual) => {
+    setImportacionPedidos((actual) => {
       if (!actual) return actual
 
       return {
@@ -563,10 +776,10 @@ export default function PedidosV2() {
     })
   }
 
-  async function registrarPedidosSantamaria() {
-    if (!importacionSantamaria) return
+  async function registrarPedidosImportados() {
+    if (!importacionPedidos) return
 
-    const pendientes = importacionSantamaria.ordenes.filter(
+    const pendientes = importacionPedidos.ordenes.filter(
       (orden) =>
         orden.seleccionada &&
         !orden.registrada &&
@@ -579,6 +792,7 @@ export default function PedidosV2() {
     }
 
     setCargandoArchivo(true)
+    setProgresoImportacion("Registrando órdenes…")
     setMensaje("")
     setError("")
 
@@ -589,14 +803,18 @@ export default function PedidosV2() {
 
     for (const orden of pendientes) {
       try {
+        if (!orden.bodega) {
+          throw new Error("La orden no tiene una bodega válida.")
+        }
+
         await crearPedidoDb({
           numeroPedidoCliente: orden.numeroPedido,
-          clienteId: importacionSantamaria.cliente.id,
-          bodegaId: importacionSantamaria.bodega.id,
+          clienteId: importacionPedidos.cliente.id,
+          bodegaId: orden.bodega.id,
           fechaEntrega: orden.fechaEntrega,
           horaEntrega: "",
           prioridad: "NORMAL",
-          tipoEmpaque: importacionSantamaria.bodega.tipo_empaque,
+          tipoEmpaque: orden.bodega.tipo_empaque,
           detalles: orden.lineas.map((linea) => ({
             productoId: linea.producto?.id ?? "",
             totalUnidades: linea.totalUnidades,
@@ -621,7 +839,7 @@ export default function PedidosV2() {
     ).length
     const fallidas = resultados.size - registradas
 
-    setImportacionSantamaria((actual) => {
+    setImportacionPedidos((actual) => {
       if (!actual) return actual
 
       return {
@@ -656,7 +874,7 @@ export default function PedidosV2() {
 
     if (registradas > 0) {
       setMensaje(
-        `${registradas} orden${registradas === 1 ? "" : "es"} de Mega Santamaría registrada${registradas === 1 ? "" : "s"} correctamente.`,
+        `${registradas} orden${registradas === 1 ? "" : "es"} de ${importacionPedidos.fuente} registrada${registradas === 1 ? "" : "s"} correctamente.`,
       )
     }
 
@@ -667,6 +885,7 @@ export default function PedidosV2() {
     }
 
     setCargandoArchivo(false)
+    setProgresoImportacion("")
   }
 
   async function seleccionarCliente(
@@ -1072,8 +1291,8 @@ export default function PedidosV2() {
 
           <p style={descripcionPanel}>
             Importa el TXT de Favorita o el CSV de
-            Mega Santamaría. El sistema reconocerá
-            número, bodega, fecha y cantidades por SKU.
+            Santamaría, además de los PDF de TUTI y El Rosado.
+            El sistema reconocerá número, bodega, fecha y cantidades.
           </p>
         </div>
 
@@ -1109,6 +1328,30 @@ export default function PedidosV2() {
             style={{ display: "none" }}
           />
 
+          <input
+            ref={archivoTutiRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            disabled={cargandoArchivo}
+            onChange={(evento) => {
+              const archivo = evento.target.files?.[0]
+              if (archivo) cargarArchivoTuti(archivo)
+            }}
+            style={{ display: "none" }}
+          />
+
+          <input
+            ref={archivoRosadoRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            disabled={cargandoArchivo}
+            onChange={(evento) => {
+              const archivo = evento.target.files?.[0]
+              if (archivo) cargarArchivoRosado(archivo)
+            }}
+            style={{ display: "none" }}
+          />
+
           <button
             type="button"
             onClick={() =>
@@ -1140,25 +1383,53 @@ export default function PedidosV2() {
               ? "Procesando..."
               : "Seleccionar CSV Santamaría"}
           </button>
+
+          <button
+            type="button"
+            onClick={() => archivoTutiRef.current?.click()}
+            disabled={cargandoArchivo}
+            style={{
+              ...botonImportarSantamaria,
+              opacity: cargandoArchivo ? 0.5 : 1,
+            }}
+          >
+            PDF TUTI
+          </button>
+
+          <button
+            type="button"
+            onClick={() => archivoRosadoRef.current?.click()}
+            disabled={cargandoArchivo}
+            style={{
+              ...botonImportarSantamaria,
+              opacity: cargandoArchivo ? 0.5 : 1,
+            }}
+          >
+            PDF El Rosado
+          </button>
         </div>
       </section>
 
-      {importacionSantamaria && (
+      {cargandoArchivo && progresoImportacion && (
+        <div style={mensajeProcesandoImportacion}>{progresoImportacion}</div>
+      )}
+
+      {importacionPedidos && (
         <section className="orders-panel" style={panelImportacionSantamaria}>
           <div style={tituloPanel}>
             <div>
               <span style={etiqueta}>VISTA PREVIA</span>
               <h2 style={{ margin: "5px 0" }}>
-                Órdenes de Mega Santamaría
+                Órdenes de {importacionPedidos.fuente}
               </h2>
               <p style={descripcionPanel}>
-                {importacionSantamaria.archivo} · {importacionSantamaria.bodega.nombre}
+                {importacionPedidos.archivo}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() => setImportacionSantamaria(null)}
+              onClick={() => setImportacionPedidos(null)}
               disabled={cargandoArchivo}
               style={botonCerrarImportacion}
             >
@@ -1172,6 +1443,7 @@ export default function PedidosV2() {
                 <tr>
                   <th style={encabezado}>Importar</th>
                   <th style={encabezado}>Orden</th>
+                  <th style={encabezado}>Bodega</th>
                   <th style={encabezado}>Entrega</th>
                   <th style={encabezado}>SKU</th>
                   <th style={encabezado}>Cajas</th>
@@ -1181,7 +1453,7 @@ export default function PedidosV2() {
               </thead>
 
               <tbody>
-                {importacionSantamaria.ordenes.map((orden) => {
+                {importacionPedidos.ordenes.map((orden) => {
                   const totalCajas = orden.lineas.reduce(
                     (total, linea) => total + linea.cantidadEmpaques,
                     0,
@@ -1201,7 +1473,7 @@ export default function PedidosV2() {
                           checked={orden.seleccionada}
                           disabled={bloqueada || cargandoArchivo}
                           onChange={(evento) =>
-                            cambiarSeleccionOrdenSantamaria(
+                            cambiarSeleccionOrdenImportacion(
                               orden.numeroPedido,
                               evento.target.checked,
                             )
@@ -1212,6 +1484,9 @@ export default function PedidosV2() {
                       </td>
                       <td style={celda}>
                         <strong>{orden.numeroPedido || "Sin número"}</strong>
+                      </td>
+                      <td style={celda}>
+                        <strong>{orden.bodega?.nombre ?? "No identificada"}</strong>
                         <br />
                         <small>{orden.unidadNegocio}</small>
                       </td>
@@ -1248,7 +1523,7 @@ export default function PedidosV2() {
             <div>
               <strong>
                 {
-                  importacionSantamaria.ordenes.filter(
+                  importacionPedidos.ordenes.filter(
                     (orden) =>
                       orden.seleccionada &&
                       !orden.registrada &&
@@ -1263,10 +1538,10 @@ export default function PedidosV2() {
 
             <button
               type="button"
-              onClick={registrarPedidosSantamaria}
+              onClick={registrarPedidosImportados}
               disabled={
                 cargandoArchivo ||
-                !importacionSantamaria.ordenes.some(
+                !importacionPedidos.ordenes.some(
                   (orden) =>
                     orden.seleccionada &&
                     !orden.registrada &&
@@ -1277,7 +1552,7 @@ export default function PedidosV2() {
                 ...botonGuardar,
                 opacity:
                   cargandoArchivo ||
-                  !importacionSantamaria.ordenes.some(
+                  !importacionPedidos.ordenes.some(
                     (orden) =>
                       orden.seleccionada &&
                       !orden.registrada &&
@@ -2531,6 +2806,16 @@ const panelImportacionSantamaria = {
   ...panel,
   borderColor: "#f0d2ad",
   background: "#fffdf9",
+}
+
+const mensajeProcesandoImportacion = {
+  margin: "-10px 0 22px",
+  padding: "13px 16px",
+  borderRadius: "9px",
+  background: "#fff1d6",
+  color: "#8f1d24",
+  fontWeight: "bold",
+  textAlign: "center" as const,
 }
 
 const botonCerrarImportacion = {
