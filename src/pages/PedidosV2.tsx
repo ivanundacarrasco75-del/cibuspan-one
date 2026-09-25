@@ -142,8 +142,12 @@ function extraerPedidoFavorita(texto: string) {
   }
 }
 
-function normalizarImportacion(valor: string) {
-  return valor
+function textoSeguro(valor: unknown) {
+  return String(valor ?? "").trim()
+}
+
+function normalizarImportacion(valor: unknown) {
+  return textoSeguro(valor)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
@@ -345,8 +349,8 @@ export default function PedidosV2() {
         (lineaArchivo) => {
           const producto = productosDb.find(
             (item) =>
-              item.codigo.trim() ===
-              lineaArchivo.codigoBarras,
+              textoSeguro(item.codigo) ===
+              textoSeguro(lineaArchivo.codigoBarras),
           )
 
           if (!producto) {
@@ -474,15 +478,17 @@ export default function PedidosV2() {
 
       const numerosEnArchivo = new Set<string>()
       const numerosRegistrados = new Set(
-        pedidos.map((pedido) =>
-          pedido.numero_pedido_cliente.trim().toUpperCase(),
-        ),
+        pedidos
+          .map((pedido) =>
+            textoSeguro(pedido.numero_pedido_cliente).toUpperCase(),
+          )
+          .filter(Boolean),
       )
 
       const ordenes = ordenesArchivo.map<OrdenImportacionPedido>(
         (orden) => {
           const errores: string[] = []
-          const numeroPedido = orden.numeroPedido.trim().toUpperCase()
+          const numeroPedido = textoSeguro(orden.numeroPedido).toUpperCase()
 
           if (!numeroPedido) {
             errores.push("No tiene número de orden.")
@@ -508,7 +514,9 @@ export default function PedidosV2() {
             (linea) => {
               const producto =
                 productosDb.find(
-                  (item) => item.codigo.trim() === linea.codigoBarras,
+                  (item) =>
+                    textoSeguro(item.codigo) ===
+                    textoSeguro(linea.codigoBarras),
                 ) ?? null
 
               if (!producto) {
@@ -612,14 +620,16 @@ export default function PedidosV2() {
 
     const numerosEnArchivo = new Set<string>()
     const numerosRegistrados = new Set(
-      pedidos.map((pedido) =>
-        pedido.numero_pedido_cliente.trim().toUpperCase(),
-      ),
+      pedidos
+        .map((pedido) =>
+          textoSeguro(pedido.numero_pedido_cliente).toUpperCase(),
+        )
+        .filter(Boolean),
     )
 
     const ordenes = pedidosLeidos.map<OrdenImportacionPedido>((pedido) => {
       const errores = [...pedido.advertencias]
-      const numeroPedido = pedido.numeroPedido.trim().toUpperCase()
+      const numeroPedido = textoSeguro(pedido.numeroPedido).toUpperCase()
       const bodega = encontrarBodegaImportacion(
         pedido.bodegaTexto,
         bodegasDb,
@@ -648,7 +658,9 @@ export default function PedidosV2() {
       const lineas = pedido.productos.map<LineaImportacionPedido>((linea) => {
         const producto =
           productosDb.find(
-            (item) => item.codigo.trim() === linea.codigoBarras,
+            (item) =>
+              textoSeguro(item.codigo) ===
+              textoSeguro(linea.codigoBarras),
           ) ?? null
 
         if (!producto) {
