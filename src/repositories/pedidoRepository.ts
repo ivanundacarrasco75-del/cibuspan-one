@@ -186,13 +186,19 @@ export async function obtenerProductosClienteDb(
 
       if (!producto) return null
 
+      const codigo = String(producto.codigo ?? "").trim()
+      const nombre = String(producto.nombre ?? "").trim()
+      const corto = String(
+        producto.corto ?? producto.nombre ?? "Producto",
+      ).trim()
+
       return {
         id: producto.id,
-        codigo: producto.codigo,
-        nombre: producto.nombre,
-        corto: producto.corto,
+        codigo,
+        nombre,
+        corto: corto || nombre || "Producto",
         unidad_manejo:
-          registro.unidad_manejo,
+          Number(registro.unidad_manejo) || 1,
         precio: registro.precio,
       }
     })
