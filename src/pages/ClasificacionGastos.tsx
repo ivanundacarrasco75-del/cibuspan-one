@@ -268,6 +268,26 @@ function etiquetaClasificacion(valor: ClasificacionGerencial) {
   return CLASIFICACIONES.find((item) => item.valor === valor)?.etiqueta ?? valor
 }
 
+function normalizarTextoNomina(valor: string | null | undefined) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+}
+
+function normalizarPersonaNomina(valor: string | null | undefined) {
+  let persona = normalizarTextoNomina(valor)
+  const prefijo = /^(PROVISION(?:ES)?|FONDOS?(?: DE)? RESERVAS?|APORTES? PATRONALES?(?: IESS)?|IESS|SUELDOS?|SALARIOS?|DECIMO TERCER[OA]?|DECIMO CUART[OA]?|VACACION(?:ES)?)(?:\s*[-:/]?\s*)/i
+
+  while (prefijo.test(persona)) {
+    persona = persona.replace(prefijo, "").trim()
+  }
+
+  return persona
+}
+
 function claseEstado(estado: string) {
   if (estado === "CONCILIADO") return "ok"
   if (estado.includes("FALTA CLASIFICAR")) return "advertencia"
@@ -1130,26 +1150,81 @@ export default function ClasificacionGastos() {
     const personasOrigen = personaSeleccionada?.personas_origen.length
       ? personaSeleccionada.personas_origen
       : [personaEditando]
+    const personaNormalizada = normalizarPersonaNomina(personaEditando)
+    const nombresOrigen = new Set(personasOrigen.map(normalizarTextoNomina))
+    const movimientosPersona = movimientos.filter((movimiento) =>
+      [movimiento.proveedor, movimiento.concepto, movimiento.origen_referencia].some(
+        (valor) => {
+          const texto = normalizarTextoNomina(valor)
+          return (
+            Boolean(texto) &&
+            (nombresOrigen.has(texto) ||
+              normalizarPersonaNomina(texto) === personaNormalizada)
+          )
+        },
+      ),
+    )
     let movimientosAplicados = 0
 
-    for (const personaOrigen of personasOrigen) {
-      const { data, error: errorNomina } = await supabase.rpc(
-        "fin_clasificar_nomina_persona",
-        {
-          p_periodo: `${periodo}-01`,
-          p_persona: personaOrigen,
-          p_clasificacion: clasificacionNomina,
-          p_clientes: clientesRpc,
-        },
-      )
+    if (movimientosPersona.length > 0) {
+      for (const movimiento of movimientosPersona) {
+        const datosRpc = {
+          id: movimiento.id,
+          periodo: movimiento.periodo,
+          cuenta_codigo: movimiento.cuenta_codigo,
+          fecha_documento: movimiento.fecha_documento,
+          tipo_documento: movimiento.tipo_documento,
+          numero_documento: movimiento.numero_documento,
+          proveedor: movimiento.proveedor,
+          concepto: movimiento.concepto,
+          valor: movimiento.valor,
+          clasificacion_gerencial: clasificacionNomina,
+          subcategoria: movimiento.subcategoria,
+          area: movimiento.area,
+          comportamiento: movimiento.comportamiento,
+          producto_id: movimiento.producto_id,
+          factura_id: movimiento.factura_id,
+          origen_detalle: movimiento.origen_detalle,
+          origen_referencia: movimiento.origen_referencia,
+          observaciones: movimiento.observaciones,
+        }
 
-      if (errorNomina) {
-        setError(errorNomina.message)
-        setGuardandoNomina(false)
-        return
+        const { error: errorGuardar } = await supabase.rpc(
+          "fin_guardar_resultado_clasificacion_detalle",
+          {
+            p_datos: datosRpc,
+            p_clientes: clientesRpc,
+          },
+        )
+
+        if (errorGuardar) {
+          setError(errorGuardar.message)
+          setGuardandoNomina(false)
+          return
+        }
+
+        movimientosAplicados += 1
       }
+    } else {
+      for (const personaOrigen of personasOrigen) {
+        const { data, error: errorNomina } = await supabase.rpc(
+          "fin_clasificar_nomina_persona",
+          {
+            p_periodo: `${periodo}-01`,
+            p_persona: personaOrigen,
+            p_clasificacion: clasificacionNomina,
+            p_clientes: clientesRpc,
+          },
+        )
 
-      movimientosAplicados += Number(data ?? 0)
+        if (errorNomina) {
+          setError(errorNomina.message)
+          setGuardandoNomina(false)
+          return
+        }
+
+        movimientosAplicados += Number(data ?? 0)
+      }
     }
 
     if (movimientosAplicados <= 0) {
