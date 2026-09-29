@@ -288,6 +288,38 @@ function normalizarPersonaNomina(valor: string | null | undefined) {
   return persona
 }
 
+function movimientoPertenecePersona(
+  movimiento: MovimientoDetalle,
+  persona: string,
+  nombresOrigen: Set<string>,
+) {
+  const personaNormalizada = normalizarPersonaNomina(persona)
+  const tokensPersona = personaNormalizada
+    .split(" ")
+    .filter((token) => token.length >= 3)
+
+  return [movimiento.proveedor, movimiento.concepto, movimiento.origen_referencia].some(
+    (valor) => {
+      const texto = normalizarTextoNomina(valor)
+      if (!texto) return false
+
+      const personaEnTexto = normalizarPersonaNomina(texto)
+      if (
+        nombresOrigen.has(texto) ||
+        personaEnTexto === personaNormalizada ||
+        texto.includes(personaNormalizada) ||
+        personaEnTexto.includes(personaNormalizada)
+      ) {
+        return true
+      }
+
+      const tokensTexto = new Set(texto.split(/[^A-Z0-9]+/).filter(Boolean))
+      const coincidencias = tokensPersona.filter((token) => tokensTexto.has(token)).length
+      return tokensPersona.length >= 3 && coincidencias >= Math.min(3, tokensPersona.length)
+    },
+  )
+}
+
 function claseEstado(estado: string) {
   if (estado === "CONCILIADO") return "ok"
   if (estado.includes("FALTA CLASIFICAR")) return "advertencia"
@@ -1150,19 +1182,9 @@ export default function ClasificacionGastos() {
     const personasOrigen = personaSeleccionada?.personas_origen.length
       ? personaSeleccionada.personas_origen
       : [personaEditando]
-    const personaNormalizada = normalizarPersonaNomina(personaEditando)
     const nombresOrigen = new Set(personasOrigen.map(normalizarTextoNomina))
     const movimientosPersona = movimientos.filter((movimiento) =>
-      [movimiento.proveedor, movimiento.concepto, movimiento.origen_referencia].some(
-        (valor) => {
-          const texto = normalizarTextoNomina(valor)
-          return (
-            Boolean(texto) &&
-            (nombresOrigen.has(texto) ||
-              normalizarPersonaNomina(texto) === personaNormalizada)
-          )
-        },
-      ),
+      movimientoPertenecePersona(movimiento, personaEditando, nombresOrigen),
     )
     let movimientosAplicados = 0
 
@@ -1642,6 +1664,7 @@ export default function ClasificacionGastos() {
                           {guardandoNomina ? "Aplicando…" : "Aplicar a toda su nómina"}
                         </button>
                       </div>
+                      {error && <div className="cg-alert cg-alert-error">{error}</div>}
                     </div>
                   )}
                 </section>
