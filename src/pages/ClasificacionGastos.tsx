@@ -52,6 +52,7 @@ type ImportacionLibroMayor = {
 type PersonaNomina = {
   periodo: string
   persona: string
+  personas_origen: string[]
   valor_total: number
   movimientos: number
   movimientos_clasificados: number
@@ -342,7 +343,7 @@ export default function ClasificacionGastos() {
           .select("*")
           .order("periodo", { ascending: false }),
         supabase
-          .from("fin_vw_nomina_personas_clasificacion")
+          .from("fin_vw_nomina_personas_clasificacion_unificada")
           .select("*")
           .order("periodo", { ascending: false })
           .order("persona", { ascending: true }),
@@ -391,6 +392,9 @@ export default function ClasificacionGastos() {
     setPersonasNomina(
       (personasRes.data ?? []).map((fila) => ({
         ...fila,
+        personas_origen: Array.isArray(fila.personas_origen)
+          ? fila.personas_origen.map(String)
+          : [String(fila.persona ?? "")].filter(Boolean),
         valor_total: Number(fila.valor_total ?? 0),
         movimientos: Number(fila.movimientos ?? 0),
         movimientos_clasificados: Number(fila.movimientos_clasificados ?? 0),
@@ -1120,24 +1124,44 @@ export default function ClasificacionGastos() {
 
     setGuardandoNomina(true)
 
-    const { data, error: errorNomina } = await supabase.rpc(
-      "fin_clasificar_nomina_persona",
-      {
-        p_periodo: `${periodo}-01`,
-        p_persona: personaEditando,
-        p_clasificacion: clasificacionNomina,
-        p_clientes: clientesRpc,
-      },
+    const personaSeleccionada = personasNomina.find(
+      (fila) => fila.periodo.startsWith(periodo) && fila.persona === personaEditando,
     )
+    const personasOrigen = personaSeleccionada?.personas_origen.length
+      ? personaSeleccionada.personas_origen
+      : [personaEditando]
+    let movimientosAplicados = 0
 
-    if (errorNomina) {
-      setError(errorNomina.message)
+    for (const personaOrigen of personasOrigen) {
+      const { data, error: errorNomina } = await supabase.rpc(
+        "fin_clasificar_nomina_persona",
+        {
+          p_periodo: `${periodo}-01`,
+          p_persona: personaOrigen,
+          p_clasificacion: clasificacionNomina,
+          p_clientes: clientesRpc,
+        },
+      )
+
+      if (errorNomina) {
+        setError(errorNomina.message)
+        setGuardandoNomina(false)
+        return
+      }
+
+      movimientosAplicados += Number(data ?? 0)
+    }
+
+    if (movimientosAplicados <= 0) {
+      setError(
+        "No se encontró ningún movimiento de nómina para actualizar. Actualiza la pantalla e inténtalo nuevamente.",
+      )
       setGuardandoNomina(false)
       return
     }
 
     setMensaje(
-      `${personaEditando}: distribución aplicada a ${Number(data ?? 0)} movimiento(s) de nómina.`,
+      `${personaEditando}: distribución aplicada a ${movimientosAplicados} movimiento(s) de nómina.`,
     )
     setPersonaEditando(null)
     await cargarBase()
