@@ -743,6 +743,62 @@ export default function ClasificacionGastos() {
 
     setGuardando(true)
 
+    if (cuenta.fuente_detalle === "NOMINA" && movimientoEditado) {
+      const personaNomina = personasPeriodo.find((persona) => {
+        const nombresOrigen = new Set(
+          persona.personas_origen.map(normalizarTextoNomina),
+        )
+        return movimientoPertenecePersona(
+          movimientoEditado,
+          persona.persona,
+          nombresOrigen,
+        )
+      })
+
+      if (personaNomina) {
+        let movimientosAplicados = 0
+
+        for (const personaOrigen of personaNomina.personas_origen) {
+          const { data, error: errorNomina } = await supabase.rpc(
+            "fin_clasificar_nomina_persona",
+            {
+              p_periodo: `${periodo}-01`,
+              p_persona: personaOrigen,
+              p_clasificacion: formulario.clasificacion_gerencial,
+              p_clientes: clientesRpc,
+            },
+          )
+
+          if (errorNomina) {
+            setError(errorNomina.message)
+            setGuardando(false)
+            return
+          }
+
+          movimientosAplicados += Number(data ?? 0)
+        }
+
+        if (movimientosAplicados <= 0 && personaNomina.estado !== "CLASIFICADO") {
+          setError(
+            `No se encontró un movimiento pendiente asociado a ${personaNomina.persona}.`,
+          )
+          setGuardando(false)
+          return
+        }
+
+        setMensaje(
+          movimientosAplicados > 0
+            ? `${personaNomina.persona}: clasificación de nómina actualizada correctamente.`
+            : `${personaNomina.persona} ya se encontraba clasificada.`,
+        )
+        setMostrarFormulario(false)
+        await cargarBase()
+        await cargarDetalle(cuenta.cuenta_codigo, periodo)
+        setGuardando(false)
+        return
+      }
+    }
+
     const datosRpc = {
       id: formulario.id,
       periodo: `${periodo}-01`,
@@ -1183,77 +1239,26 @@ export default function ClasificacionGastos() {
     const personasOrigen = personaSeleccionada?.personas_origen.length
       ? personaSeleccionada.personas_origen
       : [personaEditando]
-    const nombresOrigen = new Set(personasOrigen.map(normalizarTextoNomina))
-    const movimientosPersona = movimientos.filter((movimiento) =>
-      movimientoPertenecePersona(movimiento, personaEditando, nombresOrigen),
-    )
-    const movimientosObjetivo =
-      personaSeleccionada?.estado === "PENDIENTE"
-        ? movimientosPersona.filter(
-            (movimiento) => movimiento.clasificacion_gerencial === "PENDIENTE",
-          )
-        : movimientosPersona
     let movimientosAplicados = 0
 
-    if (movimientosPersona.length > 0) {
-      for (const movimiento of movimientosObjetivo) {
-        const datosRpc = {
-          id: movimiento.id,
-          periodo: movimiento.periodo,
-          cuenta_codigo: movimiento.cuenta_codigo,
-          fecha_documento: movimiento.fecha_documento,
-          tipo_documento: movimiento.tipo_documento,
-          numero_documento: movimiento.numero_documento,
-          proveedor: movimiento.proveedor,
-          concepto: movimiento.concepto,
-          valor: movimiento.valor,
-          clasificacion_gerencial: clasificacionNomina,
-          subcategoria: movimiento.subcategoria || "NOMINA VENTAS",
-          area: movimiento.area || "COMERCIAL",
-          comportamiento: movimiento.comportamiento || "FIJO_RANGO",
-          producto_id: movimiento.producto_id,
-          factura_id: movimiento.factura_id,
-          origen_detalle: movimiento.origen_detalle,
-          origen_referencia: movimiento.origen_referencia,
-          observaciones: movimiento.observaciones,
-        }
+    for (const personaOrigen of personasOrigen) {
+      const { data, error: errorNomina } = await supabase.rpc(
+        "fin_clasificar_nomina_persona",
+        {
+          p_periodo: `${periodo}-01`,
+          p_persona: personaOrigen,
+          p_clasificacion: clasificacionNomina,
+          p_clientes: clientesRpc,
+        },
+      )
 
-        const { error: errorGuardar } = await supabase.rpc(
-          "fin_guardar_resultado_clasificacion_detalle",
-          {
-            p_datos: datosRpc,
-            p_clientes: clientesRpc,
-          },
-        )
-
-        if (errorGuardar) {
-          setError(errorGuardar.message)
-          setGuardandoNomina(false)
-          return
-        }
-
-        movimientosAplicados += 1
+      if (errorNomina) {
+        setError(errorNomina.message)
+        setGuardandoNomina(false)
+        return
       }
-    } else {
-      for (const personaOrigen of personasOrigen) {
-        const { data, error: errorNomina } = await supabase.rpc(
-          "fin_clasificar_nomina_persona",
-          {
-            p_periodo: `${periodo}-01`,
-            p_persona: personaOrigen,
-            p_clasificacion: clasificacionNomina,
-            p_clientes: clientesRpc,
-          },
-        )
 
-        if (errorNomina) {
-          setError(errorNomina.message)
-          setGuardandoNomina(false)
-          return
-        }
-
-        movimientosAplicados += Number(data ?? 0)
-      }
+      movimientosAplicados += Number(data ?? 0)
     }
 
     if (movimientosAplicados <= 0) {
