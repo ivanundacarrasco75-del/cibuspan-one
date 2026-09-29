@@ -8,6 +8,7 @@ import {
 import ModalMensaje from "../components/ModalMensaje"
 import ReporteMargenBrutoAnalitico from "./ReporteMargenBrutoAnalitico"
 import ReporteEstructuraCostos from "./ReporteEstructuraCostos"
+import ReportePygGeneral from "./ReportePygGeneral"
 import {
   importarBalanceResultadosDb,
   obtenerImportacionesResultadosDb,
@@ -22,7 +23,7 @@ import {
   type ResultadoArchivoBalance,
 } from "../utils/balanceResultadosExcel"
 
-type Vista = "IMPORTAR" | "MARGEN" | "RESUMEN" | "HISTORIAL"
+type Vista = "PYG" | "IMPORTAR" | "MARGEN" | "RESUMEN" | "HISTORIAL"
 
 function mesPeriodo(periodo: string) {
   const [anio, mes] = periodo.split("-").map(Number)
@@ -57,7 +58,7 @@ function porcentaje(valor: number | null | undefined) {
 }
 
 export default function CostosIndirectos() {
-  const [vista, setVista] = useState<Vista>("MARGEN")
+  const [vista, setVista] = useState<Vista>("PYG")
   const [resultados, setResultados] = useState<ResultadoMensualDb[]>([])
   const [margenes, setMargenes] = useState<MargenBrutoMensualDb[]>([])
   const [importaciones, setImportaciones] = useState<
@@ -198,11 +199,10 @@ export default function CostosIndirectos() {
 
       <header style={cabecera}>
         <div>
-          <span style={etiqueta}>COSTOS Y RENTABILIDAD</span>
-          <h1 style={titulo}>Costos de producción</h1>
+          <span style={etiqueta}>PAGOS Y FINANZAS</span>
+          <h1 style={titulo}>Resultados y rentabilidad</h1>
           <p style={subtitulo}>
-            Base contable mensual para validar primero el margen bruto real
-            del negocio. El EBITDA queda fuera de esta etapa.
+            PyG general, margen bruto y trazabilidad de la información contable.
           </p>
         </div>
         <button
@@ -217,6 +217,7 @@ export default function CostosIndirectos() {
 
       <div style={pestanas}>
         {([
+          ["PYG", "PyG general"],
           ["MARGEN", "Margen bruto"],
           ["IMPORTAR", "Importar balance"],
           ["RESUMEN", "Resultado contable existente"],
@@ -235,6 +236,14 @@ export default function CostosIndirectos() {
           </button>
         ))}
       </div>
+
+      {vista === "PYG" && (
+        <ReportePygGeneral
+          resultados={resultados}
+          margenes={margenes}
+          cargando={cargando}
+        />
+      )}
 
 
       {vista === "MARGEN" && (
