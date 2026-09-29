@@ -1262,6 +1262,13 @@ export default function ClasificacionGastos() {
     }
 
     if (movimientosAplicados <= 0) {
+      if (personaSeleccionada?.estado === "CLASIFICADO") {
+        setMensaje(`${personaEditando} ya se encontraba clasificada.`)
+        setPersonaEditando(null)
+        setGuardandoNomina(false)
+        return
+      }
+
       setError(
         "No se encontró ningún movimiento de nómina para actualizar. Actualiza la pantalla e inténtalo nuevamente.",
       )
