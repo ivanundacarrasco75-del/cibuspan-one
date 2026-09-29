@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react"
+import ModalMensaje from "../components/ModalMensaje"
 import { supabase } from "../lib/supabase"
 import {
   calcularHashArchivo,
@@ -1186,10 +1187,16 @@ export default function ClasificacionGastos() {
     const movimientosPersona = movimientos.filter((movimiento) =>
       movimientoPertenecePersona(movimiento, personaEditando, nombresOrigen),
     )
+    const movimientosObjetivo =
+      personaSeleccionada?.estado === "PENDIENTE"
+        ? movimientosPersona.filter(
+            (movimiento) => movimiento.clasificacion_gerencial === "PENDIENTE",
+          )
+        : movimientosPersona
     let movimientosAplicados = 0
 
     if (movimientosPersona.length > 0) {
-      for (const movimiento of movimientosPersona) {
+      for (const movimiento of movimientosObjetivo) {
         const datosRpc = {
           id: movimiento.id,
           periodo: movimiento.periodo,
@@ -1201,9 +1208,9 @@ export default function ClasificacionGastos() {
           concepto: movimiento.concepto,
           valor: movimiento.valor,
           clasificacion_gerencial: clasificacionNomina,
-          subcategoria: movimiento.subcategoria,
-          area: movimiento.area,
-          comportamiento: movimiento.comportamiento,
+          subcategoria: movimiento.subcategoria || "NOMINA VENTAS",
+          area: movimiento.area || "COMERCIAL",
+          comportamiento: movimiento.comportamiento || "FIJO_RANGO",
           producto_id: movimiento.producto_id,
           factura_id: movimiento.factura_id,
           origen_detalle: movimiento.origen_detalle,
@@ -1279,6 +1286,17 @@ export default function ClasificacionGastos() {
     <section className="cg-page">
       <style>{css}</style>
 
+      <ModalMensaje
+        abierto={Boolean(error || mensaje)}
+        tipo={error ? "ERROR" : "EXITO"}
+        mensaje={error || mensaje}
+        cierreAutomaticoMs={error ? undefined : 3500}
+        cerrar={() => {
+          setError("")
+          setMensaje("")
+        }}
+      />
+
       <header className="cg-header">
         <div>
           <span className="cg-kicker">CIBUSPAN ONE · Pagos y Finanzas</span>
@@ -1335,9 +1353,6 @@ export default function ClasificacionGastos() {
           {importacionPeriodo.registros_importados} movimientos relevantes importados.
         </div>
       )}
-
-      {error && <div className="cg-alert cg-alert-error">{error}</div>}
-      {mensaje && <div className="cg-alert cg-alert-ok">{mensaje}</div>}
 
       {vistaPrevia && (
         <section className="cg-preview-card">
@@ -1664,7 +1679,6 @@ export default function ClasificacionGastos() {
                           {guardandoNomina ? "Aplicando…" : "Aplicar a toda su nómina"}
                         </button>
                       </div>
-                      {error && <div className="cg-alert cg-alert-error">{error}</div>}
                     </div>
                   )}
                 </section>
