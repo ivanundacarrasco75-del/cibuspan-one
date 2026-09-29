@@ -11,6 +11,10 @@ import {
   type ReglaDistribucionDb,
 } from "../repositories/rentabilidadRepository"
 import { obtenerVentasDiariasRangoDb, type VentaDiariaDb } from "../repositories/ventasRepository"
+import {
+  obtenerResultadosMensualesDb,
+  type ResultadoMensualDb,
+} from "../repositories/costosIndirectosRepository"
 
 type Cliente = { id: string; nombre: string }
 type Producto = { id: string; codigo: string; nombre: string; corto: string }
@@ -72,6 +76,24 @@ type FilaReporte = {
   completo: boolean
 }
 
+type FilaPygCliente = {
+  id: string
+  cliente: string
+  unidades: number
+  ventaBruta: number
+  descuentos: number
+  devoluciones: number
+  ventasNetas: number
+  costoProducto: number | null
+  margenBruto: number | null
+  transporte: number
+  gastoClienteDirecto: number
+  contribucion: number | null
+  gastoGeneral: number
+  ebitda: number | null
+  completo: boolean
+}
+
 type OrdenSku = "APORTE_TOTAL" | "APORTE_UNIDAD" | "MARGEN_TOTAL" | "MARGEN_PORCENTAJE" | "UNIDADES"
 
 function fechaIso(fecha = new Date()) {
@@ -89,6 +111,11 @@ function sumarDias(valor: string, dias: number) {
 
 function inicioMes() {
   return `${fechaIso().slice(0, 7)}-01`
+}
+
+function ultimoDiaMes(valor: string) {
+  const [anio, mes] = valor.slice(0, 7).split("-").map(Number)
+  return fechaIso(new Date(anio, mes, 0))
 }
 
 function normalizar(valor: string | null | undefined) {
@@ -134,7 +161,13 @@ function porUnidad(valor: number | null, unidades: number) {
   return valor === null || unidades <= 0 ? null : valor / unidades
 }
 
-export default function ReporteRentabilidadSku() {
+export default function ReporteRentabilidadSku({
+  modo = "SKU",
+  integrado = false,
+}: {
+  modo?: "SKU" | "PYG_CLIENTE"
+  integrado?: boolean
+}) {
   const [desdeEdicion, setDesdeEdicion] = useState(inicioMes())
   const [hastaEdicion, setHastaEdicion] = useState(fechaIso())
   const [desde, setDesde] = useState(inicioMes())
@@ -148,6 +181,7 @@ export default function ReporteRentabilidadSku() {
   const [facturas, setFacturas] = useState<FacturaDetalleDb[]>([])
   const [nomina, setNomina] = useState<NominaMensualAreaDb[]>([])
   const [promociones, setPromociones] = useState<PromocionDb[]>([])
+  const [resultadosContables, setResultadosContables] = useState<ResultadoMensualDb[]>([])
   const [reglas, setReglas] = useState<ReglaDistribucionDb[]>(REGLAS_DISTRIBUCION_PREDETERMINADAS)
   const [clienteFiltro, setClienteFiltro] = useState("TODOS")
   const [skuFiltro, setSkuFiltro] = useState("TODOS")
@@ -156,6 +190,7 @@ export default function ReporteRentabilidadSku() {
   const [error, setError] = useState("")
   const [avisos, setAvisos] = useState<string[]>([])
   const solicitudRef = useRef(0)
+  const periodoInicializadoRef = useRef(false)
 
   const cargar = useCallback(async () => {
     const solicitud = solicitudRef.current + 1
@@ -183,6 +218,7 @@ export default function ReporteRentabilidadSku() {
         nominaDb,
         promocionesDb,
         reglasDb,
+        resultadosDb,
       ] = await Promise.all([
         supabase.from("clientes").select("id,nombre").eq("activo", true).order("nombre"),
         supabase.from("productos").select("id,codigo,nombre,corto").eq("activo", true).order("corto"),
@@ -194,6 +230,9 @@ export default function ReporteRentabilidadSku() {
         opcional(obtenerNominaMensualAreaDb(), [], "nómina"),
         opcional(obtenerPromocionesDb(), [], "descuentos y promociones"),
         opcional(obtenerReglasDistribucionDb(), REGLAS_DISTRIBUCION_PREDETERMINADAS, "reglas de distribución"),
+        modo === "PYG_CLIENTE"
+          ? opcional(obtenerResultadosMensualesDb(), [], "PyG contable")
+          : Promise.resolve([] as ResultadoMensualDb[]),
       ])
       if (clientesRes.error) throw clientesRes.error
       if (productosRes.error) throw productosRes.error
@@ -210,6 +249,7 @@ export default function ReporteRentabilidadSku() {
       setNomina(nominaDb)
       setPromociones(promocionesDb)
       setReglas(reglasDb)
+      setResultadosContables(resultadosDb)
       setAvisos(advertencias)
     } catch (err) {
       if (solicitud !== solicitudRef.current) return
@@ -217,11 +257,36 @@ export default function ReporteRentabilidadSku() {
     } finally {
       if (solicitud === solicitudRef.current) setCargando(false)
     }
-  }, [desde, hasta])
+  }, [desde, hasta, modo])
 
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  useEffect(() => {
+    if (
+      modo !== "PYG_CLIENTE" ||
+      periodoInicializadoRef.current ||
+      resultadosContables.length === 0
+    ) {
+      return
+    }
+
+    const ultimoPeriodo = [...resultadosContables]
+      .map((fila) => fila.periodo)
+      .sort()
+      .at(-1)
+
+    if (!ultimoPeriodo) return
+
+    const inicio = `${ultimoPeriodo.slice(0, 7)}-01`
+    const fin = ultimoDiaMes(inicio)
+    periodoInicializadoRef.current = true
+    setDesdeEdicion(inicio)
+    setHastaEdicion(fin)
+    setDesde(inicio)
+    setHasta(fin)
+  }, [modo, resultadosContables])
 
   const calculo = useMemo(() => {
     type Campo = "manoObraDirecta" | "transporte" | "gastoClienteDirecto" | "gastoGeneral"
@@ -444,6 +509,109 @@ export default function ReporteRentabilidadSku() {
     return Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
   }, [clientes])
 
+  const filasPygClientes = useMemo(() => {
+    const mapa = new Map<string, FilaPygCliente>()
+
+    calculo.filas
+      .filter(
+        (fila) =>
+          clienteFiltro === "TODOS" || fila.clienteKey === clienteFiltro,
+      )
+      .forEach((fila) => {
+        const costoFila =
+          fila.costoMateriales === null
+            ? null
+            : fila.costoMateriales + fila.manoObraDirecta
+        const actual = mapa.get(fila.clienteKey)
+
+        if (actual) {
+          actual.unidades += fila.unidades
+          actual.ventaBruta += fila.ventaBruta
+          actual.descuentos += fila.descuentos
+          actual.devoluciones += fila.devoluciones
+          actual.ventasNetas += fila.ventasNetas
+          actual.transporte += fila.transporte
+          actual.gastoClienteDirecto += fila.gastoClienteDirecto
+          actual.gastoGeneral += fila.gastoGeneral
+          actual.completo = actual.completo && fila.completo
+          actual.costoProducto =
+            actual.costoProducto === null || costoFila === null
+              ? null
+              : actual.costoProducto + costoFila
+        } else {
+          mapa.set(fila.clienteKey, {
+            id: fila.clienteKey,
+            cliente: fila.cliente,
+            unidades: fila.unidades,
+            ventaBruta: fila.ventaBruta,
+            descuentos: fila.descuentos,
+            devoluciones: fila.devoluciones,
+            ventasNetas: fila.ventasNetas,
+            costoProducto: costoFila,
+            margenBruto: null,
+            transporte: fila.transporte,
+            gastoClienteDirecto: fila.gastoClienteDirecto,
+            contribucion: null,
+            gastoGeneral: fila.gastoGeneral,
+            ebitda: null,
+            completo: fila.completo,
+          })
+        }
+      })
+
+    return Array.from(mapa.values())
+      .map((fila) => {
+        if (!fila.completo || fila.costoProducto === null) return fila
+        const margenBruto = fila.ventasNetas - fila.costoProducto
+        const contribucion =
+          margenBruto - fila.transporte - fila.gastoClienteDirecto
+        return {
+          ...fila,
+          margenBruto,
+          contribucion,
+          ebitda: contribucion - fila.gastoGeneral,
+        }
+      })
+      .sort((a, b) => b.ventasNetas - a.ventasNetas)
+  }, [calculo.filas, clienteFiltro])
+
+  const conciliacion = useMemo(() => {
+    const periodoDesde = `${desde.slice(0, 7)}-01`
+    const periodoHasta = `${hasta.slice(0, 7)}-01`
+    const contables = resultadosContables.filter(
+      (fila) => fila.periodo >= periodoDesde && fila.periodo <= periodoHasta,
+    )
+    const ventasOficiales = contables.reduce(
+      (total, fila) => total + Number(fila.ventas_netas ?? 0),
+      0,
+    )
+    const ebitdaOficial = contables.reduce(
+      (total, fila) => total + Number(fila.ebitda_estimado ?? 0),
+      0,
+    )
+    const ventasAnaliticas = calculo.filas.reduce(
+      (total, fila) => total + fila.ventasNetas,
+      0,
+    )
+    const ebitdaAnalitico = calculo.filas.reduce(
+      (total, fila) => total + Number(fila.ebitda ?? 0),
+      0,
+    )
+
+    return {
+      disponible: contables.length > 0,
+      rangoMesCompleto:
+        desde.endsWith("-01") && hasta === ultimoDiaMes(hasta),
+      ventasOficiales,
+      ventasAnaliticas,
+      diferenciaVentas: ventasAnaliticas - ventasOficiales,
+      ebitdaOficial,
+      ebitdaAnalitico,
+      diferenciaEbitda: ebitdaAnalitico - ebitdaOficial,
+      costosCompletos: calculo.filas.every((fila) => fila.completo),
+    }
+  }, [calculo.filas, desde, hasta, resultadosContables])
+
   const filasReporte = useMemo(() => {
     const mapa = new Map<string, FilaReporte>()
     calculo.filas
@@ -571,19 +739,88 @@ export default function ReporteRentabilidadSku() {
     URL.revokeObjectURL(url)
   }
 
+  function exportarPygClientesCsv() {
+    const encabezados = [
+      "Cliente",
+      "Unidades",
+      "Ventas brutas",
+      "Devoluciones",
+      "Descuentos",
+      "Ventas netas",
+      "Costo producto",
+      "Margen bruto",
+      "Transporte",
+      "Gastos directos",
+      "Contribución",
+      "Gastos generales asignados",
+      "EBITDA estimado",
+      "Margen EBITDA %",
+      "Estado",
+    ]
+    const filas = filasPygClientes.map((fila) => [
+      fila.cliente,
+      fila.unidades,
+      fila.ventaBruta,
+      fila.devoluciones,
+      fila.descuentos,
+      fila.ventasNetas,
+      fila.costoProducto,
+      fila.margenBruto,
+      fila.transporte,
+      fila.gastoClienteDirecto,
+      fila.contribucion,
+      fila.gastoGeneral,
+      fila.ebitda,
+      fila.ebitda !== null && fila.ventasNetas !== 0
+        ? (fila.ebitda / fila.ventasNetas) * 100
+        : null,
+      fila.completo ? "Completo" : "Costo incompleto",
+    ])
+    const contenido = [encabezados, ...filas]
+      .map((fila) =>
+        fila
+          .map((valor) => `"${String(valor ?? "").replaceAll('"', '""')}"`)
+          .join(","),
+      )
+      .join("\n")
+    const archivo = new Blob([`\uFEFF${contenido}`], {
+      type: "text/csv;charset=utf-8",
+    })
+    const url = URL.createObjectURL(archivo)
+    const enlace = document.createElement("a")
+    enlace.href = url
+    enlace.download = `pyg-clientes-${desde}-${hasta}.csv`
+    enlace.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <main className="unit-profit-report">
+    <main className={`unit-profit-report ${integrado ? "integrated" : ""}`}>
       <style>{css}</style>
       <header className="upr-header">
-        <div><span>REPORTES · RENTABILIDAD COMERCIAL</span><h1>Rentabilidad por SKU y cliente</h1><p>Precios, devoluciones, descuentos, costos y gastos expresados por unidad vendida.</p></div>
-        <button type="button" onClick={exportarCsv} disabled={filasReporte.length === 0}>Exportar CSV</button>
+        <div>
+          <span>REPORTES · RENTABILIDAD COMERCIAL</span>
+          <h1>{modo === "PYG_CLIENTE" ? "PyG por cliente" : "Rentabilidad por SKU y cliente"}</h1>
+          <p>
+            {modo === "PYG_CLIENTE"
+              ? "Ventas, costos directos y gastos asignados para evaluar la contribución de cada cliente."
+              : "Precios, devoluciones, descuentos, costos y gastos expresados por unidad vendida."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={modo === "PYG_CLIENTE" ? exportarPygClientesCsv : exportarCsv}
+          disabled={filasReporte.length === 0}
+        >
+          Exportar CSV
+        </button>
       </header>
 
-      <section className="upr-filters">
+      <section className={`upr-filters ${modo === "PYG_CLIENTE" ? "client-mode" : ""}`}>
         <label><span>Desde</span><input type="date" value={desdeEdicion} onChange={(e) => setDesdeEdicion(e.target.value)} /></label>
         <label><span>Hasta</span><input type="date" value={hastaEdicion} onChange={(e) => setHastaEdicion(e.target.value)} /></label>
         <label><span>Cliente</span><select value={clienteFiltro} onChange={(e) => { setClienteFiltro(e.target.value); setSkuFiltro("TODOS") }}><option value="TODOS">Todos los clientes</option>{opcionesClientes.map((item) => <option key={item.key} value={item.key}>{item.nombre}</option>)}</select></label>
-        <label><span>SKU</span><select value={skuFiltro} onChange={(e) => setSkuFiltro(e.target.value)}><option value="TODOS">Todos los SKU</option>{opcionesSku.map((item) => <option key={item.key} value={item.key}>{item.nombre} · {item.codigo}</option>)}</select></label>
+        {modo === "SKU" && <label><span>SKU</span><select value={skuFiltro} onChange={(e) => setSkuFiltro(e.target.value)}><option value="TODOS">Todos los SKU</option>{opcionesSku.map((item) => <option key={item.key} value={item.key}>{item.nombre} · {item.codigo}</option>)}</select></label>}
         <button type="button" onClick={aplicarPeriodo} disabled={cargando}>{cargando ? "Calculando…" : "Aplicar periodo"}</button>
       </section>
 
@@ -593,16 +830,159 @@ export default function ReporteRentabilidadSku() {
       {ventas.length > 0 && calculo.costosSinAsignar > 0 && <div className="upr-warning">{moneda(calculo.costosSinAsignar)} de gastos no pudieron asignarse porque no existe una base suficiente de ventas en el periodo.</div>}
 
       <section className="upr-kpis">
-        <Kpi titulo="Precio promedio" valor={totales.unidades > 0 ? moneda(totales.ventaBruta / totales.unidades, 4) : "—"} detalle="ponderado por unidades" />
-        <Kpi titulo="Precio efectivo" valor={totales.unidades > 0 ? moneda(totales.ventasNetas / totales.unidades, 4) : "—"} detalle="después de descuentos y devoluciones" />
-        <Kpi titulo="Devolución" valor={porcentaje(totales.unidades > 0 ? totales.devolucionesUnidades / totales.unidades * 100 : 0)} detalle={`${moneda(totales.devolucionesValor)} atribuido`} />
-        <Kpi titulo="Margen bruto" valor={porcentaje(totales.ventasNetas > 0 ? totales.margenBruto / totales.ventasNetas * 100 : 0)} detalle={totales.unidades > 0 ? `${moneda(totales.margenBruto / totales.unidades, 4)} por unidad` : "—"} />
-        <Kpi titulo="Aporte total" valor={moneda(totales.contribucion)} detalle={porcentaje(totales.ventasNetas > 0 ? totales.contribucion / totales.ventasNetas * 100 : 0)} />
-        <Kpi titulo="Gastos estimados" valor={totales.unidades > 0 ? moneda(totales.gastos / totales.unidades, 4) : "—"} detalle="por unidad vendida" />
-        <Kpi titulo="EBITDA unitario" valor={totales.unidades > 0 ? moneda(totales.ebitda / totales.unidades, 4) : "—"} detalle={porcentaje(totales.ventasNetas > 0 ? totales.ebitda / totales.ventasNetas * 100 : 0)} />
+        {modo === "PYG_CLIENTE" ? (
+          <>
+            <Kpi titulo="Ventas brutas" valor={moneda(totales.ventaBruta)} detalle={`${numero(totales.unidades)} unidades`} />
+            <Kpi titulo="Devoluciones" valor={moneda(totales.devolucionesValor)} detalle={porcentaje(totales.ventaBruta > 0 ? totales.devolucionesValor / totales.ventaBruta * 100 : 0)} />
+            <Kpi titulo="Descuentos" valor={moneda(totales.descuentos)} detalle={porcentaje(totales.ventaBruta > 0 ? totales.descuentos / totales.ventaBruta * 100 : 0)} />
+            <Kpi titulo="Ventas netas" valor={moneda(totales.ventasNetas)} detalle="después de devoluciones y descuentos" />
+            <Kpi titulo="Margen bruto" valor={moneda(totales.margenBruto)} detalle={porcentaje(totales.ventasNetas > 0 ? totales.margenBruto / totales.ventasNetas * 100 : 0)} />
+            <Kpi titulo="Contribución" valor={moneda(totales.contribucion)} detalle={porcentaje(totales.ventasNetas > 0 ? totales.contribucion / totales.ventasNetas * 100 : 0)} />
+            <Kpi titulo="EBITDA estimado" valor={moneda(totales.ebitda)} detalle={porcentaje(totales.ventasNetas > 0 ? totales.ebitda / totales.ventasNetas * 100 : 0)} />
+          </>
+        ) : (
+          <>
+            <Kpi titulo="Precio promedio" valor={totales.unidades > 0 ? moneda(totales.ventaBruta / totales.unidades, 4) : "—"} detalle="ponderado por unidades" />
+            <Kpi titulo="Precio efectivo" valor={totales.unidades > 0 ? moneda(totales.ventasNetas / totales.unidades, 4) : "—"} detalle="después de descuentos y devoluciones" />
+            <Kpi titulo="Devolución" valor={porcentaje(totales.unidades > 0 ? totales.devolucionesUnidades / totales.unidades * 100 : 0)} detalle={`${moneda(totales.devolucionesValor)} atribuido`} />
+            <Kpi titulo="Margen bruto" valor={porcentaje(totales.ventasNetas > 0 ? totales.margenBruto / totales.ventasNetas * 100 : 0)} detalle={totales.unidades > 0 ? `${moneda(totales.margenBruto / totales.unidades, 4)} por unidad` : "—"} />
+            <Kpi titulo="Aporte total" valor={moneda(totales.contribucion)} detalle={porcentaje(totales.ventasNetas > 0 ? totales.contribucion / totales.ventasNetas * 100 : 0)} />
+            <Kpi titulo="Gastos estimados" valor={totales.unidades > 0 ? moneda(totales.gastos / totales.unidades, 4) : "—"} detalle="por unidad vendida" />
+            <Kpi titulo="EBITDA unitario" valor={totales.unidades > 0 ? moneda(totales.ebitda / totales.unidades, 4) : "—"} detalle={porcentaje(totales.ventasNetas > 0 ? totales.ebitda / totales.ventasNetas * 100 : 0)} />
+          </>
+        )}
       </section>
 
-      <section className="upr-panel">
+      {modo === "PYG_CLIENTE" && clienteFiltro === "TODOS" && (
+        <section
+          className={`upr-reconciliation ${
+            conciliacion.disponible &&
+            conciliacion.rangoMesCompleto &&
+            conciliacion.costosCompletos &&
+            Math.abs(conciliacion.diferenciaVentas) < 1 &&
+            Math.abs(conciliacion.diferenciaEbitda) < 1
+              ? "ready"
+              : "pending"
+          }`}
+        >
+          <header>
+            <div>
+              <span>CONTROL OBLIGATORIO</span>
+              <h2>Conciliación contra el PyG general</h2>
+            </div>
+            <strong>
+              {!conciliacion.disponible
+                ? "Sin PyG contable para el periodo"
+                : !conciliacion.rangoMesCompleto
+                  ? "Selecciona meses completos"
+                  : Math.abs(conciliacion.diferenciaVentas) < 1 &&
+                      Math.abs(conciliacion.diferenciaEbitda) < 1 &&
+                      conciliacion.costosCompletos
+                    ? "Conciliado"
+                    : "Provisional"}
+            </strong>
+          </header>
+          <div>
+            <article>
+              <span>Ventas netas oficiales</span>
+              <strong>{conciliacion.disponible ? moneda(conciliacion.ventasOficiales) : "—"}</strong>
+            </article>
+            <article>
+              <span>Ventas netas distribuidas</span>
+              <strong>{moneda(conciliacion.ventasAnaliticas)}</strong>
+              <small>Diferencia {conciliacion.disponible ? moneda(conciliacion.diferenciaVentas) : "—"}</small>
+            </article>
+            <article>
+              <span>EBITDA oficial</span>
+              <strong>{conciliacion.disponible ? moneda(conciliacion.ebitdaOficial) : "—"}</strong>
+            </article>
+            <article>
+              <span>EBITDA distribuido</span>
+              <strong>{moneda(conciliacion.ebitdaAnalitico)}</strong>
+              <small>Diferencia {conciliacion.disponible ? moneda(conciliacion.diferenciaEbitda) : "—"}</small>
+            </article>
+          </div>
+          <p>
+            El detalle por cliente es gerencial. Solo debe considerarse definitivo
+            cuando las ventas y el EBITDA distribuidos cuadren con el PyG general y
+            todos los SKU tengan costo completo.
+          </p>
+        </section>
+      )}
+
+      {modo === "PYG_CLIENTE" && (
+        <section className="upr-panel">
+          <header>
+            <div>
+              <h2>Estado de resultados por cliente</h2>
+              <p>Los gastos directos se identifican por cliente; los gastos generales se distribuyen según las reglas configuradas.</p>
+            </div>
+            <span className="upr-count">{numero(filasPygClientes.length)} clientes</span>
+          </header>
+          {cargando ? (
+            <div className="upr-empty">Calculando PyG por cliente…</div>
+          ) : filasPygClientes.length === 0 ? (
+            <div className="upr-empty">No existen ventas para estos filtros.</div>
+          ) : (
+            <div className="upr-table-wrap compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Ventas brutas</th>
+                    <th>Devoluciones</th>
+                    <th>Descuentos</th>
+                    <th>Ventas netas</th>
+                    <th>Costo producto</th>
+                    <th>Margen bruto</th>
+                    <th>Margen bruto %</th>
+                    <th>Transporte</th>
+                    <th>Gastos directos</th>
+                    <th>Contribución</th>
+                    <th>Gastos generales</th>
+                    <th>EBITDA estimado</th>
+                    <th>Margen EBITDA</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filasPygClientes.map((fila) => {
+                    const margenBrutoPct =
+                      fila.margenBruto !== null && fila.ventasNetas !== 0
+                        ? (fila.margenBruto / fila.ventasNetas) * 100
+                        : null
+                    const margenEbitda =
+                      fila.ebitda !== null && fila.ventasNetas !== 0
+                        ? (fila.ebitda / fila.ventasNetas) * 100
+                        : null
+                    return (
+                      <tr key={fila.id}>
+                        <td data-label="Cliente"><strong>{fila.cliente}</strong><small>{numero(fila.unidades)} unidades</small></td>
+                        <td data-label="Ventas brutas">{moneda(fila.ventaBruta)}</td>
+                        <td data-label="Devoluciones">{moneda(fila.devoluciones)}<small>{porcentaje(fila.ventaBruta > 0 ? fila.devoluciones / fila.ventaBruta * 100 : 0)}</small></td>
+                        <td data-label="Descuentos">{moneda(fila.descuentos)}<small>{porcentaje(fila.ventaBruta > 0 ? fila.descuentos / fila.ventaBruta * 100 : 0)}</small></td>
+                        <td data-label="Ventas netas"><strong>{moneda(fila.ventasNetas)}</strong></td>
+                        <td data-label="Costo producto">{fila.costoProducto === null ? "—" : moneda(fila.costoProducto)}</td>
+                        <td data-label="Margen bruto">{fila.margenBruto === null ? "—" : moneda(fila.margenBruto)}</td>
+                        <td data-label="Margen bruto %"><ValorPorcentaje valor={margenBrutoPct} /></td>
+                        <td data-label="Transporte">{moneda(fila.transporte)}</td>
+                        <td data-label="Gastos directos">{moneda(fila.gastoClienteDirecto)}</td>
+                        <td data-label="Contribución">{fila.contribucion === null ? "—" : moneda(fila.contribucion)}</td>
+                        <td data-label="Gastos generales">{moneda(fila.gastoGeneral)}</td>
+                        <td data-label="EBITDA estimado"><strong className={Number(fila.ebitda ?? -1) >= 0 ? "positive" : "negative"}>{fila.ebitda === null ? "—" : moneda(fila.ebitda)}</strong></td>
+                        <td data-label="Margen EBITDA"><ValorPorcentaje valor={margenEbitda} /></td>
+                        <td data-label="Estado"><span className={fila.completo ? "upr-status ready" : "upr-status pending"}>{fila.completo ? "Completo" : "Costo incompleto"}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {modo === "SKU" && <section className="upr-panel">
         <header><div><h2>Ranking de aporte por SKU</h2><p>{clienteFiltro === "TODOS" ? "Promedios ponderados de todos los clientes seleccionados." : "Resultados del cliente seleccionado."}</p></div><div className="upr-ranking-controls"><label><span>Ordenar por</span><select value={ordenSku} onChange={(e)=>setOrdenSku(e.target.value as OrdenSku)}><option value="APORTE_TOTAL">Mayor aporte total</option><option value="APORTE_UNIDAD">Mayor aporte por unidad</option><option value="MARGEN_TOTAL">Mayor margen bruto total</option><option value="MARGEN_PORCENTAJE">Mayor margen bruto %</option><option value="UNIDADES">Mayor volumen</option></select></label><span>{numero(filasReporte.length)} SKU</span></div></header>
         {cargando ? <div className="upr-empty">Calculando rentabilidad…</div> : filasReporte.length === 0 ? <div className="upr-empty">No existen ventas para estos filtros.</div> : (
           <div className="upr-table-wrap"><table><thead><tr><th>#</th><th>SKU</th><th>Unidades</th><th>Precio promedio/ud</th><th>Descuento</th><th>Devolución</th><th>Precio efectivo/ud</th><th>Costo producto/ud</th><th>Margen bruto/ud</th><th>Margen bruto %</th><th>Contribución/ud</th><th>Aporte total</th><th>Aporte %</th><th>Transporte/ud</th><th>Gasto cliente/ud</th><th>Gasto general/ud</th><th>Gastos totales/ud</th><th>EBITDA/ud</th><th>Margen EBITDA</th></tr></thead><tbody>{filasReporte.map((fila, indice) => {
@@ -614,8 +994,12 @@ export default function ReporteRentabilidadSku() {
             return <tr key={fila.id}><td data-label="Posición"><strong className="upr-rank">{indice + 1}</strong></td><td data-label="SKU"><strong>{fila.sku}</strong><small>{fila.codigo}</small></td><td data-label="Unidades">{numero(u)}</td><td data-label="Precio promedio">{u > 0 ? moneda(fila.ventaBruta / u, 4) : "—"}</td><td data-label="Descuento">{u > 0 ? moneda(fila.descuentos / u, 4) : "—"}<small>{porcentaje(fila.ventaBruta > 0 ? fila.descuentos / fila.ventaBruta * 100 : 0)}</small></td><td data-label="Devolución">{u > 0 ? moneda(fila.devoluciones / u, 4) : "—"}<small>{porcentaje(u > 0 ? fila.unidadesDevueltas / u * 100 : 0)}</small></td><td data-label="Precio efectivo">{u > 0 ? moneda(fila.ventasNetas / u, 4) : "—"}</td><td data-label="Costo producto">{fila.costoProducto === null ? "—" : moneda(fila.costoProducto / Math.max(1, u), 4)}</td><td data-label="Margen bruto">{fila.margenBruto === null ? "—" : moneda(fila.margenBruto / Math.max(1, u), 4)}</td><td data-label="Margen bruto %"><ValorPorcentaje valor={margenBrutoPorcentaje} /></td><td data-label="Contribución">{fila.contribucion === null ? "—" : moneda(fila.contribucion / Math.max(1, u), 4)}</td><td data-label="Aporte total"><strong>{fila.contribucion === null ? "—" : moneda(fila.contribucion)}</strong></td><td data-label="Aporte %"><ValorPorcentaje valor={aportePorcentaje} /></td><td data-label="Transporte">{u > 0 ? moneda(fila.transporte / u, 4) : "—"}</td><td data-label="Gasto cliente">{u > 0 ? moneda(fila.gastoClienteDirecto / u, 4) : "—"}</td><td data-label="Gasto general">{u > 0 ? moneda(fila.gastoGeneral / u, 4) : "—"}</td><td data-label="Gastos totales">{u > 0 ? moneda(gastos / u, 4) : "—"}</td><td data-label="EBITDA">{fila.ebitda === null ? "—" : moneda(fila.ebitda / Math.max(1, u), 4)}</td><td data-label="Margen EBITDA"><ValorPorcentaje valor={margenEbitda} />{!fila.completo && <small>Costo incompleto</small>}</td></tr>
           })}</tbody></table></div>
         )}
-      </section>
-      <footer>El margen bruto resta materiales, empaques y mano de obra directa. El aporte también resta transporte y gastos directos del cliente. El EBITDA incorpora además los gastos generales distribuidos.</footer>
+      </section>}
+      <footer>
+        El margen bruto resta materiales, empaques y mano de obra directa. La
+        contribución también resta transporte y gastos directos del cliente. El
+        EBITDA estimado incorpora además los gastos generales distribuidos.
+      </footer>
     </main>
   )
 }
@@ -629,7 +1013,7 @@ function ValorPorcentaje({ valor }: { valor: number | null }) {
 }
 
 const css = `
-  .unit-profit-report{max-width:1760px;margin:0 auto;padding:26px;color:#2b2422;background:#f8f5f1;min-height:100vh}.upr-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}.upr-header span{color:#8f1d24;font-size:9px;font-weight:950;letter-spacing:1.1px}.upr-header h1{margin:4px 0;font-size:30px}.upr-header p,.upr-panel header p{margin:0;color:#776a65;font-size:12px}.upr-header button,.upr-filters>button{min-height:40px;padding:0 15px;border:0;border-radius:8px;background:#8f1d24;color:white;font-weight:850;cursor:pointer}.upr-header button:disabled{opacity:.45}.upr-filters{display:grid;grid-template-columns:145px 145px minmax(190px,1fr) minmax(230px,1.3fr) auto;align-items:end;gap:10px;margin-bottom:14px;padding:14px;border:1px solid #e6dcd6;border-radius:11px;background:white}.upr-filters label>span{display:block;margin-bottom:5px;color:#6f625d;font-size:9px;font-weight:900;text-transform:uppercase}.upr-filters input,.upr-filters select{width:100%;min-height:40px;box-sizing:border-box;padding:7px 9px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:#392f2c}.upr-error,.upr-warning{margin-bottom:12px;padding:11px 13px;border-radius:8px;font-size:11px}.upr-error{border-left:4px solid #b91c1c;background:#fee2e2;color:#991b1b}.upr-warning{border-left:4px solid #f7931e;background:#fff7ed;color:#9a3412}.upr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px}.upr-kpis article{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #eadfd9;border-top:3px solid #f7931e;border-radius:10px;background:white}.upr-kpis span{color:#786b65;font-size:9px;font-weight:850}.upr-kpis strong{color:#8f1d24;font-size:21px}.upr-kpis small{color:#958781;font-size:9px}.upr-panel{padding:17px;border:1px solid #e5dad4;border-radius:12px;background:white}.upr-panel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.upr-panel h2{margin:0 0 3px;font-size:20px}.upr-ranking-controls{display:flex;align-items:flex-end;gap:9px}.upr-ranking-controls>span{padding:5px 8px;border-radius:999px;background:#fff1e4;color:#9a4f0f;font-size:9px;font-weight:900}.upr-ranking-controls label>span{display:block;margin-bottom:4px;color:#776a65;font-size:8px;font-weight:900;text-transform:uppercase}.upr-ranking-controls select{min-height:35px;padding:5px 8px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:#392f2c;font-size:10px;font-weight:800}.upr-table-wrap{overflow:auto;border:1px solid #ece6e2;border-radius:8px}.upr-table-wrap table{width:100%;min-width:2350px;border-collapse:collapse}.upr-table-wrap th{padding:9px;background:#f8f5f3;color:#6f625d;text-align:right;font-size:9px;white-space:nowrap}.upr-table-wrap th:first-child,.upr-table-wrap td:first-child{text-align:center}.upr-table-wrap th:nth-child(2),.upr-table-wrap td:nth-child(2){text-align:left}.upr-table-wrap td{padding:9px;border-top:1px solid #eee8e4;text-align:right;font-size:10px;white-space:nowrap}.upr-table-wrap td strong{display:block}.upr-table-wrap td small{display:block;margin-top:3px;color:#968983;font-size:8px}.upr-rank{display:inline-grid!important;width:25px;height:25px;place-items:center;border-radius:50%;background:#fff1e4;color:#9a4f0f}.positive{color:#15803d}.negative{color:#b91c1c}.upr-empty{padding:30px;color:#80736d;text-align:center}.unit-profit-report>footer{margin-top:10px;color:#8d7f79;font-size:10px}
-  @media(max-width:1100px){.upr-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.upr-filters>button{grid-column:1/-1}.upr-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
-  @media(max-width:700px){.unit-profit-report{padding:12px 10px 24px}.upr-header{align-items:stretch;flex-direction:column}.upr-header button{width:100%}.upr-filters{grid-template-columns:1fr}.upr-filters>button{grid-column:auto}.upr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.upr-kpis strong{font-size:17px}.upr-panel{padding:11px}.upr-panel>header{flex-direction:column}.upr-ranking-controls{width:100%;align-items:stretch;flex-direction:column}.upr-ranking-controls select{width:100%}.upr-table-wrap{overflow:visible;border:0}.upr-table-wrap table,.upr-table-wrap tbody,.upr-table-wrap tr,.upr-table-wrap td{display:block;width:100%;box-sizing:border-box}.upr-table-wrap table{min-width:0}.upr-table-wrap thead{display:none}.upr-table-wrap tbody{display:grid;gap:9px}.upr-table-wrap tr{padding:9px 11px;border:1px solid #e9dfda;border-radius:9px}.upr-table-wrap td{display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:7px;padding:5px 0;border:0;white-space:normal}.upr-table-wrap td:before{content:attr(data-label);color:#837670;text-align:left;font-size:8px;font-weight:850}}
+  .unit-profit-report{max-width:1760px;margin:0 auto;padding:26px;color:#2b2422;background:#f8f5f1;min-height:100vh}.unit-profit-report.integrated{max-width:none;padding:0;background:transparent;min-height:0}.upr-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}.upr-header span{color:#8f1d24;font-size:9px;font-weight:950;letter-spacing:1.1px}.upr-header h1{margin:4px 0;font-size:30px}.upr-header p,.upr-panel header p{margin:0;color:#776a65;font-size:12px}.upr-header button,.upr-filters>button{min-height:40px;padding:0 15px;border:0;border-radius:8px;background:#8f1d24;color:white;font-weight:850;cursor:pointer}.upr-header button:disabled{opacity:.45}.upr-filters{display:grid;grid-template-columns:145px 145px minmax(190px,1fr) minmax(230px,1.3fr) auto;align-items:end;gap:10px;margin-bottom:14px;padding:14px;border:1px solid #e6dcd6;border-radius:11px;background:white}.upr-filters.client-mode{grid-template-columns:145px 145px minmax(240px,1fr) auto}.upr-filters label>span{display:block;margin-bottom:5px;color:#6f625d;font-size:9px;font-weight:900;text-transform:uppercase}.upr-filters input,.upr-filters select{width:100%;min-height:40px;box-sizing:border-box;padding:7px 9px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:#392f2c}.upr-error,.upr-warning{margin-bottom:12px;padding:11px 13px;border-radius:8px;font-size:11px}.upr-error{border-left:4px solid #b91c1c;background:#fee2e2;color:#991b1b}.upr-warning{border-left:4px solid #f7931e;background:#fff7ed;color:#9a3412}.upr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px}.upr-kpis article{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #eadfd9;border-top:3px solid #f7931e;border-radius:10px;background:white}.upr-kpis span{color:#786b65;font-size:9px;font-weight:850}.upr-kpis strong{color:#8f1d24;font-size:21px}.upr-kpis small{color:#958781;font-size:9px}.upr-panel{padding:17px;border:1px solid #e5dad4;border-radius:12px;background:white}.upr-panel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.upr-panel h2{margin:0 0 3px;font-size:20px}.upr-count{padding:5px 9px;border-radius:999px;background:#fff1e4;color:#9a4f0f;font-size:9px;font-weight:900}.upr-ranking-controls{display:flex;align-items:flex-end;gap:9px}.upr-ranking-controls>span{padding:5px 8px;border-radius:999px;background:#fff1e4;color:#9a4f0f;font-size:9px;font-weight:900}.upr-ranking-controls label>span{display:block;margin-bottom:4px;color:#776a65;font-size:8px;font-weight:900;text-transform:uppercase}.upr-ranking-controls select{min-height:35px;padding:5px 8px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:#392f2c;font-size:10px;font-weight:800}.upr-table-wrap{overflow:auto;border:1px solid #ece6e2;border-radius:8px}.upr-table-wrap table{width:100%;min-width:2350px;border-collapse:collapse}.upr-table-wrap.compact table{min-width:1650px}.upr-table-wrap.compact th:first-child,.upr-table-wrap.compact td:first-child{text-align:left}.upr-table-wrap.compact th:nth-child(2),.upr-table-wrap.compact td:nth-child(2){text-align:right}.upr-table-wrap th{padding:9px;background:#f8f5f3;color:#6f625d;text-align:right;font-size:9px;white-space:nowrap}.upr-table-wrap th:first-child,.upr-table-wrap td:first-child{text-align:center}.upr-table-wrap th:nth-child(2),.upr-table-wrap td:nth-child(2){text-align:left}.upr-table-wrap td{padding:9px;border-top:1px solid #eee8e4;text-align:right;font-size:10px;white-space:nowrap}.upr-table-wrap td strong{display:block}.upr-table-wrap td small{display:block;margin-top:3px;color:#968983;font-size:8px}.upr-rank{display:inline-grid!important;width:25px;height:25px;place-items:center;border-radius:50%;background:#fff1e4;color:#9a4f0f}.upr-status{display:inline-block;padding:4px 7px;border-radius:999px;font-size:8px;font-weight:900}.upr-status.ready{background:#dcfce7;color:#166534}.upr-status.pending{background:#ffedd5;color:#9a3412}.positive{color:#15803d}.negative{color:#b91c1c}.upr-empty{padding:30px;color:#80736d;text-align:center}.unit-profit-report>footer{margin-top:10px;color:#8d7f79;font-size:10px}.upr-reconciliation{margin-bottom:14px;padding:15px;border:1px solid;border-radius:11px}.upr-reconciliation.ready{border-color:#bbdfc5;background:#f3fbf5}.upr-reconciliation.pending{border-color:#f2cf9c;background:#fff8e8}.upr-reconciliation>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.upr-reconciliation>header span{font-size:9px;font-weight:900;color:#9a4f0f}.upr-reconciliation>header h2{margin:3px 0 0;font-size:18px}.upr-reconciliation>header>strong{color:#8f1d24}.upr-reconciliation>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:12px}.upr-reconciliation article{padding:10px;border:1px solid rgba(120,90,70,.15);border-radius:8px;background:rgba(255,255,255,.7)}.upr-reconciliation article span,.upr-reconciliation article small{display:block;color:#786b65;font-size:8px}.upr-reconciliation article strong{display:block;margin:4px 0;font-size:16px}.upr-reconciliation>p{margin:10px 0 0;color:#786b65;font-size:10px}
+  @media(max-width:1100px){.upr-filters,.upr-filters.client-mode{grid-template-columns:repeat(2,minmax(0,1fr))}.upr-filters>button{grid-column:1/-1}.upr-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.upr-reconciliation>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:700px){.unit-profit-report{padding:12px 10px 24px}.unit-profit-report.integrated{padding:0}.upr-header{align-items:stretch;flex-direction:column}.upr-header button{width:100%}.upr-filters,.upr-filters.client-mode{grid-template-columns:1fr}.upr-filters>button{grid-column:auto}.upr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.upr-kpis strong{font-size:17px}.upr-panel{padding:11px}.upr-panel>header,.upr-reconciliation>header{flex-direction:column}.upr-reconciliation>div{grid-template-columns:1fr}.upr-ranking-controls{width:100%;align-items:stretch;flex-direction:column}.upr-ranking-controls select{width:100%}.upr-table-wrap{overflow:visible;border:0}.upr-table-wrap table,.upr-table-wrap tbody,.upr-table-wrap tr,.upr-table-wrap td{display:block;width:100%;box-sizing:border-box}.upr-table-wrap table{min-width:0}.upr-table-wrap thead{display:none}.upr-table-wrap tbody{display:grid;gap:9px}.upr-table-wrap tr{padding:9px 11px;border:1px solid #e9dfda;border-radius:9px}.upr-table-wrap td{display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:7px;padding:5px 0;border:0;white-space:normal}.upr-table-wrap td:before{content:attr(data-label);color:#837670;text-align:left;font-size:8px;font-weight:850}}
 `
