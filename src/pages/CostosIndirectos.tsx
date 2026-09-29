@@ -9,6 +9,7 @@ import ModalMensaje from "../components/ModalMensaje"
 import ReporteMargenBrutoAnalitico from "./ReporteMargenBrutoAnalitico"
 import ReporteEstructuraCostos from "./ReporteEstructuraCostos"
 import ReportePygGeneral from "./ReportePygGeneral"
+import ReporteRentabilidadSku from "./ReporteRentabilidadSku"
 import {
   importarBalanceResultadosDb,
   obtenerImportacionesResultadosDb,
@@ -23,7 +24,13 @@ import {
   type ResultadoArchivoBalance,
 } from "../utils/balanceResultadosExcel"
 
-type Vista = "PYG" | "IMPORTAR" | "MARGEN" | "RESUMEN" | "HISTORIAL"
+type Vista =
+  | "PYG"
+  | "PYG_CLIENTE"
+  | "IMPORTAR"
+  | "MARGEN"
+  | "RESUMEN"
+  | "HISTORIAL"
 
 function mesPeriodo(periodo: string) {
   const [anio, mes] = periodo.split("-").map(Number)
@@ -218,6 +225,7 @@ export default function CostosIndirectos() {
       <div style={pestanas}>
         {([
           ["PYG", "PyG general"],
+          ["PYG_CLIENTE", "PyG por cliente"],
           ["MARGEN", "Margen bruto"],
           ["IMPORTAR", "Importar balance"],
           ["RESUMEN", "Resultado contable existente"],
@@ -243,6 +251,10 @@ export default function CostosIndirectos() {
           margenes={margenes}
           cargando={cargando}
         />
+      )}
+
+      {vista === "PYG_CLIENTE" && (
+        <ReporteRentabilidadSku modo="PYG_CLIENTE" integrado />
       )}
 
 
