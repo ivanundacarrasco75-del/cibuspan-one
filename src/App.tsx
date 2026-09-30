@@ -312,8 +312,10 @@ function App() {
         return <Reportes cambiarPantalla={setPantalla} />
 
       case "Producción · Semielaborados":
-      case "Producción · Historial":
         return <PantallaEnConstruccion titulo={pantalla} />
+
+      case "Producción · Historial":
+        return <ProduccionV2 vistaInicial="INGRESADA" soloHistorial />
 
       // ---------------------------------------------------------
       // INVENTARIO Y DESPACHOS
