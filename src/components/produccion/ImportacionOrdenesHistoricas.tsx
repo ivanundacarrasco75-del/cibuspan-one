@@ -11,6 +11,7 @@ import {
   leerArchivoOrdenesProduccion,
   type ResultadoOrdenesProduccionExcel,
 } from "../../utils/ordenesProduccionExcel"
+import { leerPdfOrdenesProduccion } from "../../utils/ordenesProduccionPdf"
 
 type Props = {
   alCompletar: () => Promise<void> | void
@@ -82,8 +83,11 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
 
     setLeyendo(true)
     try {
+      const esPdf = seleccionado.name.toLowerCase().endsWith(".pdf")
       const [lectura, huella] = await Promise.all([
-        leerArchivoOrdenesProduccion(seleccionado),
+        esPdf
+          ? leerPdfOrdenesProduccion(seleccionado)
+          : leerArchivoOrdenesProduccion(seleccionado),
         huellaArchivo(seleccionado),
       ])
       setResultado(lectura)
@@ -127,7 +131,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
       }
 
       setMensaje(
-        `Importación completada: ${numero(nuevas)} órdenes nuevas y ${numero(actualizadas)} actualizadas.`,
+        `Importación completada: ${numero(nuevas)} registros nuevos y ${numero(actualizadas)} actualizados.`,
       )
       await Promise.all([cargarReferencias(), Promise.resolve(alCompletar())])
     } catch (err) {
@@ -143,15 +147,15 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
     <section className="pro-import">
       <style>{css}</style>
       <button type="button" className="pro-import-toggle" onClick={() => setAbierto((actual) => !actual)}>
-        {abierto ? "Cerrar importación" : "Importar órdenes históricas"}
+        {abierto ? "Cerrar importación" : "Importar OP liquidadas"}
       </button>
 
       {abierto && (
         <div className="pro-import-body">
           <header>
-            <div><span>IMPORTACIÓN HISTÓRICA</span><h3>Órdenes de producción del sistema contable</h3><p>Carga Excel por periodos. Se incorpora a historial, reportes y dashboard sin sumar inventario disponible.</p></div>
-            <button type="button" onClick={() => inputRef.current?.click()} disabled={leyendo || importando}>{leyendo ? "Validando…" : "Seleccionar Excel"}</button>
-            <input ref={inputRef} type="file" accept=".xlsx,.xls" hidden onChange={seleccionarArchivo} />
+            <div><span>IMPORTACIÓN DE PRODUCCIÓN REAL</span><h3>OP liquidadas del sistema contable</h3><p>Carga el PDF de OP liquidadas. También se mantiene compatible el Excel detallado anterior. Actualiza historial y dashboard sin sumar inventario disponible.</p></div>
+            <button type="button" onClick={() => inputRef.current?.click()} disabled={leyendo || importando}>{leyendo ? "Validando…" : "Seleccionar PDF de OP"}</button>
+            <input ref={inputRef} type="file" accept=".pdf,.xlsx,.xls" hidden onChange={seleccionarArchivo} />
           </header>
 
           {error && <div className="pro-import-error">{error}</div>}
@@ -161,18 +165,18 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
             <>
               <div className="pro-import-file"><strong>{archivo?.name}</strong><span>{fecha(resultado.fechaDesde)}–{fecha(resultado.fechaHasta)}</span></div>
               <section className="pro-import-kpis">
-                <article><span>Órdenes</span><strong>{numero(resultado.ordenes.length)}</strong><small>{numero(resultado.filas)} líneas de materiales</small></article>
+                <article><span>Registros de OP</span><strong>{numero(resultado.ordenes.length)}</strong><small>{numero(resultado.filas)} filas reconocidas</small></article>
                 <article><span>Producto terminado</span><strong>{numero(resultado.ordenesSku)}</strong><small>{numero(resultado.unidadesSku, 0)} Unid.</small></article>
                 <article><span>Micros</span><strong>{numero(resultado.ordenesMicro)}</strong><small>{numero(resultado.kgMicro, 3)} kg de mezcla</small></article>
                 <article><span>Costo histórico</span><strong>{moneda(resultado.costoTotal)}</strong><small>Según el reporte contable</small></article>
                 <article className={resultado.ordenesRevisar > 0 ? "warning" : "ready"}><span>Requieren revisión</span><strong>{numero(resultado.ordenesRevisar)}</strong><small>Se importan señaladas, sin alterar inventario</small></article>
               </section>
 
-              {noRegistrados.length > 0 && <div className="pro-import-warning">SKU no vinculados al catálogo actual: {noRegistrados.join(", ")}. Se conservarán en el historial con el código y nombre del Excel.</div>}
+              {noRegistrados.length > 0 && <div className="pro-import-warning">SKU no vinculados al catálogo actual: {noRegistrados.join(", ")}. Se conservarán en el historial con el código y nombre del archivo.</div>}
 
               <div className="pro-import-actions">
-                <p>La clave para evitar duplicados es el número de orden. Volver a cargar el archivo actualiza esas órdenes.</p>
-                <button type="button" onClick={importar} disabled={importando}>{importando ? `Importando ${progreso}%…` : `Importar ${numero(resultado.ordenes.length)} órdenes`}</button>
+                <p>La clave para evitar duplicados es OP + SKU. Volver a cargar el archivo actualiza los registros existentes.</p>
+                <button type="button" onClick={importar} disabled={importando}>{importando ? `Importando ${progreso}%…` : `Importar ${numero(resultado.ordenes.length)} registros`}</button>
               </div>
               {importando && <div className="pro-progress"><span style={{ width: `${progreso}%` }} /></div>}
             </>

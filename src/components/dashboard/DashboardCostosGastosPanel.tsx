@@ -36,6 +36,7 @@ type FilaFinanciera = {
 type ProduccionResumen = {
   fecha_produccion_general: string
   total_unidades: number
+  origen: "APP" | "HISTORICO"
 }
 
 type VentaResumen = {
@@ -188,10 +189,28 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
       const ventas = ventasDb as unknown as VentaResumen[]
       const nomina = nominaDb as unknown as NominaResumen[]
 
-      const produccionMes = new Map<string, number>()
+      const produccionAppMes = new Map<string, number>()
+      const produccionHistoricaMes = new Map<string, number>()
       produccion.forEach((fila) => {
         const periodo = `${fila.fecha_produccion_general.slice(0, 7)}-01`
-        produccionMes.set(periodo, (produccionMes.get(periodo) ?? 0) + Number(fila.total_unidades ?? 0))
+        const destino = fila.origen === "HISTORICO"
+          ? produccionHistoricaMes
+          : produccionAppMes
+        destino.set(periodo, (destino.get(periodo) ?? 0) + Number(fila.total_unidades ?? 0))
+      })
+
+      // El reporte de OP liquidadas es la fuente contable definitiva del mes.
+      // Si existe, reemplaza el registro operativo de la app para no duplicar unidades.
+      const produccionMes = new Map<string, number>()
+      new Set([
+        ...produccionAppMes.keys(),
+        ...produccionHistoricaMes.keys(),
+      ]).forEach((periodo) => {
+        const historica = produccionHistoricaMes.get(periodo) ?? 0
+        produccionMes.set(
+          periodo,
+          historica > 0 ? historica : produccionAppMes.get(periodo) ?? 0,
+        )
       })
 
       const ventasMes = new Map<string, number>()
