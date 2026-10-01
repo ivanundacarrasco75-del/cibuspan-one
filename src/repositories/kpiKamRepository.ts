@@ -1033,7 +1033,7 @@ export async function obtenerGestionComercialDashboardDb(
   periodo: string,
   kamUserId?: string | null,
 ) {
-  const { data, error } = await supabase.rpc("com_gestion_comercial_dashboard", {
+  const { data, error } = await supabase.rpc("com_gestion_comercial_dashboard_v2", {
     p_periodo: `${periodo.slice(0, 7)}-01`,
     p_kam_user_id: kamUserId ?? null,
     p_cliente_id: null,

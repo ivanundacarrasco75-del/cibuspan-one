@@ -111,7 +111,7 @@ export default function GestionComercialDashboard({
         <button type="button" onClick={actualizar} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>
       </section>
 
-      {error && <div className="gc-error"><strong>No se pudo cargar el tablero.</strong><span>{error}</span><small>Instala la migración 202609300002 para activar esta vista.</small></div>}
+      {error && <div className="gc-error"><strong>No se pudo cargar el tablero.</strong><span>{error}</span><small>Instala la migración 202610010001 para activar esta corrección.</small></div>}
 
       {!error && <>
         {clienteSeleccionado && <div className="gc-regreso"><button type="button" onClick={() => cambiarCliente("TODOS")}>← Volver a todos los clientes</button><span>Detalle de {clienteSeleccionado.nombre}</span></div>}
