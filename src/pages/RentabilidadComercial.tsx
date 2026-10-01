@@ -32,6 +32,12 @@ type TransporteCliente = {
   metodo: string
 }
 
+type TransporteGrupo = {
+  periodo: string
+  tuti: number
+  otrosAutoservicios: number
+}
+
 type TransporteFactura = {
   factura_id: string
   fecha_emision: string
@@ -334,6 +340,36 @@ export default function RentabilidadComercial() {
       .sort((a, b) => b.transporte - a.transporte)
   }, [clientesFiltrados])
 
+  const transportePorGrupo = useMemo<TransporteGrupo[]>(() => {
+    const porPeriodo = new Map<string, TransporteGrupo>()
+
+    resumenFiltrado.forEach((fila) => {
+      const periodo = fila.periodo.slice(0, 7)
+      porPeriodo.set(periodo, {
+        periodo: fila.periodo,
+        tuti: 0,
+        otrosAutoservicios: 0,
+      })
+    })
+
+    clientes.forEach((fila) => {
+      const periodo = fila.periodo.slice(0, 7)
+      const grupo = porPeriodo.get(periodo)
+      if (!grupo) return
+
+      const gasto = Number(fila.gasto_transporte ?? 0)
+      if (fila.cliente_nombre.toLocaleUpperCase("es").includes("TUTI")) {
+        grupo.tuti += gasto
+      } else {
+        grupo.otrosAutoservicios += gasto
+      }
+    })
+
+    return Array.from(porPeriodo.values()).sort((a, b) =>
+      a.periodo.localeCompare(b.periodo),
+    )
+  }, [clientes, resumenFiltrado])
+
   const evolucionCliente = useMemo(() => {
     if (clienteFiltro === "TODOS") return []
     return clientesFiltrados
@@ -497,7 +533,10 @@ export default function RentabilidadComercial() {
           <div style={vacio}>Cargando transporte...</div>
         </section>
       ) : vista === "NEGOCIO" ? (
-        <VistaNegocio filas={resumenFiltrado} />
+        <VistaNegocio
+          filas={resumenFiltrado}
+          grupos={transportePorGrupo}
+        />
       ) : vista === "CLIENTES" ? (
         <VistaClientes
           agregados={clientesAgregados}
@@ -618,8 +657,10 @@ export default function RentabilidadComercial() {
 
 function VistaNegocio({
   filas,
+  grupos,
 }: {
   filas: ResumenMensual[]
+  grupos: TransporteGrupo[]
 }) {
   const maximo = Math.max(
     1,
@@ -628,6 +669,24 @@ function VistaNegocio({
       Number(fila.transporte_asignado ?? 0),
     ]),
   )
+  const ancho = 940 / Math.max(filas.length, 1)
+  const posicionX = (indice: number) =>
+    75 + indice * ancho + ancho / 2
+  const posicionY = (valor: number) =>
+    25 + (1 - valor / maximo) * 225
+  const grupoPorPeriodo = new Map(
+    grupos.map((grupo) => [grupo.periodo.slice(0, 7), grupo]),
+  )
+  const puntosTuti = grupos
+    .map((grupo, indice) =>
+      `${posicionX(indice)},${posicionY(grupo.tuti)}`,
+    )
+    .join(" ")
+  const puntosOtros = grupos
+    .map((grupo, indice) =>
+      `${posicionX(indice)},${posicionY(grupo.otrosAutoservicios)}`,
+    )
+    .join(" ")
 
   return (
     <section style={panel}>
@@ -635,7 +694,7 @@ function VistaNegocio({
         <div>
           <strong style={panelTitulo}>Evolución del transporte</strong>
           <span style={panelTexto}>
-            Contabilidad vs monto que ya podemos explicar por cliente.
+            Transporte comercial total, TUTI y demás autoservicios.
           </span>
         </div>
       </div>
@@ -643,15 +702,15 @@ function VistaNegocio({
       <div style={leyenda}>
         <span style={leyendaItem}>
           <i style={{ ...punto, background: "#38bdf8" }} />
-          Transporte contable
+          Transporte comercial total
+        </span>
+        <span style={leyendaItem}>
+          <i style={{ ...punto, background: "#f97316" }} />
+          TUTI
         </span>
         <span style={leyendaItem}>
           <i style={{ ...punto, background: "#22c55e" }} />
-          Atribuido
-        </span>
-        <span style={leyendaItem}>
-          <i style={{ ...punto, background: "#fb923c" }} />
-          Clasificado sin cliente
+          Otros autoservicios
         </span>
       </div>
 
@@ -682,11 +741,26 @@ function VistaNegocio({
             )
           })}
 
+          <polyline
+            points={puntosTuti}
+            fill="none"
+            stroke="#f97316"
+            strokeWidth="3"
+          />
+          <polyline
+            points={puntosOtros}
+            fill="none"
+            stroke="#22c55e"
+            strokeWidth="3"
+          />
+
           {filas.map((fila, i) => {
-            const ancho = 940 / Math.max(filas.length, 1)
-            const x = 75 + i * ancho + ancho / 2
-            const y = (valor: number) =>
-              25 + (1 - valor / maximo) * 225
+            const x = posicionX(i)
+            const y = posicionY
+            const grupo = grupoPorPeriodo.get(fila.periodo.slice(0, 7)) ?? {
+              tuti: 0,
+              otrosAutoservicios: 0,
+            }
 
             return (
               <g key={fila.periodo}>
@@ -700,7 +774,7 @@ function VistaNegocio({
                   opacity="0.85"
                 >
                   <title>
-                    {`${mesCorto(fila.periodo)} · transporte contable: ${moneda(
+                    {`${mesCorto(fila.periodo)} · transporte comercial: ${moneda(
                       fila.transporte_contable,
                     )} · ${porcentaje(
                       fila.transporte_pct_ventas,
@@ -710,30 +784,30 @@ function VistaNegocio({
 
                 <circle
                   cx={x}
-                  cy={y(Number(fila.transporte_asignado ?? 0))}
+                  cy={y(grupo.tuti)}
                   r="5"
                   fill="#0f172a"
-                  stroke="#22c55e"
+                  stroke="#f97316"
                   strokeWidth="3"
                 >
                   <title>
-                    {`${mesCorto(fila.periodo)} · atribuido: ${moneda(
-                      fila.transporte_asignado,
+                    {`${mesCorto(fila.periodo)} · TUTI: ${moneda(
+                      grupo.tuti,
                     )}`}
                   </title>
                 </circle>
 
                 <circle
                   cx={x}
-                  cy={y(Number(fila.transporte_no_atribuido ?? 0))}
+                  cy={y(grupo.otrosAutoservicios)}
                   r="5"
                   fill="#0f172a"
-                  stroke="#fb923c"
+                  stroke="#22c55e"
                   strokeWidth="3"
                 >
                   <title>
-                    {`${mesCorto(fila.periodo)} · sin cliente/driver: ${moneda(
-                      fila.transporte_no_atribuido,
+                    {`${mesCorto(fila.periodo)} · otros autoservicios: ${moneda(
+                      grupo.otrosAutoservicios,
                     )}`}
                   </title>
                 </circle>
@@ -773,29 +847,40 @@ function VistaNegocio({
             <tr>
               <th style={th}>Mes</th>
               <th style={thNum}>Ventas netas</th>
-              <th style={thNum}>Transporte contable</th>
+              <th style={thNum}>Transporte comercial</th>
               <th style={thNum}>% ventas</th>
               <th style={thNum}>Atribuido</th>
+              <th style={thNum}>TUTI</th>
+              <th style={thNum}>Otros autoservicios</th>
               <th style={thNum}>Clasificado sin cliente</th>
               <th style={thNum}>Diferencia por conciliar</th>
               <th style={thNum}>Períodos pendientes</th>
             </tr>
           </thead>
           <tbody>
-            {filas.map((fila) => (
+            {filas.map((fila) => {
+              const grupo = grupoPorPeriodo.get(fila.periodo.slice(0, 7)) ?? {
+                tuti: 0,
+                otrosAutoservicios: 0,
+              }
+
+              return (
               <tr key={`tabla-${fila.periodo}`}>
                 <td style={td}>{mesCorto(fila.periodo)}</td>
                 <td style={tdNum}>{moneda(fila.ventas_netas_contables)}</td>
                 <td style={tdNum}>{moneda(fila.transporte_contable)}</td>
                 <td style={tdNum}>{porcentaje(fila.transporte_pct_ventas)}</td>
                 <td style={tdNum}>{moneda(fila.transporte_asignado)}</td>
+                <td style={tdNum}>{moneda(grupo.tuti)}</td>
+                <td style={tdNum}>{moneda(grupo.otrosAutoservicios)}</td>
                 <td style={tdNum}>{moneda(fila.transporte_no_atribuido)}</td>
                 <td style={tdNum}>{moneda(fila.transporte_diferencia_conciliar)}</td>
                 <td style={tdNum}>
                   {numero(fila.facturas_periodo_por_confirmar)}
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
