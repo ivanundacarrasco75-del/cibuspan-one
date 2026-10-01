@@ -124,11 +124,11 @@ export default function RentabilidadComercial() {
     try {
       const [resumenRes, clientesRes, facturasRes] = await Promise.all([
         supabase
-          .from("fin_vw_transporte_resumen_mensual")
+          .from("fin_vw_transporte_resumen_clasificado")
           .select("*")
           .order("periodo", { ascending: true }),
         supabase
-          .from("fin_vw_transporte_cliente_mensual")
+          .from("fin_vw_transporte_cliente_clasificado")
           .select("*")
           .order("periodo", { ascending: true })
           .order("cliente_nombre", { ascending: true }),
@@ -380,9 +380,8 @@ export default function RentabilidadComercial() {
           <span style={eyebrow}>PAGOS Y FINANZAS · RENTABILIDAD</span>
           <h1 style={titulo}>Gastos · Transporte</h1>
           <p style={subtitulo}>
-            Primera capa de rentabilidad comercial. El total del negocio
-            proviene de contabilidad; el detalle por cliente solo se asigna
-            cuando existe una relación objetiva.
+            El total y la atribución por cliente se concilian con la
+            clasificación oficial guardada en Gastos y costos.
           </p>
         </div>
 
@@ -474,15 +473,15 @@ export default function RentabilidadComercial() {
           detalle={`${porcentaje(totales.cobertura)} del transporte`}
         />
         <Kpi
-          titulo="Sin cliente / driver"
+          titulo="Clasificado sin cliente"
           valor={moneda(totales.transporteNoAtribuido)}
-          detalle="Facturas realmente no atribuidas"
+          detalle="Detalle sin distribución entre clientes"
           alerta={totales.transporteNoAtribuido > 0}
         />
         <Kpi
           titulo="Diferencia por conciliar"
           valor={moneda(totales.transporteDiferenciaConciliar)}
-          detalle="Contabilidad menos detalle explicado"
+          detalle="Total contable menos detalle clasificado"
           alerta={Math.abs(totales.transporteDiferenciaConciliar) > 0.01}
         />
         <Kpi
@@ -607,11 +606,10 @@ export default function RentabilidadComercial() {
       <section style={criterio}>
         <strong>Criterio de atribución actual</strong>
         <span>
-          Transporte se toma únicamente de la clasificación oficial de la factura.
-          Si una factura tiene un cliente, se atribuye directamente; si tiene varios,
-          se prorratea por unidades facturadas del período de servicio. “Sin cliente”
-          identifica facturas sin atribución; “diferencia por conciliar” compara el total
-          contable con el detalle de facturas y no significa falta de clasificación.
+          Transporte se toma de la clasificación oficial del Libro Mayor que se
+          guarda en Gastos y costos. “Clasificado sin cliente” muestra el detalle
+          existente que todavía no tiene distribución por cliente. “Diferencia por
+          conciliar” compara el total contable con ese detalle clasificado.
         </span>
       </section>
     </main>
@@ -653,7 +651,7 @@ function VistaNegocio({
         </span>
         <span style={leyendaItem}>
           <i style={{ ...punto, background: "#fb923c" }} />
-          Sin cliente / driver
+          Clasificado sin cliente
         </span>
       </div>
 
@@ -778,7 +776,7 @@ function VistaNegocio({
               <th style={thNum}>Transporte contable</th>
               <th style={thNum}>% ventas</th>
               <th style={thNum}>Atribuido</th>
-              <th style={thNum}>Sin cliente / driver</th>
+              <th style={thNum}>Clasificado sin cliente</th>
               <th style={thNum}>Diferencia por conciliar</th>
               <th style={thNum}>Períodos pendientes</th>
             </tr>
@@ -849,7 +847,7 @@ function VistaClientes({
               <div style={rankingCliente}>
                 <strong>{fila.cliente_nombre}</strong>
                 <small>
-                  {numero(fila.unidades)} unid. · {fila.facturas} factura(s)
+                  {numero(fila.unidades)} unid. · {fila.facturas} movimiento(s)
                 </small>
               </div>
               <div style={barraFondo}>
