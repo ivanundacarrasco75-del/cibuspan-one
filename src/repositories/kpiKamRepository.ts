@@ -948,3 +948,109 @@ export async function guardarMetaClientesNuevosKpiKamDb(
   })
   if (error) throw new Error(`No se pudo guardar la meta trimestral: ${error.message}`)
 }
+
+export type ResumenGestionComercialDb = {
+  venta_bruta: number
+  venta_neta: number
+  venta_neta_anterior: number
+  crecimiento_pct: number | null
+  devoluciones: number
+  devoluciones_pct: number
+  margen_comercial_pct: number | null
+  cobertura_pct: number | null
+  quiebres_detectados: number
+  codificaciones_nuevas: number
+  descodificaciones: number
+  acciones_pendientes: number
+  acciones_vencidas: number
+}
+
+export type ClienteGestionComercialDb = {
+  id: string
+  nombre: string
+  kam_user_id: string | null
+  venta_bruta: number
+  venta_neta: number
+  venta_neta_anterior: number
+  variacion_pct: number | null
+  devoluciones: number
+  devoluciones_pct: number
+  margen_comercial_pct: number | null
+  locales: number
+  sku_codificados: number
+  sku_descodificados: number
+  sku_pendientes: number
+  cobertura_pct: number | null
+  quiebres_detectados: number
+  codificaciones_nuevas: number
+  descodificaciones: number
+  acciones_pendientes: number
+  acciones_vencidas: number
+  ventas_sku: Array<{
+    producto_id: string | null
+    sku: string
+    producto: string
+    venta_actual: number
+    venta_anterior: number
+    variacion_pct: number | null
+  }>
+  devoluciones_sku: Array<{
+    producto_id: string | null
+    producto: string
+    valor: number
+    unidades: number
+  }>
+  devoluciones_local: Array<{
+    local: string
+    valor: number
+  }>
+}
+
+export type GestionComercialDashboardDb = {
+  periodo: string
+  periodo_anterior: string
+  resumen: ResumenGestionComercialDb
+  clientes: ClienteGestionComercialDb[]
+}
+
+const RESUMEN_GESTION_VACIO: ResumenGestionComercialDb = {
+  venta_bruta: 0,
+  venta_neta: 0,
+  venta_neta_anterior: 0,
+  crecimiento_pct: null,
+  devoluciones: 0,
+  devoluciones_pct: 0,
+  margen_comercial_pct: null,
+  cobertura_pct: null,
+  quiebres_detectados: 0,
+  codificaciones_nuevas: 0,
+  descodificaciones: 0,
+  acciones_pendientes: 0,
+  acciones_vencidas: 0,
+}
+
+export async function obtenerGestionComercialDashboardDb(
+  periodo: string,
+  kamUserId?: string | null,
+) {
+  const { data, error } = await supabase.rpc("com_gestion_comercial_dashboard", {
+    p_periodo: `${periodo.slice(0, 7)}-01`,
+    p_kam_user_id: kamUserId ?? null,
+    p_cliente_id: null,
+  })
+
+  if (error) {
+    throw new Error(`No se pudo cargar Gestión Comercial: ${error.message}`)
+  }
+
+  const respuesta = (data ?? {}) as Partial<GestionComercialDashboardDb>
+  return {
+    periodo: String(respuesta.periodo ?? `${periodo.slice(0, 7)}-01`),
+    periodo_anterior: String(respuesta.periodo_anterior ?? ""),
+    resumen: {
+      ...RESUMEN_GESTION_VACIO,
+      ...(respuesta.resumen ?? {}),
+    },
+    clientes: Array.isArray(respuesta.clientes) ? respuesta.clientes : [],
+  } satisfies GestionComercialDashboardDb
+}

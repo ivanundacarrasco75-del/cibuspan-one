@@ -66,7 +66,7 @@ const modulos: Modulo[] = [
       { pantalla: "Comercial · Devoluciones", etiqueta: "Devoluciones" },
       { pantalla: "Comercial · Descuentos", etiqueta: "Descuentos" },
       { pantalla: "Comercial · Visitas y rotación", etiqueta: "Visitas y rotación" },
-      { pantalla: "Comercial · KPI KAM", etiqueta: "KPI KAM" },
+      { pantalla: "Comercial · KPI KAM", etiqueta: "Gestión Comercial" },
     ],
   },
   {

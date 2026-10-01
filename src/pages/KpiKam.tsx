@@ -8,6 +8,7 @@ import {
 import KpiKamConfiguracion from "../components/kpiKam/KpiKamConfiguracion"
 import KpiKamCompromisos from "../components/kpiKam/KpiKamCompromisos"
 import KpiKamParametros from "../components/kpiKam/KpiKamParametros"
+import GestionComercialDashboard from "../components/kpiKam/GestionComercialDashboard"
 import {
   obtenerBasesProvisionalesKpiKamDb,
   obtenerConfiguracionesKpiKamDb,
@@ -47,7 +48,7 @@ type Props = {
   cambiarPantalla?: (pantalla: string) => void
 }
 
-type VistaKpiKam = "RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COMPROMISOS"
+type VistaKpiKam = "GESTION" | "RESULTADOS" | "CONFIGURACION" | "PARAMETROS" | "COMPROMISOS"
 
 type NavegacionKpiKamGuardada = {
   vista?: VistaKpiKam
@@ -56,7 +57,7 @@ type NavegacionKpiKamGuardada = {
   clienteId?: string
 }
 
-const CLAVE_NAVEGACION_KPI_KAM = "cibuspan-one:kpi-kam:navegacion:v1"
+const CLAVE_NAVEGACION_KPI_KAM = "cibuspan-one:kpi-kam:navegacion:v2"
 
 function leerNavegacionKpiKam(): NavegacionKpiKamGuardada {
   try {
@@ -64,6 +65,7 @@ function leerNavegacionKpiKam(): NavegacionKpiKamGuardada {
       window.localStorage.getItem(CLAVE_NAVEGACION_KPI_KAM) || "{}",
     ) as NavegacionKpiKamGuardada & { vista?: string }
     const vistasValidas: VistaKpiKam[] = [
+      "GESTION",
       "RESULTADOS",
       "CONFIGURACION",
       "PARAMETROS",
@@ -73,7 +75,7 @@ function leerNavegacionKpiKam(): NavegacionKpiKamGuardada {
       ...guardada,
       vista: vistasValidas.includes(guardada.vista as VistaKpiKam)
         ? guardada.vista as VistaKpiKam
-        : "RESULTADOS",
+        : "GESTION",
     }
   } catch {
     return {}
@@ -329,7 +331,7 @@ export default function KpiKam({
   const [navegacionInicial] = useState<NavegacionKpiKamGuardada>(() =>
     integradoDashboard ? {} : leerNavegacionKpiKam(),
   )
-  const [vista, setVista] = useState<VistaKpiKam>(navegacionInicial.vista ?? "RESULTADOS")
+  const [vista, setVista] = useState<VistaKpiKam>(navegacionInicial.vista ?? "GESTION")
   const [periodo, setPeriodo] = useState(navegacionInicial.periodo ?? periodoActual())
   const [kamId, setKamId] = useState(navegacionInicial.kamId ?? "TODOS")
   const [clienteId, setClienteId] = useState(navegacionInicial.clienteId ?? "TODOS")
@@ -485,7 +487,7 @@ export default function KpiKam({
     (kpisConResultado / CODIGOS_KPI_KAM.length) * 100,
   )
 
-  const volverResultados = () => setVista("RESULTADOS")
+  const volverResultados = () => setVista("GESTION")
 
   async function guardarMetaClientesNuevos() {
     const meta = Number(metaClientesNuevos)
@@ -540,26 +542,41 @@ export default function KpiKam({
       {!integradoDashboard && <header className="kam-head">
         <div>
           <span>COMERCIAL · GESTIÓN RENTABLE</span>
-          <h1>KPI KAM</h1>
-          <p>Resultados mensuales por responsable y cliente, con datos reales y trazabilidad.</p>
+          <h1>Gestión Comercial</h1>
+          <p>Ventas, rentabilidad, cobertura y acciones de las cuentas clave.</p>
         </div>
         <div className="kam-head-actions">
-          <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Inicio</button>
+          <button type="button" className={vista === "GESTION" ? "activo" : "secundario"} onClick={() => setVista("GESTION")}>Resumen comercial</button>
+          <button type="button" className={vista === "RESULTADOS" ? "activo" : "secundario"} onClick={() => setVista("RESULTADOS")}>Evaluación KPI</button>
           <button type="button" className={vista === "CONFIGURACION" ? "activo" : "secundario"} onClick={() => setVista("CONFIGURACION")}>Configurar</button>
           <button type="button" className={vista === "PARAMETROS" ? "activo" : "secundario"} onClick={() => setVista("PARAMETROS")}>Metas y pesos</button>
-          <button type="button" className={vista === "COMPROMISOS" ? "activo" : "secundario"} onClick={() => setVista("COMPROMISOS")}>Compromisos</button>
+          <button type="button" className={vista === "COMPROMISOS" ? "activo" : "secundario"} onClick={() => setVista("COMPROMISOS")}>Acciones</button>
           {vista === "RESULTADOS" && <button type="button" className="actualizar" onClick={() => setActualizacion((valor) => valor + 1)} disabled={cargando}>{cargando ? "Actualizando…" : "Actualizar datos"}</button>}
         </div>
       </header>}
 
-      {integradoDashboard && vista !== "RESULTADOS" && (
+      {integradoDashboard && vista !== "RESULTADOS" && vista !== "GESTION" && (
         <div className="kam-regreso-tablero">
-          <button type="button" onClick={volverResultados}>← Volver al tablero KPI KAM</button>
-          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : "Compromisos comerciales"}</span>
+          <button type="button" onClick={volverResultados}>← Volver a Gestión Comercial</button>
+          <span>{vista === "CONFIGURACION" ? "Presupuestos y responsables" : vista === "PARAMETROS" ? "Metas y pesos de evaluación" : "Acciones comerciales"}</span>
         </div>
       )}
 
-      {vista === "CONFIGURACION" ? (
+      {vista === "GESTION" ? (
+        <GestionComercialDashboard
+          periodo={periodo}
+          cambiarPeriodo={setPeriodo}
+          kamId={kamId}
+          cambiarKam={setKamId}
+          clienteId={clienteId}
+          cambiarCliente={setClienteId}
+          kams={kams}
+          refreshToken={actualizacion}
+          actualizar={() => setActualizacion((valor) => valor + 1)}
+          cambiarPantalla={cambiarPantalla}
+          abrirAcciones={() => setVista("COMPROMISOS")}
+        />
+      ) : vista === "CONFIGURACION" ? (
         <KpiKamConfiguracion
           periodo={periodo}
           cambiarPeriodo={setPeriodo}

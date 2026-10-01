@@ -272,7 +272,7 @@ const TABS: { id: TabId; etiqueta: string; icono: string }[] = [
   { id: "financiero", etiqueta: "Financiero", icono: "$" },
   { id: "costos_gastos", etiqueta: "Costos y gastos", icono: "▤" },
   { id: "rentabilidad_piloto", etiqueta: "Rentabilidad piloto", icono: "%" },
-  { id: "kpi_kam", etiqueta: "KPI KAM", icono: "◎" },
+  { id: "kpi_kam", etiqueta: "Gestión Comercial", icono: "◎" },
 ]
 
 const VINO = "#8F1D24"
