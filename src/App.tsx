@@ -240,6 +240,22 @@ function App() {
       case "Dashboard":
         return <DashboardV2 cambiarPantalla={setPantalla} />
 
+      case "Dashboard · Devoluciones":
+        return (
+          <DashboardV2
+            cambiarPantalla={setPantalla}
+            tabInicial="devoluciones"
+          />
+        )
+
+      case "Dashboard · Rentabilidad":
+        return (
+          <DashboardV2
+            cambiarPantalla={setPantalla}
+            tabInicial="rentabilidad_piloto"
+          />
+        )
+
       // ---------------------------------------------------------
       // COMERCIAL
       // ---------------------------------------------------------

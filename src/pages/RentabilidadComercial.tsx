@@ -11,6 +11,7 @@ type ResumenMensual = {
   transporte_contable: number
   transporte_asignado: number
   transporte_no_atribuido: number
+  transporte_diferencia_conciliar: number
   ventas_netas_contables: number
   transporte_pct_ventas: number | null
   facturas_transporte: number
@@ -257,6 +258,11 @@ export default function RentabilidadComercial() {
         suma + Number(fila.transporte_no_atribuido ?? 0),
       0,
     )
+    const transporteDiferenciaConciliar = resumenFiltrado.reduce(
+      (suma, fila) =>
+        suma + Number(fila.transporte_diferencia_conciliar ?? 0),
+      0,
+    )
     const ventas = resumenFiltrado.reduce(
       (suma, fila) =>
         suma + Number(fila.ventas_netas_contables ?? 0),
@@ -270,6 +276,7 @@ export default function RentabilidadComercial() {
       transporteContable,
       transporteAsignado,
       transporteNoAtribuido,
+      transporteDiferenciaConciliar,
       ventas,
       transportePctVentas:
         ventas !== 0 ? (transporteContable / ventas) * 100 : null,
@@ -467,9 +474,16 @@ export default function RentabilidadComercial() {
           detalle={`${porcentaje(totales.cobertura)} del transporte`}
         />
         <Kpi
-          titulo="No atribuido"
+          titulo="Sin cliente / driver"
           valor={moneda(totales.transporteNoAtribuido)}
-          detalle="Logística/fletes sin driver objetivo"
+          detalle="Facturas realmente no atribuidas"
+          alerta={totales.transporteNoAtribuido > 0}
+        />
+        <Kpi
+          titulo="Diferencia por conciliar"
+          valor={moneda(totales.transporteDiferenciaConciliar)}
+          detalle="Contabilidad menos detalle explicado"
+          alerta={Math.abs(totales.transporteDiferenciaConciliar) > 0.01}
         />
         <Kpi
           titulo="Períodos por confirmar"
@@ -595,8 +609,9 @@ export default function RentabilidadComercial() {
         <span>
           Transporte se toma únicamente de la clasificación oficial de la factura.
           Si una factura tiene un cliente, se atribuye directamente; si tiene varios,
-          se prorratea por unidades facturadas del período de servicio. Lo que no tenga
-          cliente o un driver objetivo permanece visible como no atribuido.
+          se prorratea por unidades facturadas del período de servicio. “Sin cliente”
+          identifica facturas sin atribución; “diferencia por conciliar” compara el total
+          contable con el detalle de facturas y no significa falta de clasificación.
         </span>
       </section>
     </main>
@@ -638,7 +653,7 @@ function VistaNegocio({
         </span>
         <span style={leyendaItem}>
           <i style={{ ...punto, background: "#fb923c" }} />
-          No atribuido
+          Sin cliente / driver
         </span>
       </div>
 
@@ -719,7 +734,7 @@ function VistaNegocio({
                   strokeWidth="3"
                 >
                   <title>
-                    {`${mesCorto(fila.periodo)} · no atribuido: ${moneda(
+                    {`${mesCorto(fila.periodo)} · sin cliente/driver: ${moneda(
                       fila.transporte_no_atribuido,
                     )}`}
                   </title>
@@ -763,7 +778,8 @@ function VistaNegocio({
               <th style={thNum}>Transporte contable</th>
               <th style={thNum}>% ventas</th>
               <th style={thNum}>Atribuido</th>
-              <th style={thNum}>No atribuido</th>
+              <th style={thNum}>Sin cliente / driver</th>
+              <th style={thNum}>Diferencia por conciliar</th>
               <th style={thNum}>Períodos pendientes</th>
             </tr>
           </thead>
@@ -776,6 +792,7 @@ function VistaNegocio({
                 <td style={tdNum}>{porcentaje(fila.transporte_pct_ventas)}</td>
                 <td style={tdNum}>{moneda(fila.transporte_asignado)}</td>
                 <td style={tdNum}>{moneda(fila.transporte_no_atribuido)}</td>
+                <td style={tdNum}>{moneda(fila.transporte_diferencia_conciliar)}</td>
                 <td style={tdNum}>
                   {numero(fila.facturas_periodo_por_confirmar)}
                 </td>
