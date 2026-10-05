@@ -373,6 +373,7 @@ export default function CampoComercial({
   }
 
   function cambiarSku(valor: string) {
+    if (guardando || procesando) return
     if (valor === productoId) return
     if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null) &&
       !window.confirm("Hay información de este SKU sin guardar. ¿Quieres descartarla para elegir otro producto?")) return
@@ -380,6 +381,23 @@ export default function CampoComercial({
     setProductoId(valor)
     setError("")
     setMensaje("")
+  }
+
+  function salirSinGuardar() {
+    if (guardando || procesando || ubicando) return
+    if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null || codificado !== null || presencia !== "NO_REVISADO") &&
+      !window.confirm("¿Salir y descartar los cambios de este SKU sin guardar? Los SKU que ya guardaste se conservarán.")) return
+    const cantidad = visitaActiva?.skusGuardados.length ?? 0
+    limpiarSku()
+    setVisitaActiva(null)
+    setClienteId("")
+    setLocalId("")
+    setUbicacion(null)
+    setFechaVisita(fechaHoy())
+    setError("")
+    setMensaje(cantidad > 0
+      ? `Saliste de la visita. Se conservaron los ${cantidad} SKU guardados. Puedes seleccionar otro cliente o local.`
+      : "Saliste sin guardar. Puedes seleccionar otro cliente o local.")
   }
 
   function finalizarVisita() {
@@ -496,6 +514,7 @@ export default function CampoComercial({
             </div>
             <button type="button" className="campo-ubicacion" onClick={obtenerUbicacion} disabled={!localId || ubicando}>{ubicando ? "Obteniendo ubicación…" : ubicacion ? `✓ Ubicación registrada · ±${Math.round(ubicacion.precision)} m` : "Registrar mi ubicación"}</button>
             <button type="button" className="campo-principal" onClick={iniciarVisita} disabled={!clienteId || !localId || cargando || ubicando}>Iniciar visita a este local</button>
+            {(clienteId || localId) && <button type="button" className="campo-salir" onClick={salirSinGuardar} disabled={guardando || procesando || ubicando}>Salir sin guardar</button>}
             <small>Estos datos se usarán para todos los SKU de esta visita.</small>
           </section> : <section className="campo-paso campo-visita-activa">
             <header><b>✓</b><div><span>VISITA EN CURSO</span><h3>{catalogo.locales.find((item) => item.id === visitaActiva.localId)?.nombre ?? "Local seleccionado"}</h3></div></header>
@@ -504,6 +523,8 @@ export default function CampoComercial({
             <p>{visitaActiva.skusGuardados.length} SKU guardados en este local</p>
             {visitaActiva.skusGuardados.length > 0 && <details><summary>Ver productos guardados</summary><ul>{visitaActiva.skusGuardados.map((item) => <li key={item.id}>✓ {item.nombre}</li>)}</ul></details>}
             <button type="button" onClick={finalizarVisita} disabled={guardando || procesando}>Finalizar visita / cambiar de local</button>
+            <button type="button" className="campo-salir" onClick={salirSinGuardar} disabled={guardando || procesando || ubicando}>Salir de la visita sin guardar</button>
+            <small>Se descarta solo la información pendiente. Los SKU ya guardados se conservan.</small>
           </section>}
 
           {visitaActiva && <section className="campo-paso">
@@ -514,6 +535,7 @@ export default function CampoComercial({
                 return <option key={item.id} value={item.id} disabled={registrado}>{registrado ? "✓ Guardado · " : item.autorizado ? "" : "+ "}{item.nombre} · {item.codigo}</option>
               })}
             </select></label>
+            {productoId && <button type="button" className="campo-salir" onClick={() => cambiarSku("")} disabled={guardando || procesando}>Regresar sin guardar este SKU</button>}
             <small>Registra los productos que corresponden a este local y finaliza cuando termines.</small>
           </section>}
 
@@ -640,5 +662,6 @@ function lecturaTieneDatos(lectura: LecturaFavorita) {
 
 const css = `
 .campo-comercial{display:grid;gap:14px;color:#332824}.campo-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:20px;border:1px solid #e5d9d2;border-radius:15px;background:#fff}.campo-head>div>span,.campo-paso header span,.campo-dashboard-filtro span,.campo-registros header span{color:#f28c18;font-size:10px;font-weight:900;letter-spacing:.09em}.campo-head h2{margin:4px 0;color:#8f1d24;font-size:27px}.campo-head p{margin:0;color:#776a65}.campo-head nav{display:flex;gap:7px;flex-wrap:wrap}.campo-head button,.campo-comercial button{border:1px solid #dfd2cc;border-radius:10px;background:#fff;color:#7a302f;padding:10px 13px;font-weight:900;cursor:pointer}.campo-head button.activo,.campo-principal,.campo-guardar{border-color:#981f28!important;background:#981f28!important;color:#fff!important}.campo-error,.campo-exito,.campo-carga{padding:14px 16px;border:1px solid #ecc7ca;border-radius:12px;background:#fff4f5;color:#a21f29}.campo-exito{border-color:#c5e6d1;background:#eef9f2;color:#147542}.campo-flujo{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:940px;margin:0 auto;width:100%}.campo-paso{padding:18px;border:1px solid #e6dad4;border-radius:15px;background:#fff}.campo-paso>header{display:flex;gap:12px;align-items:center;margin-bottom:16px}.campo-paso>header>b{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#981f28;color:#fff;font-size:18px}.campo-paso h3{margin:3px 0;color:#7e1e24;font-size:21px}.campo-grid{display:grid;gap:10px}.campo-grid-3{grid-template-columns:1fr 1.4fr .75fr}.campo-grid-2{grid-template-columns:1fr 1fr}.campo-comercial label{display:grid;gap:6px}.campo-comercial label>span,.campo-estados legend{color:#6f605b;font-size:10px;font-weight:900;text-transform:uppercase}.campo-comercial input,.campo-comercial select,.campo-comercial textarea{box-sizing:border-box;width:100%;border:1px solid #daccc5;border-radius:10px;background:#fbfaf8;padding:12px;color:#352a27;font:inherit;font-weight:700}.campo-comercial textarea{min-height:90px;resize:vertical}.campo-ubicacion{margin-top:11px!important;background:#fff8ef!important;color:#9a5b0d!important;border-color:#edcf9e!important}.campo-captura{place-items:center;padding:26px 18px;border:2px dashed #d7beb5;border-radius:14px;background:#fffaf7;text-align:center;cursor:pointer}.campo-captura input{position:absolute;opacity:0;pointer-events:none}.campo-captura strong{color:#8f1d24;font-size:17px}.campo-captura small{color:#80736e}.campo-miniaturas{display:flex;gap:8px;overflow:auto;margin:12px 0}.campo-miniaturas img{width:92px;height:128px;object-fit:cover;border:1px solid #ded0c9;border-radius:10px}.campo-principal,.campo-guardar{width:100%;margin-top:12px;font-size:15px}.campo-comercial button:disabled{opacity:.55;cursor:wait}.campo-advertencia{margin-bottom:12px;padding:10px;border-radius:9px;background:#fff2dc;color:#925b13}.campo-estados{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:13px}.campo-estados fieldset{display:flex;gap:7px;flex-wrap:wrap;margin:0;padding:12px;border:1px solid #e3d7d0;border-radius:11px}.campo-estados legend{padding:0 5px}.campo-estados button.activo,.campo-estados button.si.activo{background:#18864b;color:#fff;border-color:#18864b}.campo-estados button.no.activo{background:#aa2630;color:#fff;border-color:#aa2630}.campo-foto-percha,.campo-observaciones{margin-top:13px}.campo-foto-percha small{color:#80736e}.campo-dashboard{display:grid;gap:14px}.campo-dashboard-filtro{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:15px 18px;border:1px solid #e6dad4;border-radius:13px;background:#fff}.campo-dashboard-filtro>div{display:grid;gap:4px}.campo-dashboard-filtro label{min-width:290px}.campo-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.campo-card{display:grid;gap:8px;min-height:120px;padding:17px;border:1px solid #e5dad4;border-top:5px solid #8f1d24;border-radius:13px;background:#fff}.campo-card span{font-size:11px;font-weight:900;text-transform:uppercase;color:#6d5e59}.campo-card strong{font-size:29px;color:#8f1d24}.campo-card small{color:#827570}.campo-card.verde{border-top-color:#18864b}.campo-card.verde strong{color:#18864b}.campo-card.naranja{border-top-color:#ed8c18}.campo-card.rojo{border-top-color:#aa2630}.campo-card.azul{border-top-color:#3679a6}.campo-card.gris{border-top-color:#8e827c}.campo-registros{border:1px solid #e5dad4;border-radius:14px;background:#fff;overflow:hidden}.campo-registros>header{display:flex;justify-content:space-between;align-items:end;padding:16px}.campo-registros h3{margin:3px 0;color:#8f1d24}.campo-registros>p{padding:20px;text-align:center;color:#817570}.campo-registros article{display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;padding:13px 16px;border-top:1px solid #eee5e0}.campo-registros article div{display:grid;gap:3px}.campo-registros article span,.campo-registros article small{color:#817570;font-size:11px}.campo-registros article i{padding:6px 9px;border-radius:99px;background:#fdebed;color:#a5242d;font-size:10px;font-style:normal;font-weight:900}.campo-registros article i.ok{background:#e7f6ed;color:#147542}
+.campo-salir{display:block;margin:12px 0}
 @media(max-width:800px){.campo-head{align-items:stretch;display:grid;padding:16px}.campo-head nav{display:grid;grid-template-columns:1fr 1fr}.campo-head nav button:last-child:nth-child(3){grid-column:1/-1}.campo-grid-3,.campo-grid-2,.campo-estados,.campo-cards{grid-template-columns:1fr}.campo-paso{padding:15px}.campo-dashboard-filtro{align-items:stretch;display:grid}.campo-dashboard-filtro label{min-width:0}.campo-registros article{grid-template-columns:1fr auto}.campo-registros article i{grid-column:1/-1;justify-self:start}.campo-flujo{max-width:none}.campo-head h2{font-size:24px}.campo-paso h3{font-size:18px}}
 `
