@@ -133,6 +133,8 @@ export default function CampoComercial({
   const [ubicando, setUbicando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
+  const hayCambiosSku = capturas.length > 0 || fotosPercha.length > 0 || lecturaConfirmada ||
+    lecturaTieneDatos(lectura) || !!observaciones || carasPercha !== null || codificado !== null || presencia !== "NO_REVISADO"
 
   useEffect(() => {
     try {
@@ -241,9 +243,7 @@ export default function CampoComercial({
     setCapturas(archivos)
     void guardarArchivosCampo("capturas", archivos).catch(() => undefined)
     setRutasCapturas([])
-    setLectura(LECTURA_VACIA)
     setLecturaConfirmada(false)
-    setCodificado(null)
     setMensaje("")
     setError("")
   }
@@ -252,9 +252,7 @@ export default function CampoComercial({
     setCapturas([])
     void guardarArchivosCampo("capturas", []).catch(() => undefined)
     setRutasCapturas([])
-    setLectura(LECTURA_VACIA)
     setLecturaConfirmada(false)
-    setCodificado(null)
     setMensaje("")
     setError("")
   }
@@ -288,9 +286,9 @@ export default function CampoComercial({
         throw new Error("No se reconocieron datos en las imágenes. Verifica que las capturas estén completas y sean legibles.")
       }
       comprobarCaptura(resultado)
-      setLectura(resultado)
+      setLectura((actual) => combinarLectura(actual, resultado))
       setLecturaConfirmada(true)
-      setCodificado(true)
+      setCodificado((actual) => actual ?? true)
       setMensaje("Lectura terminada. Revisa los valores antes de guardar.")
     } catch (err) {
       setLecturaConfirmada(false)
@@ -350,7 +348,7 @@ export default function CampoComercial({
 
   function cambiarContexto(tipo: "cliente" | "local", valor: string) {
     if (visitaActiva) return
-    if ((capturas.length || fotosPercha.length || lecturaConfirmada) &&
+    if (hayCambiosSku &&
       !window.confirm("Hay información pendiente de un SKU. ¿Quieres descartarla y cambiar de local?")) return
     limpiarSku()
     setUbicacion(null)
@@ -375,7 +373,7 @@ export default function CampoComercial({
   function cambiarSku(valor: string) {
     if (guardando || procesando) return
     if (valor === productoId) return
-    if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null) &&
+    if (hayCambiosSku &&
       !window.confirm("Hay información de este SKU sin guardar. ¿Quieres descartarla para elegir otro producto?")) return
     limpiarSku()
     setProductoId(valor)
@@ -385,7 +383,7 @@ export default function CampoComercial({
 
   function salirSinGuardar() {
     if (guardando || procesando || ubicando) return
-    if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null || codificado !== null || presencia !== "NO_REVISADO") &&
+    if (hayCambiosSku &&
       !window.confirm("¿Salir y descartar los cambios de este SKU sin guardar? Los SKU que ya guardaste se conservarán.")) return
     const cantidad = visitaActiva?.skusGuardados.length ?? 0
     limpiarSku()
@@ -402,7 +400,7 @@ export default function CampoComercial({
 
   function finalizarVisita() {
     if (!visitaActiva || guardando || procesando) return
-    if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null) &&
+    if (hayCambiosSku &&
       !window.confirm("Hay información de un SKU sin guardar. ¿Quieres finalizar y descartar solo esa información pendiente?")) return
     const cantidad = visitaActiva.skusGuardados.length
     limpiarSku()
@@ -415,16 +413,13 @@ export default function CampoComercial({
   }
 
   async function guardar() {
+    if (guardando || procesando) return
     if (!visitaActiva || !productoId) {
       setError("Inicia una visita y selecciona el SKU.")
       return
     }
     if (visitaActiva.skusGuardados.some((item) => item.id === productoId)) {
       setError("Este SKU ya se guardó en la visita. Selecciona el siguiente.")
-      return
-    }
-    if (rutasCapturas.length === 0) {
-      setError("Primero analiza las capturas de Favorita.")
       return
     }
     if (carasPercha !== null && (!Number.isSafeInteger(carasPercha) || carasPercha < 0)) {
@@ -435,6 +430,9 @@ export default function CampoComercial({
     setError("")
     setMensaje("")
     try {
+      const rutas = rutasCapturas.length > 0 ? rutasCapturas
+        : capturas.length > 0 ? await subirImagenesCampo(capturas, "captura") : []
+      setRutasCapturas(rutas)
       const rutasPercha = fotosPercha.length > 0
         ? await subirImagenesCampo(fotosPercha.slice(0, 3), "percha")
         : []
@@ -449,7 +447,7 @@ export default function CampoComercial({
         precision_metros: visitaActiva.ubicacion?.precision ?? null,
         codificado_app: codificado,
         presencia_percha: carasPercha === null ? presencia : carasPercha > 0 ? "PRESENTE" : "AUSENTE",
-        capturas_app: rutasCapturas,
+        capturas_app: rutas,
         fotos_percha: rutasPercha,
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
@@ -540,7 +538,8 @@ export default function CampoComercial({
           </section>}
 
           {visitaActiva && productoId && <section className="campo-paso">
-            <header><b>3</b><div><span>CAPTURAS DE FAVORITA</span><h3>Sube de 1 a 3 imágenes de {catalogo.productos.find((item) => item.id === productoId)?.nombre ?? "este SKU"}</h3></div></header>
+            <header><b>3</b><div><span>LECTOR DE IMÁGENES · OPCIONAL</span><h3>Completar datos desde capturas de Favorita</h3></div></header>
+            <p>Puedes llenar los campos manualmente o subir de 1 a 3 capturas. El lector completa los valores detectados; revisa y corrige antes de guardar.</p>
             <label className="campo-captura">
               <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarCapturas} disabled={procesando || guardando} />
               <strong>{capturas.length ? `${capturas.length} de 3 imágenes listas · agregar más` : "Tomar fotos o elegir capturas"}</strong>
@@ -551,11 +550,16 @@ export default function CampoComercial({
             {error && <div className="campo-error campo-error-lectura">{error}</div>}
           </section>}
 
-          {visitaActiva && productoId && lecturaConfirmada && <section className="campo-paso campo-revision">
-            <header><b>4</b><div><span>CONFIRMACIÓN DEL SKU</span><h3>{catalogo.productos.find((item) => item.id === productoId)?.nombre ?? "Revisa y corrige antes de guardar"}</h3></div></header>
+          {visitaActiva && productoId && <section className="campo-paso campo-revision">
+            <header><b>4</b><div><span>DATOS DEL SKU · INGRESO MANUAL O LECTOR</span><h3>{catalogo.productos.find((item) => item.id === productoId)?.nombre ?? "Revisa y corrige antes de guardar"}</h3></div></header>
+            <p>Todos los campos están disponibles sin usar el lector. Deja en blanco los datos que no tengas; escribe cero solo si lo verificaste.</p>
+            <fieldset className="campo-formulario-sku" disabled={guardando || procesando}>
             {lectura.advertencias.length > 0 && <div className="campo-advertencia">{lectura.advertencias.join(" · ")}</div>}
             <div className="campo-grid campo-grid-2">
               <CampoTexto etiqueta="Código de barras" valor={lectura.codigo_barras} cambiar={(valor) => setLectura((actual) => ({ ...actual, codigo_barras: valor }))} />
+              <CampoTexto etiqueta="Código de referencia" valor={lectura.codigo_referencia} cambiar={(valor) => setLectura((actual) => ({ ...actual, codigo_referencia: valor }))} />
+              <CampoTexto etiqueta="Nombre reportado en la app" valor={lectura.nombre_producto} cambiar={(valor) => setLectura((actual) => ({ ...actual, nombre_producto: valor }))} />
+              <CampoTexto etiqueta="Fecha de la información" tipo="date" valor={lectura.fecha_fuente?.slice(0, 10) ?? null} cambiar={(valor) => setLectura((actual) => ({ ...actual, fecha_fuente: valor }))} />
               <CampoNumero etiqueta="Rotación diaria (unidades)" valor={lectura.rotacion_diaria_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, rotacion_diaria_unidades: valor }))} />
               <CampoNumero etiqueta="Stock en local" valor={lectura.stock_local_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, stock_local_unidades: valor }))} />
               <label><span>Caras en percha</span><input type="number" min="0" step="1" inputMode="numeric" value={carasPercha ?? ""} placeholder="Sin registrar" onChange={(e) => {
@@ -568,6 +572,14 @@ export default function CampoComercial({
               <CampoNumero etiqueta="Precio comercio" valor={lectura.precio_comercio} cambiar={(valor) => setLectura((actual) => ({ ...actual, precio_comercio: valor }))} />
               <CampoNumero etiqueta="Precio afiliado" valor={lectura.precio_afiliado} cambiar={(valor) => setLectura((actual) => ({ ...actual, precio_afiliado: valor }))} />
               <CampoNumero etiqueta="Stock CD (cajas)" valor={lectura.stock_cd_cajas} cambiar={(valor) => setLectura((actual) => ({ ...actual, stock_cd_cajas: valor }))} />
+              <CampoNumero etiqueta="Unidades por caja" valor={lectura.unidades_por_caja} cambiar={(valor) => setLectura((actual) => ({ ...actual, unidades_por_caja: valor }))} />
+              <CampoNumero etiqueta="Días de inventario CD" valor={lectura.dias_inventario_cd} cambiar={(valor) => setLectura((actual) => ({ ...actual, dias_inventario_cd: valor }))} />
+              <CampoNumero etiqueta="Predicción de venta (unidades)" valor={lectura.prediccion_venta_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, prediccion_venta_unidades: valor }))} />
+              <CampoNumero etiqueta="Participación en clase (%)" valor={lectura.participacion_clase} cambiar={(valor) => setLectura((actual) => ({ ...actual, participacion_clase: valor }))} />
+              <CampoNumero etiqueta="Participación en subclase (%)" valor={lectura.participacion_subclase} cambiar={(valor) => setLectura((actual) => ({ ...actual, participacion_subclase: valor }))} />
+              <CampoTexto etiqueta="Fecha del último pedido" tipo="date" valor={lectura.fecha_ultimo_pedido?.slice(0, 10) ?? null} cambiar={(valor) => setLectura((actual) => ({ ...actual, fecha_ultimo_pedido: valor }))} />
+              <CampoNumero etiqueta="Último pedido (unidades)" valor={lectura.cantidad_ultimo_pedido} cambiar={(valor) => setLectura((actual) => ({ ...actual, cantidad_ultimo_pedido: valor }))} />
+              <CampoTexto etiqueta="Fecha del último despacho" tipo="date" valor={lectura.fecha_ultimo_despacho?.slice(0, 10) ?? null} cambiar={(valor) => setLectura((actual) => ({ ...actual, fecha_ultimo_despacho: valor }))} />
               <CampoNumero etiqueta="Último despacho (unidades)" valor={lectura.cantidad_ultimo_despacho} cambiar={(valor) => setLectura((actual) => ({ ...actual, cantidad_ultimo_despacho: valor }))} />
             </div>
             <div className="campo-estados">
@@ -579,6 +591,7 @@ export default function CampoComercial({
             <label className="campo-foto-percha"><span>Fotos de percha (opcionales)</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onChange={seleccionarFotosPercha} /><small>{fotosPercha.length ? `${fotosPercha.length} foto(s) lista(s)` : "Sirven como evidencia de presencia, ausencia o ubicación."}</small></label>
             <label className="campo-observaciones"><span>Observaciones</span><textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ubicación en percha, faltante, novedad, gestión realizada…" /></label>
             <button className="campo-guardar" type="button" disabled={guardando || procesando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar SKU y continuar con el siguiente"}</button>
+            </fieldset>
           </section>}
         </div>
       )}
@@ -618,8 +631,8 @@ function CampoNumero({ etiqueta, valor, cambiar }: { etiqueta: string; valor: nu
   return <label><span>{etiqueta}</span><input type="number" step="0.01" value={valor ?? ""} onChange={(e) => cambiar(e.target.value === "" ? null : Number(e.target.value))} /></label>
 }
 
-function CampoTexto({ etiqueta, valor, cambiar }: { etiqueta: string; valor: string | null; cambiar: (valor: string | null) => void }) {
-  return <label><span>{etiqueta}</span><input value={valor ?? ""} onChange={(e) => cambiar(e.target.value || null)} /></label>
+function CampoTexto({ etiqueta, valor, cambiar, tipo = "text" }: { etiqueta: string; valor: string | null; cambiar: (valor: string | null) => void; tipo?: "text" | "date" }) {
+  return <label><span>{etiqueta}</span><input type={tipo} value={valor ?? ""} onChange={(e) => cambiar(e.target.value || null)} /></label>
 }
 
 function fechaHoy() {
@@ -650,18 +663,18 @@ function normalizarCodigo(valor: string | null) {
 }
 
 function lecturaTieneDatos(lectura: LecturaFavorita) {
-  return Boolean(
-    lectura.local_nombre ||
-    lectura.codigo_barras ||
-    lectura.codigo_referencia ||
-    lectura.nombre_producto ||
-    lectura.rotacion_diaria_unidades != null ||
-    lectura.stock_local_unidades != null,
+  return Object.entries(lectura).some(([campo, valor]) =>
+    campo !== "confianza" && campo !== "advertencias" && valor !== null && valor !== "",
   )
+}
+
+function combinarLectura(actual: LecturaFavorita, resultado: LecturaFavorita): LecturaFavorita {
+  return { ...actual, ...Object.fromEntries(Object.entries(resultado).filter(([, valor]) => valor !== null && valor !== "")) }
 }
 
 const css = `
 .campo-comercial{display:grid;gap:14px;color:#332824}.campo-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:20px;border:1px solid #e5d9d2;border-radius:15px;background:#fff}.campo-head>div>span,.campo-paso header span,.campo-dashboard-filtro span,.campo-registros header span{color:#f28c18;font-size:10px;font-weight:900;letter-spacing:.09em}.campo-head h2{margin:4px 0;color:#8f1d24;font-size:27px}.campo-head p{margin:0;color:#776a65}.campo-head nav{display:flex;gap:7px;flex-wrap:wrap}.campo-head button,.campo-comercial button{border:1px solid #dfd2cc;border-radius:10px;background:#fff;color:#7a302f;padding:10px 13px;font-weight:900;cursor:pointer}.campo-head button.activo,.campo-principal,.campo-guardar{border-color:#981f28!important;background:#981f28!important;color:#fff!important}.campo-error,.campo-exito,.campo-carga{padding:14px 16px;border:1px solid #ecc7ca;border-radius:12px;background:#fff4f5;color:#a21f29}.campo-exito{border-color:#c5e6d1;background:#eef9f2;color:#147542}.campo-flujo{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:940px;margin:0 auto;width:100%}.campo-paso{padding:18px;border:1px solid #e6dad4;border-radius:15px;background:#fff}.campo-paso>header{display:flex;gap:12px;align-items:center;margin-bottom:16px}.campo-paso>header>b{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#981f28;color:#fff;font-size:18px}.campo-paso h3{margin:3px 0;color:#7e1e24;font-size:21px}.campo-grid{display:grid;gap:10px}.campo-grid-3{grid-template-columns:1fr 1.4fr .75fr}.campo-grid-2{grid-template-columns:1fr 1fr}.campo-comercial label{display:grid;gap:6px}.campo-comercial label>span,.campo-estados legend{color:#6f605b;font-size:10px;font-weight:900;text-transform:uppercase}.campo-comercial input,.campo-comercial select,.campo-comercial textarea{box-sizing:border-box;width:100%;border:1px solid #daccc5;border-radius:10px;background:#fbfaf8;padding:12px;color:#352a27;font:inherit;font-weight:700}.campo-comercial textarea{min-height:90px;resize:vertical}.campo-ubicacion{margin-top:11px!important;background:#fff8ef!important;color:#9a5b0d!important;border-color:#edcf9e!important}.campo-captura{place-items:center;padding:26px 18px;border:2px dashed #d7beb5;border-radius:14px;background:#fffaf7;text-align:center;cursor:pointer}.campo-captura input{position:absolute;opacity:0;pointer-events:none}.campo-captura strong{color:#8f1d24;font-size:17px}.campo-captura small{color:#80736e}.campo-miniaturas{display:flex;gap:8px;overflow:auto;margin:12px 0}.campo-miniaturas img{width:92px;height:128px;object-fit:cover;border:1px solid #ded0c9;border-radius:10px}.campo-principal,.campo-guardar{width:100%;margin-top:12px;font-size:15px}.campo-comercial button:disabled{opacity:.55;cursor:wait}.campo-advertencia{margin-bottom:12px;padding:10px;border-radius:9px;background:#fff2dc;color:#925b13}.campo-estados{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:13px}.campo-estados fieldset{display:flex;gap:7px;flex-wrap:wrap;margin:0;padding:12px;border:1px solid #e3d7d0;border-radius:11px}.campo-estados legend{padding:0 5px}.campo-estados button.activo,.campo-estados button.si.activo{background:#18864b;color:#fff;border-color:#18864b}.campo-estados button.no.activo{background:#aa2630;color:#fff;border-color:#aa2630}.campo-foto-percha,.campo-observaciones{margin-top:13px}.campo-foto-percha small{color:#80736e}.campo-dashboard{display:grid;gap:14px}.campo-dashboard-filtro{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:15px 18px;border:1px solid #e6dad4;border-radius:13px;background:#fff}.campo-dashboard-filtro>div{display:grid;gap:4px}.campo-dashboard-filtro label{min-width:290px}.campo-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.campo-card{display:grid;gap:8px;min-height:120px;padding:17px;border:1px solid #e5dad4;border-top:5px solid #8f1d24;border-radius:13px;background:#fff}.campo-card span{font-size:11px;font-weight:900;text-transform:uppercase;color:#6d5e59}.campo-card strong{font-size:29px;color:#8f1d24}.campo-card small{color:#827570}.campo-card.verde{border-top-color:#18864b}.campo-card.verde strong{color:#18864b}.campo-card.naranja{border-top-color:#ed8c18}.campo-card.rojo{border-top-color:#aa2630}.campo-card.azul{border-top-color:#3679a6}.campo-card.gris{border-top-color:#8e827c}.campo-registros{border:1px solid #e5dad4;border-radius:14px;background:#fff;overflow:hidden}.campo-registros>header{display:flex;justify-content:space-between;align-items:end;padding:16px}.campo-registros h3{margin:3px 0;color:#8f1d24}.campo-registros>p{padding:20px;text-align:center;color:#817570}.campo-registros article{display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;padding:13px 16px;border-top:1px solid #eee5e0}.campo-registros article div{display:grid;gap:3px}.campo-registros article span,.campo-registros article small{color:#817570;font-size:11px}.campo-registros article i{padding:6px 9px;border-radius:99px;background:#fdebed;color:#a5242d;font-size:10px;font-style:normal;font-weight:900}.campo-registros article i.ok{background:#e7f6ed;color:#147542}
 .campo-salir{display:block;margin:12px 0}
+.campo-formulario-sku{border:0;padding:0;margin:0;min-width:0}
 @media(max-width:800px){.campo-head{align-items:stretch;display:grid;padding:16px}.campo-head nav{display:grid;grid-template-columns:1fr 1fr}.campo-head nav button:last-child:nth-child(3){grid-column:1/-1}.campo-grid-3,.campo-grid-2,.campo-estados,.campo-cards{grid-template-columns:1fr}.campo-paso{padding:15px}.campo-dashboard-filtro{align-items:stretch;display:grid}.campo-dashboard-filtro label{min-width:0}.campo-registros article{grid-template-columns:1fr auto}.campo-registros article i{grid-column:1/-1;justify-self:start}.campo-flujo{max-width:none}.campo-head h2{font-size:24px}.campo-paso h3{font-size:18px}}
 `
