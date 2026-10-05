@@ -258,10 +258,22 @@ export default function CampoComercial({
   }
 
   function seleccionarFotosPercha(event: React.ChangeEvent<HTMLInputElement>) {
-    const archivos = Array.from(event.target.files ?? []).slice(0, 3)
+    const nuevas = Array.from(event.target.files ?? [])
     event.target.value = ""
+    const archivos = [...fotosPercha]
+    for (const archivo of nuevas) {
+      const repetido = archivos.some((item) =>
+        item.name === archivo.name && item.size === archivo.size && item.lastModified === archivo.lastModified,
+      )
+      if (!repetido && archivos.length < 3) archivos.push(archivo)
+    }
     setFotosPercha(archivos)
     void guardarArchivosCampo("percha", archivos).catch(() => undefined)
+  }
+
+  function limpiarFotosPercha() {
+    setFotosPercha([])
+    void guardarArchivosCampo("percha", []).catch(() => undefined)
   }
 
   async function analizar() {
@@ -588,7 +600,15 @@ export default function CampoComercial({
             </div>
             {carasPercha === 0 && (lectura.stock_local_unidades ?? 0) > 0 && <div className="campo-error" role="alert">PRODUCTO CON STOCK NO PERCHADO · Hay existencia en el local y cero caras en percha.</div>}
             {carasPercha !== null && carasPercha > 0 && lectura.stock_local_unidades === 0 && <div className="campo-advertencia" role="status">Revisar dato: hay caras en percha, pero el stock reportado es cero.</div>}
-            <label className="campo-foto-percha"><span>Fotos de percha (opcionales)</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onChange={seleccionarFotosPercha} /><small>{fotosPercha.length ? `${fotosPercha.length} foto(s) lista(s)` : "Sirven como evidencia de presencia, ausencia o ubicación."}</small></label>
+            <div className="campo-foto-percha">
+              <p>Fotos de percha (opcionales)</p>
+              <div className="campo-grid campo-grid-2">
+                <label><span>Tomar foto</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={seleccionarFotosPercha} disabled={fotosPercha.length >= 3} /></label>
+                <label><span>Elegir fotos de la galería</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarFotosPercha} disabled={fotosPercha.length >= 3} /></label>
+              </div>
+              <small>{fotosPercha.length ? `${fotosPercha.length} de 3 foto(s) lista(s)` : "Puedes tomar fotos o subir imágenes existentes, hasta 3 por SKU."}</small>
+              {fotosPercha.length > 0 && <button type="button" className="campo-salir" onClick={limpiarFotosPercha}>Quitar fotos de percha</button>}
+            </div>
             <label className="campo-observaciones"><span>Observaciones</span><textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ubicación en percha, faltante, novedad, gestión realizada…" /></label>
             <button className="campo-guardar" type="button" disabled={guardando || procesando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar SKU y continuar con el siguiente"}</button>
             </fieldset>
