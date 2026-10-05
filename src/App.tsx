@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { Session } from "@supabase/supabase-js"
 
 import { supabase } from "./lib/supabase"
@@ -7,6 +7,7 @@ import Layout from "./components/layout/Layout"
 import Login from "./pages/Login"
 import InstalarApp from "./components/InstalarApp"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
+import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
 // Esto reduce mucho el JavaScript inicial de la app y evita cargar importadores,
@@ -106,9 +107,20 @@ function App() {
   const [sesion, setSesion] = useState<Session | null>(null)
   const [cargandoSesion, setCargandoSesion] = useState(true)
   const [perfil, setPerfil] = useState<PerfilAplicacion | null>(null)
+  const [pantallasPermitidas, setPantallasPermitidas] = useState<string[]>([])
+  const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
   const usuarioConPerfilRef = useRef<string | null>(null)
+  const puedeAcceder = useCallback((destino: string) => !!perfil?.activo &&
+    puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas), [perfil, pantallasPermitidas])
+
+  useEffect(() => {
+    if (!cargandoPerfil && perfil?.activo && !puedeAcceder(pantalla)) {
+      const primera = pantallasPermitidas.find((destino) => puedeAcceder(destino))
+      if (primera) setPantalla(primera)
+    }
+  }, [cargandoPerfil, perfil, puedeAcceder, pantalla, pantallasPermitidas])
 
   const parametros = new URLSearchParams(window.location.search)
   const modo = parametros.get("modo")
@@ -132,9 +144,13 @@ function App() {
         try {
           const acceso = await obtenerAccesoActual(session.user.id)
           setPerfil(acceso.perfil)
+          setPantallasPermitidas(acceso.pantallasPermitidas)
+          setErrorAcceso("")
           usuarioConPerfilRef.current = session.user.id
-        } catch {
+        } catch (err) {
           setPerfil(null)
+          setPantallasPermitidas([])
+          setErrorAcceso(err instanceof Error ? err.message : "No se pudo verificar el acceso.")
           usuarioConPerfilRef.current = session.user.id
         }
       }
@@ -150,6 +166,8 @@ function App() {
       setSesion(session)
       if (!session) {
         setPerfil(null)
+        setPantallasPermitidas([])
+        setErrorAcceso("")
         usuarioConPerfilRef.current = null
         setCargandoPerfil(false)
       } else if (usuarioConPerfilRef.current === session.user.id) {
@@ -162,10 +180,14 @@ function App() {
           void obtenerAccesoActual(session.user.id)
             .then((acceso) => {
               setPerfil(acceso.perfil)
+              setPantallasPermitidas(acceso.pantallasPermitidas)
+              setErrorAcceso("")
               usuarioConPerfilRef.current = session.user.id
             })
-            .catch(() => {
+            .catch((err) => {
               setPerfil(null)
+              setPantallasPermitidas([])
+              setErrorAcceso(err instanceof Error ? err.message : "No se pudo verificar el acceso.")
               usuarioConPerfilRef.current = session.user.id
             })
             .finally(() => setCargandoPerfil(false))
@@ -178,6 +200,38 @@ function App() {
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    const userId = sesion?.user.id
+    if (!userId) return
+    let vigente = true
+    let consultando = false
+    async function refrescarAcceso() {
+      if (consultando || document.visibilityState === "hidden") return
+      consultando = true
+      try {
+        const acceso = await obtenerAccesoActual(userId!)
+        if (!vigente) return
+        setPerfil(acceso.perfil)
+        setPantallasPermitidas(acceso.pantallasPermitidas)
+        setErrorAcceso("")
+      } catch (err) {
+        if (vigente) setErrorAcceso(err instanceof Error ? err.message : "No se pudo actualizar el acceso.")
+      } finally { consultando = false }
+    }
+    const refrescar = () => { void refrescarAcceso() }
+    window.addEventListener("focus", refrescar)
+    window.addEventListener("cibuspan:acceso-actualizado", refrescar)
+    document.addEventListener("visibilitychange", refrescar)
+    const intervalo = window.setInterval(refrescar, 30000)
+    return () => {
+      vigente = false
+      window.clearInterval(intervalo)
+      window.removeEventListener("focus", refrescar)
+      window.removeEventListener("cibuspan:acceso-actualizado", refrescar)
+      document.removeEventListener("visibilitychange", refrescar)
+    }
+  }, [sesion?.user.id])
 
   async function cerrarSesion() {
     await supabase.auth.signOut({
@@ -217,7 +271,11 @@ function App() {
     return <Login />
   }
 
-  if (perfil?.rol === "MERCADERISTA") {
+  if (!perfil || !perfil.activo) {
+    return <main style={paginaCarga}><p role="alert">{errorAcceso || "Tu usuario está inactivo. Consulta al administrador."}</p><button onClick={() => window.location.reload()}>Volver a verificar</button><button onClick={() => void cerrarSesion()}>Cerrar sesión</button></main>
+  }
+
+  if (perfil.rol === "MERCADERISTA" && puedeAcceder("Campo comercial") && pantallasPermitidas.every((item) => item === "Campo comercial")) {
     return (
       <Suspense fallback={<CargandoModulo />}>
         <CampoComercialMovil usuario={sesion.user.email} cerrarSesion={cerrarSesion} />
@@ -225,7 +283,7 @@ function App() {
     )
   }
 
-  if (modo === "imprimir-anexo-supermaxi") {
+  if (modo === "imprimir-anexo-supermaxi" && puedeAcceder("Anexo Supermaxi")) {
     return (
       <Suspense fallback={<CargandoModulo />}>
         <ImprimirAnexoSupermaxi />
@@ -285,6 +343,7 @@ function App() {
         return <ReporteDevoluciones cambiarPantalla={setPantalla} />
 
       case "Comercial · Descuentos":
+      case "Descuentos":
       case "Descuentos y promociones":
         return <DescuentosPromociones />
 
@@ -458,9 +517,10 @@ function App() {
       cambiarPantalla={setPantalla}
       cerrarSesion={cerrarSesion}
       usuario={sesion.user.email}
+      puedeAcceder={puedeAcceder}
     >
       <Suspense fallback={<CargandoModulo />}>
-        {renderPantalla()}
+        {puedeAcceder(pantalla) ? renderPantalla() : <section style={{ padding: 24 }}><p role="alert">No tienes acceso a esta pantalla. Solicita al administrador los permisos correspondientes.</p></section>}
       </Suspense>
       <InstalarApp />
     </Layout>

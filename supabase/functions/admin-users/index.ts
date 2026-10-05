@@ -17,7 +17,7 @@ const roles = new Set([
 
 const pantallas = new Set([
   "Dashboard", "Pedidos", "Inventario", "Producción", "Semielaborados",
-  "Despachos", "Historial despachos", "Devoluciones", "Reportes",
+  "Despachos", "Historial despachos", "Devoluciones", "Descuentos", "Reportes",
   "Documentos", "Hoja de producción", "Hoja de despacho", "Anexo Supermaxi",
   "Administración", "Materias primas", "Preformulación", "Usuarios y permisos",
   "KPI KAM",
@@ -155,35 +155,42 @@ Deno.serve(async (req) => {
       })
       if (error || !data.user) throw error ?? new Error("No se pudo crear el usuario.")
 
-      const { error: profileError } = await admin.from("app_profiles").upsert({
-        user_id: data.user.id,
-        email,
-        nombre,
-        rol,
-        activo: true,
-        actualizado_en: new Date().toISOString(),
-      })
-      if (profileError) throw profileError
+      try {
+        const { error: profileError } = await admin.from("app_profiles").upsert({
+          user_id: data.user.id,
+          email,
+          nombre,
+          rol,
+          activo: true,
+          actualizado_en: new Date().toISOString(),
+        })
+        if (profileError) throw profileError
 
-      if (rol === "MERCADERISTA") {
-        const { data: clientes, error: clientesError } = await admin
-          .from("clientes")
-          .select("id")
-          .eq("activo", true)
-        if (clientesError) throw clientesError
-        if (clientes?.length) {
-          const hoy = new Date().toISOString().slice(0, 10)
-          const { error: asignacionError } = await admin
-            .from("com_mercaderista_clientes")
-            .upsert(clientes.map((cliente) => ({
-              mercaderista_user_id: data.user.id,
-              cliente_id: cliente.id,
-              vigente_desde: hoy,
-              activo: true,
-              creado_por: actor.id,
-            })), { onConflict: "mercaderista_user_id,cliente_id,vigente_desde" })
-          if (asignacionError) throw asignacionError
+        if (rol === "MERCADERISTA") {
+          const { data: clientes, error: clientesError } = await admin
+            .from("clientes")
+            .select("id")
+            .eq("activo", true)
+          if (clientesError) throw clientesError
+          if (clientes?.length) {
+            const hoy = new Date().toISOString().slice(0, 10)
+            const { error: asignacionError } = await admin
+              .from("com_mercaderista_clientes")
+              .upsert(clientes.map((cliente) => ({
+                mercaderista_user_id: data.user.id,
+                cliente_id: cliente.id,
+                vigente_desde: hoy,
+                activo: true,
+                creado_por: actor.id,
+              })), { onConflict: "mercaderista_user_id,cliente_id,vigente_desde" })
+            if (asignacionError) throw asignacionError
+          }
         }
+      } catch (errorConfiguracion) {
+        // No dejar un usuario sin perfil/cliente cuando la configuración falla.
+        const { error: errorLimpieza } = await admin.auth.admin.deleteUser(data.user.id)
+        if (errorLimpieza) throw new Error("El usuario se creó, pero no se pudo completar su configuración. Revisa la lista antes de intentar otra vez.")
+        throw errorConfiguracion
       }
 
       await auditar("USUARIO_CREADO", data.user.id, { email, nombre, rol })
@@ -277,10 +284,15 @@ Deno.serve(async (req) => {
 
     if (action === "permissions") {
       const userId = String(body.userId ?? "")
-      const recibidos = Array.isArray(body.permisos) ? body.permisos : []
-      const permisosValidos = recibidos
-        .filter((item) => pantallas.has(String(item.pantalla)))
-        .map((item) => ({
+      if (!userId || !Array.isArray(body.permisos)) return respuesta(400, { ok: false, error: "Usuario o permisos no válidos." })
+      const recibidos = body.permisos
+      if (recibidos.some((item) => !item || !pantallas.has(item.pantalla) || typeof item.permitido !== "boolean") ||
+        new Set(recibidos.map((item) => item.pantalla)).size !== recibidos.length) {
+        return respuesta(400, { ok: false, error: "La lista contiene permisos desconocidos, duplicados o no válidos. No se modificó el usuario." })
+      }
+      const { data: perfilDestino, error: errorDestino } = await admin.from("app_profiles").select("user_id").eq("user_id", userId).single()
+      if (errorDestino || !perfilDestino) return respuesta(400, { ok: false, error: "El usuario no tiene un perfil válido. Actualiza sus datos generales primero." })
+      const permisosValidos = recibidos.map((item) => ({
           user_id: userId,
           pantalla: String(item.pantalla),
           permitido: Boolean(item.permitido),
@@ -288,19 +300,26 @@ Deno.serve(async (req) => {
           actualizado_en: new Date().toISOString(),
         }))
 
-      if (!userId) return respuesta(400, { ok: false, error: "Usuario no válido." })
-
-      const { error: deleteError } = await admin
-        .from("app_user_permissions")
-        .delete()
-        .eq("user_id", userId)
-      if (deleteError) throw deleteError
-
       if (permisosValidos.length) {
         const { error: insertError } = await admin
           .from("app_user_permissions")
-          .insert(permisosValidos)
+          .upsert(permisosValidos, { onConflict: "user_id,pantalla" })
         if (insertError) throw insertError
+      }
+      // Primero guardar: si la escritura falla, los permisos anteriores siguen intactos.
+      let limpieza = admin.from("app_user_permissions").delete().eq("user_id", userId)
+      if (permisosValidos.length) {
+        limpieza = limpieza.not("pantalla", "in", `(${permisosValidos.map((item) => JSON.stringify(item.pantalla)).join(",")})`)
+      }
+      const { error: deleteError } = await limpieza
+      if (deleteError) throw deleteError
+
+      const { data: guardados, error: errorVerificacion } = await admin.from("app_user_permissions")
+        .select("pantalla,permitido").eq("user_id", userId)
+      if (errorVerificacion) throw errorVerificacion
+      if (guardados?.length !== permisosValidos.length ||
+        permisosValidos.some((item) => !guardados?.some((guardado) => guardado.pantalla === item.pantalla && guardado.permitido === item.permitido))) {
+        throw new Error("No se pudo verificar el guardado de todos los permisos.")
       }
 
       await auditar("PERMISOS_ACTUALIZADOS", userId, {
@@ -308,7 +327,7 @@ Deno.serve(async (req) => {
       })
       return respuesta(200, {
         ok: true,
-        data: permisosValidos.map(({ pantalla, permitido }) => ({ pantalla, permitido })),
+        data: guardados,
       })
     }
 
@@ -327,7 +346,8 @@ Deno.serve(async (req) => {
 
     return respuesta(400, { ok: false, error: "Acción no reconocida." })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Error inesperado."
+    const message = error instanceof Error ? error.message :
+      error && typeof error === "object" && "message" in error ? String(error.message) : "Error inesperado."
     return respuesta(500, { ok: false, error: message })
   }
 })

@@ -48,15 +48,17 @@ export default function UsuariosPermisos() {
           ? actual
           : null,
       )
+      return data.usuarios
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los usuarios.")
+      throw err
     } finally {
       setCargando(false)
     }
   }
 
   useEffect(() => {
-    void cargar()
+    void cargar().catch(() => undefined)
   }, [])
 
   function confirmar(texto: string) {
@@ -75,7 +77,7 @@ export default function UsuariosPermisos() {
           </p>
         </div>
         {vista === "USUARIOS" && (
-          <button style={botonPrimario} onClick={() => setMostrarCreacion(true)}>
+          <button style={botonPrimario} onClick={() => { setError(""); setMensaje(""); setMostrarCreacion(true) }}>
             + Nuevo usuario
           </button>
         )}
@@ -99,7 +101,7 @@ export default function UsuariosPermisos() {
         <section style={tarjeta}>
           <div style={cabeceraTabla}>
             <span>{usuarios.length} usuario{usuarios.length === 1 ? "" : "s"}</span>
-            <button style={botonSecundario} onClick={() => void cargar()}>
+            <button style={botonSecundario} onClick={() => void cargar().catch(() => undefined)}>
               Actualizar
             </button>
           </div>
@@ -146,16 +148,19 @@ export default function UsuariosPermisos() {
 
       {mostrarCreacion && (
         <Modal titulo="Crear nuevo usuario" cerrar={() => setMostrarCreacion(false)}>
+          {error && <div style={avisoError} role="alert">{error}</div>}
           <FormularioCreacion
             guardando={guardando}
             guardar={async (datos) => {
+              if (guardando) return
               setGuardando(true)
               setError("")
+              setMensaje("")
               try {
                 await crearUsuario(datos)
-                setMostrarCreacion(false)
-                confirmar("Usuario creado correctamente.")
                 await cargar()
+                setMostrarCreacion(false)
+                confirmar("Usuario creado y verificado correctamente.")
               } catch (err) {
                 setError(err instanceof Error ? err.message : "No se pudo crear el usuario.")
               } finally {
@@ -169,9 +174,11 @@ export default function UsuariosPermisos() {
       {seleccionado && (
         <Modal titulo="Editar usuario y permisos" cerrar={() => setSeleccionadoId(null)} ancho={820}>
           <EditorUsuario
-            key={`${seleccionado.user_id}-${seleccionado.actualizado_en}`}
+            key={`${seleccionado.user_id}-${seleccionado.actualizado_en}-${JSON.stringify(seleccionado.permisos_personalizados)}`}
             usuario={seleccionado}
             guardando={guardando}
+            error={error}
+            mensaje={mensaje}
             onError={setError}
             onConfirmar={confirmar}
             onGuardando={setGuardando}
@@ -232,13 +239,17 @@ function EditorUsuario({
   onConfirmar,
   onGuardando,
   recargar,
+  error,
+  mensaje,
 }: {
   usuario: UsuarioAdministrable
   guardando: boolean
   onError: (mensaje: string) => void
   onConfirmar: (mensaje: string) => void
   onGuardando: (estado: boolean) => void
-  recargar: () => Promise<void>
+  recargar: () => Promise<UsuarioAdministrable[]>
+  error: string
+  mensaje: string
 }) {
   const [nombre, setNombre] = useState(usuario.nombre ?? "")
   const [rol, setRol] = useState<AppRole>(usuario.rol)
@@ -264,12 +275,14 @@ function EditorUsuario({
   }
 
   async function ejecutar(accion: () => Promise<unknown>, exito: string) {
+    if (guardando) return
     onGuardando(true)
     onError("")
+    onConfirmar("")
     try {
       await accion()
-      onConfirmar(exito)
       await recargar()
+      onConfirmar(exito)
     } catch (err) {
       onError(err instanceof Error ? err.message : "No fue posible guardar los cambios.")
     } finally {
@@ -277,8 +290,17 @@ function EditorUsuario({
     }
   }
 
+  async function guardarDatosPendientes() {
+    if (nombre.trim() !== usuario.nombre || rol !== usuario.rol || activo !== usuario.activo) {
+      await actualizarUsuario({ userId: usuario.user_id, nombre, rol, activo })
+    }
+  }
+
   return (
     <div style={formulario}>
+      {error && <div style={{ ...avisoError, position: "sticky", top: 0, zIndex: 1 }} role="alert">{error}</div>}
+      {mensaje && <div style={avisoExito} role="status">{mensaje}</div>}
+      <fieldset disabled={guardando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "grid", gap: 16 }}>
       <div style={dosColumnas}>
         <Campo etiqueta="Nombre completo">
           <input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} />
@@ -341,9 +363,12 @@ function EditorUsuario({
           style={botonSecundario}
           disabled={guardando}
           onClick={() => {
-            setPermisos(new Set(PERMISOS_PREDETERMINADOS[rol]))
             void ejecutar(
-              () => guardarPermisosUsuario(usuario.user_id, []),
+              async () => {
+                await guardarDatosPendientes()
+                await guardarPermisosUsuario(usuario.user_id, [])
+                setPermisos(new Set(PERMISOS_PREDETERMINADOS[rol]))
+              },
               "Se restauraron los permisos predeterminados del rol.",
             )
           }}
@@ -354,7 +379,7 @@ function EditorUsuario({
           style={botonPrimario}
           disabled={guardando}
           onClick={() => void ejecutar(
-            () => guardarPermisosUsuario(
+            async () => { await guardarDatosPendientes(); return guardarPermisosUsuario(
               usuario.user_id,
               PANTALLAS_APLICACION.map((pantalla) => ({
                 pantalla,
@@ -362,8 +387,8 @@ function EditorUsuario({
                   ? rol === "ADMINISTRADOR"
                   : permisos.has(pantalla),
               })),
-            ),
-            "Permisos personalizados guardados.",
+            ) },
+              "Permisos personalizados guardados y verificados.",
           )}
         >
           Guardar permisos
@@ -392,6 +417,7 @@ function EditorUsuario({
           Cambiar contraseña
         </button>
       </div>
+      </fieldset>
     </div>
   )
 }

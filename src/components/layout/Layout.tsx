@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { filtrarModulosPermitidos } from "../../utils/permisosAplicacion"
 
 type LayoutProps = {
   pantalla: string
   cambiarPantalla: (pantalla: string) => void
   cerrarSesion?: () => void | Promise<void>
   usuario?: string | null
+  puedeAcceder: (pantalla: string) => boolean
   children: ReactNode
 }
 
@@ -175,6 +177,9 @@ function moduloDePantalla(pantalla: string): Modulo["id"] {
     "Ventas por cliente y SKU",
     "Reporte de devoluciones",
     "Descuentos y promociones",
+    "KPI KAM",
+    "Campo comercial",
+    "Supervisión KAM",
   ].includes(pantalla)) return "Comercial"
   if (["Producción", "Preformulación", "Semielaborados", "Hoja de producción"].includes(pantalla)) {
     return "Producción"
@@ -210,15 +215,17 @@ export default function Layout({
   cambiarPantalla,
   cerrarSesion,
   usuario,
+  puedeAcceder,
   children,
 }: LayoutProps) {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
   const [menuMasAbierto, setMenuMasAbierto] = useState(false)
+  const modulosDisponibles = useMemo(() => filtrarModulosPermitidos(modulos, puedeAcceder), [puedeAcceder])
 
   const moduloActualId = moduloDePantalla(pantalla)
   const moduloActual = useMemo(
-    () => modulos.find((modulo) => modulo.id === moduloActualId) ?? modulos[0],
-    [moduloActualId],
+    () => modulosDisponibles.find((modulo) => modulo.id === moduloActualId),
+    [moduloActualId, modulosDisponibles],
   )
 
   useEffect(() => {
@@ -227,12 +234,13 @@ export default function Layout({
   }, [pantalla])
 
   function navegar(destino: string) {
-    cambiarPantalla(destino)
+    if (puedeAcceder(destino)) cambiarPantalla(destino)
   }
 
   const inicial = (usuario?.trim()?.[0] ?? "C").toUpperCase()
 
-  const modulosMovilMas = modulos.filter(
+  const modulosMovilPrincipales = modulosDisponibles.filter((modulo) => ["Inicio", "Comercial", "Producción", "Inventario y Despachos"].includes(modulo.id))
+  const modulosMovilMas = modulosDisponibles.filter(
     (modulo) =>
       !["Inicio", "Comercial", "Producción", "Inventario y Despachos"].includes(modulo.id),
   )
@@ -245,7 +253,7 @@ export default function Layout({
         <Marca />
 
         <nav className="c1-menu-desktop" aria-label="Navegación principal">
-          {modulos.map((modulo) => (
+          {modulosDisponibles.map((modulo) => (
             <BotonMenu
               key={modulo.id}
               activo={moduloActualId === modulo.id}
@@ -296,7 +304,7 @@ export default function Layout({
       </header>
 
       <main className="c1-content">
-        {moduloActual.items.length > 0 && (
+        {moduloActual && moduloActual.items.length > 0 && (
           <div className="c1-subnav-shell">
             <div className="c1-module-title">{moduloActual.etiqueta}</div>
             <nav className="c1-subnav" aria-label={`Opciones de ${moduloActual.etiqueta}`}>
@@ -319,37 +327,19 @@ export default function Layout({
         <div className="c1-page-slot">{children}</div>
       </main>
 
-      <nav className="c1-bottom-nav" aria-label="Navegación móvil">
-        <BotonInferior
-          activo={moduloActualId === "Inicio"}
-          etiqueta="Inicio"
-          icono="inicio"
-          onClick={() => navegar("Dashboard")}
-        />
-        <BotonInferior
-          activo={moduloActualId === "Comercial"}
-          etiqueta="Comercial"
-          icono="comercial"
-          onClick={() => navegar("Comercial · Pedidos")}
-        />
-        <BotonInferior
-          activo={moduloActualId === "Producción"}
-          etiqueta="Producción"
-          icono="produccion"
-          onClick={() => navegar("Producción · Resumen")}
-        />
-        <BotonInferior
-          activo={moduloActualId === "Inventario y Despachos"}
-          etiqueta="Inventario"
-          icono="inventario"
-          onClick={() => navegar("Inventario y Despachos · Resumen")}
-        />
-        <BotonInferior
+      <nav className="c1-bottom-nav" aria-label="Navegación móvil" style={{ gridTemplateColumns: `repeat(${Math.max(1, modulosMovilPrincipales.length + (modulosMovilMas.length ? 1 : 0))}, 1fr)` }}>
+        {modulosMovilPrincipales.map((modulo) => <BotonInferior key={modulo.id}
+          activo={moduloActualId === modulo.id}
+          etiqueta={modulo.id === "Inventario y Despachos" ? "Inventario" : modulo.etiqueta}
+          icono={modulo.icono}
+          onClick={() => navegar(modulo.entrada)}
+        />)}
+        {modulosMovilMas.length > 0 && <BotonInferior
           activo={modulosMovilMas.some((modulo) => modulo.id === moduloActualId)}
           etiqueta="Más"
           icono="mas"
           onClick={() => setMenuMasAbierto(true)}
-        />
+        />}
       </nav>
 
       {menuMovilAbierto && (
@@ -368,7 +358,7 @@ export default function Layout({
             </div>
 
             <nav className="c1-drawer-menu">
-              {modulos.map((modulo) => (
+              {modulosDisponibles.map((modulo) => (
                 <BotonMenu
                   key={modulo.id}
                   activo={moduloActualId === modulo.id}

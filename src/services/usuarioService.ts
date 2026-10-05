@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase"
+import { permisosCoinciden } from "../utils/permisosAplicacion"
 
 export const ROLES = [
   "ADMINISTRADOR",
@@ -73,7 +74,7 @@ export const PERMISOS_PREDETERMINADOS: Record<
     "Documentos",
   ],
 
-  KAM: ["KPI KAM"],
+  KAM: ["KPI KAM", "Campo comercial"],
   MERCADERISTA: ["Campo comercial"],
 }
 
@@ -149,9 +150,16 @@ export async function obtenerAccesoActual(
         }) => item.pantalla,
       )
 
+  // Los roles de gerencia anteriores a Descuentos no tienen esa fila por defecto.
+  // Un permiso personalizado explícito (incluido false) siempre tiene prioridad.
+  if (["ADMINISTRADOR", "GERENTE"].includes(perfil.rol) &&
+    !(permisos ?? []).some((item: { pantalla: string }) => item.pantalla === "Descuentos")) {
+    pantallasPermitidas.push("Descuentos")
+  }
+
   return {
     perfil: perfil as PerfilAplicacion,
-    pantallasPermitidas,
+    pantallasPermitidas: perfil.activo ? pantallasPermitidas : [],
   }
 }
 
@@ -224,10 +232,25 @@ async function invocarAdministracion<T>(
 }
 
 export async function listarUsuarios() {
-  return invocarAdministracion<{
+  const resultado = await invocarAdministracion<{
     usuarios: UsuarioAdministrable[]
     auditoria: RegistroAuditoria[]
   }>("list")
+  if (!Array.isArray(resultado?.usuarios) || !Array.isArray(resultado?.auditoria)) {
+    throw new Error("Supabase devolvió una lista de usuarios incompleta. No se puede confirmar el guardado.")
+  }
+  return resultado
+}
+
+async function verificarUsuario(userId: string, esperado: { nombre: string; rol: AppRole; activo: boolean; email?: string }) {
+  const { usuarios } = await listarUsuarios()
+  const guardado = usuarios.find((usuario) => usuario.user_id === userId)
+  if (!guardado || guardado.nombre !== esperado.nombre.trim() || guardado.rol !== esperado.rol || guardado.activo !== esperado.activo ||
+    (esperado.email && guardado.email.toLowerCase() !== esperado.email.trim().toLowerCase())) {
+    throw new Error("No se pudieron verificar los datos guardados del usuario. Actualiza la lista antes de volver a intentar.")
+  }
+  window.dispatchEvent(new Event("cibuspan:acceso-actualizado"))
+  return guardado
 }
 
 export async function crearUsuario(
@@ -238,10 +261,12 @@ export async function crearUsuario(
     password: string
   },
 ) {
-  return invocarAdministracion<UsuarioAdministrable>(
+  const creado = await invocarAdministracion<UsuarioAdministrable>(
     "create",
     input,
   )
+  if (!creado?.user_id) throw new Error("Supabase no confirmó la creación del usuario.")
+  return verificarUsuario(creado.user_id, { ...input, activo: true })
 }
 
 export async function actualizarUsuario(
@@ -252,17 +277,18 @@ export async function actualizarUsuario(
     activo: boolean
   },
 ) {
-  return invocarAdministracion<UsuarioAdministrable>(
+  await invocarAdministracion<UsuarioAdministrable>(
     "update",
     input,
   )
+  return verificarUsuario(input.userId, input)
 }
 
 export async function guardarPermisosUsuario(
   userId: string,
   permisos: PermisoUsuario[],
 ) {
-  return invocarAdministracion<
+  const respuesta = await invocarAdministracion<
     PermisoUsuario[]
   >(
     "permissions",
@@ -271,6 +297,14 @@ export async function guardarPermisosUsuario(
       permisos,
     },
   )
+  const { usuarios } = await listarUsuarios()
+  const usuario = usuarios.find((item) => item.user_id === userId)
+  if (!Array.isArray(respuesta) || !permisosCoinciden(permisos, respuesta) || !usuario ||
+    !permisosCoinciden(permisos, usuario.permisos_personalizados)) {
+    throw new Error("Supabase no confirmó todos los permisos solicitados. No se consideran guardados; actualiza la lista.")
+  }
+  window.dispatchEvent(new Event("cibuspan:acceso-actualizado"))
+  return respuesta
 }
 
 export async function restablecerPassword(
