@@ -43,6 +43,7 @@ const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
 const KpiKam = lazy(() => import("./pages/KpiKam"))
 const VisitasRotacion = lazy(() => import("./pages/VisitasRotacion"))
+const SupervisionVisitas = lazy(() => import("./pages/SupervisionVisitas"))
 const CampoComercialMovil = lazy(() => import("./pages/CampoComercialMovil"))
 
 const CLAVE_PANTALLA_ACTIVA = "cibuspan-one:pantalla-activa:v1"
@@ -297,6 +298,9 @@ function App() {
       case "Comercial · Visitas y rotación":
       case "Campo comercial":
         return <VisitasRotacion />
+
+      case "Supervisión KAM":
+        return <SupervisionVisitas />
 
       case "Comercial · SKU":
         return <PantallaEnConstruccion titulo={pantalla} />

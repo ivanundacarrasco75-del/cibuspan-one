@@ -1486,6 +1486,9 @@ export default function Reportes({
         >
           Rentabilidad por SKU
         </button>
+        <button type="button" style={boton} onClick={() => cambiarPantalla("Supervisión KAM")}>
+          Supervisión de visitas KAM
+        </button>
       </header>
 
       <section

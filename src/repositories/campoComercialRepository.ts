@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase"
+import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
 
 export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
 
@@ -184,20 +185,72 @@ export type GuardarVisitaCampo = {
 } & Partial<LecturaFavorita>
 
 export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
+  const { data: sesion, error: errorSesion } = await supabase.auth.getUser()
+  if (errorSesion || !sesion.user) throw new Error("La sesión no es válida.")
+  const { data: perfil, error: errorPerfil } = await supabase.from("app_profiles")
+    .select("nombre, rol").eq("user_id", sesion.user.id).single()
+  if (errorPerfil || !perfil) throw new Error("No se pudo verificar el responsable de la visita.")
+  const caras = (datos.datos_ia as Record<string, unknown>).caras_percha
+  if (caras != null && leerCarasPercha(datos.datos_ia) === null) {
+    throw new Error("Caras en percha debe ser un entero desde cero.")
+  }
   const { data, error } = await supabase.rpc("com_kpi_campo_guardar_visita", {
-    p_datos: datos,
+    p_datos: {
+      ...datos,
+      datos_ia: {
+        ...datos.datos_ia,
+        responsable_id: sesion.user.id,
+        responsable_rol: perfil.rol,
+        responsable_nombre: perfil.nombre || sesion.user.email || "Sin nombre",
+      },
+    },
   })
   if (error) throw new Error(`No se pudo guardar la visita: ${error.message}`)
   return String(data ?? "")
 }
 
-function leerCarasPercha(datosIa: unknown) {
-  if (!datosIa || typeof datosIa !== "object" || Array.isArray(datosIa)) return null
-  const valor = (datosIa as Record<string, unknown>).caras_percha
-  if (valor === null || valor === undefined || valor === "") return null
-  const numero = Number(valor)
-  if (!Number.isFinite(numero) || numero < 0) return null
-  return Math.trunc(numero)
+export async function obtenerSupervisionCampo(desde: string, hasta: string, clienteId: string | null) {
+  const registros: RegistroSupervision[] = []
+  for (let inicio = 0; ; inicio += 500) {
+    let consulta = supabase.from("com_visitas_campo_sku").select(`
+      id, producto_id, datos_ia, stock_local_unidades, rotacion_diaria_unidades,
+      presencia_percha, observaciones,
+      producto:productos(nombre),
+      visita:com_visitas_campo!inner(fecha_visita, visitado_en, cliente_id,
+        local_monitoreado_id, registrado_por, estado,
+        local:com_locales_monitoreados(nombre), responsable:app_profiles(nombre, rol))
+    `).eq("visita.estado", "CONFIRMADA")
+      .gte("visita.fecha_visita", desde).lte("visita.fecha_visita", hasta)
+      .order("id").range(inicio, inicio + 499)
+    if (clienteId) consulta = consulta.eq("visita.cliente_id", clienteId)
+    const { data, error } = await consulta
+    if (error) throw new Error(`No se pudo cargar la supervisión: ${error.message}`)
+    for (const fila of data ?? []) {
+      const visita = fila.visita as unknown as {
+        fecha_visita: string; visitado_en: string; cliente_id: string;
+        local_monitoreado_id: string; registrado_por: string;
+        local: { nombre: string } | null; responsable: { nombre: string | null; rol: string } | null;
+      }
+      const datos = (fila.datos_ia ?? {}) as Record<string, unknown>
+      const autorGuardado = datos.responsable_id === visita.registrado_por
+      const rol = autorGuardado && typeof datos.responsable_rol === "string"
+        ? datos.responsable_rol : visita.responsable?.rol ?? null
+      registros.push({
+        id: fila.id, fecha: visita.fecha_visita, visitado_en: visita.visitado_en,
+        cliente_id: visita.cliente_id, local_id: visita.local_monitoreado_id,
+        local_nombre: visita.local?.nombre ?? "Local", producto_id: fila.producto_id,
+        producto_nombre: (fila.producto as unknown as { nombre: string } | null)?.nombre ?? "SKU",
+        responsable_id: visita.registrado_por,
+        responsable_nombre: autorGuardado && typeof datos.responsable_nombre === "string"
+          ? datos.responsable_nombre : visita.responsable?.nombre ?? "Responsable sin identificar",
+        responsable_rol: rol, caras_percha: leerCarasPercha(datos),
+        stock_local_unidades: fila.stock_local_unidades,
+        rotacion_diaria_unidades: fila.rotacion_diaria_unidades,
+        presencia_percha: fila.presencia_percha, observaciones: fila.observaciones,
+      })
+    }
+    if ((data?.length ?? 0) < 500) return registros
+  }
 }
 
 function extensionSegura(archivo: File) {

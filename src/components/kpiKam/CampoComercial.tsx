@@ -14,6 +14,7 @@ import {
   limpiarArchivosCampo,
 } from "../../utils/borradorCampoComercial"
 import KpiKamCobertura from "./KpiKamCobertura"
+import SupervisionCampo from "./SupervisionCampo"
 
 type Props = {
   periodo: string
@@ -60,13 +61,14 @@ const CATALOGO_VACIO: CatalogoCampoComercial = {
     codificadas: 0,
     presentes_percha: 0,
     quiebres_stock: 0,
+    sin_perchar_con_stock: 0,
     rotacion_diaria_promedio: null,
     dias_inventario_promedio: null,
   },
   registros: [],
 }
 
-type VistaCampo = "REGISTRO" | "DASHBOARD" | "ADMIN"
+type VistaCampo = "REGISTRO" | "DASHBOARD" | "SUPERVISION" | "ADMIN"
 
 type BorradorCampo = {
   vista?: VistaCampo
@@ -79,6 +81,7 @@ type BorradorCampo = {
   lecturaConfirmada?: boolean
   codificado?: boolean | null
   presencia?: PresenciaPercha
+  carasPercha?: number | null
   observaciones?: string
   ubicacion?: { latitud: number; longitud: number; precision: number } | null
 }
@@ -117,6 +120,7 @@ export default function CampoComercial({
   const [lecturaConfirmada, setLecturaConfirmada] = useState(borradorInicial.lecturaConfirmada ?? false)
   const [codificado, setCodificado] = useState<boolean | null>(borradorInicial.codificado ?? null)
   const [presencia, setPresencia] = useState<PresenciaPercha>(borradorInicial.presencia ?? "NO_REVISADO")
+  const [carasPercha, setCarasPercha] = useState<number | null>(borradorInicial.carasPercha ?? null)
   const [observaciones, setObservaciones] = useState(borradorInicial.observaciones ?? "")
   const [ubicacion, setUbicacion] = useState<{ latitud: number; longitud: number; precision: number } | null>(borradorInicial.ubicacion ?? null)
   const [cargando, setCargando] = useState(true)
@@ -139,6 +143,7 @@ export default function CampoComercial({
         lecturaConfirmada,
         codificado,
         presencia,
+        carasPercha,
         observaciones,
         ubicacion,
       }
@@ -155,6 +160,7 @@ export default function CampoComercial({
     localId,
     observaciones,
     presencia,
+    carasPercha,
     productoId,
     rutasCapturas,
     ubicacion,
@@ -331,6 +337,10 @@ export default function CampoComercial({
       setError("Primero analiza las capturas de Favorita.")
       return
     }
+    if (carasPercha !== null && (!Number.isSafeInteger(carasPercha) || carasPercha < 0)) {
+      setError("Caras en percha debe ser un número entero desde cero.")
+      return
+    }
     setGuardando(true)
     setError("")
     setMensaje("")
@@ -348,13 +358,13 @@ export default function CampoComercial({
         longitud: ubicacion?.longitud ?? null,
         precision_metros: ubicacion?.precision ?? null,
         codificado_app: codificado,
-        presencia_percha: presencia,
+        presencia_percha: carasPercha === null ? presencia : carasPercha > 0 ? "PRESENTE" : "AUSENTE",
         capturas_app: rutasCapturas,
         fotos_percha: rutasPercha,
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
         confianza_ia: lectura.confianza || null,
-        datos_ia: lectura,
+        datos_ia: { ...lectura, caras_percha: carasPercha },
         ...lectura,
         nombre_reportado: lectura.nombre_producto,
         codigo_barras: lectura.codigo_barras || lectura.codigo_referencia,
@@ -368,6 +378,7 @@ export default function CampoComercial({
       setLecturaConfirmada(false)
       setCodificado(null)
       setPresencia("NO_REVISADO")
+      setCarasPercha(null)
       setObservaciones("")
       void limpiarArchivosCampo().catch(() => undefined)
       await cargar()
@@ -395,6 +406,7 @@ export default function CampoComercial({
         <nav>
           <button className={vista === "REGISTRO" ? "activo" : ""} onClick={() => setVista("REGISTRO")}>Registrar visita</button>
           <button className={vista === "DASHBOARD" ? "activo" : ""} onClick={() => setVista("DASHBOARD")}>Dashboard semanal</button>
+          {!soloCampo && ["KAM", "ADMINISTRADOR", "GERENTE"].includes(catalogo.rol) && <button className={vista === "SUPERVISION" ? "activo" : ""} onClick={() => setVista("SUPERVISION")}>Supervisión KAM</button>}
           {!soloCampo && catalogo.puede_administrar && <button className={vista === "ADMIN" ? "activo" : ""} onClick={() => setVista("ADMIN")}>Locales y reportes</button>}
         </nav>
       </header>
@@ -402,7 +414,9 @@ export default function CampoComercial({
       {error && <div className="campo-error">{error}</div>}
       {mensaje && <div className="campo-exito">{mensaje}</div>}
 
-      {vista === "ADMIN" && !soloCampo ? (
+      {vista === "SUPERVISION" && !soloCampo ? (
+        <SupervisionCampo clientes={catalogo.clientes} />
+      ) : vista === "ADMIN" && !soloCampo ? (
         <KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} />
       ) : vista === "DASHBOARD" ? (
         <DashboardCampo catalogo={catalogo} clienteId={clienteId} setClienteId={setClienteId} semana={semana} />
@@ -438,6 +452,11 @@ export default function CampoComercial({
               <CampoTexto etiqueta="Código de barras" valor={lectura.codigo_barras} cambiar={(valor) => setLectura((actual) => ({ ...actual, codigo_barras: valor }))} />
               <CampoNumero etiqueta="Rotación diaria (unidades)" valor={lectura.rotacion_diaria_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, rotacion_diaria_unidades: valor }))} />
               <CampoNumero etiqueta="Stock en local" valor={lectura.stock_local_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, stock_local_unidades: valor }))} />
+              <label><span>Caras en percha</span><input type="number" min="0" step="1" inputMode="numeric" value={carasPercha ?? ""} placeholder="Sin registrar" onChange={(e) => {
+                const valor = e.target.value === "" ? null : Number(e.target.value)
+                setCarasPercha(valor)
+                setPresencia(valor === null ? "NO_REVISADO" : valor > 0 ? "PRESENTE" : "AUSENTE")
+              }} /><small>Cuenta los frentes visibles del SKU. Cero: sin exhibición.</small></label>
               <CampoNumero etiqueta="Días de inventario local" valor={lectura.dias_inventario_local} cambiar={(valor) => setLectura((actual) => ({ ...actual, dias_inventario_local: valor }))} />
               <CampoNumero etiqueta="Venta diaria ($)" valor={lectura.venta_diaria_valor} cambiar={(valor) => setLectura((actual) => ({ ...actual, venta_diaria_valor: valor }))} />
               <CampoNumero etiqueta="Precio comercio" valor={lectura.precio_comercio} cambiar={(valor) => setLectura((actual) => ({ ...actual, precio_comercio: valor }))} />
@@ -447,8 +466,10 @@ export default function CampoComercial({
             </div>
             <div className="campo-estados">
               <fieldset><legend>¿Está codificado en la app?</legend><button type="button" className={codificado === true ? "si activo" : "si"} onClick={() => setCodificado(true)}>Sí</button><button type="button" className={codificado === false ? "no activo" : "no"} onClick={() => setCodificado(false)}>No</button></fieldset>
-              <fieldset><legend>¿Está físicamente en percha?</legend>{(["PRESENTE", "AUSENTE", "NO_REVISADO"] as PresenciaPercha[]).map((item) => <button type="button" key={item} className={presencia === item ? "activo" : ""} onClick={() => setPresencia(item)}>{item === "PRESENTE" ? "Sí" : item === "AUSENTE" ? "No" : "Sin revisar"}</button>)}</fieldset>
+              <fieldset><legend>¿Está físicamente en percha?</legend>{(["PRESENTE", "AUSENTE", "NO_REVISADO"] as PresenciaPercha[]).map((item) => <button type="button" key={item} className={presencia === item ? "activo" : ""} onClick={() => { setPresencia(item); setCarasPercha(item === "AUSENTE" ? 0 : null) }}>{item === "PRESENTE" ? "Sí" : item === "AUSENTE" ? "No" : "Sin revisar"}</button>)}</fieldset>
             </div>
+            {carasPercha === 0 && (lectura.stock_local_unidades ?? 0) > 0 && <div className="campo-error" role="alert">PRODUCTO CON STOCK NO PERCHADO · Hay existencia en el local y cero caras en percha.</div>}
+            {carasPercha !== null && carasPercha > 0 && lectura.stock_local_unidades === 0 && <div className="campo-advertencia" role="status">Revisar dato: hay caras en percha, pero el stock reportado es cero.</div>}
             <label className="campo-foto-percha"><span>Fotos de percha (opcionales)</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onChange={seleccionarFotosPercha} /><small>{fotosPercha.length ? `${fotosPercha.length} foto(s) lista(s)` : "Sirven como evidencia de presencia, ausencia o ubicación."}</small></label>
             <label className="campo-observaciones"><span>Observaciones</span><textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ubicación en percha, faltante, novedad, gestión realizada…" /></label>
             <button className="campo-guardar" type="button" disabled={guardando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar visita y actualizar indicadores"}</button>
@@ -476,8 +497,9 @@ function DashboardCampo({ catalogo, clienteId, setClienteId, semana }: {
       <Tarjeta titulo="Quiebres de stock" valor={String(r.quiebres_stock)} detalle="Registros con stock local en cero" tono={r.quiebres_stock > 0 ? "rojo" : "verde"} />
       <Tarjeta titulo="Presencia en percha" valor={String(r.presentes_percha)} detalle="Posiciones verificadas físicamente" tono="azul" />
       <Tarjeta titulo="Inventario local" valor={r.dias_inventario_promedio == null ? "—" : `${r.dias_inventario_promedio.toFixed(1)} días`} detalle="Promedio de días disponibles" tono="gris" />
+      <Tarjeta titulo="Con stock sin perchar" valor={String(r.sin_perchar_con_stock)} detalle="Entre las últimas revisiones: stock > 0 y caras = 0" tono={r.sin_perchar_con_stock > 0 ? "rojo" : "verde"} />
     </div>
-    <div className="campo-registros"><header><div><span>ÚLTIMAS REVISIONES</span><h3>Detalle semanal</h3></div><small>{catalogo.registros.length} registros</small></header>{catalogo.registros.length === 0 ? <p>No hay visitas confirmadas en esta semana.</p> : catalogo.registros.map((item) => <article key={item.id}><div><strong>{item.local_nombre}</strong><span>{item.producto_nombre}</span><small>{fechaCorta(item.fecha)}</small></div><div><b>{item.rotacion_diaria_unidades == null ? "—" : `${item.rotacion_diaria_unidades} u/día`}</b><span>Stock: {item.stock_local_unidades ?? "—"}</span></div><i className={item.codificado_app ? "ok" : "alerta"}>{item.codificado_app ? "Codificado" : "No codificado"}</i></article>)}</div>
+    <div className="campo-registros"><header><div><span>ÚLTIMAS REVISIONES</span><h3>Detalle semanal</h3></div><small>{catalogo.registros.length} registros</small></header>{catalogo.registros.length === 0 ? <p>No hay visitas confirmadas en esta semana.</p> : catalogo.registros.map((item) => <article key={item.id}><div><strong>{item.local_nombre}</strong><span>{item.producto_nombre}</span><small>{fechaCorta(item.fecha)}</small></div><div><b>{item.rotacion_diaria_unidades == null ? "—" : `${item.rotacion_diaria_unidades} u/día`}</b><span>Stock: {item.stock_local_unidades ?? "—"}</span><span>Caras en percha: {item.caras_percha ?? "Sin registrar"}</span>{item.caras_percha === 0 && (item.stock_local_unidades ?? 0) > 0 && <i>CON STOCK NO PERCHADO</i>}</div><i className={item.codificado_app ? "ok" : "alerta"}>{item.codificado_app ? "Codificado" : "No codificado"}</i></article>)}</div>
   </section>
 }
 
