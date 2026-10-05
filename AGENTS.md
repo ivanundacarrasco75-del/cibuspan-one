@@ -24,6 +24,13 @@
 5. Informar los archivos modificados y el resultado.
 6. Crear un commit por cada estado estable.
 
+## Actualizaciones de la base existente
+
+- Antes de recomendar `supabase db push`, revisar el historial remoto y su `--dry-run`.
+- El historial de esta base puede omitir cambios que ya se ejecutaron manualmente. Una migración pendiente en el CLI no demuestra que falten sus tablas o funciones.
+- Si aparecen migraciones antiguas pendientes sobre estructuras más avanzadas, aplicar solo el SQL nuevo revisado con `supabase db query --linked --file`, sin modificar vistas de otros módulos ni marcar migraciones antiguas como aplicadas sin verificarlas.
+- Registrar como aplicada únicamente la versión nueva después de que su ejecución haya terminado correctamente.
+
 ## Seguridad
 
 - No versionar `.env`, credenciales, secretos ni `supabase/.temp/`.

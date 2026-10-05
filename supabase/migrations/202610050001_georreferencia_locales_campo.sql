@@ -7,12 +7,22 @@ alter table public.com_locales_monitoreados
   add column if not exists longitud numeric(10,7),
   add column if not exists radio_metros integer not null default 150,
   add column if not exists referencia_actualizada_en timestamptz;
-alter table public.com_locales_monitoreados
-  add constraint com_locales_georreferencia_check check (
-    (latitud is null and longitud is null) or
-    (latitud is not null and longitud is not null and latitud between -90 and 90 and longitud between -180 and 180)
-  ),
-  add constraint com_locales_radio_check check (radio_metros between 30 and 500);
+-- Permitir repetir únicamente este archivo si la publicación posterior falla.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.com_locales_monitoreados'::regclass
+    and conname = 'com_locales_georreferencia_check') then
+    alter table public.com_locales_monitoreados add constraint com_locales_georreferencia_check check (
+      (latitud is null and longitud is null) or
+      (latitud is not null and longitud is not null and latitud between -90 and 90 and longitud between -180 and 180)
+    );
+  end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'public.com_locales_monitoreados'::regclass
+    and conname = 'com_locales_radio_check') then
+    alter table public.com_locales_monitoreados add constraint com_locales_radio_check check (radio_metros between 30 and 500);
+  end if;
+end;
+$$;
 
 create or replace function public.com_kpi_campo_georeferencias(p_cliente_id uuid default null)
 returns jsonb language plpgsql stable security definer set search_path = public as $$

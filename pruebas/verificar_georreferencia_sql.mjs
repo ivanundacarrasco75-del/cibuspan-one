@@ -83,6 +83,12 @@ test('La migración permite proponer la primera referencia, restringe su aprobac
     assert.equal(confirmado.direccion, 'Dirección revisada')
     assert.equal(confirmado.propuesta, null)
     assert.ok(confirmado.referencia_actualizada_en)
+    // Una publicación interrumpida se puede repetir sin perder la referencia confirmada.
+    await db.exec(fs.readFileSync(new URL('../supabase/migrations/202610050001_georreferencia_locales_campo.sql', import.meta.url), 'utf8'))
+    const repetido = (await catalogo()).find((l) => l.id === ids.local)
+    assert.equal(repetido.latitud, confirmado.latitud)
+    assert.equal(repetido.direccion, confirmado.direccion)
+    assert.equal(repetido.referencia_actualizada_en, confirmado.referencia_actualizada_en)
     assert.equal((await db.query('select count(*)::int as n from public.com_visitas_campo')).rows[0].n, 1)
   } finally { await db.close() }
 })
