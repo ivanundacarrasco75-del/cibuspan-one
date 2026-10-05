@@ -40,6 +40,7 @@ export type CatalogoCampoComercial = {
     codificadas: number
     presentes_percha: number
     quiebres_stock: number
+    sin_perchar_con_stock: number
     rotacion_diaria_promedio: number | null
     dias_inventario_promedio: number | null
   }
@@ -54,6 +55,7 @@ export type CatalogoCampoComercial = {
     producto_codigo: string
     codificado_app: boolean | null
     presencia_percha: PresenciaPercha
+    caras_percha: number | null
     rotacion_diaria_unidades: number | null
     stock_local_unidades: number | null
     dias_inventario_local: number | null
@@ -73,6 +75,7 @@ const VACIO: CatalogoCampoComercial = {
     codificadas: 0,
     presentes_percha: 0,
     quiebres_stock: 0,
+    sin_perchar_con_stock: 0,
     rotacion_diaria_promedio: null,
     dias_inventario_promedio: null,
   },
@@ -90,15 +93,46 @@ export async function obtenerCatalogoCampoComercial(
     p_hasta: hasta,
   })
   if (error) throw new Error(`No se pudo cargar el trabajo de campo: ${error.message}`)
+
   const fila = (data ?? {}) as Partial<CatalogoCampoComercial>
+  const registrosBase = Array.isArray(fila.registros) ? fila.registros : []
+  const carasPorRegistro = new Map<string, number | null>()
+
+  if (registrosBase.length > 0) {
+    const ids = registrosBase.map((item) => item.id).filter(Boolean)
+    const { data: detalles, error: errorDetalles } = await supabase
+      .from("com_visitas_campo_sku")
+      .select("id, datos_ia")
+      .in("id", ids)
+
+    if (!errorDetalles) {
+      for (const detalle of detalles ?? []) {
+        carasPorRegistro.set(String(detalle.id), leerCarasPercha(detalle.datos_ia))
+      }
+    }
+  }
+
+  const registros = registrosBase.map((item) => ({
+    ...item,
+    caras_percha: carasPorRegistro.get(item.id) ?? null,
+  }))
+
+  const resumenBase = { ...VACIO.resumen, ...(fila.resumen ?? {}) }
+  const sinPercharConStock = registros.filter((item) =>
+    item.caras_percha === 0 && (item.stock_local_unidades ?? 0) > 0
+  ).length
+
   return {
     ...VACIO,
     ...fila,
     clientes: Array.isArray(fila.clientes) ? fila.clientes : [],
     locales: Array.isArray(fila.locales) ? fila.locales : [],
     productos: Array.isArray(fila.productos) ? fila.productos : [],
-    registros: Array.isArray(fila.registros) ? fila.registros : [],
-    resumen: { ...VACIO.resumen, ...(fila.resumen ?? {}) },
+    registros,
+    resumen: {
+      ...resumenBase,
+      sin_perchar_con_stock: sinPercharConStock,
+    },
   } satisfies CatalogoCampoComercial
 }
 
@@ -155,6 +189,15 @@ export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
   })
   if (error) throw new Error(`No se pudo guardar la visita: ${error.message}`)
   return String(data ?? "")
+}
+
+function leerCarasPercha(datosIa: unknown) {
+  if (!datosIa || typeof datosIa !== "object" || Array.isArray(datosIa)) return null
+  const valor = (datosIa as Record<string, unknown>).caras_percha
+  if (valor === null || valor === undefined || valor === "") return null
+  const numero = Number(valor)
+  if (!Number.isFinite(numero) || numero < 0) return null
+  return Math.trunc(numero)
 }
 
 function extensionSegura(archivo: File) {
