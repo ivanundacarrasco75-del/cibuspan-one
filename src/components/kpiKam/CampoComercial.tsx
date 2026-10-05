@@ -15,6 +15,7 @@ import {
 } from "../../utils/borradorCampoComercial"
 import KpiKamCobertura from "./KpiKamCobertura"
 import SupervisionCampo from "./SupervisionCampo"
+import { crearVisitaCampo, registrarSkuEnVisita, type VisitaActivaCampo } from "../../utils/visitaActivaCampo"
 
 type Props = {
   periodo: string
@@ -71,6 +72,7 @@ const CATALOGO_VACIO: CatalogoCampoComercial = {
 type VistaCampo = "REGISTRO" | "DASHBOARD" | "SUPERVISION" | "ADMIN"
 
 type BorradorCampo = {
+  visitaActiva?: VisitaActivaCampo | null
   vista?: VistaCampo
   clienteId?: string
   localId?: string
@@ -106,10 +108,11 @@ export default function CampoComercial({
   const [borradorInicial] = useState<BorradorCampo>(leerBorradorCampo)
   const [vista, setVista] = useState<VistaCampo>(borradorInicial.vista ?? "REGISTRO")
   const [catalogo, setCatalogo] = useState(CATALOGO_VACIO)
+  const [visitaActiva, setVisitaActiva] = useState<VisitaActivaCampo | null>(borradorInicial.visitaActiva ?? null)
   const [clienteId, setClienteId] = useState(borradorInicial.clienteId ?? "")
   const [localId, setLocalId] = useState(borradorInicial.localId ?? "")
   const [productoId, setProductoId] = useState(borradorInicial.productoId ?? "")
-  const [fechaVisita, setFechaVisita] = useState(borradorInicial.fechaVisita ?? fechaHoy())
+  const [fechaVisita, setFechaVisita] = useState(borradorInicial.visitaActiva || borradorInicial.lecturaConfirmada ? borradorInicial.fechaVisita ?? fechaHoy() : fechaHoy())
   const [capturas, setCapturas] = useState<File[]>([])
   const [fotosPercha, setFotosPercha] = useState<File[]>([])
   const [rutasCapturas, setRutasCapturas] = useState<string[]>(borradorInicial.rutasCapturas ?? [])
@@ -127,12 +130,14 @@ export default function CampoComercial({
   const [procesando, setProcesando] = useState(false)
   const [progresoLectura, setProgresoLectura] = useState("")
   const [guardando, setGuardando] = useState(false)
+  const [ubicando, setUbicando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
     try {
       const borrador: BorradorCampo = {
+        visitaActiva,
         vista,
         clienteId,
         localId,
@@ -165,6 +170,7 @@ export default function CampoComercial({
     rutasCapturas,
     ubicacion,
     vista,
+    visitaActiva,
   ])
 
   useEffect(() => {
@@ -201,8 +207,8 @@ export default function CampoComercial({
 
   useEffect(() => { void cargar() }, [cargar])
   useEffect(() => {
-    if (!cargando && !catalogo.locales.some((local) => local.id === localId)) setLocalId("")
-  }, [cargando, catalogo.locales, localId])
+    if (!visitaActiva && !cargando && !catalogo.locales.some((local) => local.id === localId)) setLocalId("")
+  }, [cargando, catalogo.locales, localId, visitaActiva])
 
   const productosOrdenados = useMemo(() => [...catalogo.productos].sort((a, b) => {
     if (a.autorizado !== b.autorizado) return a.autorizado ? -1 : 1
@@ -261,8 +267,8 @@ export default function CampoComercial({
   }
 
   async function analizar() {
-    if (!clienteId || capturas.length === 0) {
-      setError("Selecciona el cliente y entre una y tres capturas de Favorita.")
+    if (!visitaActiva || !productoId || capturas.length === 0) {
+      setError("Inicia la visita, selecciona el SKU y sube entre una y tres capturas de Favorita.")
       return
     }
     setProcesando(true)
@@ -281,10 +287,10 @@ export default function CampoComercial({
       if (!lecturaTieneDatos(resultado)) {
         throw new Error("No se reconocieron datos en las imágenes. Verifica que las capturas estén completas y sean legibles.")
       }
+      comprobarCaptura(resultado)
       setLectura(resultado)
       setLecturaConfirmada(true)
       setCodificado(true)
-      sugerirLocalYProducto(resultado)
       setMensaje("Lectura terminada. Revisa los valores antes de guardar.")
     } catch (err) {
       setLecturaConfirmada(false)
@@ -295,42 +301,108 @@ export default function CampoComercial({
     }
   }
 
-  function sugerirLocalYProducto(resultado: LecturaFavorita) {
+  function comprobarCaptura(resultado: LecturaFavorita) {
     const localTexto = normalizar(resultado.local_nombre)
     if (localTexto) {
-      const local = catalogo.locales.find((item) => {
+      const coincidencias = catalogo.locales.filter((item) => {
         const nombre = normalizar(item.nombre)
         return nombre.includes(localTexto) || localTexto.includes(nombre)
       })
-      if (local) setLocalId(local.id)
+      const local = coincidencias.length === 1 ? coincidencias[0] : null
+      if (local && local.id !== visitaActiva?.localId) {
+        throw new Error(`La captura corresponde a ${local.nombre}. Revisa las imágenes: la visita activa pertenece a otro local.`)
+      }
     }
     const codigo = normalizarCodigo(resultado.codigo_barras || resultado.codigo_referencia)
     if (codigo) {
       const producto = catalogo.productos.find((item) => normalizarCodigo(item.codigo) === codigo)
-      if (producto) setProductoId(producto.id)
+      if (producto && producto.id !== productoId) {
+        throw new Error(`La captura corresponde a ${producto.nombre}, pero seleccionaste otro SKU. Revisa el producto y las imágenes.`)
+      }
     }
   }
 
   function obtenerUbicacion() {
+    if (visitaActiva || ubicando) return
     setError("")
     if (!navigator.geolocation) {
       setError("Este dispositivo no permite obtener ubicación.")
       return
     }
+    setUbicando(true)
     navigator.geolocation.getCurrentPosition(
-      (posicion) => setUbicacion({
-        latitud: posicion.coords.latitude,
-        longitud: posicion.coords.longitude,
-        precision: posicion.coords.accuracy,
-      }),
-      () => setError("No fue posible obtener la ubicación. Puedes continuar sin ella."),
+      (posicion) => {
+        setUbicacion({ latitud: posicion.coords.latitude, longitud: posicion.coords.longitude, precision: posicion.coords.accuracy })
+        setUbicando(false)
+      },
+      () => { setUbicando(false); setError("No fue posible obtener la ubicación. Puedes continuar sin ella.") },
       { enableHighAccuracy: true, timeout: 12000 },
     )
   }
 
+  function iniciarVisita() {
+    try {
+      setVisitaActiva(crearVisitaCampo({ clienteId, localId, fecha: fechaVisita, ubicacion }, crypto.randomUUID(), new Date().toISOString()))
+      setError("")
+      setMensaje("Visita iniciada. Selecciona el primer SKU.")
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo iniciar la visita.") }
+  }
+
+  function cambiarContexto(tipo: "cliente" | "local", valor: string) {
+    if (visitaActiva) return
+    if ((capturas.length || fotosPercha.length || lecturaConfirmada) &&
+      !window.confirm("Hay información pendiente de un SKU. ¿Quieres descartarla y cambiar de local?")) return
+    limpiarSku()
+    setUbicacion(null)
+    if (tipo === "cliente") { setClienteId(valor); setLocalId("") }
+    else setLocalId(valor)
+  }
+
+  function limpiarSku() {
+    setProductoId("")
+    setCapturas([])
+    setFotosPercha([])
+    setRutasCapturas([])
+    setLectura(LECTURA_VACIA)
+    setLecturaConfirmada(false)
+    setCodificado(null)
+    setPresencia("NO_REVISADO")
+    setCarasPercha(null)
+    setObservaciones("")
+    void limpiarArchivosCampo().catch(() => undefined)
+  }
+
+  function cambiarSku(valor: string) {
+    if (valor === productoId) return
+    if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null) &&
+      !window.confirm("Hay información de este SKU sin guardar. ¿Quieres descartarla para elegir otro producto?")) return
+    limpiarSku()
+    setProductoId(valor)
+    setError("")
+    setMensaje("")
+  }
+
+  function finalizarVisita() {
+    if (!visitaActiva || guardando || procesando) return
+    if ((capturas.length || fotosPercha.length || lecturaConfirmada || observaciones || carasPercha !== null) &&
+      !window.confirm("Hay información de un SKU sin guardar. ¿Quieres finalizar y descartar solo esa información pendiente?")) return
+    const cantidad = visitaActiva.skusGuardados.length
+    limpiarSku()
+    setVisitaActiva(null)
+    setLocalId("")
+    setUbicacion(null)
+    setFechaVisita(fechaHoy())
+    setError("")
+    setMensaje(`Visita finalizada: ${cantidad} SKU guardados. Puedes iniciar la visita al siguiente local.`)
+  }
+
   async function guardar() {
-    if (!clienteId || !localId || !productoId) {
-      setError("Selecciona cliente, local y SKU.")
+    if (!visitaActiva || !productoId) {
+      setError("Inicia una visita y selecciona el SKU.")
+      return
+    }
+    if (visitaActiva.skusGuardados.some((item) => item.id === productoId)) {
+      setError("Este SKU ya se guardó en la visita. Selecciona el siguiente.")
       return
     }
     if (rutasCapturas.length === 0) {
@@ -349,14 +421,14 @@ export default function CampoComercial({
         ? await subirImagenesCampo(fotosPercha.slice(0, 3), "percha")
         : []
       await guardarVisitaCampo({
-        cliente_id: clienteId,
-        local_id: localId,
+        cliente_id: visitaActiva.clienteId,
+        local_id: visitaActiva.localId,
         producto_id: productoId,
-        fecha_visita: fechaVisita,
+        fecha_visita: visitaActiva.fecha,
         visitado_en: new Date().toISOString(),
-        latitud: ubicacion?.latitud ?? null,
-        longitud: ubicacion?.longitud ?? null,
-        precision_metros: ubicacion?.precision ?? null,
+        latitud: visitaActiva.ubicacion?.latitud ?? null,
+        longitud: visitaActiva.ubicacion?.longitud ?? null,
+        precision_metros: visitaActiva.ubicacion?.precision ?? null,
         codificado_app: codificado,
         presencia_percha: carasPercha === null ? presencia : carasPercha > 0 ? "PRESENTE" : "AUSENTE",
         capturas_app: rutasCapturas,
@@ -364,23 +436,16 @@ export default function CampoComercial({
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
         confianza_ia: lectura.confianza || null,
-        datos_ia: { ...lectura, caras_percha: carasPercha },
+        datos_ia: { ...lectura, caras_percha: carasPercha, visita_sesion_id: visitaActiva.id, visita_iniciada_en: visitaActiva.iniciadoEn },
         ...lectura,
         nombre_reportado: lectura.nombre_producto,
         codigo_barras: lectura.codigo_barras || lectura.codigo_referencia,
       })
-      setMensaje("Visita guardada. Puedes registrar el siguiente SKU del mismo local.")
-      setProductoId("")
-      setCapturas([])
-      setFotosPercha([])
-      setRutasCapturas([])
-      setLectura(LECTURA_VACIA)
-      setLecturaConfirmada(false)
-      setCodificado(null)
-      setPresencia("NO_REVISADO")
-      setCarasPercha(null)
-      setObservaciones("")
-      void limpiarArchivosCampo().catch(() => undefined)
+      setVisitaActiva(registrarSkuEnVisita(visitaActiva, {
+        id: productoId, nombre: catalogo.productos.find((item) => item.id === productoId)?.nombre ?? productoId,
+      }))
+      limpiarSku()
+      setMensaje("SKU guardado. Cliente, local y ubicación se mantienen. Selecciona el siguiente producto.")
       await cargar()
       onActualizado()
     } catch (err) {
@@ -419,36 +484,55 @@ export default function CampoComercial({
       ) : vista === "ADMIN" && !soloCampo ? (
         <KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} />
       ) : vista === "DASHBOARD" ? (
-        <DashboardCampo catalogo={catalogo} clienteId={clienteId} setClienteId={setClienteId} semana={semana} />
+        <DashboardCampo catalogo={catalogo} clienteId={clienteId} setClienteId={setClienteId} semana={semana} visitaEnCurso={!!visitaActiva} />
       ) : (
         <div className="campo-flujo">
-          <section className="campo-paso">
+          {!visitaActiva ? <section className="campo-paso">
             <header><b>1</b><div><span>UBICACIÓN DE LA VISITA</span><h3>¿Dónde estás trabajando?</h3></div></header>
             <div className="campo-grid campo-grid-3">
-              <label><span>Cliente</span><select value={clienteId} onChange={(e) => { setClienteId(e.target.value); setLocalId(""); setProductoId("") }}><option value="">Seleccionar cliente</option>{catalogo.clientes.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
-              <label><span>Local</span><select value={localId} onChange={(e) => setLocalId(e.target.value)} disabled={!clienteId}><option value="">Seleccionar local</option>{catalogo.locales.map((item) => <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>)}</select></label>
-              <label><span>Fecha</span><input type="date" value={fechaVisita} onChange={(e) => setFechaVisita(e.target.value)} /></label>
+              <label><span>Cliente</span><select value={clienteId} onChange={(e) => cambiarContexto("cliente", e.target.value)} disabled={cargando || ubicando}><option value="">Seleccionar cliente</option>{catalogo.clientes.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
+              <label><span>Local</span><select value={localId} onChange={(e) => cambiarContexto("local", e.target.value)} disabled={!clienteId || cargando || ubicando}><option value="">Seleccionar local</option>{catalogo.locales.map((item) => <option key={item.id} value={item.id}>{item.codigo} · {item.nombre}</option>)}</select></label>
+              <label><span>Fecha</span><input type="date" value={fechaVisita} onChange={(e) => setFechaVisita(e.target.value)} disabled={ubicando} /></label>
             </div>
-            <button type="button" className="campo-ubicacion" onClick={obtenerUbicacion}>{ubicacion ? `✓ Ubicación registrada · ±${Math.round(ubicacion.precision)} m` : "Registrar mi ubicación"}</button>
-          </section>
+            <button type="button" className="campo-ubicacion" onClick={obtenerUbicacion} disabled={!localId || ubicando}>{ubicando ? "Obteniendo ubicación…" : ubicacion ? `✓ Ubicación registrada · ±${Math.round(ubicacion.precision)} m` : "Registrar mi ubicación"}</button>
+            <button type="button" className="campo-principal" onClick={iniciarVisita} disabled={!clienteId || !localId || cargando || ubicando}>Iniciar visita a este local</button>
+            <small>Estos datos se usarán para todos los SKU de esta visita.</small>
+          </section> : <section className="campo-paso campo-visita-activa">
+            <header><b>✓</b><div><span>VISITA EN CURSO</span><h3>{catalogo.locales.find((item) => item.id === visitaActiva.localId)?.nombre ?? "Local seleccionado"}</h3></div></header>
+            <p>{catalogo.clientes.find((item) => item.id === visitaActiva.clienteId)?.nombre ?? "Cliente seleccionado"} · {fechaCorta(visitaActiva.fecha)}</p>
+            <small>{visitaActiva.ubicacion ? `✓ Ubicación registrada al inicio · ±${Math.round(visitaActiva.ubicacion.precision)} m` : "Visita iniciada sin ubicación"}</small>
+            <p>{visitaActiva.skusGuardados.length} SKU guardados en este local</p>
+            {visitaActiva.skusGuardados.length > 0 && <details><summary>Ver productos guardados</summary><ul>{visitaActiva.skusGuardados.map((item) => <li key={item.id}>✓ {item.nombre}</li>)}</ul></details>}
+            <button type="button" onClick={finalizarVisita} disabled={guardando || procesando}>Finalizar visita / cambiar de local</button>
+          </section>}
 
-          <section className="campo-paso">
-            <header><b>2</b><div><span>CAPTURAS DE FAVORITA</span><h3>Sube de 1 a 3 imágenes del mismo SKU</h3></div></header>
+          {visitaActiva && <section className="campo-paso">
+            <header><b>2</b><div><span>PRODUCTOS DEL LOCAL</span><h3>Selecciona el SKU que vas a revisar</h3></div></header>
+            <label><span>SKU</span><select value={productoId} onChange={(e) => cambiarSku(e.target.value)} disabled={guardando || procesando}>
+              <option value="">Seleccionar siguiente SKU</option>{productosOrdenados.map((item) => {
+                const registrado = visitaActiva.skusGuardados.some((sku) => sku.id === item.id)
+                return <option key={item.id} value={item.id} disabled={registrado}>{registrado ? "✓ Guardado · " : item.autorizado ? "" : "+ "}{item.nombre} · {item.codigo}</option>
+              })}
+            </select></label>
+            <small>Registra los productos que corresponden a este local y finaliza cuando termines.</small>
+          </section>}
+
+          {visitaActiva && productoId && <section className="campo-paso">
+            <header><b>3</b><div><span>CAPTURAS DE FAVORITA</span><h3>Sube de 1 a 3 imágenes de {catalogo.productos.find((item) => item.id === productoId)?.nombre ?? "este SKU"}</h3></div></header>
             <label className="campo-captura">
-              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarCapturas} />
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarCapturas} disabled={procesando || guardando} />
               <strong>{capturas.length ? `${capturas.length} de 3 imágenes listas · agregar más` : "Tomar fotos o elegir capturas"}</strong>
               <small>Incluye la cabecera y la parte inferior si la información ocupa dos pantallas.</small>
             </label>
-            {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas}>Quitar imágenes</button></>}
-            <button className="campo-principal" type="button" disabled={procesando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? progresoLectura || "Leyendo capturas…" : "Leer información automáticamente · sin costo"}</button>
+            {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas} disabled={guardando || procesando}>Quitar imágenes</button></>}
+            <button className="campo-principal" type="button" disabled={procesando || guardando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? progresoLectura || "Leyendo capturas…" : "Leer información automáticamente · sin costo"}</button>
             {error && <div className="campo-error campo-error-lectura">{error}</div>}
-          </section>
+          </section>}
 
-          {lecturaConfirmada && <section className="campo-paso campo-revision">
-            <header><b>3</b><div><span>CONFIRMACIÓN</span><h3>Revisa y corrige antes de guardar</h3></div></header>
+          {visitaActiva && productoId && lecturaConfirmada && <section className="campo-paso campo-revision">
+            <header><b>4</b><div><span>CONFIRMACIÓN DEL SKU</span><h3>{catalogo.productos.find((item) => item.id === productoId)?.nombre ?? "Revisa y corrige antes de guardar"}</h3></div></header>
             {lectura.advertencias.length > 0 && <div className="campo-advertencia">{lectura.advertencias.join(" · ")}</div>}
             <div className="campo-grid campo-grid-2">
-              <label><span>SKU</span><select value={productoId} onChange={(e) => setProductoId(e.target.value)}><option value="">Seleccionar SKU</option>{productosOrdenados.map((item) => <option key={item.id} value={item.id}>{item.autorizado ? "✓" : "+"} {item.nombre} · {item.codigo}</option>)}</select></label>
               <CampoTexto etiqueta="Código de barras" valor={lectura.codigo_barras} cambiar={(valor) => setLectura((actual) => ({ ...actual, codigo_barras: valor }))} />
               <CampoNumero etiqueta="Rotación diaria (unidades)" valor={lectura.rotacion_diaria_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, rotacion_diaria_unidades: valor }))} />
               <CampoNumero etiqueta="Stock en local" valor={lectura.stock_local_unidades} cambiar={(valor) => setLectura((actual) => ({ ...actual, stock_local_unidades: valor }))} />
@@ -472,7 +556,7 @@ export default function CampoComercial({
             {carasPercha !== null && carasPercha > 0 && lectura.stock_local_unidades === 0 && <div className="campo-advertencia" role="status">Revisar dato: hay caras en percha, pero el stock reportado es cero.</div>}
             <label className="campo-foto-percha"><span>Fotos de percha (opcionales)</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onChange={seleccionarFotosPercha} /><small>{fotosPercha.length ? `${fotosPercha.length} foto(s) lista(s)` : "Sirven como evidencia de presencia, ausencia o ubicación."}</small></label>
             <label className="campo-observaciones"><span>Observaciones</span><textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ubicación en percha, faltante, novedad, gestión realizada…" /></label>
-            <button className="campo-guardar" type="button" disabled={guardando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar visita y actualizar indicadores"}</button>
+            <button className="campo-guardar" type="button" disabled={guardando || procesando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar SKU y continuar con el siguiente"}</button>
           </section>}
         </div>
       )}
@@ -480,16 +564,17 @@ export default function CampoComercial({
   )
 }
 
-function DashboardCampo({ catalogo, clienteId, setClienteId, semana }: {
+function DashboardCampo({ catalogo, clienteId, setClienteId, semana, visitaEnCurso }: {
   catalogo: CatalogoCampoComercial
   clienteId: string
   setClienteId: (valor: string) => void
   semana: { desde: string; hasta: string }
+  visitaEnCurso: boolean
 }) {
   const r = catalogo.resumen
   const cobertura = r.posiciones_revisadas > 0 ? r.codificadas / r.posiciones_revisadas * 100 : null
   return <section className="campo-dashboard">
-    <div className="campo-dashboard-filtro"><div><span>SEMANA</span><strong>{fechaCorta(semana.desde)} – {fechaCorta(semana.hasta)}</strong></div><label><span>Cliente</span><select value={clienteId} onChange={(e) => setClienteId(e.target.value)}><option value="">Todos los clientes</option>{catalogo.clientes.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label></div>
+    <div className="campo-dashboard-filtro"><div><span>SEMANA</span><strong>{fechaCorta(semana.desde)} – {fechaCorta(semana.hasta)}</strong></div><label><span>Cliente</span><select value={clienteId} onChange={(e) => setClienteId(e.target.value)} disabled={visitaEnCurso}><option value="">Todos los clientes</option>{catalogo.clientes.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select>{visitaEnCurso && <small>Cliente fijado durante la visita en curso.</small>}</label></div>
     <div className="campo-cards">
       <Tarjeta titulo="Locales visitados" valor={String(r.locales_visitados)} detalle="Locales con registro esta semana" tono="vino" />
       <Tarjeta titulo="Cobertura verificada" valor={cobertura == null ? "—" : `${cobertura.toFixed(1)}%`} detalle={`${r.codificadas} de ${r.posiciones_revisadas} posiciones`} tono="verde" />
