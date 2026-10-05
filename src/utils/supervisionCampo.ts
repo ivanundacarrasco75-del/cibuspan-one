@@ -1,3 +1,5 @@
+import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
+
 export type RegistroSupervision = {
   id: string
   fecha: string
@@ -15,6 +17,8 @@ export type RegistroSupervision = {
   rotacion_diaria_unidades: number | null
   presencia_percha: string
   observaciones: string | null
+  georreferencia?: GeorreferenciaCampo | null
+  fotos_georreferencia?: FotoCampo[]
 }
 
 export function leerCarasPercha(datosIa: unknown): number | null {

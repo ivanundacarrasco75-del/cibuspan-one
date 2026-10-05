@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase"
 import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
+import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo } from "../utils/georreferenciaCampo"
 
 export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
 
@@ -33,7 +34,8 @@ export type CatalogoCampoComercial = {
   rol: string
   puede_administrar: boolean
   clientes: Array<{ id: string; nombre: string }>
-  locales: Array<{ id: string; codigo: string; nombre: string }>
+  locales: LocalCampo[]
+  aviso_georreferencia?: string
   productos: Array<{ id: string; codigo: string; nombre: string; autorizado: boolean }>
   resumen: {
     locales_visitados: number
@@ -61,6 +63,8 @@ export type CatalogoCampoComercial = {
     stock_local_unidades: number | null
     dias_inventario_local: number | null
     observaciones: string | null
+    georreferencia?: GeorreferenciaCampo | null
+    fotos_georreferencia?: FotoCampo[]
   }>
 }
 
@@ -98,6 +102,7 @@ export async function obtenerCatalogoCampoComercial(
   const fila = (data ?? {}) as Partial<CatalogoCampoComercial>
   const registrosBase = Array.isArray(fila.registros) ? fila.registros : []
   const carasPorRegistro = new Map<string, number | null>()
+  const evidenciaPorRegistro = new Map<string, { georreferencia: GeorreferenciaCampo | null; fotos_georreferencia: FotoCampo[] }>()
 
   if (registrosBase.length > 0) {
     const ids = registrosBase.map((item) => item.id).filter(Boolean)
@@ -109,6 +114,7 @@ export async function obtenerCatalogoCampoComercial(
     if (!errorDetalles) {
       for (const detalle of detalles ?? []) {
         carasPorRegistro.set(String(detalle.id), leerCarasPercha(detalle.datos_ia))
+        evidenciaPorRegistro.set(String(detalle.id), leerEvidenciaCampo(detalle.datos_ia))
       }
     }
   }
@@ -116,18 +122,23 @@ export async function obtenerCatalogoCampoComercial(
   const registros = registrosBase.map((item) => ({
     ...item,
     caras_percha: carasPorRegistro.get(item.id) ?? null,
+    ...evidenciaPorRegistro.get(item.id),
   }))
 
   const resumenBase = { ...VACIO.resumen, ...(fila.resumen ?? {}) }
   const sinPercharConStock = registros.filter((item) =>
     item.caras_percha === 0 && (item.stock_local_unidades ?? 0) > 0
   ).length
+  const localesBase = Array.isArray(fila.locales) ? fila.locales : []
+  const { data: referencias, error: errorReferencias } = await supabase.rpc("com_kpi_campo_georeferencias", { p_cliente_id: clienteId })
+  const porId = new Map((Array.isArray(referencias) ? referencias : []).map((r: LocalCampo) => [r.id, r]))
 
   return {
     ...VACIO,
     ...fila,
     clientes: Array.isArray(fila.clientes) ? fila.clientes : [],
-    locales: Array.isArray(fila.locales) ? fila.locales : [],
+    locales: localesBase.map((l) => ({ ...l, ...(porId.get(l.id) ?? {}) })),
+    aviso_georreferencia: errorReferencias ? "No se pudieron cargar las coordenadas de los locales. La visita sigue disponible; no se puede confirmar la ubicación del local." : "",
     productos: Array.isArray(fila.productos) ? fila.productos : [],
     registros,
     resumen: {
@@ -135,6 +146,30 @@ export async function obtenerCatalogoCampoComercial(
       sin_perchar_con_stock: sinPercharConStock,
     },
   } satisfies CatalogoCampoComercial
+}
+
+export async function guardarGeorreferenciaLocal(local: LocalCampo) {
+  if (!puntoValido(local)) throw new Error("Ingresa latitud y longitud válidas.")
+  const { data, error } = await supabase.rpc("com_kpi_campo_guardar_georreferencia", {
+    p_local_id: local.id, p_direccion: local.direccion ?? "", p_latitud: local.latitud,
+    p_longitud: local.longitud, p_radio_metros: local.radio_metros ?? 150,
+  })
+  if (error) throw new Error(`No se pudo registrar la ubicación del local: ${error.message}`)
+  if (data !== local.id) throw new Error("No se confirmó la actualización del local. Actualiza antes de volver a intentar.")
+}
+
+function leerEvidenciaCampo(datos: unknown) {
+  const evidencia = (datos && typeof datos === "object" ? datos : {}) as Record<string, unknown>
+  return { georreferencia: (evidencia.georreferencia_visita ?? null) as GeorreferenciaCampo | null,
+    fotos_georreferencia: Array.isArray(evidencia.fotos_georreferencia) ? evidencia.fotos_georreferencia as FotoCampo[] : [] }
+}
+
+export async function obtenerFotosCampo(rutas: string[]) {
+  if (!rutas.length) return []
+  const { data, error } = await supabase.storage.from("visitas-campo").createSignedUrls(rutas, 600)
+  if (error) throw new Error(`No se pudieron abrir las fotos: ${error.message}`)
+  if (data.some((foto) => foto.error || !foto.signedUrl)) throw new Error("No se pudo abrir alguna foto. Actualiza e intenta nuevamente.")
+  return data.map((foto) => ({ ruta: foto.path!, url: foto.signedUrl! }))
 }
 
 export async function subirImagenesCampo(
@@ -247,6 +282,7 @@ export async function obtenerSupervisionCampo(desde: string, hasta: string, clie
         stock_local_unidades: fila.stock_local_unidades,
         rotacion_diaria_unidades: fila.rotacion_diaria_unidades,
         presencia_percha: fila.presencia_percha, observaciones: fila.observaciones,
+        ...leerEvidenciaCampo(datos),
       })
     }
     if ((data?.length ?? 0) < 500) return registros

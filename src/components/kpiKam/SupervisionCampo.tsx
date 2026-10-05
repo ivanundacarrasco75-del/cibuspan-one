@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { obtenerSupervisionCampo } from "../../repositories/campoComercialRepository"
 import { compararSupervision, inicioSemanaCampo, type RegistroSupervision } from "../../utils/supervisionCampo"
+import { enlaceMapa, textoUbicacion } from "../../utils/georreferenciaCampo"
+import { FotosCampo, UbicacionCampo } from "./UbicacionCampo"
 
 type Props = { clientes: Array<{ id: string; nombre: string }> }
 
@@ -51,7 +53,8 @@ export default function SupervisionCampo({ clientes }: Props) {
   function exportar() {
     const cabecera = ["Local", "SKU", "Coincidencia", "Mercaderista", "Fecha mercaderista", "KAM", "Fecha KAM",
       "Caras mercaderista", "Caras KAM", "Diferencia caras KAM - mercaderista", "Stock mercaderista", "Stock KAM",
-      "Rotación mercaderista", "Rotación KAM", "Presencia mercaderista", "Presencia KAM", "Diferencias", "Datos faltantes", "Observaciones mercaderista", "Observaciones KAM"]
+      "Rotación mercaderista", "Rotación KAM", "Presencia mercaderista", "Presencia KAM", "Diferencias", "Datos faltantes", "Observaciones mercaderista", "Observaciones KAM",
+      "Dirección mercaderista", "Ubicación mercaderista", "Mapa mercaderista", "Dirección KAM", "Ubicación KAM", "Mapa KAM", "Fotos mercaderista: GPS al adjuntar", "Fotos KAM: GPS al adjuntar"]
     const datos = filas.map((c) => [c.kam.local_nombre, c.kam.producto_nombre,
       c.mercaderista ? c.mismoDia ? "Mismo día" : "Misma semana" : "Sin visita comparable",
       c.mercaderista?.responsable_nombre, c.mercaderista?.visitado_en, c.kam.responsable_nombre, c.kam.visitado_en,
@@ -60,7 +63,12 @@ export default function SupervisionCampo({ clientes }: Props) {
       c.mercaderista?.stock_local_unidades, c.kam.stock_local_unidades,
       c.mercaderista?.rotacion_diaria_unidades, c.kam.rotacion_diaria_unidades,
       c.mercaderista?.presencia_percha, c.kam.presencia_percha,
-      c.diferencias.join(" / "), c.faltantes.join(" / "), c.mercaderista?.observaciones, c.kam.observaciones])
+      c.diferencias.join(" / "), c.faltantes.join(" / "), c.mercaderista?.observaciones, c.kam.observaciones,
+      c.mercaderista?.georreferencia?.direccion, textoUbicacion(c.mercaderista?.georreferencia),
+      c.mercaderista?.georreferencia?.ubicacion ? enlaceMapa(c.mercaderista.georreferencia.ubicacion) : "",
+      c.kam.georreferencia?.direccion, textoUbicacion(c.kam.georreferencia),
+      c.kam.georreferencia?.ubicacion ? enlaceMapa(c.kam.georreferencia.ubicacion) : "",
+      fotosCsv(c.mercaderista), fotosCsv(c.kam)])
     const texto = [cabecera, ...datos].map((fila) => fila.map(celdaCsv).join(";")).join("\r\n")
     const url = URL.createObjectURL(new Blob(["\uFEFF", texto], { type: "text/csv;charset=utf-8" }))
     const enlace = document.createElement("a")
@@ -96,6 +104,8 @@ export default function SupervisionCampo({ clientes }: Props) {
           <td><span>{c.mercaderista ? c.mismoDia ? "Mismo día" : "Misma semana" : "Sin visita comparable"}</span>
             <small>M: {c.mercaderista ? `${c.mercaderista.responsable_nombre} · ${fechaHora(c.mercaderista.visitado_en)} · visita ${c.mercaderista.fecha}` : "Sin registro"}</small>
             <small>K: {c.kam.responsable_nombre} · {fechaHora(c.kam.visitado_en)} · visita {c.kam.fecha}</small>
+            {c.mercaderista && <details><summary>Ubicación y fotos de mercaderista</summary><UbicacionCampo dato={c.mercaderista.georreferencia} /><FotosCampo fotos={c.mercaderista.fotos_georreferencia} /></details>}
+            <details><summary>Ubicación y fotos de KAM</summary><UbicacionCampo dato={c.kam.georreferencia} /><FotosCampo fotos={c.kam.fotos_georreferencia} /></details>
           </td>
           <td>{valores(c.mercaderista?.caras_percha, c.kam.caras_percha)}{c.mercaderista?.caras_percha != null && c.kam.caras_percha != null && <small>Δ K − M: {c.kam.caras_percha - c.mercaderista.caras_percha}</small>}</td>
           <td>{valores(c.mercaderista?.stock_local_unidades, c.kam.stock_local_unidades)}</td>
@@ -109,13 +119,16 @@ export default function SupervisionCampo({ clientes }: Props) {
           </td>
         </tr>)}</tbody>
       </table></div>}
-      {sinKam.length > 0 && <details><summary>Ver registros de mercaderista sin visita KAM esa semana ({sinKam.length})</summary>{sinKam.map((r) => <p key={r.id}>{r.local_nombre} · {r.producto_nombre} · {r.fecha} · {r.responsable_nombre}</p>)}</details>}
+      {sinKam.length > 0 && <details><summary>Ver registros de mercaderista sin visita KAM esa semana ({sinKam.length})</summary>{sinKam.map((r) => <div key={r.id}><p>{r.local_nombre} · {r.producto_nombre} · {r.fecha} · {r.responsable_nombre}</p><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></div>)}</details>}
       <small>M = mercaderista; K = KAM. “Sin dato” no equivale a cero. El rango filtra la fecha de las visitas KAM; la búsqueda comparable incluye la semana completa.</small>
     </>}
   </section>
 }
 
 function fechaHoy() { const f = new Date(); return new Date(f.getTime() - f.getTimezoneOffset() * 60000).toISOString().slice(0, 10) }
+function fotosCsv(registro?: RegistroSupervision | null) {
+  return (registro?.fotos_georreferencia ?? []).map((f) => `${f.origen} · ${f.adjuntada_en ?? "Sin fecha"} · ${textoUbicacion(f.georreferencia)}${f.georreferencia.ubicacion ? ` · ${enlaceMapa(f.georreferencia.ubicacion)}` : ""}`).join(" / ")
+}
 function fechaHora(fecha: string) { return new Date(fecha).toLocaleString("es-EC", { timeZone: "America/Guayaquil", dateStyle: "short", timeStyle: "short" }) }
 function valores(a: number | null | undefined, b: number | null) { return `${a ?? "Sin dato"} / ${b ?? "Sin dato"}` }
 function presencia(v?: string) { return v === "PRESENTE" ? "Sí" : v === "AUSENTE" ? "No" : "Sin revisar" }

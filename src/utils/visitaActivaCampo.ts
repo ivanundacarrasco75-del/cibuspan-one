@@ -1,4 +1,6 @@
-export type UbicacionCampo = { latitud: number; longitud: number; precision: number }
+import type { LocalCampo, PosicionCampo } from "./georreferenciaCampo"
+
+export type UbicacionCampo = PosicionCampo
 export type VisitaActivaCampo = {
   id: string
   iniciadoEn: string
@@ -6,18 +8,20 @@ export type VisitaActivaCampo = {
   localId: string
   fecha: string
   ubicacion: UbicacionCampo | null
+  referenciaLocal?: LocalCampo
   skusGuardados: Array<{ id: string; nombre: string }>
 }
 
 export function crearVisitaCampo(
-  contexto: Pick<VisitaActivaCampo, "clienteId" | "localId" | "fecha" | "ubicacion">,
+  contexto: Pick<VisitaActivaCampo, "clienteId" | "localId" | "fecha" | "ubicacion" | "referenciaLocal">,
   id: string,
   iniciadoEn: string,
 ): VisitaActivaCampo {
   if (!contexto.clienteId || !contexto.localId || !contexto.fecha) {
     throw new Error("Selecciona cliente, local y fecha para iniciar la visita.")
   }
-  return { ...contexto, ubicacion: contexto.ubicacion ? { ...contexto.ubicacion } : null,
+  return { ...contexto, referenciaLocal: contexto.referenciaLocal ? { ...contexto.referenciaLocal } : undefined,
+    ubicacion: contexto.ubicacion ? { ...contexto.ubicacion } : null,
     id, iniciadoEn, skusGuardados: [] }
 }
 
