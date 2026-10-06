@@ -15,6 +15,7 @@ import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
+const KardexInventario = lazy(() => import("./pages/KardexInventario"))
 const ProduccionV2 = lazy(() => import("./pages/ProduccionV2"))
 const DespachosV2 = lazy(() => import("./pages/DespachosV2"))
 const HistorialDespachos = lazy(() => import("./pages/HistorialDespachos"))
@@ -408,6 +409,10 @@ function App() {
       case "Inventario y Despachos · Despachos":
       case "Despachos":
         return <DespachosV2 />
+
+      case "Inventario y Despachos · Kardex":
+      case "Compras · Kardex":
+        return <KardexInventario />
 
       case "Inventario y Despachos · Historial":
       case "Historial despachos":

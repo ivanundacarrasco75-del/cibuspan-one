@@ -96,6 +96,7 @@ const modulos: Modulo[] = [
     items: [
       { pantalla: "Inventario y Despachos · Resumen", etiqueta: "Resumen" },
       { pantalla: "Inventario y Despachos · Inventario", etiqueta: "Inventario" },
+      { pantalla: "Inventario y Despachos · Kardex", etiqueta: "Kardex" },
       { pantalla: "Inventario y Despachos · Preparación", etiqueta: "Preparación" },
       { pantalla: "Inventario y Despachos · Despachos", etiqueta: "Despachos" },
       { pantalla: "Inventario y Despachos · Documentos", etiqueta: "Documentos" },
@@ -117,6 +118,7 @@ const modulos: Modulo[] = [
         etiqueta: "Materias Primas y Empaques",
       },
       { pantalla: "Compras · Costos", etiqueta: "Costos" },
+      { pantalla: "Compras · Kardex", etiqueta: "Kardex" },
       { pantalla: "Compras · Historial", etiqueta: "Historial" },
       { pantalla: "Compras · Análisis", etiqueta: "Análisis" },
     ],

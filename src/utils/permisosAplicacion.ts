@@ -1,7 +1,7 @@
 const grupos: Array<[string, string[]]> = [
   ["Dashboard", ["Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
   ["Pedidos", ["Comercial · Pedidos", "Producción · Pedidos"]],
-  ["Inventario", ["Inventario y Despachos · Resumen", "Inventario y Despachos · Inventario"]],
+  ["Inventario", ["Inventario y Despachos · Resumen", "Inventario y Despachos · Inventario", "Inventario y Despachos · Kardex"]],
   ["Producción", ["Producción · Resumen", "Producción · Planificación", "Producción · Producción", "Producción · Historial"]],
   ["Preformulación", ["Producción · Fórmulas"]],
   ["Semielaborados", ["Producción · Semielaborados", "Producción · Etiquetado"]],
@@ -12,7 +12,7 @@ const grupos: Array<[string, string[]]> = [
   ["Descuentos", ["Comercial · Descuentos", "Descuentos y promociones"]],
   ["Campo comercial", ["Comercial · Visitas y rotación", "Supervisión KAM"]],
   ["KPI KAM", ["Comercial · KPI KAM"]],
-  ["Materias primas", ["Compras · Materias Primas y Empaques"]],
+  ["Materias primas", ["Compras · Materias Primas y Empaques", "Compras · Kardex"]],
   ["Reportes", ["Producción · Análisis", "Inventario y Despachos · Análisis", "Pagos y Finanzas · Análisis", "Pagos y Finanzas · Resultados", "Pagos y Finanzas · Rentabilidad", "Costos indirectos", "Rentabilidad por SKU", "Simulador", "Comercial · Ventas", "Ventas", "Ventas por cliente y SKU"]],
   ["Usuarios y permisos", ["Administración · Usuarios y Permisos"]],
   ["Administración", ["Comercial · Clientes", "Comercial · SKU", "Pagos y gastos", "Roles de pago"]],
