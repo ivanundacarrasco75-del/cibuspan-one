@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { catalogoKardex, consultarKardex, registrarMovimientoKardex, cargarInventarioInicial,
   type ConsultaKardex, type LoteKardex, type LineaCargaInicial } from "../repositories/kardexRepository"
-import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo,
+import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, unidadesCoinciden,
   type ArticuloKardex, type LineaInventarioInicial, type LoteInicial, type TipoInventario } from "../utils/inventarioInicialExcel"
 
 const hoy = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guayaquil", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
@@ -45,7 +45,8 @@ export default function KardexInventario() {
   const lotesArticulo = lotes.filter((l) => l.producto_id === articulo?.id)
   const loteSeleccionado = lotesArticulo.find((l) => l.id === loteId)
   const incluidos = revision.filter((r) => r.incluir)
-  const problema = (r: FilaRevision) => r.problema || (!r.articulo ? "Vincula el artículo al catálogo" :
+  const problema = (r: FilaRevision) => (r.problema === "Falta código" && r.articulo ? "" : r.problema) || (!r.articulo ? "Vincula el artículo al catálogo" :
+    r.unidadArchivo && !unidadesCoinciden(r.unidadArchivo, r.articulo.unidad) ? "La unidad del Excel no coincide con el catálogo" :
     r.articulo.iniciado ? "Ya tiene saldo o movimientos; usa un ajuste" :
     r.articulo.tipo === "PRODUCTO_TERMINADO" ? (!Number.isInteger(r.cantidad) ? "PT requiere unidades enteras" : validarLotesIniciales(r.cantidad, r.lotes, corte)) : "")
   const errorCarga = incluidos.some((r) => !!problema(r)) || new Set(incluidos.map((r) => r.articulo && clave(r.articulo))).size !== incluidos.length
@@ -160,7 +161,7 @@ export default function KardexInventario() {
       {!!revision.length && <><p>{archivo} · {incluidos.length} filas seleccionadas. Desmarca filas de otras sucursales; no se excluyen silenciosamente.</p>
         <div className="tabla"><table><thead><tr><th>Cargar</th><th>Hoja / fila / sucursal</th><th>Artículo del Excel</th><th>Stock</th><th>Artículo vinculado / unidad</th><th>Revisión</th></tr></thead>
           <tbody>{revision.map((r, i) => <tr key={i}><td><input aria-label={`Incluir fila ${r.fila} de ${r.hoja}`} type="checkbox" checked={r.incluir} disabled={guardando} onChange={(e) => cambiarFila(i, { incluir: e.target.checked })} /></td>
-            <td>{r.hoja} / {r.fila}<small>{r.sucursal || "Sin sucursal"}</small></td><td>{r.codigo}<small>{r.nombre}</small></td><td>{numero(r.cantidad)}</td>
+            <td>{r.hoja} / {r.fila}<small>{r.sucursal || "Sin sucursal"}</small></td><td>{r.codigo || "Sin código"}<small>{r.nombre}</small></td><td>{Number.isFinite(r.cantidad) ? numero(r.cantidad) : "Sin cantidad válida"}<small>{r.unidadArchivo || "Unidad no indicada"}</small></td>
             <td><select disabled={guardando} value={r.articulo ? clave(r.articulo) : ""} onChange={(e) => {
               const a = articulos.find((item) => clave(item) === e.target.value) || null
               cambiarFila(i, { articulo: a, lotes: a?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [{ cantidad: r.cantidad, lote: "", fechaProduccion: "", fechaVencimiento: "" }] : [] })

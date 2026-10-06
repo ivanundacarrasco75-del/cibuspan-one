@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cantidadExcel, leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, vincularArticulo } from '../src/utils/inventarioInicialExcel.ts'
+import { cantidadExcel, leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, vincularArticulo, unidadesCoinciden } from '../src/utils/inventarioInicialExcel.ts'
 
 const mp = { tipo:'MATERIA_PRIMA', id:'mp', codigo:'HARINA', codigo_contable:'1001', nombre:'Harina', unidad:'KG', saldo:0, iniciado:false }
 const pt = { tipo:'PRODUCTO_TERMINADO', id:'pt', codigo:'7868304262189', codigo_contable:null, nombre:'Integral', unidad:'UNIDAD', saldo:0, iniciado:false }
@@ -17,6 +17,32 @@ test('Un archivo conserva MP, PT y otras sucursales para revisión explícita', 
 test('Los códigos ambiguos no se vinculan automáticamente ni se adivina por nombre', () => {
   assert.equal(vincularArticulo('1001',[mp,{...pt,codigo:'1001'}]),null)
   assert.equal(vincularArticulo('OTRO',[mp]),null)
+})
+test('El inventario contable sin ceros iniciales se vincula solo a un artículo único', () => {
+  const materia={...mp,codigo:'MP12',codigo_contable:'00012'}
+  assert.equal(vincularArticulo('12',[materia]).id,'mp')
+  assert.equal(vincularArticulo('00012',[materia]).id,'mp')
+  assert.equal(vincularArticulo('12',[materia,{...pt,codigo:'12'}]),null)
+  assert.equal(vincularArticulo('7868304262219',[{...pt,codigo:'7868304262219T'}]),null)
+})
+test('El formato de septiembre conserva unidades y marca blancos sin convertirlos a cero', () => {
+  const datos=leerFilasInventarioInicial([
+    ['SEPTIEMBRE 2026'],['No.','Sucursal','Cód Artículo','Nombre del Artículo','Unidad de medida','Stock'],
+    [2,'CIBUSPAN',12,'AFRECHO DE TRIGO','KILOS',127.17],
+    [24,'CIBUSPAN',36,'FUNDA CIABATTA','UNIDAD',null],
+    [null,null,null,'FUNDA SANDUCHERO INTEGRAL 800g SM','UNIDAD',2754],
+    ['Total',null,null,null,null,248834.45199999996]
+  ],[{...mp,codigo_contable:'00012'}])
+  assert.equal(datos.length,3); assert.equal(datos[0].unidadArchivo,'KILOS');assert.equal(datos[0].articulo.id,'mp')
+  assert.ok(Number.isNaN(datos[1].cantidad));assert.match(datos[1].problema,/Cantidad/)
+  assert.equal(datos[2].cantidad,2754); assert.equal(datos[2].codigo,'');assert.match(datos[2].problema,/código/)
+  assert.equal(unidadesCoinciden('KILOS','KG'),true);assert.equal(unidadesCoinciden('UNIDAD','UNIDAD'),true)
+  assert.equal(unidadesCoinciden('KILOS','UNIDAD'),false);assert.equal(unidadesCoinciden('GRAMOS','KG'),false)
+})
+test('Se corrige el residuo numérico de fórmulas Excel sin recortar precisión real', () => {
+  assert.equal(cantidadExcel(80.49600000000001),80.496)
+  assert.equal(cantidadExcel(31.416000000000004),31.416)
+  assert.equal(cantidadExcel(1.2345678),1.2345678)
 })
 test('Cantidades y costos inválidos quedan marcados; no se omiten artículos', () => {
   const datos = leerFilasInventarioInicial([filas[1],['MATRIZ','1001','HARINA',-1,1,1],['MATRIZ',pt.codigo,'Integral',1.5,1,1]], [mp,pt])

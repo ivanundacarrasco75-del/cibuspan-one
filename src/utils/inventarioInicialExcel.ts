@@ -7,7 +7,7 @@ export type ArticuloKardex = {
 }
 export type LineaInventarioInicial = {
   fila: number; codigo: string; nombre: string; cantidad: number; costoTotal: number | null
-  sucursal: string; articulo: ArticuloKardex | null; problema: string
+  sucursal: string; unidadArchivo: string; articulo: ArticuloKardex | null; problema: string
 }
 export type LoteInicial = { cantidad: number; lote: string; fechaProduccion: string; fechaVencimiento: string }
 
@@ -17,7 +17,11 @@ const encabezado = (valor: unknown) => normalizar(valor).replace(/[^A-Z0-9]/g, "
 // Excel entrega números nativos. En textos se aceptan los dos separadores usuales,
 // pero una sola separación de tres cifras se exige como número nativo por ambigua.
 export function cantidadExcel(valor: unknown): number {
-  if (typeof valor === "number") return Number.isFinite(valor) ? valor : NaN
+  if (typeof valor === "number") {
+    if (!Number.isFinite(valor)) return NaN
+    const redondeado = Math.round(valor * 1e6) / 1e6
+    return Math.abs(valor - redondeado) <= Number.EPSILON * Math.max(1, Math.abs(valor)) * 8 ? redondeado : valor
+  }
   let texto = String(valor ?? "").trim().replace(/\s/g, "")
   if (!texto) return NaN
   if (texto.includes(",") && texto.includes(".")) {
@@ -29,9 +33,25 @@ export function cantidadExcel(valor: unknown): number {
 }
 
 export function vincularArticulo(codigo: string, articulos: ArticuloKardex[]): ArticuloKardex | null {
-  const clave = normalizar(codigo)
-  const candidatos = articulos.filter((a) => normalizar(a.codigo) === clave || (a.codigo_contable && normalizar(a.codigo_contable) === clave))
+  const codigoComparable = (valor: string) => {
+    const texto = normalizar(valor)
+    // Códigos contables cortos: Excel convierte 00012 en 12. Los códigos de
+    // barras y los sufijos de SKU se conservan completos.
+    return /^\d{1,5}$/.test(texto) ? String(Number(texto)) : texto
+  }
+  const clave = codigoComparable(codigo)
+  const candidatos = articulos.filter((a) => codigoComparable(a.codigo) === clave || (a.codigo_contable && codigoComparable(a.codigo_contable) === clave))
   return candidatos.length === 1 ? candidatos[0] : null
+}
+
+export function unidadesCoinciden(unidadArchivo: string, unidadCatalogo: string): boolean {
+  const unidad = (valor: string) => {
+    const texto = normalizar(valor).replace(/\./g, "")
+    if (["KG", "KILO", "KILOS", "KILOGRAMO", "KILOGRAMOS"].includes(texto)) return "KG"
+    if (["UNIDAD", "UNIDADES", "UND", "UNID", "UD", "UDS"].includes(texto)) return "UNIDAD"
+    return texto
+  }
+  return unidad(unidadArchivo) === unidad(unidadCatalogo)
 }
 
 export function leerFilasInventarioInicial(filas: Row[], articulos: ArticuloKardex[]) {
@@ -45,6 +65,7 @@ export function leerFilasInventarioInicial(filas: Row[], articulos: ArticuloKard
   const stock = columna("STOCK", "CANTIDAD", "EXISTENCIA")
   const costo = columna("COSTOTOTAL", "VALORTOTAL")
   const sucursal = columna("SUCURSAL", "BODEGA")
+  const unidad = columna("UNIDADDEMEDIDA", "UNIDAD", "UM")
   if (nombre < 0) throw new Error("Falta la columna nombre o descripción del artículo.")
   const lineas: LineaInventarioInicial[] = []
   filas.slice(indice + 1).forEach((fila, i) => {
@@ -59,7 +80,8 @@ export function leerFilasInventarioInicial(filas: Row[], articulos: ArticuloKard
       costoTotal !== null && (!Number.isFinite(costoTotal) || costoTotal < 0) ? "Costo total inválido" :
       articulo?.tipo === "PRODUCTO_TERMINADO" && !Number.isInteger(cantidad) ? "Producto terminado debe tener unidades enteras" : ""
     lineas.push({ fila: indice + i + 2, codigo: clave, nombre: descripcion, cantidad, costoTotal,
-      sucursal: sucursal < 0 ? "" : String(fila[sucursal] ?? "").trim(), articulo, problema })
+      sucursal: sucursal < 0 ? "" : String(fila[sucursal] ?? "").trim(),
+      unidadArchivo: unidad < 0 ? "" : String(fila[unidad] ?? "").trim(), articulo, problema })
   })
   if (!lineas.length) throw new Error("El archivo no contiene artículos para revisar.")
   return lineas
