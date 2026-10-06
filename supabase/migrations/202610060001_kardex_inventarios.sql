@@ -6,7 +6,7 @@ do $$ begin
   perform id,producto_id,lote,cantidad,fecha_produccion,fecha_ingreso_bodega,fecha_vencimiento from public.inventario_lotes limit 0;
   perform id,codigo,nombre,activo from public.productos limit 0;
   perform id,codigo,codigo_contable,nombre,unidad_base,activo from public.materias_primas limit 0;
-  perform id,nombre from public.app_profiles limit 0;
+  perform user_id,nombre from public.app_profiles limit 0;
   perform id,cantidad_reservada from public.stock_disponible_lotes limit 0;
 end $$;
 
@@ -82,7 +82,7 @@ begin
     valor_inicial,carga_id,solicitud_id,solicitud_datos,creado_por,responsable)
   values('PRODUCTO_TERMINADO',v_articulo,v_id,v_lote,v_fecha,v_clase,v_delta,v_motivo,v_contexto->>'documento',
     (v_contexto->>'valor_inicial')::numeric,(v_contexto->>'carga_id')::uuid,(v_contexto->>'solicitud_id')::uuid,v_contexto->'solicitud_datos',auth.uid(),
-    coalesce((select nombre from public.app_profiles where id=auth.uid()),'Proceso interno'));
+    coalesce((select nombre from public.app_profiles where user_id=auth.uid()),'Proceso interno'));
   if TG_OP='DELETE' then return old; end if;
   return new;
 end;
@@ -196,7 +196,7 @@ begin
   if p_tipo='MATERIA_PRIMA' then
     insert into public.inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,documento,solicitud_id,solicitud_datos,creado_por,responsable)
     values(p_tipo,p_articulo_id,p_fecha,p_clase,v_delta,trim(p_motivo),nullif(trim(p_documento),''),p_solicitud_id,v_datos,auth.uid(),
-      coalesce((select nombre from public.app_profiles where id=auth.uid()),'Usuario')) returning id into v_id;
+      coalesce((select nombre from public.app_profiles where user_id=auth.uid()),'Usuario')) returning id into v_id;
     perform public.inv_kardex_validar_mp(p_articulo_id);
   else
     if v_delta=0 then raise exception 'El conteo coincide con el saldo; no hay ajuste para registrar.'; end if;
@@ -261,7 +261,7 @@ begin
     if v_tipo='MATERIA_PRIMA' or v_stock=0 then
       insert into public.inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,documento,valor_inicial,carga_id,creado_por,responsable)
       values(v_tipo,v_articulo,p_fecha,'SALDO_INICIAL',v_stock,'Saldo inicial del Excel revisado',p_archivo,
-        (v_linea->>'costo_total')::numeric,v_carga,auth.uid(),coalesce((select nombre from public.app_profiles where id=auth.uid()),'Usuario'));
+        (v_linea->>'costo_total')::numeric,v_carga,auth.uid(),coalesce((select nombre from public.app_profiles where user_id=auth.uid()),'Usuario'));
     else
       for v_lote in select value from jsonb_array_elements(v_linea->'lotes') loop
         if nullif(trim(v_lote->>'lote'),'') is null or (v_lote->>'cantidad')::numeric<=0

@@ -4,6 +4,9 @@ import fs from 'node:fs'
 const { PGlite } = await import(process.env.CIBUSPAN_SQL_TEST_MODULE || '@electric-sql/pglite')
 const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
 const migracion = fs.readFileSync(new URL('../supabase/migrations/202610060001_kardex_inventarios.sql',import.meta.url),'utf8')
+// La estructura de perfiles se toma del SQL oficial, no de una copia simplificada.
+const perfiles = fs.readFileSync(new URL('../supabase/migrations/202608090001_usuarios_permisos.sql',import.meta.url),'utf8')
+  .match(/create table if not exists public\.app_profiles \([\s\S]*?\n\);/)[0]
 
 test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y reintentos',async (t) => {
   const db = new PGlite()
@@ -12,7 +15,8 @@ test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y rei
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user',true),'')::uuid $$;
       create function public.app_puede(text) returns boolean language sql stable as $$ select current_setting('test.permiso',true)='ADMIN'
         or $1=current_setting('test.permiso',true) $$;
-      create table public.app_profiles(id uuid primary key,nombre text);
+      create table auth.users(id uuid primary key);
+      ${perfiles}
       create table public.productos(id uuid primary key,codigo text,nombre text,activo boolean default true);
       create table public.materias_primas(id uuid primary key,codigo text,codigo_contable text,nombre text,unidad_base text,activo boolean default true);
       create table public.inventario_lotes(id uuid primary key default gen_random_uuid(),producto_id uuid references public.productos(id),lote text,
@@ -21,7 +25,9 @@ test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y rei
       create table public.test_reservas(lote_id uuid primary key,reservado integer);
       create view public.stock_disponible_lotes as select i.id,i.cantidad cantidad_fisica,coalesce(r.reservado,0) cantidad_reservada,
         i.cantidad-coalesce(r.reservado,0) cantidad_disponible from public.inventario_lotes i left join public.test_reservas r on r.lote_id=i.id;
-      insert into public.app_profiles values('${id(1)}','Iván'),('${id(2)}','Sin permiso');
+      insert into auth.users values('${id(1)}'),('${id(2)}');
+      insert into public.app_profiles(user_id,email,nombre,rol) values
+        ('${id(1)}','ivan@example.com','Iván','ADMINISTRADOR'),('${id(2)}','otro@example.com','Sin permiso','BODEGUERO');
       insert into public.productos(id,codigo,nombre) values('${id(10)}','7868304262189','Integral'),('${id(11)}','EXISTENTE','Existente'),('${id(12)}','NUEVO','Nuevo');
       insert into public.materias_primas(id,codigo,codigo_contable,nombre,unidad_base) values
         ('${id(20)}','HARINA','1001','Harina','KG'),('${id(21)}','FUNDA','1002','Fundas','UNIDAD'),
@@ -47,7 +53,9 @@ test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y rei
     await t.test('La carga mixta crea ambos inventarios y puede repetirse sin duplicación',async () => {
       const resultado=(await inicial()).rows[0].datos; assert.equal(resultado.repetido,false)
       assert.equal((await consultar('MATERIA_PRIMA',id(20))).saldo_cierre,100.5)
+      assert.equal((await consultar('MATERIA_PRIMA',id(20))).movimientos[0].responsable,'Iván')
       assert.equal((await consultar('PRODUCTO_TERMINADO',id(10))).saldo_cierre,20)
+      assert.equal((await consultar('PRODUCTO_TERMINADO',id(10))).movimientos[0].responsable,'Iván')
       assert.equal((await db.query('select sum(cantidad)::int saldo from public.inventario_lotes where producto_id=$1',[id(10)])).rows[0].saldo,20)
       assert.equal(Number((await db.query("select sum(valor_inicial) valor from public.inv_kardex_movimientos where articulo_id=$1",[id(10)])).rows[0].valor),20)
       const n=await contar(); assert.equal((await inicial()).rows[0].datos.repetido,true); assert.equal(await contar(),n)
@@ -73,6 +81,7 @@ test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y rei
       const datos=await consultar('MATERIA_PRIMA',id(20),fechas.hoy,fechas.hoy)
       assert.equal(datos.saldo_anterior,85); assert.equal(datos.saldo_cierre,103); assert.equal(datos.total,2)
       assert.equal(datos.movimientos[1].cantidad,-2)
+      assert.equal(datos.movimientos[1].responsable,'Iván')
       assert.equal((await mover('MATERIA_PRIMA',id(20),null,fechas.hoy,'CONTEO',103,105,102)).rows[0].datos.repetido,true)
       await assert.rejects(mover('MATERIA_PRIMA',id(20),null,fechas.hoy,'CONTEO',99,105,102),/otros datos/)
       await assert.rejects(mover('MATERIA_PRIMA',id(20),null,fechas.hoy,'CONTEO',99,105,103),/saldo cambió/)
@@ -91,6 +100,7 @@ test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y rei
       await assert.rejects(mover('PRODUCTO_TERMINADO',id(10),lote,fechas.hoy,'CONTEO',4,8,107),/reservadas/)
       await mover('PRODUCTO_TERMINADO',id(10),lote,fechas.hoy,'CONTEO',6,8,108)
       assert.equal((await consultar('PRODUCTO_TERMINADO',id(10))).saldo_cierre,18)
+      assert.equal((await consultar('PRODUCTO_TERMINADO',id(10))).movimientos.at(-1).responsable,'Iván')
       assert.equal((await db.query('select cantidad from public.inventario_lotes where id=$1',[lote])).rows[0].cantidad,6)
       assert.equal((await mover('PRODUCTO_TERMINADO',id(10),lote,fechas.hoy,'CONTEO',6,8,108)).rows[0].datos.repetido,true)
       // Un despacho operativo puede actualizar stock antes de cerrar la reserva.
