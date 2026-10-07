@@ -16,6 +16,7 @@ import {
 } from "../repositories/pedidoRepository"
 import ModalMensaje from "../components/ModalMensaje"
 import { extraerPedidosSantamariaCsv } from "../utils/pedidosSantamariaCsv"
+import { esListadoFavorita, interpretarListadoFavorita, leerPedidosFavoritaZip } from "../utils/pedidosFavoritaZip"
 import {
   leerPedidosRosadoPdf,
   leerPedidosTutiPdf,
@@ -35,6 +36,7 @@ type LineaImportacionPedido = {
 
 type OrdenImportacionPedido = {
   numeroPedido: string
+  fechaPedido?: string
   unidadNegocio: string
   fechaEntrega: string
   bodega: BodegaPedidoDb | null
@@ -267,11 +269,22 @@ export default function PedidosV2() {
     archivo: File,
   ) {
     setCargandoArchivo(true)
+    setImportacionPedidos(null)
+    setProgresoImportacion("Leyendo pedidos de Favorita…")
     setMensaje("")
     setError("")
 
     try {
+      if (archivo.name.toLowerCase().endsWith(".zip")) {
+        const ordenes = await leerPedidosFavoritaZip(new Uint8Array(await archivo.arrayBuffer()))
+        await prepararImportacionPedidos(archivo, "Corporación Favorita", ordenes)
+        return
+      }
       const texto = await archivo.text()
+      if (esListadoFavorita(texto)) {
+        await prepararImportacionPedidos(archivo, "Corporación Favorita", interpretarListadoFavorita(texto))
+        return
+      }
       const pedido = extraerPedidoFavorita(texto)
 
       if (!pedido.numeroPedido) {
@@ -415,6 +428,7 @@ export default function PedidosV2() {
       )
     } finally {
       setCargandoArchivo(false)
+      setProgresoImportacion("")
 
       if (archivoFavoritaRef.current) {
         archivoFavoritaRef.current.value = ""
@@ -553,6 +567,7 @@ export default function PedidosV2() {
 
           return {
             numeroPedido,
+            fechaPedido: orden.fechaElaboracion,
             unidadNegocio: orden.unidadNegocio,
             fechaEntrega: orden.fechaEntrega,
             bodega: bodegaDetectada,
@@ -595,12 +610,12 @@ export default function PedidosV2() {
     }
   }
 
-  async function prepararImportacionPdf(
+  async function prepararImportacionPedidos(
     archivo: File,
-    fuente: "TUTI" | "Corporación El Rosado",
+    fuente: "TUTI" | "Corporación El Rosado" | "Corporación Favorita",
     pedidosLeidos: PedidoClientePdf[],
   ) {
-    const claveCliente = fuente === "TUTI" ? "TUTI" : "ROSADO"
+    const claveCliente = fuente === "TUTI" ? "TUTI" : fuente === "Corporación Favorita" ? "FAVORITA" : "ROSADO"
     const cliente = clientes.find((item) =>
       normalizarImportacion(item.nombre).includes(claveCliente),
     )
@@ -630,10 +645,14 @@ export default function PedidosV2() {
     const ordenes = pedidosLeidos.map<OrdenImportacionPedido>((pedido) => {
       const errores = [...pedido.advertencias]
       const numeroPedido = textoSeguro(pedido.numeroPedido).toUpperCase()
-      const bodega = encontrarBodegaImportacion(
+      let bodega = encontrarBodegaImportacion(
         pedido.bodegaTexto,
         bodegasDb,
       )
+      if (!bodega && fuente === "Corporación Favorita" && normalizarImportacion(pedido.bodegaTexto) === "CENTRODEDISTRIBUCION") {
+        const centrales = bodegasDb.filter((item) => /CENTRAL|CENTRO|^CD\b/i.test(item.nombre))
+        if (centrales.length === 1) bodega = centrales[0]
+      }
 
       if (!numeroPedido) {
         errores.push("No tiene número de orden.")
@@ -675,7 +694,7 @@ export default function PedidosV2() {
           producto.unidad_manejo !== linea.unidadManejoArchivo
         ) {
           errores.push(
-            `${producto.corto}: el PDF usa ${linea.unidadManejoArchivo} unidades por empaque y el sistema ${producto.unidad_manejo}.`,
+            `${producto.corto}: el archivo usa ${linea.unidadManejoArchivo} unidades por empaque y el sistema ${producto.unidad_manejo}.`,
           )
         }
 
@@ -693,6 +712,7 @@ export default function PedidosV2() {
 
       return {
         numeroPedido,
+        fechaPedido: pedido.fechaPedido,
         unidadNegocio: pedido.bodegaTexto,
         fechaEntrega: pedido.fechaEntrega,
         bodega,
@@ -717,18 +737,23 @@ export default function PedidosV2() {
     )
   }
 
-  async function cargarArchivoTuti(archivo: File) {
+  async function cargarArchivosTuti(archivos: File[]) {
+    if (!archivos.length) return
     setCargandoArchivo(true)
     setImportacionPedidos(null)
     setMensaje("")
     setError("")
 
     try {
-      const pedidosLeidos = await leerPedidosTutiPdf(
-        archivo,
-        (_porcentaje, detalle) => setProgresoImportacion(detalle),
-      )
-      await prepararImportacionPdf(archivo, "TUTI", pedidosLeidos)
+      const pedidosLeidos: PedidoClientePdf[] = []
+      for (const [indice, archivo] of archivos.entries()) {
+        pedidosLeidos.push(...await leerPedidosTutiPdf(
+          archivo,
+          (_porcentaje, detalle) => setProgresoImportacion(`${indice + 1}/${archivos.length}: ${archivo.name}. ${detalle}`),
+        ))
+      }
+      await prepararImportacionPedidos(archivos[0], "TUTI", pedidosLeidos)
+      setImportacionPedidos((actual) => actual ? { ...actual, archivo: archivos.map((item) => item.name).join(", ") } : actual)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "No se pudo leer el PDF de TUTI.",
@@ -752,7 +777,7 @@ export default function PedidosV2() {
         (porcentaje, detalle) =>
           setProgresoImportacion(`${detalle} ${porcentaje}%`),
       )
-      await prepararImportacionPdf(
+      await prepararImportacionPedidos(
         archivo,
         "Corporación El Rosado",
         pedidosLeidos,
@@ -1312,7 +1337,7 @@ export default function PedidosV2() {
           <input
             ref={archivoFavoritaRef}
             type="file"
-            accept=".txt,text/plain"
+            accept=".txt,.zip,text/plain,application/zip"
             disabled={cargandoArchivo}
             onChange={(evento) => {
               const archivo =
@@ -1343,11 +1368,11 @@ export default function PedidosV2() {
           <input
             ref={archivoTutiRef}
             type="file"
+            multiple
             accept=".pdf,application/pdf"
             disabled={cargandoArchivo}
             onChange={(evento) => {
-              const archivo = evento.target.files?.[0]
-              if (archivo) cargarArchivoTuti(archivo)
+              void cargarArchivosTuti(Array.from(evento.target.files ?? []))
             }}
             style={{ display: "none" }}
           />
@@ -1379,7 +1404,7 @@ export default function PedidosV2() {
           >
             {cargandoArchivo
               ? "Leyendo archivo..."
-              : "Seleccionar TXT Favorita"}
+              : "Seleccionar ZIP / TXT Favorita"}
           </button>
 
           <button
@@ -1405,7 +1430,7 @@ export default function PedidosV2() {
               opacity: cargandoArchivo ? 0.5 : 1,
             }}
           >
-            PDF TUTI
+            Seleccionar PDF TUTI
           </button>
 
           <button
@@ -1496,6 +1521,7 @@ export default function PedidosV2() {
                       </td>
                       <td style={celda}>
                         <strong>{orden.numeroPedido || "Sin número"}</strong>
+                        {orden.fechaPedido && <><br /><small>Pedido: {orden.fechaPedido}</small></>}
                       </td>
                       <td style={celda}>
                         <strong>{orden.bodega?.nombre ?? "No identificada"}</strong>
@@ -1545,6 +1571,9 @@ export default function PedidosV2() {
               </strong>
               <p style={descripcionPanel}>
                 Las órdenes con errores no se guardarán incompletas.
+              </p>
+              <p style={descripcionPanel}>
+                Se registran como INGRESADO, con la fecha de entrega del documento. Los despachos se registran por separado.
               </p>
             </div>
 

@@ -9,6 +9,7 @@ export type LineaPedidoClientePdf = {
 
 export type PedidoClientePdf = {
   numeroPedido: string
+  fechaPedido?: string
   bodegaTexto: string
   fechaEntrega: string
   productos: LineaPedidoClientePdf[]
@@ -69,6 +70,7 @@ export function interpretarPedidoTutiTexto(textoOriginal: string) {
     texto.match(/FECHA\s+Y\s+HORA\s*:\s*(\d{2}[./-]\d{2}[./-]\d{4})/)?.[1] ??
     texto.match(/NOTAS\s*:\s*FECHA\s*:\s*(\d{2}[./-]\d{2}[./-]\d{4})/)?.[1] ??
     ""
+  const fechaPedidoTexto = texto.match(/FECHA\s+DEL\s+DOCUMENTO\s+(\d{2}[./-]\d{2}[./-]\d{4})/)?.[1] ?? ""
   const bodega = texto.match(
     /ENTREGAR\s+EN\s*:\s*\d+\s+TUTI\s+BODEGA\s+(.+?)(?:\n|DIRECCION\s*:)/,
   )?.[1]?.trim() ?? ""
@@ -91,6 +93,7 @@ export function interpretarPedidoTutiTexto(textoOriginal: string) {
 
   return [{
     numeroPedido,
+    fechaPedido: fechaPedidoTexto ? fechaIso(fechaPedidoTexto) : undefined,
     bodegaTexto: bodega,
     fechaEntrega: fechaIso(fechaTexto),
     productos: cantidadEmpaques > 0
