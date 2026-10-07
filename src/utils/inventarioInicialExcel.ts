@@ -11,6 +11,15 @@ export type LineaInventarioInicial = {
 }
 export type LoteInicial = { cantidad: number; lote: string; fechaProduccion: string; fechaVencimiento: string; automatico?: boolean }
 
+export function puedeOmitirSinExistencias(fila: Pick<LineaInventarioInicial, "cantidad" | "costoTotal">): boolean {
+  return fila.cantidad === 0 && (fila.costoTotal === null || fila.costoTotal === 0)
+}
+
+export function validarExclusionesInicio(filas: (Pick<LineaInventarioInicial, "cantidad" | "costoTotal"> & { incluir: boolean })[]): string {
+  return filas.some((fila) => !fila.incluir && !puedeOmitirSinExistencias(fila)) ?
+    "Para iniciar octubre solo puedes omitir filas con existencia cero y sin costo pendiente." : ""
+}
+
 export function vencimientoInicial(fechaProduccion: string, dias: number | null | undefined): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaProduccion) || !Number.isSafeInteger(dias) || !dias || dias <= 0) return ""
   const fecha = new Date(`${fechaProduccion}T00:00:00Z`)

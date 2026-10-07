@@ -1,6 +1,27 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cantidadExcel, leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, vincularArticulo, unidadesCoinciden, vencimientoInicial, crearLoteInicial, actualizarCorteLotes } from '../src/utils/inventarioInicialExcel.ts'
+import { cantidadExcel, leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, vincularArticulo, unidadesCoinciden, vencimientoInicial, crearLoteInicial, actualizarCorteLotes, puedeOmitirSinExistencias, validarExclusionesInicio } from '../src/utils/inventarioInicialExcel.ts'
+
+test('El inicio admite omitir artículos obsoletos con saldo cero, incluso sin catálogo o con otra unidad', () => {
+  const ceros=leerFilasInventarioInicial([
+    ['Código','Nombre','Unidad','Stock','Costo total'],
+    ['7868304276339','CHOCObits 450g','UNIDAD',0,0],
+    ['CB','Ciabatta','UNIDAD',0,0],['CI','Ciabatta','UNIDAD',0,null],
+    ['123','Zanahoria deshidratada','UNIDAD',0,0],
+  ],[])
+  assert.equal(ceros.length,4)
+  assert.ok(ceros.every(puedeOmitirSinExistencias))
+  assert.equal(validarExclusionesInicio(ceros.map((r) => ({...r,incluir:false}))), '')
+})
+test('La exclusión del inicio bloquea existencias positivas, cantidades vacías y costos pendientes', () => {
+  for (const fila of [{cantidad:1,costoTotal:0},{cantidad:0.001,costoTotal:null},{cantidad:NaN,costoTotal:0},
+    {cantidad:Infinity,costoTotal:0},{cantidad:-1,costoTotal:0},{cantidad:0,costoTotal:1},
+    {cantidad:0,costoTotal:NaN},{cantidad:0,costoTotal:-1}]) {
+    assert.equal(puedeOmitirSinExistencias(fila),false)
+    assert.match(validarExclusionesInicio([{...fila,incluir:false}]),/solo puedes omitir/)
+  }
+  assert.equal(validarExclusionesInicio([{cantidad:5,costoTotal:0,incluir:true},{cantidad:0,costoTotal:null,incluir:false}]), '')
+})
 
 const mp = { tipo:'MATERIA_PRIMA', id:'mp', codigo:'HARINA', codigo_contable:'1001', nombre:'Harina', unidad:'KG', saldo:0, iniciado:false }
 const pt = { tipo:'PRODUCTO_TERMINADO', id:'pt', codigo:'7868304262189', codigo_contable:null, nombre:'Integral', unidad:'UNIDAD', saldo:0, iniciado:false }
