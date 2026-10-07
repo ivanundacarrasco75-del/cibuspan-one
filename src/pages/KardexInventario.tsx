@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
+import CrearArticuloInventario from "../components/inventario/CrearArticuloInventario"
 import { catalogoKardex, consultarKardex, registrarMovimientoKardex, cargarInventarioInicial,
   type ConsultaKardex, type LoteKardex, type LineaCargaInicial } from "../repositories/kardexRepository"
-import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, unidadesCoinciden, crearLoteInicial, vencimientoInicial, actualizarCorteLotes,
+import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, unidadesCoinciden, crearLoteInicial, vencimientoInicial, actualizarCorteLotes, vincularArticulo,
   type ArticuloKardex, type LineaInventarioInicial, type LoteInicial, type TipoInventario } from "../utils/inventarioInicialExcel"
 
 const hoy = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guayaquil", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
@@ -38,6 +39,8 @@ export default function KardexInventario() {
   const [revision, setRevision] = useState<FilaRevision[]>([])
   const [unidadConfirmada, setUnidadConfirmada] = useState(false)
   const [confirmarCarga, setConfirmarCarga] = useState(false)
+  const [altaFila, setAltaFila] = useState<number | null>(null)
+  const [soloPendientes, setSoloPendientes] = useState(false)
   const peticion = useRef(0)
   const saldoPeticion = useRef(0)
   const archivoInput = useRef<HTMLInputElement>(null)
@@ -45,7 +48,11 @@ export default function KardexInventario() {
   const lotesArticulo = lotes.filter((l) => l.producto_id === articulo?.id)
   const loteSeleccionado = lotesArticulo.find((l) => l.id === loteId)
   const incluidos = revision.filter((r) => r.incluir)
-  const problema = (r: FilaRevision) => (r.problema === "Falta código" && r.articulo ? "" : r.problema) || (!r.articulo ? "Vincula el artículo al catálogo" :
+  const clavesIncluidas = incluidos.flatMap((r) => r.articulo ? [clave(r.articulo)] : [])
+  const repetidos = new Set(clavesIncluidas.filter((valor, i) => clavesIncluidas.indexOf(valor) !== i))
+  const problema = (r: FilaRevision) => (!Number.isFinite(r.cantidad) || r.cantidad < 0 ? "Cantidad inválida" : "") ||
+    (r.problema === "Falta código" && r.articulo ? "" : r.problema) || (!r.articulo ? "Vincula o crea el artículo en el catálogo" :
+    r.incluir && repetidos.has(clave(r.articulo)) ? "Artículo repetido: deja una fila con su saldo total" :
     r.unidadArchivo && !unidadesCoinciden(r.unidadArchivo, r.articulo.unidad) ? "La unidad del Excel no coincide con el catálogo" :
     r.articulo.iniciado ? "Ya tiene saldo o movimientos; usa un ajuste" :
     r.articulo.tipo === "PRODUCTO_TERMINADO" ? (!Number.isInteger(r.cantidad) ? "PT requiere unidades enteras" : validarLotesIniciales(r.cantidad, r.lotes, corte)) : "")
@@ -112,7 +119,7 @@ export default function KardexInventario() {
     } catch (e) { setError((e as Error).message) } finally { setGuardando(false) }
   }
   async function leerExcel(f: File) {
-    setCargando(true); setError(""); setMensaje(""); setRevision([]); setHash(""); setConfirmarCarga(false); setUnidadConfirmada(false)
+    setCargando(true); setError(""); setMensaje(""); setRevision([]); setHash(""); setConfirmarCarga(false); setUnidadConfirmada(false); setSoloPendientes(false)
     try {
       const [{ default: readExcel }, buffer] = await Promise.all([import("read-excel-file/browser"), f.arrayBuffer()])
       const digest = await crypto.subtle.digest("SHA-256", buffer)
@@ -134,6 +141,17 @@ export default function KardexInventario() {
   function cambiarFila(index: number, cambios: Partial<FilaRevision>) {
     setRevision((actual) => actual.map((r, i) => i === index ? { ...r, ...cambios } : r)); setConfirmarCarga(false)
   }
+  async function vincularAlta(nuevo: { id: string; tipo: TipoInventario }) {
+    const datos = await cargarCatalogo()
+    const creado = datos.articulos.find((a) => a.id === nuevo.id && a.tipo === nuevo.tipo)
+    if (!creado) throw new Error("El artículo se guardó, pero no está disponible para tu acceso al Kardex. Revisa sus permisos antes de continuar.")
+    setRevision((filas) => filas.map((r, i) => {
+      if (r.articulo) return r
+      const a = i === altaFila ? creado : vincularArticulo(r.codigo, datos.articulos)
+      return a ? { ...r, articulo: a, lotes: a.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [crearLoteInicial(a, r.cantidad, corte)] : [] } : r
+    }))
+    setAltaFila(null); setConfirmarCarga(false); setMensaje("Artículo disponible y vinculado. El stock se guardará al confirmar la carga.")
+  }
   async function cargarInicial() {
     if (guardando || errorCarga || !unidadConfirmada || !incluidos.length || !confirmarCarga) return
     setGuardando(true); setError(""); setMensaje("")
@@ -147,6 +165,7 @@ export default function KardexInventario() {
   }
 
   return <div className="kardex">
+    {altaFila !== null && revision[altaFila] && <CrearArticuloInventario fila={revision[altaFila]} onVinculado={vincularAlta} onCerrar={() => setAltaFila(null)} />}
     <style>{css}</style><header><div><small>INVENTARIO Y BODEGA</small><h1>Kardex</h1><p>Saldo inicial, entradas, salidas y ajustes por artículo.</p></div>
       <button disabled={guardando || cargando} onClick={() => void actualizar()}>Actualizar</button></header>
     <nav><button disabled={guardando} className={vista === "KARDEX" ? "activo" : ""} onClick={() => setVista("KARDEX")}>Revisar artículos</button>
@@ -163,13 +182,15 @@ export default function KardexInventario() {
         <label>Excel de inventario<input ref={archivoInput} type="file" accept=".xlsx" disabled={cargando || guardando || !articulos.length} onChange={(e) => { const f = e.target.files?.[0]; if (f) void leerExcel(f) }} /></label></div>
       {cargando && <p>Cargando…</p>}
       {!!revision.length && <><p>{archivo} · {incluidos.length} filas seleccionadas. Desmarca filas de otras sucursales; no se excluyen silenciosamente.</p>
+        <label className="check"><input type="checkbox" checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)} />Mostrar solo pendientes ({revision.filter((r) => !!problema(r)).length})</label>
         <div className="tabla"><table><thead><tr><th>Cargar</th><th>Hoja / fila / sucursal</th><th>Artículo del Excel</th><th>Stock</th><th>Artículo vinculado / unidad</th><th>Revisión</th></tr></thead>
-          <tbody>{revision.map((r, i) => <tr key={i}><td><input aria-label={`Incluir fila ${r.fila} de ${r.hoja}`} type="checkbox" checked={r.incluir} disabled={guardando} onChange={(e) => cambiarFila(i, { incluir: e.target.checked })} /></td>
+          <tbody>{revision.map((r, i) => soloPendientes && !problema(r) ? null : <tr key={i}><td><input aria-label={`Incluir fila ${r.fila} de ${r.hoja}`} type="checkbox" checked={r.incluir} disabled={guardando} onChange={(e) => cambiarFila(i, { incluir: e.target.checked })} /></td>
             <td>{r.hoja} / {r.fila}<small>{r.sucursal || "Sin sucursal"}</small></td><td>{r.codigo || "Sin código"}<small>{r.nombre}</small></td><td>{Number.isFinite(r.cantidad) ? numero(r.cantidad) : "Sin cantidad válida"}<small>{r.unidadArchivo || "Unidad no indicada"}</small></td>
             <td><select disabled={guardando} value={r.articulo ? clave(r.articulo) : ""} onChange={(e) => {
               const a = articulos.find((item) => clave(item) === e.target.value) || null
               cambiarFila(i, { articulo: a, lotes: a?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [crearLoteInicial(a, r.cantidad, corte)] : [] })
             }}><option value="">Elegir artículo…</option>{articulos.map((a) => <option key={clave(a)} value={clave(a)}>{a.tipo === "PRODUCTO_TERMINADO" ? "PT" : "MP/Empaque"} · {a.codigo} · {a.nombre} · {a.unidad}</option>)}</select>
+              {!r.articulo && <button disabled={guardando || cargando} onClick={() => { setAltaFila(i); setConfirmarCarga(false) }}>Crear artículo</button>}
               {r.articulo?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 && <div className="lotes">{r.lotes.map((l, li) => <div className="lote" key={li}>
                 <label>Cantidad<input type="number" min="1" step="1" value={l.cantidad} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, cantidad: Number(e.target.value) } : v) })} /></label>
                 <label>Lote<input value={l.lote} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, lote: e.target.value, automatico: false } : v) })} /></label>
@@ -224,5 +245,5 @@ export default function KardexInventario() {
 }
 
 const css = `
-.kardex{padding:22px;max-width:1600px;margin:auto;color:#403330}.kardex header{display:flex;justify-content:space-between;align-items:center;gap:16px}.kardex h1{margin:4px 0;color:#8f1d24}.kardex h2{font-size:19px}.kardex small{display:block;font-size:11px;color:#796d67;margin-top:4px}.kardex p{font-size:13px;line-height:1.5}.kardex nav{display:flex;gap:8px;margin:16px 0}.kardex section{background:white;border:1px solid #e5dcd6;border-radius:12px;padding:20px;margin:15px 0}.kardex button{border:1px solid #c9b5ab;border-radius:7px;background:#fff;padding:10px 14px;color:#68151a;cursor:pointer;margin:4px}.kardex button.principal,.kardex button.activo{background:#8f1d24;color:white;border-color:#8f1d24}.kardex button:disabled{opacity:.5;cursor:default}.kardex .campos{display:flex;flex-wrap:wrap;gap:14px}.kardex label{display:flex;flex-direction:column;gap:6px;font-size:12px}.kardex input,.kardex select{border:1px solid #d2c4bd;border-radius:6px;padding:9px;max-width:100%;background:white;color:#403330}.kardex .campos input,.kardex .campos select{max-width:360px}.kardex .tabla{overflow:auto;margin:16px 0}.kardex table{width:100%;border-collapse:collapse;min-width:900px;font-size:12px}.kardex th,.kardex td{padding:10px;border-bottom:1px solid #eee4dd;vertical-align:top;text-align:left}.kardex th{background:#f6eee8}.kardex .error{background:#fdebea;color:#9c242b;padding:12px;border-radius:8px}.kardex .exito{background:#e8f6eb;color:#176833;padding:12px;border-radius:8px}.kardex .pendiente{color:#95590b}.kardex .check{flex-direction:row;align-items:center;margin:18px 0}.kardex .check input{width:18px;height:18px}.kardex .lotes{min-width:520px;margin-top:10px}.kardex .lote{display:flex;align-items:end;gap:8px;background:#faf7f3;padding:10px;margin:5px 0}.kardex .lote input{width:115px}.kardex .lote label:first-child input{width:70px}.kardex .movimiento,.kardex .confirmacion{padding:15px;background:#faf5ef;border:1px solid #e6d5c5;border-radius:8px;margin:15px 0}.kardex .saldos{display:flex;flex-wrap:wrap;gap:12px}.kardex .saldos span{background:#f6eee8;border-radius:8px;padding:12px;font-size:14px}@media(max-width:650px){.kardex{padding:12px}.kardex section{padding:12px}.kardex .campos{display:grid;grid-template-columns:1fr 1fr}.kardex .campos input,.kardex .campos select{width:100%;box-sizing:border-box}.kardex header{align-items:start}.kardex nav button{flex:1}.kardex .saldos span{width:100%}}
+.kardex dialog.alta-inventario{border:1px solid #d2c4bd;border-radius:12px;padding:22px;max-width:800px;width:calc(100% - 64px);max-height:80vh;overflow:auto;color:#403330}.kardex dialog.alta-inventario::backdrop{background:rgb(0 0 0 / 40%)}.kardex{padding:22px;max-width:1600px;margin:auto;color:#403330}.kardex header{display:flex;justify-content:space-between;align-items:center;gap:16px}.kardex h1{margin:4px 0;color:#8f1d24}.kardex h2{font-size:19px}.kardex small{display:block;font-size:11px;color:#796d67;margin-top:4px}.kardex p{font-size:13px;line-height:1.5}.kardex nav{display:flex;gap:8px;margin:16px 0}.kardex section{background:white;border:1px solid #e5dcd6;border-radius:12px;padding:20px;margin:15px 0}.kardex button{border:1px solid #c9b5ab;border-radius:7px;background:#fff;padding:10px 14px;color:#68151a;cursor:pointer;margin:4px}.kardex button.principal,.kardex button.activo{background:#8f1d24;color:white;border-color:#8f1d24}.kardex button:disabled{opacity:.5;cursor:default}.kardex .campos{display:flex;flex-wrap:wrap;gap:14px}.kardex label{display:flex;flex-direction:column;gap:6px;font-size:12px}.kardex input,.kardex select{border:1px solid #d2c4bd;border-radius:6px;padding:9px;max-width:100%;background:white;color:#403330}.kardex .campos input,.kardex .campos select{max-width:360px}.kardex .tabla{overflow:auto;margin:16px 0}.kardex table{width:100%;border-collapse:collapse;min-width:900px;font-size:12px}.kardex th,.kardex td{padding:10px;border-bottom:1px solid #eee4dd;vertical-align:top;text-align:left}.kardex th{background:#f6eee8}.kardex .error{background:#fdebea;color:#9c242b;padding:12px;border-radius:8px}.kardex .exito{background:#e8f6eb;color:#176833;padding:12px;border-radius:8px}.kardex .pendiente{color:#95590b}.kardex .check{flex-direction:row;align-items:center;margin:18px 0}.kardex .check input{width:18px;height:18px}.kardex .lotes{min-width:520px;margin-top:10px}.kardex .lote{display:flex;align-items:end;gap:8px;background:#faf7f3;padding:10px;margin:5px 0}.kardex .lote input{width:115px}.kardex .lote label:first-child input{width:70px}.kardex .movimiento,.kardex .confirmacion{padding:15px;background:#faf5ef;border:1px solid #e6d5c5;border-radius:8px;margin:15px 0}.kardex .saldos{display:flex;flex-wrap:wrap;gap:12px}.kardex .saldos span{background:#f6eee8;border-radius:8px;padding:12px;font-size:14px}@media(max-width:650px){.kardex{padding:12px}.kardex section{padding:12px}.kardex .campos{display:grid;grid-template-columns:1fr 1fr}.kardex .campos input,.kardex .campos select{width:100%;box-sizing:border-box}.kardex header{align-items:start}.kardex nav button{flex:1}.kardex .saldos span{width:100%}}
 `
