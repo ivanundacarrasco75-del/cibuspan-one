@@ -3,13 +3,31 @@ import type { Row } from "read-excel-file/browser"
 export type TipoInventario = "MATERIA_PRIMA" | "PRODUCTO_TERMINADO"
 export type ArticuloKardex = {
   tipo: TipoInventario; id: string; codigo: string; codigo_contable: string | null
-  nombre: string; unidad: string; saldo: number; iniciado: boolean
+  nombre: string; unidad: string; saldo: number; iniciado: boolean; vida_util_dias?: number | null
 }
 export type LineaInventarioInicial = {
   fila: number; codigo: string; nombre: string; cantidad: number; costoTotal: number | null
   sucursal: string; unidadArchivo: string; articulo: ArticuloKardex | null; problema: string
 }
-export type LoteInicial = { cantidad: number; lote: string; fechaProduccion: string; fechaVencimiento: string }
+export type LoteInicial = { cantidad: number; lote: string; fechaProduccion: string; fechaVencimiento: string; automatico?: boolean }
+
+export function vencimientoInicial(fechaProduccion: string, dias: number | null | undefined): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaProduccion) || !Number.isSafeInteger(dias) || !dias || dias <= 0) return ""
+  const fecha = new Date(`${fechaProduccion}T00:00:00Z`)
+  if (!Number.isFinite(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== fechaProduccion) return ""
+  fecha.setUTCDate(fecha.getUTCDate() + dias)
+  return Number.isFinite(fecha.getTime()) ? fecha.toISOString().slice(0, 10) : ""
+}
+
+export function crearLoteInicial(articulo: ArticuloKardex, cantidad: number, corte: string, numeroLote = 1): LoteInicial {
+  return { cantidad, lote: `INICIAL-EST-${corte.replaceAll("-", "")}-${articulo.codigo}-${numeroLote}`,
+    fechaProduccion: corte, fechaVencimiento: vencimientoInicial(corte, articulo.vida_util_dias), automatico: true }
+}
+
+export function actualizarCorteLotes(lotes: LoteInicial[], articulo: ArticuloKardex | null, corte: string): LoteInicial[] {
+  if (!articulo || articulo.tipo !== "PRODUCTO_TERMINADO") return lotes
+  return lotes.map((lote, i) => lote.automatico ? crearLoteInicial(articulo, lote.cantidad, corte, i + 1) : lote)
+}
 
 const normalizar = (valor: unknown) => String(valor ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase()
 const encabezado = (valor: unknown) => normalizar(valor).replace(/[^A-Z0-9]/g, "")

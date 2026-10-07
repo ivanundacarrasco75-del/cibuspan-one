@@ -1,12 +1,34 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cantidadExcel, leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, vincularArticulo, unidadesCoinciden } from '../src/utils/inventarioInicialExcel.ts'
+import { cantidadExcel, leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, vincularArticulo, unidadesCoinciden, vencimientoInicial, crearLoteInicial, actualizarCorteLotes } from '../src/utils/inventarioInicialExcel.ts'
 
 const mp = { tipo:'MATERIA_PRIMA', id:'mp', codigo:'HARINA', codigo_contable:'1001', nombre:'Harina', unidad:'KG', saldo:0, iniciado:false }
 const pt = { tipo:'PRODUCTO_TERMINADO', id:'pt', codigo:'7868304262189', codigo_contable:null, nombre:'Integral', unidad:'UNIDAD', saldo:0, iniciado:false }
 const filas = [ ['Inventario septiembre'], ['Sucursal','Cód Artículo','Nombre del Artículo','Stock','P.Costo','Costo Total'],
   ['MATRIZ','1001','HARINA',100.5,0.7,70.35], ['MATRIZ',7868304262189,'PANGOLIN INTEGRAL',20,1,20],
   ['OTRA','1001','HARINA',2,0.7,1.4], ['MATRIZ','DESCONOCIDO','Sin catálogo',0,0,0], ['',null,'TOTAL',122.5,0,91.75] ]
+test('La carga inicial calcula lotes de referencia con la vida útil de cada SKU', () => {
+  const a = crearLoteInicial({...pt,vida_util_dias:30},20,'2026-09-30')
+  const b = crearLoteInicial({...pt,id:'otro',codigo:'OTRO',vida_util_dias:21},9,'2026-09-30')
+  assert.equal(a.fechaProduccion,'2026-09-30');assert.equal(a.fechaVencimiento,'2026-10-30')
+  assert.equal(b.fechaVencimiento,'2026-10-21');assert.notEqual(a.lote,b.lote)
+  assert.match(a.lote,/^INICIAL-EST-/);assert.equal(validarLotesIniciales(20,[a],'2026-09-30'),'')
+  assert.equal(vencimientoInicial('2026-12-20',30),'2027-01-19')
+  assert.equal(vencimientoInicial('2028-02-28',2),'2028-03-01')
+  for(const dias of [undefined,null,0,-1,1.5,NaN,Infinity]) assert.equal(vencimientoInicial('2026-09-30',dias),'')
+  assert.equal(vencimientoInicial('2026-02-30',30),'')
+  assert.equal(crearLoteInicial(pt,20,'2026-09-30').fechaVencimiento,'')
+})
+test('Cambiar el cierre recalcula solo lotes automáticos y conserva la distribución manual', () => {
+  const producto={...pt,vida_util_dias:30}
+  const primero=crearLoteInicial(producto,8,'2026-09-30')
+  const segundo={...crearLoteInicial(producto,12,'2026-09-30',2),lote:'LOTE-REAL',automatico:false}
+  const nuevos=actualizarCorteLotes([primero,segundo],producto,'2026-10-01')
+  assert.equal(nuevos[0].cantidad,8);assert.equal(nuevos[0].fechaVencimiento,'2026-10-31')
+  assert.equal(nuevos[0].fechaProduccion,'2026-10-01');assert.match(nuevos[0].lote,/20261001/)
+  assert.deepEqual(nuevos[1],segundo)
+  assert.deepEqual(actualizarCorteLotes([primero],mp,'2026-10-01'),[primero])
+})
 test('Un archivo conserva MP, PT y otras sucursales para revisión explícita', () => {
   const resultado = leerFilasInventarioInicial(filas,[mp,pt])
   assert.equal(resultado.length,4)

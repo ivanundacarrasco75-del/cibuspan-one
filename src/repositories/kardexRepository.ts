@@ -14,7 +14,14 @@ export type ConsultaKardex = { movimientos: MovimientoKardex[]; total: number; s
 export async function catalogoKardex() {
   const { data, error } = await supabase.rpc("inv_kardex_catalogo")
   if (error) throw new Error(`No se pudo cargar el Kardex. ${error.message}`)
-  return data as { articulos: ArticuloKardex[]; lotes: LoteKardex[] }
+  const catalogo = data as { articulos: ArticuloKardex[]; lotes: LoteKardex[] }
+  if (catalogo.articulos.some((a) => a.tipo === "PRODUCTO_TERMINADO")) {
+    const { data: productos, error: errorProductos } = await supabase.from("productos").select("id,vida_util_dias").eq("activo", true)
+    if (errorProductos) throw new Error(`No se pudo consultar la vida útil de los productos. ${errorProductos.message}`)
+    const vidas = new Map((productos ?? []).map((p) => [p.id, p.vida_util_dias]))
+    catalogo.articulos = catalogo.articulos.map((a) => a.tipo === "PRODUCTO_TERMINADO" ? { ...a, vida_util_dias: vidas.get(a.id) ?? null } : a)
+  }
+  return catalogo
 }
 
 export async function consultarKardex(articulo: ArticuloKardex, desde: string, hasta: string, inicio = 0) {

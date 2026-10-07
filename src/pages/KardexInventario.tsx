@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { catalogoKardex, consultarKardex, registrarMovimientoKardex, cargarInventarioInicial,
   type ConsultaKardex, type LoteKardex, type LineaCargaInicial } from "../repositories/kardexRepository"
-import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, unidadesCoinciden,
+import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, unidadesCoinciden, crearLoteInicial, vencimientoInicial, actualizarCorteLotes,
   type ArticuloKardex, type LineaInventarioInicial, type LoteInicial, type TipoInventario } from "../utils/inventarioInicialExcel"
 
 const hoy = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guayaquil", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
@@ -123,7 +123,7 @@ export default function KardexInventario() {
         try {
           const leidas = leerFilasInventarioInicial(hoja.data, articulos)
           filas.push(...leidas.map((r) => ({ ...r, hoja: hoja.sheet, incluir: true,
-            lotes: r.articulo?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [{ cantidad: r.cantidad, lote: "", fechaProduccion: "", fechaVencimiento: "" }] : [] })))
+            lotes: r.articulo?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [crearLoteInicial(r.articulo, r.cantidad, corte)] : [] })))
         } catch (e) { omitidas.push(`${hoja.sheet}: ${(e as Error).message}`) }
       }
       if (!filas.length) throw new Error(omitidas.join("; ") || "No se encontraron artículos.")
@@ -153,9 +153,13 @@ export default function KardexInventario() {
       <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Cargar saldo inicial</button></nav>
     {error && <p role="alert" className="error">{error}</p>}{mensaje && <p role="status" className="exito">{mensaje}</p>}
     {vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
-      <p>Revisa códigos, sucursal y unidad de cada fila. Producto terminado necesita lote, fecha de producción y vencimiento; puedes distribuir su cantidad entre varios lotes.</p>
+      <p>Los artículos se vinculan automáticamente por código. Revisa las filas pendientes, las sucursales y las unidades.</p>
+      <p>Para producto terminado se genera un lote de referencia y se usa el cierre como fecha de producción estimada. El vencimiento se calcula con la vida útil del SKU en el catálogo. Puedes corregir las fechas y dividir la cantidad entre lotes.</p>
       <p>La carga incorpora saldos al Kardex y PT al inventario existente. No sobrescribe artículos con movimientos ni sustituye la importación de costos de Compras.</p>
-      <div className="campos"><label>Fecha del cierre<input type="date" max={hoy()} value={corte} disabled={guardando} onChange={(e) => { setCorte(e.target.value); setConfirmarCarga(false) }} /></label>
+      <div className="campos"><label>Fecha del cierre<input type="date" max={hoy()} value={corte} disabled={guardando} onChange={(e) => {
+        const fechaCorte = e.target.value; setCorte(fechaCorte); setConfirmarCarga(false)
+        setRevision((filas) => filas.map((r) => ({ ...r, lotes: actualizarCorteLotes(r.lotes, r.articulo, fechaCorte) })))
+      }} /></label>
         <label>Excel de inventario<input ref={archivoInput} type="file" accept=".xlsx" disabled={cargando || guardando || !articulos.length} onChange={(e) => { const f = e.target.files?.[0]; if (f) void leerExcel(f) }} /></label></div>
       {cargando && <p>Cargando…</p>}
       {!!revision.length && <><p>{archivo} · {incluidos.length} filas seleccionadas. Desmarca filas de otras sucursales; no se excluyen silenciosamente.</p>
@@ -164,15 +168,18 @@ export default function KardexInventario() {
             <td>{r.hoja} / {r.fila}<small>{r.sucursal || "Sin sucursal"}</small></td><td>{r.codigo || "Sin código"}<small>{r.nombre}</small></td><td>{Number.isFinite(r.cantidad) ? numero(r.cantidad) : "Sin cantidad válida"}<small>{r.unidadArchivo || "Unidad no indicada"}</small></td>
             <td><select disabled={guardando} value={r.articulo ? clave(r.articulo) : ""} onChange={(e) => {
               const a = articulos.find((item) => clave(item) === e.target.value) || null
-              cambiarFila(i, { articulo: a, lotes: a?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [{ cantidad: r.cantidad, lote: "", fechaProduccion: "", fechaVencimiento: "" }] : [] })
+              cambiarFila(i, { articulo: a, lotes: a?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 ? [crearLoteInicial(a, r.cantidad, corte)] : [] })
             }}><option value="">Elegir artículo…</option>{articulos.map((a) => <option key={clave(a)} value={clave(a)}>{a.tipo === "PRODUCTO_TERMINADO" ? "PT" : "MP/Empaque"} · {a.codigo} · {a.nombre} · {a.unidad}</option>)}</select>
               {r.articulo?.tipo === "PRODUCTO_TERMINADO" && r.cantidad > 0 && <div className="lotes">{r.lotes.map((l, li) => <div className="lote" key={li}>
                 <label>Cantidad<input type="number" min="1" step="1" value={l.cantidad} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, cantidad: Number(e.target.value) } : v) })} /></label>
-                <label>Lote<input value={l.lote} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, lote: e.target.value } : v) })} /></label>
-                <label>Producción<input type="date" max={corte} value={l.fechaProduccion} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, fechaProduccion: e.target.value } : v) })} /></label>
-                <label>Vencimiento<input type="date" value={l.fechaVencimiento} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, fechaVencimiento: e.target.value } : v) })} /></label>
+                <label>Lote<input value={l.lote} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, lote: e.target.value, automatico: false } : v) })} /></label>
+                <label>Producción<input type="date" max={corte} value={l.fechaProduccion} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, fechaProduccion: e.target.value,
+                  fechaVencimiento: vencimientoInicial(e.target.value, r.articulo?.vida_util_dias), automatico: false } : v) })} /></label>
+                <label>Vencimiento<input type="date" value={l.fechaVencimiento} disabled={guardando} onChange={(e) => cambiarFila(i, { lotes: r.lotes.map((v, j) => j === li ? { ...v, fechaVencimiento: e.target.value, automatico: false } : v) })} /></label>
                 <button disabled={guardando} onClick={() => cambiarFila(i, { lotes: r.lotes.filter((_, j) => j !== li) })}>Quitar lote</button>
-              </div>)}<button disabled={guardando} onClick={() => cambiarFila(i, { lotes: [...r.lotes, { cantidad: 0, lote: "", fechaProduccion: "", fechaVencimiento: "" }] })}>Añadir lote</button></div>}
+              </div>)}<small>{r.articulo.vida_util_dias ? `Vida útil del catálogo: ${r.articulo.vida_util_dias} días.` : "Sin vida útil configurada: completa el vencimiento o corrige el catálogo."} Los lotes INICIAL-EST son referencias de la carga inicial.</small>
+                <button disabled={guardando} onClick={() => cambiarFila(i, { lotes: [...r.lotes, crearLoteInicial(r.articulo!, 0, corte,
+                  Math.max(0, ...r.lotes.map((l) => Number(l.lote.split("-").at(-1)) || 0)) + 1)] })}>Añadir lote</button></div>}
             </td><td className={problema(r) ? "pendiente" : ""}>{problema(r) || "Listo"}</td></tr>)}</tbody></table></div>
         {errorCarga && <p className="pendiente">Completa las filas seleccionadas. Cada artículo debe aparecer una sola vez, con su saldo total.</p>}
         <label className="check"><input type="checkbox" checked={unidadConfirmada} disabled={guardando} onChange={(e) => { setUnidadConfirmada(e.target.checked); setConfirmarCarga(false) }} />Revisé las sucursales y las cantidades están en la unidad indicada para cada artículo.</label>
