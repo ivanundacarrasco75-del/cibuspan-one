@@ -3,6 +3,8 @@
 ## Fuente oficial
 
 - Este repositorio y la rama `main` son la única fuente oficial del proyecto.
+- Al retomar el proyecto en un nuevo chat, leer también `CONTINUIDAD_CIBUSPAN_ONE.md`. Su estado está fechado: comprobar el `HEAD` actual antes de usarlo como referencia.
+- Mantener actualizado el estado de esa guía cuando cambien los pendientes, la instalación de SQL o la publicación, distinguiendo lo comprobado de lo pendiente.
 - Antes de modificar código, revisar `git status`, el último commit y los archivos actuales.
 - No reconstruir el proyecto desde capturas, archivos ZIP ni copias antiguas.
 - No sustituir archivos completos para resolver cambios puntuales.
