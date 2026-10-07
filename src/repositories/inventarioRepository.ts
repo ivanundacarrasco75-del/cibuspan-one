@@ -53,6 +53,7 @@ export async function obtenerInventarioLotesDb() {
         corto
       )
     `)
+    .is("inv_archivo_id", null)
     .order("fecha_ingreso_bodega", {
       ascending: false,
     })

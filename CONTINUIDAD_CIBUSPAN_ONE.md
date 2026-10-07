@@ -117,11 +117,23 @@ npm run build
 
 Las pruebas SQL utilizan PGlite y requieren la dependencia indicada en su archivo de prueba. No depender de la ruta temporal usada en otro chat.
 
+### Inicio de octubre autorizado el 07/10/2026
+
+Iván indicó que este chat es exclusivamente de programación de CIBUSPAN ONE y pidió programar el inicio desde octubre. La solicitud intercalada de ASAMA fue un error y debe ignorarse.
+
+Se agregó `supabase/migrations/202610070001_inicio_octubre.sql` y la opción “Empezar desde octubre” en Kardex > Cargar saldo inicial. El SQL solo instala la opción: no reinicia el inventario al ejecutarse. Falta que Iván instale ese SQL, registre únicamente su versión como aplicada y publique el frontend. Después debe cargar su Excel completo, resolver todas las filas y confirmar “Inicio de octubre” como administrador. No afirmar que el reinicio ya se ejecutó.
+
+La confirmación guarda un respaldo completo de lotes, movimientos, cargas y catálogos en `inv_respaldos_inicio`, conserva IDs de los lotes anteriores, los marca con `inv_archivo_id`, deja su cantidad en cero y los excluye de la selección activa. Se sustituyen los movimientos y cargas activas por el Excel, dentro de la misma transacción. No borra pedidos, despachos ni recetas. Si aparece cualquier error de carga se revierte toda la operación. Los lotes archivados no se pueden reactivar ni borrar desde la app. Si una referencia inicial colisiona con un lote anterior, la nueva recibe un sufijo INICIO y el original queda respaldado.
+
+Es un inicio único al 30/09/2026: las solicitudes idénticas se reconocen sin duplicar y un nuevo archivo no puede reiniciar otra vez los movimientos de octubre. Se exige MP y PT, y la pantalla incluye todas las filas para este modo. Los artículos fuera del archivo quedan sin existencias anteriores. Si hay reservas pendientes se bloquea la confirmación: deben resolverse desde los pedidos. El token de revisión detecta cambios de inventario, reservas o catálogo antes de confirmar. Los reintentos de movimientos ya archivados y los movimientos anteriores al 01/10 quedan bloqueados. El respaldo se puede descargar como JSON desde el Kardex por un administrador.
+
+Se mantiene el aviso de inventario provisional mientras se reconstruye octubre. La carga de OP históricas y el consumo automático por receta siguen pendientes; este inicio no completa ese circuito. Pasaron 18 pruebas de frontend, 16 escenarios SQL y `npm run build`. La instalación, publicación y confirmación reales siguen pendientes de comprobar.
+
 ### Pendientes reales, no resueltos por cambiar de chat
 
 1. Confirmar publicación y funcionamiento del botón “Crear artículo” en la sesión real del usuario. No afirmar que se crearon artículos o que se importó el saldo solo porque el código está guardado.
 2. Resolver las filas pendientes usando el catálogo correcto y los permisos existentes. Los nuevos PT requieren vida útil y unidades por parada reales; MP, empaques y micros no requieren esos campos.
-3. En capturas de PT apareció “Ya tiene saldo o movimientos; usa un ajuste”. Es un bloqueo distinto al artículo faltante. El Kardex impide duplicar saldos existentes. Revisar sus movimientos antes de proponer una corrección histórica; no eliminar ese control ni borrar inventario para desbloquear el botón.
+3. Las capturas del 07/10 mostraron SALDO_EXISTENTE de distintos lotes, registrado al activar el Kardex. Eso no demuestra duplicación por cada prueba. Iván autorizó expresamente un inicio desde octubre: el Excel al 30/09 debe sustituir todos los saldos anteriores, conservando respaldo. Se implementó el flujo específico descrito abajo; no quitar los controles de la carga habitual.
 4. Confirmar la carga de saldos y luego conciliar octubre. El consumo automático de MP por producciones históricas todavía no se ha completado; no prometer que ese circuito ya cuadra automáticamente. Los micros creados desde esta carga controlan stock como artículos; no crean por sí solos sus recetas de producción.
 
 ## Comunicación con Iván

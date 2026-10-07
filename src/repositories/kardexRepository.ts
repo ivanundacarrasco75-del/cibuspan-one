@@ -11,6 +11,36 @@ export type MovimientoKardex = {
 }
 export type ConsultaKardex = { movimientos: MovimientoKardex[]; total: number; saldo_anterior: number; saldo_cierre: number }
 
+export type InicioOctubre = {
+  instalado: boolean; activo: boolean; puede_iniciar: boolean; fecha_corte?: string
+  token?: string; lotes?: number; movimientos?: number; reservadas?: number; respaldo_id?: string; puede_descargar?: boolean
+}
+
+export async function consultarInicioOctubre(): Promise<InicioOctubre> {
+  const { data, error } = await supabase.rpc("inv_inicio_estado")
+  if (error?.code === "PGRST202" || error?.code === "42883") return { instalado: false, activo: false, puede_iniciar: false }
+  if (error) throw new Error(`No se pudo revisar el inicio de octubre. ${error.message}`)
+  return data as InicioOctubre
+}
+
+export async function iniciarOctubre(archivo: string, hash: string, fecha: string, lineas: LineaCargaInicial[], token: string) {
+  const { data, error } = await supabase.rpc("inv_inicio_confirmar", {
+    p_archivo: archivo, p_hash: hash, p_fecha: fecha, p_lineas: lineas, p_token: token,
+  })
+  if (error) throw new Error(error.message)
+  if (!data?.id || !data?.respaldo_id) throw new Error("No se recibió la confirmación del inicio y su respaldo.")
+  return data as { id: string; respaldo_id: string; repetido: boolean }
+}
+
+export async function descargarRespaldoInicio(id: string) {
+  const { data, error } = await supabase.from("inv_respaldos_inicio").select("*").eq("id", id).single()
+  if (error) throw new Error(`No se pudo descargar el respaldo. ${error.message}`)
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }))
+  const enlace = document.createElement("a")
+  enlace.href = url; enlace.download = `Respaldo-inventario-antes-octubre-${id}.json`; enlace.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export async function catalogoKardex() {
   const { data, error } = await supabase.rpc("inv_kardex_catalogo")
   if (error) throw new Error(`No se pudo cargar el Kardex. ${error.message}`)

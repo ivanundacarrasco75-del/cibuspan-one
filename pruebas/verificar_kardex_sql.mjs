@@ -5,8 +5,8 @@ const { PGlite } = await import(process.env.CIBUSPAN_SQL_TEST_MODULE || '@electr
 const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
 const migracion = fs.readFileSync(new URL('../supabase/migrations/202610060001_kardex_inventarios.sql',import.meta.url),'utf8')
 // La estructura de perfiles se toma del SQL oficial, no de una copia simplificada.
-const perfiles = fs.readFileSync(new URL('../supabase/migrations/202608090001_usuarios_permisos.sql',import.meta.url),'utf8')
-  .match(/create table if not exists public\.app_profiles \([\s\S]*?\n\);/)[0]
+const perfilesSQL = fs.readFileSync(new URL('../supabase/migrations/202608090001_usuarios_permisos.sql',import.meta.url),'utf8')
+const perfiles = perfilesSQL.match(/create table if not exists public\.app_profiles \([\s\S]*?\n\);/)[0]
 
 test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y reintentos',async (t) => {
   const db = new PGlite()
@@ -138,5 +138,98 @@ test('Kardex transaccional, trazabilidad de PT, saldos iniciales, permisos y rei
       await mover('MATERIA_PRIMA',id(22),null,fechas.hoy,'ENTRADA',1.5,0,110)
       assert.equal((await consultar('MATERIA_PRIMA',id(22))).saldo_cierre,1.5)
     })
+    await t.test('Inicio de octubre: archivo atómico, reservas, permisos y reintentos',async (t) => {
+      const inicioSQL=fs.readFileSync(new URL('../supabase/migrations/202610070001_inicio_octubre.sql',import.meta.url),'utf8')
+      const admin=perfilesSQL.match(/create or replace function public\.app_es_admin\([\s\S]*?\n\$\$;/)[0]
+      await db.exec(admin)
+      const previos=(await db.query('select count(*)::int n from public.inventario_lotes')).rows[0].n
+      const saldoPrevio=(await db.query('select sum(cantidad)::int n from public.inventario_lotes')).rows[0].n
+      await db.exec(inicioSQL)
+      assert.equal((await db.query('select sum(cantidad)::int n from public.inventario_lotes')).rows[0].n,saldoPrevio)
+      const estado=async () => (await db.query('select public.inv_inicio_estado() datos')).rows[0].datos
+      const cierre='2026-09-30'
+      const lineas=[{tipo:'MATERIA_PRIMA',articulo_id:id(20),cantidad:50.25,costo_total:0},
+        {tipo:'PRODUCTO_TERMINADO',articulo_id:id(11),cantidad:82,lotes:[{lote:'PREVIO',cantidad:82,fecha_produccion:cierre,fecha_vencimiento:'2026-10-21'}]},
+        {tipo:'PRODUCTO_TERMINADO',articulo_id:id(10),cantidad:9,lotes:[{lote:'NUEVO-OCT',cantidad:9,fecha_produccion:cierre,fecha_vencimiento:'2026-10-21'}]}]
+      const confirmar=(datos,token,hash='9'.repeat(64),fecha=cierre) => db.query('select public.inv_inicio_confirmar($1,$2,$3,$4::jsonb,$5) datos',
+        ['Octubre.xlsx',hash,fecha,JSON.stringify(datos),token])
+      const foto=async () => (await db.query('select public.inv_inicio_foto() datos')).rows[0].datos
+      await t.test('Instalar y revisar son acciones de solo lectura del stock',async () => {
+        const antes=await foto(); const e=await estado()
+        assert.equal(e.activo,false); assert.equal(e.puede_iniciar,true); assert.equal(e.lotes,previos)
+        assert.deepEqual(await foto(),antes)
+      })
+      await t.test('Cambios posteriores a la revisión y reservas impiden el reinicio',async () => {
+        const e=await estado()
+        await db.query('update public.inventario_lotes set cantidad=cantidad+1 where id=$1',[id(30)])
+        const antes=await foto()
+        await assert.rejects(confirmar(lineas,e.token),/inventario cambió/)
+        assert.deepEqual(await foto(),antes)
+        await db.query('insert into public.test_reservas values($1,1)',[id(30)])
+        await assert.rejects(confirmar(lineas,(await estado()).token),/reservas pendientes/)
+        assert.equal((await db.query('select count(*)::int n from public.inv_respaldos_inicio')).rows[0].n,0)
+        await db.query('delete from public.test_reservas where lote_id=$1',[id(30)])
+      })
+      await t.test('Errores de datos revierten incluso el respaldo y la puesta en cero',async () => {
+        const antes=await foto(); const e=await estado()
+        const invalido=structuredClone(lineas); invalido[2].lotes[0].lote=''
+        await assert.rejects(confirmar(invalido,e.token),/Completa lote/)
+        assert.deepEqual(await foto(),antes)
+        assert.equal((await db.query('select count(*)::int n from public.inv_respaldos_inicio')).rows[0].n,0)
+        await assert.rejects(confirmar([lineas[0]],e.token),/Excel completo/)
+        await assert.rejects(confirmar(lineas,e.token,undefined,'2026-10-01'),/30\/09/)
+        await db.query("select set_config('test.user',$1,false)",[id(2)])
+        await assert.rejects(confirmar(lineas,e.token),/administrador/)
+        await db.query("select set_config('test.user',$1,false)",[id(1)])
+      })
+      let respaldo; let e; let resultado
+      await t.test('El Excel es el único stock; el respaldo conserva todo y los IDs anteriores',async () => {
+        // Simula una carga previa con idéntico lote/fecha: el inicio debe poder sustituirla.
+        await db.query('update public.inventario_lotes set fecha_produccion=$1 where id=$2',[cierre,id(30)])
+        const antes=await foto(); e=await estado()
+        resultado=(await confirmar(lineas,e.token)).rows[0].datos; respaldo=resultado.respaldo_id
+        assert.equal(resultado.repetido,false)
+        assert.deepEqual((await db.query('select datos from public.inv_respaldos_inicio where id=$1',[respaldo])).rows[0].datos,antes)
+        assert.equal((await consultar('MATERIA_PRIMA',id(20))).saldo_cierre,50.25)
+        assert.equal((await consultar('MATERIA_PRIMA',id(21))).saldo_cierre,0)
+        assert.equal((await consultar('PRODUCTO_TERMINADO',id(11))).saldo_cierre,82)
+        assert.equal((await consultar('PRODUCTO_TERMINADO',id(10))).saldo_cierre,9)
+        const archivados=(await db.query('select count(*)::int n,sum(cantidad)::int stock from public.inventario_lotes where inv_archivo_id=$1',[respaldo])).rows[0]
+        assert.equal(archivados.n,previos); assert.equal(archivados.stock,0)
+        assert.equal((await db.query('select sum(cantidad)::int n from public.inventario_lotes')).rows[0].n,91)
+        assert.equal((await db.query('select public.inv_kardex_catalogo() datos')).rows[0].datos.lotes.length,2)
+        assert.ok((await consultar('PRODUCTO_TERMINADO',id(11))).movimientos[0].lote.startsWith('PREVIO-INICIO-'))
+        assert.equal((await estado()).activo,true)
+      })
+      await t.test('Confirmaciones repetidas, reinstalación y registros antiguos no duplican el stock',async () => {
+        const antes=await foto(); const n=await contar()
+        assert.equal((await confirmar(lineas,e.token)).rows[0].datos.repetido,true)
+        const diferentes=structuredClone(lineas); diferentes[0].cantidad=99
+        await assert.rejects(confirmar(diferentes,e.token),/ya está iniciado/)
+        await db.exec(inicioSQL)
+        assert.deepEqual(await foto(),antes); assert.equal(await contar(),n)
+        await assert.rejects(db.query('update public.inventario_lotes set cantidad=1 where id=$1',[id(30)]),/respaldo anterior/)
+        await assert.rejects(db.query('delete from public.inventario_lotes where id=$1',[id(30)]),/respaldo anterior/)
+        const lote=(await db.query("select id from public.inventario_lotes where lote='NUEVO-OCT'")).rows[0].id
+        await assert.rejects(db.query("update public.inventario_lotes set inv_archivo_id=$1 where id=$2",[respaldo,lote]),/solo se establece/)
+        await assert.rejects(db.query("insert into public.inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) values('MATERIA_PRIMA',$1,'2026-09-29','ENTRADA',2,'Anterior','Prueba')",[id(20)]),/01\/10/)
+        await assert.rejects(mover('MATERIA_PRIMA',id(20),null,fechas.hoy,'ENTRADA',20,50.25,101),/solicitud pertenece/)
+        await mover('MATERIA_PRIMA',id(20),null,fechas.hoy,'ENTRADA',5,50.25,500)
+        assert.equal((await consultar('MATERIA_PRIMA',id(20))).saldo_cierre,55.25)
+        const activo=await foto()
+        await confirmar(lineas,e.token)
+        assert.deepEqual(await foto(),activo)
+      })
+      await t.test('El respaldo es consultable por administrador y no puede borrarse desde la app',async () => {
+        await db.exec('set role authenticated')
+        assert.equal((await db.query('select count(*)::int n from public.inv_respaldos_inicio')).rows[0].n,1)
+        await assert.rejects(db.exec('delete from public.inv_respaldos_inicio'),/permission denied/)
+        await db.query("select set_config('test.user',$1,false)",[id(2)])
+        assert.equal((await db.query('select count(*)::int n from public.inv_respaldos_inicio')).rows[0].n,0)
+        await assert.rejects(confirmar(lineas,e.token),/administrador/)
+        await db.exec('reset role'); await db.query("select set_config('test.user',$1,false)",[id(1)])
+      })
+    })
+
   } finally { await db.close() }
 })

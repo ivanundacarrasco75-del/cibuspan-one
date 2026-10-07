@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import CrearArticuloInventario from "../components/inventario/CrearArticuloInventario"
 import { catalogoKardex, consultarKardex, registrarMovimientoKardex, cargarInventarioInicial,
-  type ConsultaKardex, type LoteKardex, type LineaCargaInicial } from "../repositories/kardexRepository"
+  consultarInicioOctubre, iniciarOctubre, descargarRespaldoInicio,
+  type InicioOctubre, type ConsultaKardex, type LoteKardex, type LineaCargaInicial } from "../repositories/kardexRepository"
 import { leerFilasInventarioInicial, validarLotesIniciales, movimientoParaConteo, unidadesCoinciden, crearLoteInicial, vencimientoInicial, actualizarCorteLotes, vincularArticulo,
   type ArticuloKardex, type LineaInventarioInicial, type LoteInicial, type TipoInventario } from "../utils/inventarioInicialExcel"
 
@@ -41,6 +42,8 @@ export default function KardexInventario() {
   const [confirmarCarga, setConfirmarCarga] = useState(false)
   const [altaFila, setAltaFila] = useState<number | null>(null)
   const [soloPendientes, setSoloPendientes] = useState(false)
+  const [inicio, setInicio] = useState<InicioOctubre | null>(null)
+  const [reiniciar, setReiniciar] = useState(false)
   const peticion = useRef(0)
   const saldoPeticion = useRef(0)
   const archivoInput = useRef<HTMLInputElement>(null)
@@ -54,13 +57,18 @@ export default function KardexInventario() {
     (r.problema === "Falta código" && r.articulo ? "" : r.problema) || (!r.articulo ? "Vincula o crea el artículo en el catálogo" :
     r.incluir && repetidos.has(clave(r.articulo)) ? "Artículo repetido: deja una fila con su saldo total" :
     r.unidadArchivo && !unidadesCoinciden(r.unidadArchivo, r.articulo.unidad) ? "La unidad del Excel no coincide con el catálogo" :
-    r.articulo.iniciado ? "Ya tiene saldo o movimientos; usa un ajuste" :
+    r.articulo.iniciado && !reiniciar ? "Ya tiene saldo o movimientos; usa un ajuste" :
     r.articulo.tipo === "PRODUCTO_TERMINADO" ? (!Number.isInteger(r.cantidad) ? "PT requiere unidades enteras" : validarLotesIniciales(r.cantidad, r.lotes, corte)) : "")
-  const errorCarga = incluidos.some((r) => !!problema(r)) || new Set(incluidos.map((r) => r.articulo && clave(r.articulo))).size !== incluidos.length
+  const errorInicio = reiniciar && (!inicio?.puede_iniciar || !inicio.token || corte !== "2026-09-30" ||
+    Number(inicio.reservadas) !== 0 || incluidos.length !== revision.length ||
+    !incluidos.some((r) => r.articulo?.tipo === "MATERIA_PRIMA") || !incluidos.some((r) => r.articulo?.tipo === "PRODUCTO_TERMINADO"))
+  const errorCarga = errorInicio || incluidos.some((r) => !!problema(r)) || new Set(incluidos.map((r) => r.articulo && clave(r.articulo))).size !== incluidos.length
 
   async function cargarCatalogo() {
-    const datos = await catalogoKardex()
+    const [datos, estado] = await Promise.all([catalogoKardex(), consultarInicioOctubre()])
     setArticulos(datos.articulos); setLotes(datos.lotes)
+    setInicio(estado)
+    if (estado.activo) { setReiniciar(false); setCorte("2026-09-30") }
     return datos
   }
   useEffect(() => { setCargando(true); void cargarCatalogo().catch((e) => setError(e.message)).finally(() => setCargando(false)) }, [])
@@ -158,8 +166,12 @@ export default function KardexInventario() {
     try {
       const lineas: LineaCargaInicial[] = incluidos.map((r) => ({ tipo: r.articulo!.tipo, articulo_id: r.articulo!.id, cantidad: r.cantidad,
         costo_total: r.costoTotal, lotes: r.lotes.map((l) => ({ cantidad: l.cantidad, lote: l.lote, fecha_produccion: l.fechaProduccion, fecha_vencimiento: l.fechaVencimiento })) }))
-      const resultado = await cargarInventarioInicial(archivo, hash, corte, lineas)
-      setRevision([]); setConfirmarCarga(false); setMensaje(resultado.repetido ? "Este archivo ya se cargó para esa fecha; no se duplicaron existencias." : "Saldos iniciales registrados. Ya puedes revisar cada artículo en el Kardex.")
+      const resultado = reiniciar ? await iniciarOctubre(archivo, hash, corte, lineas, inicio!.token!) : await cargarInventarioInicial(archivo, hash, corte, lineas)
+      setRevision([]); setConfirmarCarga(false); setReiniciar(false)
+      ++peticion.current; setConsulta(null); setSeleccion(""); setFormulario(false)
+      setMensaje(resultado.repetido ? "La carga ya estaba confirmada; no se duplicaron existencias." : reiniciar ?
+        "Octubre iniciado. El Excel es el único saldo inicial; el inventario anterior quedó respaldado. Ahora registra los movimientos desde el 01/10." :
+        "Saldos iniciales registrados. Ya puedes revisar cada artículo en el Kardex.")
       await cargarCatalogo()
     } catch (e) { setError((e as Error).message) } finally { setGuardando(false) }
   }
@@ -171,11 +183,25 @@ export default function KardexInventario() {
     <nav><button disabled={guardando} className={vista === "KARDEX" ? "activo" : ""} onClick={() => setVista("KARDEX")}>Revisar artículos</button>
       <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Cargar saldo inicial</button></nav>
     {error && <p role="alert" className="error">{error}</p>}{mensaje && <p role="status" className="exito">{mensaje}</p>}
+    {inicio?.activo && <section><p>Inicio operativo: 01/10/2026 · Saldo inicial: 30/09/2026. Inventario en reconstrucción: el saldo será provisional mientras completas los movimientos de octubre.</p>
+      {inicio.puede_descargar && <button disabled={guardando} onClick={() => void descargarRespaldoInicio(inicio.respaldo_id!).catch((e) => setError(e.message))}>Descargar respaldo anterior</button>}</section>}
     {vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
       <p>Los artículos se vinculan automáticamente por código. Revisa las filas pendientes, las sucursales y las unidades.</p>
       <p>Para producto terminado se genera un lote de referencia y se usa el cierre como fecha de producción estimada. El vencimiento se calcula con la vida útil del SKU en el catálogo. Puedes corregir las fechas y dividir la cantidad entre lotes.</p>
-      <p>La carga incorpora saldos al Kardex y PT al inventario existente. No sobrescribe artículos con movimientos ni sustituye la importación de costos de Compras.</p>
-      <div className="campos"><label>Fecha del cierre<input type="date" max={hoy()} value={corte} disabled={guardando} onChange={(e) => {
+      <p>La carga habitual añade saldos y bloquea artículos con movimientos. La opción de inicio de octubre respalda y sustituye el inventario anterior. La carga no sustituye la importación de costos de Compras.</p>
+      {!inicio?.activo && <div className="confirmacion"><h3>Empezar desde octubre</h3>
+        <p>El Excel completo del 30/09 será el único saldo inicial de MP y PT. Se respaldarán los lotes y movimientos anteriores, que dejarán de sumar al stock. Los artículos que no aparecen en el Excel quedarán sin existencias anteriores. Pedidos, despachos, fórmulas y catálogos se conservan.</p>
+        {inicio?.instalado === false ? <p className="pendiente">Instala la actualización de inicio de octubre en la base de datos para habilitar esta opción.</p> :
+          inicio?.puede_iniciar ? <><p>Se archivarán {inicio.lotes} lotes y {inicio.movimientos} movimientos. Un reinicio confirmado no se puede repetir con otro archivo.</p>
+            {!!Number(inicio.reservadas) && <p className="pendiente">Hay {numero(Number(inicio.reservadas))} unidades reservadas. Libera las reservas desde los pedidos y pulsa Actualizar.</p>}
+            <label className="check"><input type="checkbox" checked={reiniciar} disabled={guardando || cargando || !!Number(inicio.reservadas)} onChange={(e) => {
+              setReiniciar(e.target.checked); setConfirmarCarga(false); setUnidadConfirmada(false)
+              if (e.target.checked) {
+                setCorte("2026-09-30"); setRevision((filas) => filas.map((r) => ({ ...r, incluir: true, lotes: actualizarCorteLotes(r.lotes, r.articulo, "2026-09-30") })))
+              }
+            }} />Usar este Excel completo para iniciar octubre y respaldar el inventario anterior.</label></> : <p>Esta operación está disponible para un administrador.</p>}
+      </div>}
+      <div className="campos"><label>Fecha del cierre<input type="date" max={hoy()} value={corte} disabled={guardando || reiniciar || inicio?.activo} onChange={(e) => {
         const fechaCorte = e.target.value; setCorte(fechaCorte); setConfirmarCarga(false)
         setRevision((filas) => filas.map((r) => ({ ...r, lotes: actualizarCorteLotes(r.lotes, r.articulo, fechaCorte) })))
       }} /></label>
@@ -184,7 +210,7 @@ export default function KardexInventario() {
       {!!revision.length && <><p>{archivo} · {incluidos.length} filas seleccionadas. Desmarca filas de otras sucursales; no se excluyen silenciosamente.</p>
         <label className="check"><input type="checkbox" checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)} />Mostrar solo pendientes ({revision.filter((r) => !!problema(r)).length})</label>
         <div className="tabla"><table><thead><tr><th>Cargar</th><th>Hoja / fila / sucursal</th><th>Artículo del Excel</th><th>Stock</th><th>Artículo vinculado / unidad</th><th>Revisión</th></tr></thead>
-          <tbody>{revision.map((r, i) => soloPendientes && !problema(r) ? null : <tr key={i}><td><input aria-label={`Incluir fila ${r.fila} de ${r.hoja}`} type="checkbox" checked={r.incluir} disabled={guardando} onChange={(e) => cambiarFila(i, { incluir: e.target.checked })} /></td>
+          <tbody>{revision.map((r, i) => soloPendientes && !problema(r) ? null : <tr key={i}><td><input aria-label={`Incluir fila ${r.fila} de ${r.hoja}`} type="checkbox" checked={r.incluir} disabled={guardando || reiniciar} onChange={(e) => cambiarFila(i, { incluir: e.target.checked })} /></td>
             <td>{r.hoja} / {r.fila}<small>{r.sucursal || "Sin sucursal"}</small></td><td>{r.codigo || "Sin código"}<small>{r.nombre}</small></td><td>{Number.isFinite(r.cantidad) ? numero(r.cantidad) : "Sin cantidad válida"}<small>{r.unidadArchivo || "Unidad no indicada"}</small></td>
             <td><select disabled={guardando} value={r.articulo ? clave(r.articulo) : ""} onChange={(e) => {
               const a = articulos.find((item) => clave(item) === e.target.value) || null
@@ -204,10 +230,10 @@ export default function KardexInventario() {
             </td><td className={problema(r) ? "pendiente" : ""}>{problema(r) || "Listo"}</td></tr>)}</tbody></table></div>
         {errorCarga && <p className="pendiente">Completa las filas seleccionadas. Cada artículo debe aparecer una sola vez, con su saldo total.</p>}
         <label className="check"><input type="checkbox" checked={unidadConfirmada} disabled={guardando} onChange={(e) => { setUnidadConfirmada(e.target.checked); setConfirmarCarga(false) }} />Revisé las sucursales y las cantidades están en la unidad indicada para cada artículo.</label>
-        {confirmarCarga ? <div className="confirmacion"><p>Se registrarán {incluidos.length} saldos al cierre del {corte}. Las filas desmarcadas quedan fuera de la carga.</p>
-          <button className="principal" disabled={guardando || errorCarga || !unidadConfirmada} onClick={() => void cargarInicial()}>{guardando ? "Guardando…" : "Confirmar carga"}</button>
+        {confirmarCarga ? <div className="confirmacion"><p>{reiniciar ? `Se respaldará y sustituirá el inventario anterior por las ${incluidos.length} filas de este Excel al 30/09/2026. Después solo sumarán los movimientos que registres desde el 01/10.` : `Se registrarán ${incluidos.length} saldos al cierre del ${corte}. Las filas desmarcadas quedan fuera de la carga.`}</p>
+          <button className="principal" disabled={guardando || errorCarga || !unidadConfirmada} onClick={() => void cargarInicial()}>{guardando ? "Guardando…" : reiniciar ? "Confirmar inicio de octubre" : "Confirmar carga"}</button>
           <button disabled={guardando} onClick={() => setConfirmarCarga(false)}>Volver a revisar</button></div> :
-          <button className="principal" disabled={errorCarga || !incluidos.length || !unidadConfirmada || !corte || guardando} onClick={() => setConfirmarCarga(true)}>Revisar y cargar saldos</button>}
+          <button className="principal" disabled={errorCarga || !incluidos.length || !unidadConfirmada || !corte || guardando} onClick={() => setConfirmarCarga(true)}>{reiniciar ? "Revisar inicio de octubre" : "Revisar y cargar saldos"}</button>}
       </>}
     </section> : <>
       <section><div className="campos"><label>Inventario<select disabled={guardando} value={tipo} onChange={(e) => { setTipo(e.target.value as TipoInventario); setSeleccion(""); setFormulario(false) }}>
@@ -220,7 +246,7 @@ export default function KardexInventario() {
       {articulo && <section><h2>{articulo.nombre}</h2><div className="saldos"><span>Stock actual: {numero(articulo.saldo)} {articulo.unidad}</span>
         {consulta && <><span>Antes del rango: {numero(consulta.saldo_anterior)}</span><span>Al cierre del rango: {numero(consulta.saldo_cierre)}</span></>}</div>
         {!articulo.iniciado && <p className="pendiente">Este artículo todavía no tiene saldo inicial en el Kardex.</p>}
-        <p>Los saldos existentes de PT se registran desde la activación del Kardex. Las órdenes históricas y los consumos por receta todavía no generan movimientos de materias primas automáticamente.</p>
+        <p>{inicio?.activo ? "El stock parte exclusivamente del Excel al 30/09 y de los movimientos registrados después." : "Los saldos existentes de PT se registran desde la activación del Kardex."} Las órdenes históricas y los consumos por receta todavía no generan movimientos de materias primas automáticamente.</p>
         <button className="principal" disabled={cargando || guardando || !articulo.iniciado} onClick={abrirMovimiento}>Registrar entrada, salida o conteo</button>
         {formulario && <div className="movimiento"><h3>Nuevo movimiento · {articulo.unidad}</h3><div className="campos">
           {articulo.tipo === "PRODUCTO_TERMINADO" && <label>Lote<select value={loteId} disabled={guardando} onChange={(e) => setLoteId(e.target.value)}><option value="">Elegir lote…</option>
