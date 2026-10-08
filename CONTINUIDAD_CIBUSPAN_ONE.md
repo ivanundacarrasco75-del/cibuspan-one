@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Guía de trabajo para el siguiente chat. Estado documentado: 7 de octubre de 2026. Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
+Guía de trabajo para el siguiente chat. Estado documentado: 8 de octubre de 2026. Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 
 ## Proyecto y forma de trabajar
 
@@ -141,10 +141,24 @@ La vista previa muestra fecha del pedido si el archivo la aporta y fecha de entr
 
 Pendientes:
 
-1. Publicar este frontend y cargar estos documentos en la sesión de Iván. Leerlos y pasar pruebas no significa que ya estén guardados en Supabase. Revisar el número de pedidos ya existentes en la vista previa y errores de catálogo/unidad por cliente. No crear aliases ficticios: el CSV usa también EAN Santa María `7861169008213` (sanduchero integral) y TUTI usa `7868304262219T`.
+1. Iván confirmó el 08/10: “YA FUNCIONA LA CARGA DE PEDIDOS PERFECTO”. La carga de pedidos se considera funcional según su confirmación. El agente no consultó la base para comprobar qué pedidos quedaron guardados. Revisar el número de pedidos ya existentes en la vista previa y errores de catálogo/unidad por cliente. No crear aliases ficticios: el CSV usa también EAN Santa María `7861169008213` (sanduchero integral) y TUTI usa `7868304262219T`.
 2. Confirmar cuáles pedidos ya fueron entregados y sus fechas/cantidades/lotes reales; reconstruir despachos sin duplicar salidas ni volver a tratar los entregados como pedidos pendientes definitivos.
 3. Cargar producciones, compras y otras salidas de octubre y conciliar el Kardex. El consumo automático de MP por producciones históricas todavía no se ha completado. Los micros creados desde el saldo inicial no crean por sí solos sus recetas de producción.
 4. Conservar el respaldo y el inicio único: no reiniciar otra vez el inventario para quitar errores de pedidos.
+
+### OP confirmadas y comparación de consumos, 08/10/2026
+
+Iván confirmó que funcionan los pedidos y quiere reconstruir producción y despachos del 1 al 8 de octubre sin exigir lotes físicos históricos; empezar con lotes reales desde el 09/10/2026. El criterio propuesto es referencias históricas por SKU/fecha, conservar las OP y sus consumos, contar el saldo físico al cierre y no hacer un nuevo reinicio del inventario.
+
+Archivo revisado: `OP OCT 1-8.pdf` (Library `libfile_0e752d7a9b508191b02f0fc1e7327ae7`). Es ÓRDENES DE PRODUCCIÓN CONFIRMADAS (EGRESOS DE MATERIA PRIMA), distinto al reporte de OP liquidadas. La cabecera pide 01–08/10, pero sus 218 líneas y 28 OP corresponden solo al 01–03/10: 25 OP de PT (12 SKU) y 3 de MICRO ROLLO CHOCOLATE. Las fundas indican 6.764 unidades de PT; esto es una inferencia de empaque consumido, no una declaración independiente de producción neta. Micros: 159,201 kg (sumando ingredientes por OP, redondeados); costo total de líneas 4.935,80601 USD frente a 4.935,80600 impreso. No sumar la columna general Cantidad como PT: mezcla kilos y empaques. Totales de cantidad 9.882,54174 frente a 9.882,54173 impreso sirven únicamente para controlar lectura, no para stock.
+
+Se agregó lector de PDF confirmado y comparación de consumo en la vista previa de Producción > Importar OP / revisar consumos. Se mantiene el lector de OP liquidadas y el Excel. El lector confirmado conserva las 218 líneas, exige números consecutivos y controles contra totales del PDF y rechaza una lectura incompleta. PDF.js a veces une número de fila+sucursal y cantidad+código; se separan sin convertir vacíos en cero. Especialmente las fundas de TUTI (1.920 y 1.010 unidades) deben leerse enteras aunque empiecen a la izquierda de otras cantidades. Un OP puede contener varios SKU y la agrupación sigue OP+SKU.
+
+“Comparar consumos con recetas” consulta recetas FM vigentes en la sesión del usuario: vínculos reales de SKU a fórmula, versiones vigentes, fórmula final, recetas de micro, materiales y empaques. No equipara receta vigente hoy a receta históricamente usada en cada OP. Las cantidades se escalan al rendimiento de SKU o al kilo producido de micro. Rollo suma sus dos fórmulas y agrega empaque una sola vez. Se comparan los micros consumidos en PT como mezcla; las OP que producen micro comparan sus ingredientes por composición, evitando presentar su consumo nuevamente como consumo directo de PT. Código contable con ceros iniciales vincula si es único; no se crean aliases ni se adivina una receta o micro ambiguo. Una receta estructuralmente incompleta no genera una diferencia contra un subtotal. Los componentes no reportados se muestran sin cantidad real comprobada; los sin referencia no generan diferencias ficticias. Se usa tolerancia de 1% o 0,002 kg. “Descargar comparación” genera un JSON con referencias y resultados para que Iván pueda adjuntarlo a este chat.
+
+Comprobado localmente: lectura del PDF real con PDF.js, 218 líneas, 28 OP, totales e inferencia de 6.764 unidades; 7 pruebas de parser y comparación y compilación. El agente no tiene sesión de Supabase para consultar las recetas vigentes ni afirmar diferencias definitivas de la base. El código SQL versionado contiene recetas iniciales, pero no prueba que sigan iguales después de cambios en la app.
+
+Esta actualización no instala SQL ni modifica stock: la importación existente sigue alimentando el historial/dashboard. Falta publicar el frontend, ejecutar la comparación en la sesión real y revisar referencias pendientes. Para reconstruir el inventario faltan los documentos o confirmación de ausencia de producción del 04–08/10 y la cantidad neta de PT; luego completar el puente de OP a stock y consumos con idempotencia, validación de saldos y revisión cronológica de micros/compras. No descontar dos veces sus ingredientes y no decir que comparar equivale a cargar stock. Los despachos históricos todavía necesitan las salidas reales por pedido.
 
 ## Comunicación con Iván
 

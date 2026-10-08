@@ -32,6 +32,8 @@ export type OrdenProduccionImportar = {
 }
 
 export type ResultadoOrdenesProduccionExcel = {
+  fuente?: "CONFIRMADAS"
+  advertencias?: string[]
   ordenes: OrdenProduccionImportar[]
   fechaDesde: string
   fechaHasta: string
@@ -219,7 +221,8 @@ export function procesarFilasOrdenesProduccion(
       throw new Error(`La fila ${indice + 1} contiene una cantidad o costo inválido.`)
     }
 
-    const existente = grupos.get(numeroOrden)
+    const clave = `${numeroOrden}|${productoCodigo}`
+    const existente = grupos.get(clave)
     const grupo = existente ?? {
       numeroOrden,
       sucursalCodigo: texto(fila[columnas.sucursalCodigo]),
@@ -249,7 +252,7 @@ export function procesarFilasOrdenesProduccion(
       costo_total: redondear(costoTotal),
       es_empaque: /^FUNDA\b/i.test(materiaNombre),
     })
-    grupos.set(numeroOrden, grupo)
+    grupos.set(clave, grupo)
     filasValidas += 1
   }
 

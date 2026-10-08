@@ -1,5 +1,6 @@
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist"
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url"
+import { interpretarOrdenesConfirmadasPdf, type TextoOpPdf } from "./ordenesConfirmadasPdf"
 
 import type {
   OrdenProduccionImportar,
@@ -92,6 +93,20 @@ export async function leerPdfOrdenesProduccion(
   archivo: File,
 ): Promise<ResultadoOrdenesProduccionExcel> {
   const documento = await getDocument({ data: await archivo.arrayBuffer() }).promise
+  const primeraPagina = await documento.getPage(1)
+  const primerContenido = await primeraPagina.getTextContent()
+  const titulo = primerContenido.items.filter((item) => "str" in item).map((item) => "str" in item ? item.str : "").join(" ")
+  if (/EGRESOS DE MATERIA PRIMA/i.test(titulo)) {
+    const paginas: TextoOpPdf[][] = []
+    for (let n = 1; n <= documento.numPages; n += 1) {
+      const contenido = n === 1 ? primerContenido : await (await documento.getPage(n)).getTextContent()
+      paginas.push(contenido.items.filter((item) => "str" in item && item.str.trim()).map((item) => {
+        if (!("str" in item)) throw new Error("Texto ilegible en el PDF.")
+        return { texto: item.str.trim(), x: item.transform[4], y: item.transform[5] }
+      }))
+    }
+    return interpretarOrdenesConfirmadasPdf(paginas)
+  }
   const ordenes: OrdenProduccionImportar[] = []
   let fechaCorteDesde = ""
   let fechaCorteHasta = ""

@@ -12,6 +12,7 @@ import {
   type ResultadoOrdenesProduccionExcel,
 } from "../../utils/ordenesProduccionExcel"
 import { leerPdfOrdenesProduccion } from "../../utils/ordenesProduccionPdf"
+import ComparacionConsumosOp from "./ComparacionConsumosOp"
 
 type Props = {
   alCompletar: () => Promise<void> | void
@@ -147,13 +148,13 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
     <section className="pro-import">
       <style>{css}</style>
       <button type="button" className="pro-import-toggle" onClick={() => setAbierto((actual) => !actual)}>
-        {abierto ? "Cerrar importación" : "Importar OP liquidadas"}
+        {abierto ? "Cerrar importación" : "Importar OP / revisar consumos"}
       </button>
 
       {abierto && (
         <div className="pro-import-body">
           <header>
-            <div><span>IMPORTACIÓN DE PRODUCCIÓN REAL</span><h3>OP liquidadas del sistema contable</h3><p>Carga el PDF de OP liquidadas. También se mantiene compatible el Excel detallado anterior. Actualiza historial y dashboard sin sumar inventario disponible.</p></div>
+            <div><span>IMPORTACIÓN DE PRODUCCIÓN REAL</span><h3>OP del sistema contable</h3><p>Carga OP liquidadas o confirmadas con egresos de materias primas, en PDF o Excel. Actualiza historial y dashboard sin sumar inventario disponible ni descontar materias primas.</p></div>
             <button type="button" onClick={() => inputRef.current?.click()} disabled={leyendo || importando}>{leyendo ? "Validando…" : "Seleccionar PDF de OP"}</button>
             <input ref={inputRef} type="file" accept=".pdf,.xlsx,.xls" hidden onChange={seleccionarArchivo} />
           </header>
@@ -164,6 +165,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
           {resultado && (
             <>
               <div className="pro-import-file"><strong>{archivo?.name}</strong><span>{fecha(resultado.fechaDesde)}–{fecha(resultado.fechaHasta)}</span></div>
+              {resultado.advertencias?.map((aviso, indice) => <div className="pro-import-warning" key={indice}>{aviso}</div>)}
               <section className="pro-import-kpis">
                 <article><span>Registros de OP</span><strong>{numero(resultado.ordenes.length)}</strong><small>{numero(resultado.filas)} filas reconocidas</small></article>
                 <article><span>Producto terminado</span><strong>{numero(resultado.ordenesSku)}</strong><small>{numero(resultado.unidadesSku, 0)} Unid.</small></article>
@@ -173,6 +175,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
               </section>
 
               {noRegistrados.length > 0 && <div className="pro-import-warning">SKU no vinculados al catálogo actual: {noRegistrados.join(", ")}. Se conservarán en el historial con el código y nombre del archivo.</div>}
+              <ComparacionConsumosOp ordenes={resultado.ordenes} />
 
               <div className="pro-import-actions">
                 <p>La clave para evitar duplicados es OP + SKU. Volver a cargar el archivo actualiza los registros existentes.</p>
