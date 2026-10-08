@@ -12,6 +12,7 @@ export type DiferenciaConsumoOp = {
 }
 export type ComparacionOrdenOp = {
   orden: string; producto: string; fecha: string; version: string; advertencias: string[]; lineas: DiferenciaConsumoOp[]
+  fecha_registro: string; fecha_fin_original: string; observaciones: string
 }
 
 export function codigoMateriaOp(valor: string) {
@@ -26,6 +27,7 @@ export function nombreMicroOp(valor: string) {
 export function compararConsumosOp(orden: OrdenProduccionImportar, referencia?: ReferenciaRecetaOp): ComparacionOrdenOp {
   const resultado: ComparacionOrdenOp = {
     orden: orden.numero_orden, producto: orden.producto_nombre, fecha: orden.fecha_produccion,
+    fecha_registro: orden.fecha_registro, fecha_fin_original: orden.fecha_fin_original, observaciones: orden.observaciones,
     version: referencia?.version ?? "Sin receta vinculada", advertencias: [...(referencia?.advertencias ?? [])], lineas: [],
   }
   if (!referencia) resultado.advertencias.push("No se encontró una receta vigente vinculada; no se inventan cantidades teóricas.")

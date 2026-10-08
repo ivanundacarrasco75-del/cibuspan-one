@@ -160,6 +160,16 @@ Comprobado localmente: lectura del PDF real con PDF.js, 218 líneas, 28 OP, tota
 
 Esta actualización no instala SQL ni modifica stock: la importación existente sigue alimentando el historial/dashboard. Falta publicar el frontend, ejecutar la comparación en la sesión real y revisar referencias pendientes. Para reconstruir el inventario faltan los documentos o confirmación de ausencia de producción del 04–08/10 y la cantidad neta de PT; luego completar el puente de OP a stock y consumos con idempotencia, validación de saldos y revisión cronológica de micros/compras. No descontar dos veces sus ingredientes y no decir que comparar equivale a cargar stock. Los despachos históricos todavía necesitan las salidas reales por pedido.
 
+### Fechas reales y consumos históricos: aclaración del 08/10/2026
+
+Iván aclaró que los consumos a conservar son los de las OP, pues las recetas vigentes de CIBUSPAN ONE pueden estar desactualizadas. No sustituir los consumos reportados por los teóricos ni actualizar recetas automáticamente a partir de diferencias. El JSON `comparacion_consumos_OP.json` consultado el 08/10 mostró 50 diferencias repetidas entre OP, 25 filas de agua no reportada y 40 consumos sin referencia; varios micros tienen nombres diferentes entre catálogo y fórmula. Integral se comparó contra v4 actual. Manjar mostró un patrón aproximado de mitad de consumo para las fundas, pero esto no demuestra cuál dato es incorrecto.
+
+Iván dijo que el 01/10 no se produjo Manjar. El documento sí registra OP 26100102 con ambas fechas contables 01/10 y 96 fundas. Después explicó que las OP se ingresan al sistema contable uno o dos días después de producirse; por tanto las fechas del documento no necesariamente son las reales. La fecha real de esa OP sigue sin confirmarse. No anularla, moverla a un día inventado ni restar automáticamente uno o dos días a todas las OP. En operación regular de CIBUSPAN ONE se pretende registrar producción el mismo día, usando la sugerencia existente según pedidos.
+
+Se agregó edición de fecha de producción por OP+SKU en la vista previa de importación histórica. Conserva fecha_registro y fecha_fin_original; guarda una observación de corrección o fecha provisional, recalcula rango y orden de la vista previa y comparación, y usa las fechas revisadas en el RPC existente. Los días vacíos o imposibles impiden enviar el lote. El JSON de comparación conserva también las fechas contables y las observaciones. Reimportar sigue actualizando por OP+SKU sin crear otra OP. No hay migración SQL nueva: estos campos ya existen en el historial. Esta edición aún no carga PT ni descuenta MP del Kardex. La fecha de Manjar permanece como propuesta del documento hasta que Iván indique el día real. Falta publicar el frontend; el agente no lo despliega por guardar un commit.
+
+Validación de esta edición: 10 pruebas de lectura, comparación y revisión de fechas aprobadas; compilación aprobada. No se ha probado el guardado en la base real desde la sesión del agente.
+
 ## Comunicación con Iván
 
 Responder en español, breve y sin negrillas. Explicar la acción y el resultado en términos operativos. Dar avisos de avance claros durante el trabajo. No repetir todo el historial ni forzar nuevos pasos de aprobación cuando ya están autorizados. Ante un bloqueo, explicar la causa concreta y lo que falta; nunca inventar resultados.

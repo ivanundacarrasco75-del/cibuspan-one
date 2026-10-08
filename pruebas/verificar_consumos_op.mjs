@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { interpretarOrdenesConfirmadasPdf } from '../src/utils/ordenesConfirmadasPdf.ts'
 import { compararConsumosOp } from '../src/utils/comparacionConsumosOp.ts'
 import { procesarFilasOrdenesProduccion } from '../src/utils/ordenesProduccionExcel.ts'
+import { ajustarFechasOrdenesHistoricas, claveOrdenHistorica } from '../src/utils/fechasOrdenesHistoricas.ts'
 
 const item = (texto,x,y) => ({texto,x,y})
 const row = (numero,op,sku,cantidad,codigo,nombre,y,costo='1',total=cantidad) => [
@@ -59,4 +60,35 @@ test('Una misma OP con dos SKU conserva ambos registros independientes',()=>{
  const linea=(sku)=>['001','MATRIZ','01/10/2026','01/10/2026','120U',sku,'ROLLO','26100101',120,'34','FUNDA ROLLO',1,120]
  const r=procesarFilasOrdenesProduccion([encabezado,linea('7868304262219'),linea('7868304262219T')])
  assert.equal(r.ordenes.length,2);assert.equal(r.unidadesSku,240)
+})
+
+const historico = () => procesarFilasOrdenesProduccion([
+ ['Cod Suc','Sucursal','Fecha Reg','Fecha Fin','Descripción','Cód Prod Term','Nombre Prod Terminado','No Orden','Cant','Cod MP','Nombre de la MP','Costo Unit','Costo Total'],
+ ['001','MATRIZ','03/10/2026','03/10/2026','96U','7868304276322','MANJAR','26100304',192,'86','FUNDA MANJAR',1,192],
+ ['001','MATRIZ','03/10/2026','03/10/2026','96U','7868304276322','MANJAR','26100304',17.018,'11','HARINA',1,17.018],
+ ['001','MATRIZ','03/10/2026','03/10/2026','96U','7868304262202','OTRO SKU','26100304',96,'86','FUNDA MANJAR',1,96],
+])
+test('Corregir el día real conserva fechas contables, consumos, costos y clave OP+SKU',()=>{
+ const origen=historico(), copia=structuredClone(origen), clave=claveOrdenHistorica(origen.ordenes[0])
+ const fechas={ [clave]:'2026-10-01' }, r=ajustarFechasOrdenesHistoricas(origen,fechas)
+ assert.deepEqual(origen,copia)
+ const a=r.ordenes.find(o=>o.producto_codigo==='7868304276322'), b=r.ordenes.find(o=>o.producto_codigo==='7868304262202')
+ assert.equal(a.fecha_produccion,'2026-10-01');assert.equal(a.fecha_registro,'2026-10-03');assert.equal(a.fecha_fin_original,'2026-10-03')
+ assert.deepEqual(a.detalles,copia.ordenes[0].detalles);assert.equal(a.unidades_producidas,192);assert.equal(a.costo_total,copia.ordenes[0].costo_total)
+ assert.equal(b.fecha_produccion,'2026-10-03');assert.equal(r.fechaDesde,'2026-10-01');assert.equal(r.fechaHasta,'2026-10-03')
+ assert.match(a.observaciones,/corregida/);assert.match(b.observaciones,/provisional/)
+ assert.deepEqual(ajustarFechasOrdenesHistoricas(origen,fechas),r)
+ const comparacion=compararConsumosOp(a)
+ assert.equal(comparacion.fecha,'2026-10-01');assert.equal(comparacion.fecha_registro,'2026-10-03');assert.equal(comparacion.fecha_fin_original,'2026-10-03')
+})
+test('Sin fecha real conocida no se descuentan automáticamente uno o dos días',()=>{
+ const origen=historico(), r=ajustarFechasOrdenesHistoricas(origen,{})
+ assert.ok(r.ordenes.every(o=>o.fecha_produccion==='2026-10-03'))
+ assert.equal(r.unidadesSku,origen.unidadesSku);assert.equal(r.costoTotal,origen.costoTotal)
+})
+test('Una fecha vacía o imposible bloquea el lote completo; acepta días reales anteriores al corte contable',()=>{
+ const origen=historico(), clave=claveOrdenHistorica(origen.ordenes[0])
+ for(const fecha of ['', '2026-02-30','2026-13-01','01/10/2026']) assert.throws(()=>ajustarFechasOrdenesHistoricas(origen,{[clave]:fecha}),/fecha válida/)
+ assert.equal(ajustarFechasOrdenesHistoricas(origen,{[clave]:'2026-09-30'}).fechaDesde,'2026-09-30')
+ assert.equal(ajustarFechasOrdenesHistoricas(origen,{[clave]:'2024-02-29'}).fechaDesde,'2024-02-29')
 })

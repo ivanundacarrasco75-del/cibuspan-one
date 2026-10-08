@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   importarLoteOrdenesProduccionDb,
@@ -13,6 +13,7 @@ import {
 } from "../../utils/ordenesProduccionExcel"
 import { leerPdfOrdenesProduccion } from "../../utils/ordenesProduccionPdf"
 import ComparacionConsumosOp from "./ComparacionConsumosOp"
+import { ajustarFechasOrdenesHistoricas, claveOrdenHistorica } from "../../utils/fechasOrdenesHistoricas"
 
 type Props = {
   alCompletar: () => Promise<void> | void
@@ -45,6 +46,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
   const [abierto, setAbierto] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [resultado, setResultado] = useState<ResultadoOrdenesProduccionExcel | null>(null)
+  const [fechasProduccion, setFechasProduccion] = useState<Record<string, string>>({})
   const [hash, setHash] = useState("")
   const [codigosRegistrados, setCodigosRegistrados] = useState<string[]>([])
   const [importaciones, setImportaciones] = useState<ImportacionOrdenesProduccionDb[]>([])
@@ -76,6 +78,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
     const seleccionado = evento.target.files?.[0] ?? null
     setArchivo(seleccionado)
     setResultado(null)
+    setFechasProduccion({})
     setHash("")
     setMensaje("")
     setError("")
@@ -104,22 +107,34 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
     ? resultado.skus.filter((codigo) => !codigosRegistrados.includes(codigo))
     : []
 
+  const revisionFechas = useMemo(() => {
+    if (!resultado) return { datos: null, error: "" }
+    try { return { datos: ajustarFechasOrdenesHistoricas(resultado, fechasProduccion), error: "" } }
+    catch (err) { return { datos: null, error: err instanceof Error ? err.message : "Revisa las fechas de producción." } }
+  }, [resultado, fechasProduccion])
+
+  function cambiarFecha(clave: string, valor: string) {
+    setFechasProduccion((actual) => ({ ...actual, [clave]: valor }))
+    setMensaje(""); setError("")
+  }
+
   async function importar() {
-    if (!archivo || !resultado || !hash || importando) return
+    if (!archivo || !revisionFechas.datos || !hash || importando) return
+    const ordenes = revisionFechas.datos.ordenes
     setImportando(true)
     setError("")
     setMensaje("")
     setProgreso(0)
 
     const tamanoLote = 100
-    const lotes = Math.ceil(resultado.ordenes.length / tamanoLote)
+    const lotes = Math.ceil(ordenes.length / tamanoLote)
     let nuevas = 0
     let actualizadas = 0
 
     try {
       for (let indice = 0; indice < lotes; indice += 1) {
         const desde = indice * tamanoLote
-        const lote = resultado.ordenes.slice(desde, desde + tamanoLote)
+        const lote = ordenes.slice(desde, desde + tamanoLote)
         const respuesta = await importarLoteOrdenesProduccionDb({
           archivoNombre: archivo.name,
           archivoHash: hash,
@@ -164,7 +179,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
 
           {resultado && (
             <>
-              <div className="pro-import-file"><strong>{archivo?.name}</strong><span>{fecha(resultado.fechaDesde)}–{fecha(resultado.fechaHasta)}</span></div>
+              <div className="pro-import-file"><strong>{archivo?.name}</strong><span>{fecha(revisionFechas.datos?.fechaDesde ?? resultado.fechaDesde)}–{fecha(revisionFechas.datos?.fechaHasta ?? resultado.fechaHasta)}</span></div>
               {resultado.advertencias?.map((aviso, indice) => <div className="pro-import-warning" key={indice}>{aviso}</div>)}
               <section className="pro-import-kpis">
                 <article><span>Registros de OP</span><strong>{numero(resultado.ordenes.length)}</strong><small>{numero(resultado.filas)} filas reconocidas</small></article>
@@ -175,11 +190,27 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
               </section>
 
               {noRegistrados.length > 0 && <div className="pro-import-warning">SKU no vinculados al catálogo actual: {noRegistrados.join(", ")}. Se conservarán en el historial con el código y nombre del archivo.</div>}
-              <ComparacionConsumosOp ordenes={resultado.ordenes} />
+              <section className="pro-import-dates">
+                <h4>Fecha real de producción</h4>
+                <p>Las fechas contables son provisionales: una OP puede registrarse después de producirse. Corrige solo las fechas que conozcas. Se conservan las fechas del documento y todos sus consumos; no se restan días automáticamente.</p>
+                <div className="pro-import-dates-scroll"><table><thead><tr><th>OP / producto</th><th>Registro contable</th><th>Finalización del documento</th><th>Fecha de producción</th><th>Referencia</th></tr></thead><tbody>
+                  {resultado.ordenes.map((orden) => {
+                    const clave = claveOrdenHistorica(orden), valor = fechasProduccion[clave] ?? orden.fecha_produccion
+                    return <tr key={clave}>
+                      <td>{orden.numero_orden}<small>{orden.producto_codigo} · {orden.producto_nombre}</small></td>
+                      <td>{fecha(orden.fecha_registro)}</td><td>{fecha(orden.fecha_fin_original)}</td>
+                      <td><input type="date" aria-label={`Fecha de producción OP ${orden.numero_orden} ${orden.producto_nombre}`} value={valor} disabled={importando} onChange={(e) => cambiarFecha(clave, e.target.value)} /></td>
+                      <td>{valor !== orden.fecha_produccion ? "Corregida" : "Del documento (provisional)"}</td>
+                    </tr>
+                  })}
+                </tbody></table></div>
+                {revisionFechas.error && <div className="pro-import-error">{revisionFechas.error}</div>}
+              </section>
+              {revisionFechas.datos && <ComparacionConsumosOp ordenes={revisionFechas.datos.ordenes} />}
 
               <div className="pro-import-actions">
                 <p>La clave para evitar duplicados es OP + SKU. Volver a cargar el archivo actualiza los registros existentes.</p>
-                <button type="button" onClick={importar} disabled={importando}>{importando ? `Importando ${progreso}%…` : `Importar ${numero(resultado.ordenes.length)} registros`}</button>
+                <button type="button" onClick={importar} disabled={importando || !revisionFechas.datos}>{importando ? `Importando ${progreso}%…` : `Importar ${numero(resultado.ordenes.length)} registros`}</button>
               </div>
               {importando && <div className="pro-progress"><span style={{ width: `${progreso}%` }} /></div>}
             </>
@@ -198,6 +229,7 @@ export default function ImportacionOrdenesHistoricas({ alCompletar }: Props) {
 }
 
 const css = `
+  .pro-import-dates{margin-top:15px;padding:12px;border:1px solid #e9dfda;border-radius:8px;background:white}.pro-import-dates h4{margin:0 0 7px}.pro-import-dates p{font-size:12px;line-height:1.5}.pro-import-dates-scroll{overflow-x:auto}.pro-import-dates table{width:100%;min-width:760px;border-collapse:collapse;font-size:11px}.pro-import-dates th,.pro-import-dates td{text-align:left;padding:9px;border-bottom:1px solid #eee}.pro-import-dates small{display:block;margin-top:4px}.pro-import-dates input{min-height:36px;padding:6px;border:1px solid #c9bdb6;border-radius:5px}
   .pro-import{margin-bottom:18px}.pro-import-toggle{min-height:39px;padding:0 14px;border:1px solid #8f1d24;border-radius:8px;background:#fff;color:#8f1d24;font-weight:850;cursor:pointer}.pro-import-body{margin-top:12px;padding:18px;border:1px solid #eadfd9;border-radius:11px;background:#fffaf7}.pro-import-body>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.pro-import-body header>div>span{color:#f7931e;font-size:9px;font-weight:950;letter-spacing:1.1px}.pro-import-body h3{margin:4px 0;color:#542d2e;font-size:19px}.pro-import-body header p{margin:0;color:#83756f;font-size:10px}.pro-import-body header>button,.pro-import-actions button{min-height:39px;padding:0 14px;border:0;border-radius:7px;background:#8f1d24;color:#fff;font-weight:850;cursor:pointer;white-space:nowrap}.pro-import-body button:disabled{opacity:.6;cursor:wait}.pro-import-error,.pro-import-success,.pro-import-warning{margin-top:13px;padding:11px 12px;border-radius:7px;font-size:10px;font-weight:750}.pro-import-error{background:#fdeaea;color:#ae2831}.pro-import-success{background:#e8f7ed;color:#087b35}.pro-import-warning{border-left:3px solid #d99a28;background:#fff6e2;color:#805b16}.pro-import-file{display:flex;justify-content:space-between;gap:14px;margin-top:14px;padding:10px 12px;border-radius:7px;background:#f3eeeb;color:#5d4e48;font-size:10px}.pro-import-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px}.pro-import-kpis article{padding:12px;border:1px solid #e9dfda;border-top:3px solid #8f1d24;border-radius:8px;background:#fff}.pro-import-kpis article.warning{border-top-color:#d99a28}.pro-import-kpis article.ready{border-top-color:#159447}.pro-import-kpis span,.pro-import-kpis small{display:block;color:#83746e;font-size:8px}.pro-import-kpis span{font-weight:900;text-transform:uppercase}.pro-import-kpis strong{display:block;margin:6px 0 3px;color:#3c2926;font-size:19px}.pro-import-actions{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:13px}.pro-import-actions p{margin:0;color:#83756f;font-size:9px}.pro-progress{height:7px;margin-top:10px;border-radius:99px;background:#eadfda;overflow:hidden}.pro-progress span{display:block;height:100%;background:linear-gradient(90deg,#8f1d24,#f7931e)}.pro-import-history{margin-top:17px;padding-top:12px;border-top:1px solid #eadfda}.pro-import-history h4{margin:0 0 7px;color:#583031}.pro-import-history article{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:8px;border-top:1px solid #eee5e0;font-size:9px}.pro-import-history article strong,.pro-import-history article small{display:block}.pro-import-history article small{margin-top:2px;color:#948681}.pro-import-history article>b{padding:4px 7px;border-radius:99px;font-size:8px}.pro-import-history .ready{background:#e5f6eb;color:#087b35}.pro-import-history .warning{background:#fff3d8;color:#916415}
   @media(max-width:1000px){.pro-import-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.pro-import-body>header,.pro-import-actions{flex-direction:column}.pro-import-body header>button,.pro-import-actions button{width:100%}.pro-import-kpis{grid-template-columns:1fr}.pro-import-file{flex-direction:column}.pro-import-history article{grid-template-columns:1fr}}
 `
