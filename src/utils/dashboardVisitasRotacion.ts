@@ -1,4 +1,5 @@
 import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
+import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 
 export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
 export type OrigenVisitaCampo = "TODOS" | "MERCADERISTA" | "KAM"
@@ -25,6 +26,7 @@ export type RegistroDashboardCampo = {
   cliente_id: string; local_id: string; local_nombre: string
   producto_id: string; producto_codigo: string; producto_nombre: string; responsable_rol: string | null
   georreferencia?: GeorreferenciaCampo | null; fotos_georreferencia?: FotoCampo[]
+  capturas_app?: string[]; lectura_guardada?: Partial<LecturaFavorita>; lector_estado?: string | null
   valores: Record<IndicadorCampo, number | null>
 }
 export type PuntoSemanaCampo = {

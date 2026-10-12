@@ -5,6 +5,7 @@ import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo 
 export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
 
 export type LecturaFavorita = {
+  texto_ocr?: string
   local_nombre: string | null
   codigo_barras: string | null
   codigo_referencia: string | null
@@ -197,6 +198,14 @@ export async function analizarCapturasFavorita(
 ) {
   const { leerCapturasFavoritaOcr } = await import("../utils/ocrFavorita")
   return leerCapturasFavoritaOcr(archivos, onProgreso)
+}
+
+export async function completarLecturaVisitaCampo(id: string, actualizadoEn: string, datos: Record<string, unknown>) {
+  const { data, error } = await supabase.rpc("com_kpi_campo_completar_lectura", {
+    p_registro_id: id, p_actualizado_en: actualizadoEn, p_datos: datos,
+  })
+  if (error) throw new Error(`No se pudieron completar los datos: ${error.message}`)
+  if (data?.id !== id) throw new Error("La base no confirmó la actualización de esta visita.")
 }
 
 export type GuardarVisitaCampo = {

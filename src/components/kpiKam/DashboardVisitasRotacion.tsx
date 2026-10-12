@@ -6,6 +6,7 @@ import {
 } from "../../utils/dashboardVisitasRotacion"
 import "./DashboardVisitasRotacion.css"
 import { FotosCampo, UbicacionCampo } from "./UbicacionCampo"
+import RecuperarLecturaVisita from "./RecuperarLecturaVisita"
 
 const VACIO: DatosDashboardCampo = { clientes: [], locales: [], productos: [], registros: [] }
 const COLORES = ["#64748b", "#a78bfa", "#38bdf8", "#fb923c", "#22d3ee"]
@@ -23,6 +24,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
   const [datos, setDatos] = useState(VACIO)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
+  const [mensaje, setMensaje] = useState("")
   const [actualizacion, setActualizacion] = useState(0)
   const ventana = useMemo(() => {
     try {
@@ -74,6 +76,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
       <button type="button" disabled={cargando || !!ventana.error} onClick={() => setActualizacion((v) => v + 1)}>Actualizar</button>
     </div>
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
+    {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
     {!cargando && !ventana.error && !error && <>
       <div className="vr-contexto"><span>{clientesTexto} / {localTexto}</span><span>{config.nombre} · {config.unidad}</span></div>
@@ -96,7 +99,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
         const distinto = s.semanas[4].locales_con_dato !== s.semanas[3].locales_con_dato
         return <tr key={s.id}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small></td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
       })}</tbody></table></div></section>
-      <details className="vr-revisiones"><summary>Ver registros de visitas de la semana seleccionada ({revisiones.length})</summary><div className="vr-tabla-scroll"><table><thead><tr><th>Fecha</th><th>Local</th><th>SKU</th><th>Tipo de visita</th><th>{config.nombre}</th><th>Evidencia</th></tr></thead><tbody>{[...revisiones].sort((a, b) => b.visitado_en.localeCompare(a.visitado_en)).map((r) => <tr key={r.id}><td>{r.fecha}</td><td>{r.local_nombre}</td><td>{r.producto_nombre}</td><td>{r.responsable_rol ?? "Sin identificar"}</td><td>{numero(r.valores[indicador])} {config.unidad}</td><td><details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details></td></tr>)}</tbody></table></div></details>
+      <details className="vr-revisiones"><summary>Ver registros de visitas de la semana seleccionada ({revisiones.length})</summary><div className="vr-tabla-scroll"><table><thead><tr><th>Fecha</th><th>Local</th><th>SKU</th><th>Tipo de visita</th><th>{config.nombre}</th><th>Capturas y evidencia</th></tr></thead><tbody>{[...revisiones].sort((a, b) => b.visitado_en.localeCompare(a.visitado_en)).map((r) => <tr key={r.id}><td>{r.fecha}</td><td>{r.local_nombre}</td><td>{r.producto_nombre}</td><td>{r.responsable_rol ?? "Sin identificar"}</td><td>{numero(r.valores[indicador])} {config.unidad}</td><td><small>{r.lector_estado ?? "Estado del lector sin registrar"}</small><RecuperarLecturaVisita registro={r} locales={datos.locales} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} /><details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details></td></tr>)}</tbody></table></div></details>
     </>}
   </section>
 }

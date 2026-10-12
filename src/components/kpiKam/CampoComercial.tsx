@@ -16,6 +16,7 @@ import {
 import KpiKamCobertura from "./KpiKamCobertura"
 import SupervisionCampo from "./SupervisionCampo"
 import DashboardVisitasRotacion from "./DashboardVisitasRotacion"
+import { tieneCantidadesCaptura } from "../../utils/lecturaCapturasCampo"
 import { crearVisitaCampo, registrarSkuEnVisita, type VisitaActivaCampo } from "../../utils/visitaActivaCampo"
 import { asociarFotos, claveFoto, georreferenciarLocal, localDeCaptura, obtenerPosicionCampo, type FotoBorradorCampo, type LocalCampo, type PosicionCampo } from "../../utils/georreferenciaCampo"
 import { ConfigurarUbicacionLocales, FotosCampo, UbicacionCampo } from "./UbicacionCampo"
@@ -75,6 +76,7 @@ const CATALOGO_VACIO: CatalogoCampoComercial = {
 type VistaCampo = "REGISTRO" | "DASHBOARD" | "SUPERVISION" | "ADMIN"
 
 type BorradorCampo = {
+  capturasSoloRespaldo?: boolean
   visitaActiva?: VisitaActivaCampo | null
   vista?: VistaCampo
   clienteId?: string
@@ -129,6 +131,7 @@ export default function CampoComercial({
     ...borradorInicial.lectura,
   })
   const [lecturaConfirmada, setLecturaConfirmada] = useState(borradorInicial.lecturaConfirmada ?? false)
+  const [capturasSoloRespaldo, setCapturasSoloRespaldo] = useState(borradorInicial.capturasSoloRespaldo ?? false)
   const [nombreLocalOcr, setNombreLocalOcr] = useState<string | null>(borradorInicial.nombreLocalOcr ?? null)
   const [codificado, setCodificado] = useState<boolean | null>(borradorInicial.codificado ?? null)
   const [presencia, setPresencia] = useState<PresenciaPercha>(borradorInicial.presencia ?? "NO_REVISADO")
@@ -156,6 +159,7 @@ export default function CampoComercial({
   useEffect(() => {
     try {
       const borrador: BorradorCampo = {
+        capturasSoloRespaldo,
         visitaActiva,
         vista,
         clienteId,
@@ -178,6 +182,7 @@ export default function CampoComercial({
       // La visita sigue operativa aunque el navegador bloquee el almacenamiento.
     }
   }, [
+    capturasSoloRespaldo,
     clienteId,
     codificado,
     fechaVisita,
@@ -263,6 +268,7 @@ export default function CampoComercial({
       if (!repetido && archivos.length < 3) archivos.push(archivo)
     }
     setCapturas(archivos)
+    setCapturasSoloRespaldo(false)
     void guardarArchivosCampo("capturas", archivos).catch(() => undefined)
     setRutasCapturas([])
     setLecturaConfirmada(false)
@@ -271,6 +277,7 @@ export default function CampoComercial({
   }
 
   function limpiarCapturas() {
+    setCapturasSoloRespaldo(false)
     setNombreLocalOcr(null)
     setCapturas([])
     void guardarArchivosCampo("capturas", []).catch(() => undefined)
@@ -336,15 +343,17 @@ export default function CampoComercial({
         capturas,
         (porcentaje, texto) => setProgresoLectura(`${texto} ${porcentaje}%`),
       )
-      if (!lecturaTieneDatos(resultado)) {
-        throw new Error("No se reconocieron datos en las imágenes. Verifica que las capturas estén completas y sean legibles.")
-      }
       comprobarCaptura(resultado)
+      setLectura((actual) => ({ ...actual, texto_ocr: resultado.texto_ocr, advertencias: resultado.advertencias }))
+      if (!tieneCantidadesCaptura(resultado)) {
+        throw new Error("El lector no reconoció cantidades en las capturas. No se han completado rotación ni stock. Revisa las imágenes o ingresa los datos manualmente y selecciona capturas solo como respaldo.")
+      }
       setNombreLocalOcr(resultado.local_nombre)
       setLectura((actual) => combinarLectura(actual, resultado))
       setLecturaConfirmada(true)
       setCodificado((actual) => actual ?? true)
-      setMensaje("Lectura terminada. Revisa los valores antes de guardar.")
+      setCapturasSoloRespaldo(false)
+      setMensaje("Cantidades leídas. Revisa los valores y pulsa Guardar SKU para confirmarlos.")
     } catch (err) {
       setNombreLocalOcr(null)
       setLecturaConfirmada(false)
@@ -399,6 +408,7 @@ export default function CampoComercial({
   }
 
   function limpiarSku() {
+    setCapturasSoloRespaldo(false)
     setNombreLocalOcr(null)
     revisionFotos.current++
     setEvidenciasFotos([])
@@ -472,6 +482,14 @@ export default function CampoComercial({
       setError("Caras en percha debe ser un número entero desde cero.")
       return
     }
+    if (capturas.length > 0 && !capturasSoloRespaldo && !lecturaConfirmada) {
+      await analizar()
+      return
+    }
+    if (capturas.length > 0 && !capturasSoloRespaldo && !tieneCantidadesCaptura(lectura)) {
+      setError("No hay cantidades para guardar de estas capturas. Completa los campos verificables o selecciona capturas solo como respaldo.")
+      return
+    }
     setGuardando(true)
     setError("")
     setMensaje("")
@@ -498,7 +516,8 @@ export default function CampoComercial({
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
         confianza_ia: lectura.confianza || null,
-        datos_ia: { ...lectura, caras_percha: carasPercha, visita_sesion_id: visitaActiva.id, visita_iniciada_en: visitaActiva.iniciadoEn,
+        datos_ia: { ...lectura, lector_estado: capturasSoloRespaldo ? "RESPALDO_MANUAL" : lecturaConfirmada ? "LEIDA_REVISADA" : "SIN_LECTOR",
+          caras_percha: carasPercha, visita_sesion_id: visitaActiva.id, visita_iniciada_en: visitaActiva.iniciadoEn,
           georreferencia_visita: georreferenciaVisita,
           nombre_local_ocr: nombreLocalOcr,
           local_captura_coincide: !!nombreLocalOcr && localDeCaptura(nombreLocalOcr, catalogo.locales)?.id === visitaActiva.localId,
@@ -604,6 +623,8 @@ export default function CampoComercial({
             </label>
             {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas} disabled={guardando || procesando}>Quitar imágenes</button></>}
             <button className="campo-principal" type="button" disabled={procesando || guardando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? progresoLectura || "Leyendo capturas…" : "Leer información automáticamente · sin costo"}</button>
+            {capturas.length > 0 && <label><span>Uso de las capturas</span><select value={capturasSoloRespaldo ? "RESPALDO" : "LECTURA"} onChange={(e) => setCapturasSoloRespaldo(e.target.value === "RESPALDO")} disabled={guardando || procesando}><option value="LECTURA">Leer y revisar antes de guardar</option><option value="RESPALDO">Solo respaldo: ingresar los datos manualmente</option></select><small>{lecturaConfirmada ? "Lectura realizada: revisa los valores del paso 4." : capturasSoloRespaldo ? "Las imágenes se guardarán como evidencia; los campos se llenan manualmente." : "Al guardar se ejecutará el lector si aún no se ha leído. Después debes revisar y guardar los valores."}</small></label>}
+            {lectura.texto_ocr && <details><summary>Ver texto reconocido por el lector</summary><pre style={{ whiteSpace: "pre-wrap", fontSize: 11, maxHeight: 220, overflow: "auto" }}>{lectura.texto_ocr}</pre></details>}
             {error && <div className="campo-error campo-error-lectura">{error}</div>}
           </section>}
 

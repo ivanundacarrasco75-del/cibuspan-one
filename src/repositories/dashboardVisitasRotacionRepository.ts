@@ -2,6 +2,8 @@ import { supabase } from "../lib/supabase"
 import { leerCarasPercha } from "../utils/supervisionCampo"
 import type { ProductoDashboardCampo, RegistroDashboardCampo } from "../utils/dashboardVisitasRotacion"
 import type { GeorreferenciaCampo, FotoCampo } from "../utils/georreferenciaCampo"
+import { CAMPOS_CANTIDADES_CAMPO } from "../utils/lecturaCapturasCampo"
+import type { LecturaFavorita } from "./campoComercialRepository"
 
 export type DatosDashboardCampo = {
   clientes: Array<{ id: string; nombre: string }>
@@ -25,10 +27,11 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
   const registros: RegistroDashboardCampo[] = []
   for (let inicio = 0; ; inicio += 500) {
     let consulta = supabase.from("com_visitas_campo_sku").select(`
-      id, actualizado_en, datos_ia, codificado_app, presencia_percha,
+      id, actualizado_en, datos_ia, capturas_app, confianza_ia, codificado_app, presencia_percha,
       rotacion_diaria_unidades, stock_local_unidades, dias_inventario_local,
       precio_comercio, precio_afiliado, venta_diaria_valor, prediccion_venta_unidades,
-      stock_cd_cajas, dias_inventario_cd,
+      stock_cd_cajas, dias_inventario_cd, participacion_clase, participacion_subclase,
+      unidades_por_caja, cantidad_ultimo_pedido, cantidad_ultimo_despacho,
       producto:productos(nombre, codigo),
       producto_id,
       visita:com_visitas_campo!inner(fecha_visita, visitado_en, cliente_id, registrado_por,
@@ -53,6 +56,9 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         responsable_rol: datos.responsable_id === visita.registrado_por && typeof datos.responsable_rol === "string" ? datos.responsable_rol : null,
         georreferencia: (datos.georreferencia_visita ?? null) as GeorreferenciaCampo | null,
         fotos_georreferencia: Array.isArray(datos.fotos_georreferencia) ? datos.fotos_georreferencia as FotoCampo[] : [],
+        capturas_app: Array.isArray(fila.capturas_app) ? fila.capturas_app : [],
+        lector_estado: typeof datos.lector_estado === "string" ? datos.lector_estado : null,
+        lectura_guardada: Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([campo]) => [campo, numero(fila[campo])])) as Partial<LecturaFavorita>,
         valores: {
           rotacion: numero(fila.rotacion_diaria_unidades), stock, dias: numero(fila.dias_inventario_local), caras,
           precio: numero(fila.precio_comercio), precio_afiliado: numero(fila.precio_afiliado), venta: numero(fila.venta_diaria_valor),

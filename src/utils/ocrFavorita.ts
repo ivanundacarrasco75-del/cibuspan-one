@@ -50,6 +50,7 @@ export function interpretarReporteFavorita(
   const existenciaCd = fragmentoDespues(texto, /EXISTENCIA\s+EN\s+CD\s*[:.-]?/, 90)
 
   const lectura: LecturaFavorita = {
+    texto_ocr: textoOriginal.slice(0, 20000),
     local_nombre: textoLinea(lineas, /\bLOCAL\s*[:.-]?\s*(.+)$/),
     codigo_barras: codigoDespues(texto, /CODIGO\s+DE\s+BARRAS\s*[:.-]?/),
     codigo_referencia: codigoDespues(texto, /CODIGO\s+(?:REF\.?\s*)?(?:PROVEEDOR|REFERENCIA)\s*[:.-]?/),
