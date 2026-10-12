@@ -38,6 +38,10 @@
 .campo-comercial .vr-revisiones{padding:15px;border:1px solid #2b3a49;border-radius:10px;background:#0b151e}
 .campo-comercial .vr-revisiones summary{cursor:pointer;font-size:13px;color:#c4d3e0}
 .campo-comercial .vr-vistas{display:flex;flex-wrap:wrap;gap:10px}
+.campo-comercial .vr-filtros{margin:0;min-width:0}
+.campo-comercial .vr-recuperacion-conjunta{padding:15px;border:1px solid #22d3ee;border-radius:10px;background:#102c36;min-width:0}
+.campo-comercial .vr-recuperacion-conjunta summary{color:#d5eef3;cursor:pointer;font-size:13px}
+.campo-comercial .vr-recuperacion-conjunta ul{padding-left:20px;font-size:12px;line-height:1.7;max-height:300px;overflow:auto}
 .campo-comercial .vr-vistas button[aria-pressed=true],.campo-comercial .vr-dashboard .vr-releer{background:#164452;border-color:#22d3ee;color:#ecfeff;font-size:13px;font-weight:700}
 .campo-comercial .vr-lista-visitas{display:grid;gap:12px;margin-top:14px}
 .campo-comercial .vr-visita{min-width:0;padding:15px;border:1px solid #30404f;border-radius:9px;background:#10202d}

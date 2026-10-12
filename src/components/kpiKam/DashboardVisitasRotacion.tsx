@@ -7,6 +7,7 @@ import {
 import "./DashboardVisitasRotacion.css"
 import { FotosCampo, UbicacionCampo } from "./UbicacionCampo"
 import RecuperarLecturaVisita from "./RecuperarLecturaVisita"
+import RecuperarCapturasPendientes from "./RecuperarCapturasPendientes"
 
 const VACIO: DatosDashboardCampo = { clientes: [], locales: [], productos: [], registros: [] }
 const COLORES = ["#64748b", "#a78bfa", "#38bdf8", "#fb923c", "#22d3ee"]
@@ -27,6 +28,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
   const [mensaje, setMensaje] = useState("")
   const [actualizacion, setActualizacion] = useState(0)
   const [vista, setVista] = useState<"EVOLUCION" | "CAPTURAS">("EVOLUCION")
+  const [recuperando, setRecuperando] = useState(false)
   const ventana = useMemo(() => {
     try {
       const semanas = semanasDashboardCampo(referencia)
@@ -55,6 +57,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
   const medidos = series.filter((s) => s.semanas[4]?.valor !== null && s.semanas[4]?.valor !== undefined)
   const comparables = series.filter((s) => s.semanas[4]?.valor != null && s.semanas[3]?.valor != null)
   const revisiones = datos.registros.filter((r) => r.fecha >= (semanas[4]?.desde ?? "9999") && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
+  const registrosCapturas = datos.registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
   const clientesTexto = datos.clientes.find((c) => c.id === clienteId)?.nombre ?? "Todos los clientes"
   const localTexto = datos.locales.find((l) => l.id === localId)?.nombre ?? "Todos los locales"
   function restablecer() { setClienteId(""); setLocalId(""); setIndicador("rotacion"); setOrigen("TODOS"); setReferencia(hoy) }
@@ -67,19 +70,20 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
     enlace.href = url; enlace.download = `visitas_${indicador}_${corte}.csv`; enlace.click(); URL.revokeObjectURL(url)
   }
   return <section className="vr-dashboard">
-    <header className="vr-header"><div><span>DASHBOARD · VISITAS Y ROTACIÓN</span><h2>Evolución en punto de venta</h2><p>{desde && `${fecha(desde)} – ${fecha(corte)} · `}{esActual ? "Esta semana" : "Semana seleccionada"} y las cuatro anteriores, SKU por SKU.</p></div><button type="button" onClick={restablecer}>Restablecer filtros</button></header>
-    <div className="vr-filtros">
+    <header className="vr-header"><div><span>DASHBOARD · VISITAS Y ROTACIÓN</span><h2>Evolución en punto de venta</h2><p>{desde && `${fecha(desde)} – ${fecha(corte)} · `}{esActual ? "Esta semana" : "Semana seleccionada"} y las cuatro anteriores, SKU por SKU.</p></div><button type="button" disabled={recuperando} onClick={restablecer}>Restablecer filtros</button></header>
+    <fieldset className="vr-filtros" disabled={recuperando}>
       <label><span>Cliente</span><select value={clienteId} disabled={cargando} onChange={(e) => { setClienteId(e.target.value); setLocalId("") }}><option value="">Todos los clientes</option>{datos.clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
       <label><span>Local</span><select value={localId} disabled={cargando} onChange={(e) => setLocalId(e.target.value)}><option value="">Todos los locales</option>{datos.locales.map((l) => <option key={l.id} value={l.id}>{l.codigo} · {l.nombre}</option>)}</select></label>
       <label><span>Indicador</span><select value={indicador} onChange={(e) => setIndicador(e.target.value as IndicadorCampo)}>{INDICADORES_CAMPO.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}</select></label>
       <label><span>Tipo de visita</span><select value={origen} onChange={(e) => setOrigen(e.target.value as OrigenVisitaCampo)}><option value="TODOS">Todas las visitas</option><option value="MERCADERISTA">Mercaderista</option><option value="KAM">KAM</option></select></label>
       <label><span>Semana de referencia</span><input type="date" max={hoy} value={referencia} onChange={(e) => setReferencia(e.target.value)} /></label>
       <button type="button" disabled={cargando || !!ventana.error} onClick={() => setActualizacion((v) => v + 1)}>Actualizar</button>
-    </div>
+    </fieldset>
     <div className="vr-vistas" aria-label="Vistas del dashboard">
-      <button type="button" aria-pressed={vista === "EVOLUCION"} onClick={() => setVista("EVOLUCION")}>Evolución semanal</button>
-      <button type="button" aria-pressed={vista === "CAPTURAS"} onClick={() => setVista("CAPTURAS")}>Releer capturas / visitas{!cargando && !error && !ventana.error && ` (${revisiones.length})`}</button>
+      <button type="button" disabled={recuperando} aria-pressed={vista === "EVOLUCION"} onClick={() => setVista("EVOLUCION")}>Evolución semanal</button>
+      <button type="button" disabled={recuperando} aria-pressed={vista === "CAPTURAS"} onClick={() => setVista("CAPTURAS")}>Releer capturas / visitas{!cargando && !error && !ventana.error && ` (${revisiones.length})`}</button>
     </div>
+    <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
     {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
@@ -114,7 +118,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
           <header><h4>{r.producto_nombre}</h4><span>{fecha(r.fecha)} · {r.responsable_rol ?? "Sin identificar"}</span></header>
           <p>{r.local_nombre} · SKU {r.producto_codigo}</p>
           <p>{config.nombre}: {r.valores[indicador] == null ? "Sin dato" : `${numero(r.valores[indicador])} ${config.unidad}`}</p>
-          <RecuperarLecturaVisita registro={r} locales={datos.locales} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} />
+          <RecuperarLecturaVisita registro={r} locales={datos.locales} deshabilitado={recuperando} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} />
           <details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details>
         </article>)}</div>
       </section>}

@@ -47,33 +47,40 @@ export function interpretarReporteFavorita(
 ): LecturaFavorita {
   const texto = normalizarTexto(textoOriginal)
   const lineas = texto.split("\n").map((linea) => linea.trim()).filter(Boolean)
-  const existenciaCd = fragmentoDespues(texto, /EXISTENCIA\s+EN\s+CD\s*[:.-]?/, 90)
+  const conflictos: string[] = []
+  const cantidad = (etiqueta: RegExp, nombre: string, fuente = texto) => {
+    const valores = [...fuente.matchAll(new RegExp(etiqueta.source, "g"))].map((m) =>
+      primerNumero(fuente.slice(m.index! + m[0].length, m.index! + m[0].length + 120)),
+    ).filter((v): v is number => v !== null)
+    if (new Set(valores).size > 1) { conflictos.push(`Valores distintos para ${nombre} entre las capturas; revisa las imágenes.`); return null }
+    return valores[0] ?? null
+  }
 
   const lectura: LecturaFavorita = {
     texto_ocr: textoOriginal.slice(0, 20000),
-    local_nombre: textoLinea(lineas, /\bLOCAL\s*[:.-]?\s*(.+)$/),
+    local_nombre: textoLinea(lineas, /^LOCAL\s*[:.-]?\s*(.+)$/),
     codigo_barras: codigoDespues(texto, /CODIGO\s+DE\s+BARRAS\s*[:.-]?/),
     codigo_referencia: codigoDespues(texto, /CODIGO\s+(?:REF\.?\s*)?(?:PROVEEDOR|REFERENCIA)\s*[:.-]?/),
     nombre_producto: producto(lineas),
     fecha_fuente: fechaFuente(texto),
-    precio_comercio: numeroDespues(texto, /PRECIO\s+COMERCIO\s*[:.-]?/),
-    precio_afiliado: numeroDespues(texto, /PRECIO\s+AFILIADO\s*[:.-]?/),
-    rotacion_diaria_unidades: numeroDespues(texto, /VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*CANT[^:]*[:.-]?/),
-    venta_diaria_valor: numeroDespues(texto, /VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*VALOR[^:]*[:.-]?/),
-    prediccion_venta_unidades: numeroDespues(texto, /PREDICCION\s+DE\s+VENTAS\s+FUTURAS[^:]*[:.-]?/),
-    participacion_clase: numeroDespues(texto, /PARTICIPACION\s+(?:CLA|CLASE)[^:]*[:.-]?/),
-    participacion_subclase: numeroDespues(texto, /PARTICIPACION\s+(?:SCLA|SUBCLASE)[^:]*[:.-]?/),
-    stock_local_unidades: numeroDespues(texto, /EXISTENCIA\s+EN\s+LOCAL\s*[:.-]?/),
-    dias_inventario_local: numeroDespues(texto, /DIAS\s+(?:DE\s+)?INVENTARIO\s+LOCAL\s*[:.-]?/),
-    stock_cd_cajas: primerNumero(existenciaCd),
-    unidades_por_caja: numeroDespues(existenciaCd, /CAJAS?\s+DE\s+/),
-    dias_inventario_cd: numeroDespues(texto, /DIAS\s+(?:DE\s+)?INVENTARIO\s+CD\s*[:.-]?/),
+    precio_comercio: cantidad(/PRECIO\s+COMERCIO\s*[:=]?/, "precio comercio"),
+    precio_afiliado: cantidad(/PRECIO\s+AFILIADO\s*[:=]?/, "precio afiliado"),
+    rotacion_diaria_unidades: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*CANT(?:IDAD)?\.?\s*\)?\s*[:=]?/, "rotación diaria"),
+    venta_diaria_valor: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*VALOR\s*\)?\s*[:=]?/, "venta diaria"),
+    prediccion_venta_unidades: cantidad(/PREDICCION\s+DE\s+VENTAS\s+FUTURAS\s*(?:\(\s*CANT(?:IDAD)?\.?\s*\))?\s*[:=]?/, "predicción"),
+    participacion_clase: cantidad(/PARTICIPACION\s+(?:CLASE|CLA)\b\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación clase"),
+    participacion_subclase: cantidad(/PARTICIPACION\s+(?:SUBCLASE|SCLA)\b\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación subclase"),
+    stock_local_unidades: cantidad(/EXISTENCIA\s+EN\s+LOCAL\s*[:=]?/, "stock local"),
+    dias_inventario_local: cantidad(/DIAS\s+(?:DE\s+)?INVENTARIO\s+LOCAL\s*[:=]?/, "días de inventario local"),
+    stock_cd_cajas: cantidad(/EXISTENCIA\s+EN\s+CD\s*[:=]?/, "stock CD"),
+    unidades_por_caja: cantidad(/CAJAS?\s+DE\s+/, "unidades por caja"),
+    dias_inventario_cd: cantidad(/DIAS\s+(?:DE\s+)?INVENTARIO\s+CD\s*[:=]?/, "días de inventario CD"),
     fecha_ultimo_pedido: fechaDespues(texto, /FECHA\s+(?:ULT\.?|ULTIMO)\s+PEDIDO\s*[:.-]?/),
-    cantidad_ultimo_pedido: numeroDespues(texto, /CANTIDAD\s+(?:DEL\s+)?PEDIDO\s*[:.-]?/),
+    cantidad_ultimo_pedido: cantidad(/CANTIDAD\s+(?:DEL\s+)?PEDIDO\s*[:=]?/, "cantidad del pedido"),
     fecha_ultimo_despacho: fechaDespues(texto, /FECHA\s+(?:ULT\.?|ULTIMO)\s+DESPACHO\s*[:.-]?/),
-    cantidad_ultimo_despacho: numeroDespues(texto, /CANTIDAD\s+(?:DEL\s+)?DESPACHO\s*[:.-]?/),
+    cantidad_ultimo_despacho: cantidad(/CANTIDAD\s+(?:DEL\s+)?DESPACHO\s*[:=]?/, "cantidad del despacho"),
     confianza: limitar(confianza, 0, 1),
-    advertencias: [],
+    advertencias: conflictos,
   }
 
   if (!lectura.local_nombre) lectura.advertencias.push("No se reconoció el local.")
@@ -100,32 +107,33 @@ function fragmentoDespues(texto: string, etiqueta: RegExp, longitud = 120) {
   return texto.slice(coincidencia.index + coincidencia[0].length, coincidencia.index + coincidencia[0].length + longitud)
 }
 
-function numeroDespues(texto: string, etiqueta: RegExp) {
-  return primerNumero(fragmentoDespues(texto, etiqueta))
-}
-
 function primerNumero(fragmento: string) {
-  const coincidencia = fragmento.match(/-?\s*\$?\s*(\d+(?:[.,]\d+)?)/)
+  // Un campo sin valor no puede tomar el número de la siguiente etiqueta.
+  const coincidencia = fragmento.match(/^\s*\$?\s*(-?\d+(?:[.,]\d+)?)(?![\d.,])/)
   if (!coincidencia) return null
   const numero = Number(coincidencia[1].replace(",", "."))
   return Number.isFinite(numero) ? numero : null
 }
 
 function codigoDespues(texto: string, etiqueta: RegExp) {
-  const fragmento = fragmentoDespues(texto, etiqueta, 80)
-  const coincidencia = fragmento.match(/(?:\d[\s.:_-]*){8,14}/)
-  if (!coincidencia) return null
-  const codigo = coincidencia[0].replace(/\D/g, "")
-  return codigo.length >= 8 ? codigo : null
+  const codigos = new Set<string>()
+  for (const m of texto.matchAll(new RegExp(etiqueta.source, "g"))) {
+    const fragmento = texto.slice(m.index! + m[0].length, m.index! + m[0].length + 80)
+    const coincidencia = fragmento.match(/^\s*((?:\d[ ._-]*){8,14})\b/)
+    const codigo = coincidencia?.[1]?.replace(/\D/g, "")
+    if (codigo && codigo.length >= 8) codigos.add(codigo)
+  }
+  return codigos.size === 1 ? [...codigos][0] : null
 }
 
 function textoLinea(lineas: string[], patron: RegExp) {
+  const valores = new Set<string>()
   for (const linea of lineas) {
     const coincidencia = linea.match(patron)
     const valor = coincidencia?.[1]?.replace(/^[\s:.-]+|[\s:.-]+$/g, "").trim()
-    if (valor) return valor
+    if (valor) valores.add(valor)
   }
-  return null
+  return valores.size === 1 ? [...valores][0] : null
 }
 
 function producto(lineas: string[]) {

@@ -208,6 +208,19 @@ export async function completarLecturaVisitaCampo(id: string, actualizadoEn: str
   if (data?.id !== id) throw new Error("La base no confirmó la actualización de esta visita.")
 }
 
+export async function leerCapturasGuardadasCampo(rutas: string[], progreso?: (texto: string) => void) {
+  progreso?.("Abriendo capturas guardadas…")
+  const imagenes = await obtenerFotosCampo(rutas)
+  if (imagenes.length !== rutas.length || !imagenes.length) throw new Error("No se pudieron abrir todas las capturas guardadas.")
+  const archivos = await Promise.all(imagenes.map(async (imagen, i) => {
+    const respuesta = await fetch(imagen.url)
+    if (!respuesta.ok) throw new Error("No se pudo descargar una captura guardada.")
+    const blob = await respuesta.blob()
+    return new File([blob], `captura-${i + 1}`, { type: blob.type })
+  }))
+  return analizarCapturasFavorita(archivos, (porcentaje, texto) => progreso?.(`${texto} ${porcentaje}%`))
+}
+
 export type GuardarVisitaCampo = {
   cliente_id: string
   local_id: string

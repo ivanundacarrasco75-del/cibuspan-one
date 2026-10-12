@@ -4,7 +4,7 @@ import { CAMPOS_CANTIDADES_CAMPO, completarCantidadesCaptura, prepararRecuperaci
 import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "../../utils/georreferenciaCampo"
 
-export default function RecuperarLecturaVisita({ registro, locales, alCompletar }: { registro: RegistroDashboardCampo; locales: LocalCampo[]; alCompletar: () => void }) {
+export default function RecuperarLecturaVisita({ registro, locales, alCompletar, deshabilitado = false }: { registro: RegistroDashboardCampo; locales: LocalCampo[]; alCompletar: () => void; deshabilitado?: boolean }) {
   const [lectura, setLectura] = useState<LecturaFavorita | null>(null)
   const [valores, setValores] = useState<Record<CampoCantidadCaptura, number | null> | null>(null)
   const [imagenes, setImagenes] = useState<Array<{ ruta: string; url: string }>>([])
@@ -15,6 +15,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar 
   useEffect(() => () => { revision.current++ }, [])
   if (!registro.capturas_app?.length) return <small>Sin capturas de la app guardadas.</small>
   async function releer() {
+    if (deshabilitado || ocupado) return
     const id = ++revision.current
     setOcupado(true); setError(""); setLectura(null); setValores(null); setProgreso("Abriendo capturas guardadas…")
     try {
@@ -43,7 +44,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar 
     finally { if (revision.current === id) { setOcupado(false); setProgreso("") } }
   }
   async function guardar() {
-    if (!valores || !lectura || ocupado) return
+    if (!valores || !lectura || ocupado || deshabilitado) return
     setOcupado(true); setError(""); setProgreso("Completando esta visita…")
     try {
       const datos = prepararRecuperacionCaptura(valores, lectura, registro.lectura_guardada ?? {})
@@ -53,7 +54,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar 
     finally { setOcupado(false); setProgreso("") }
   }
   return <div className="vr-recuperar">
-    <button className="vr-releer" type="button" disabled={ocupado} onClick={() => void releer()}>{ocupado ? progreso : `Releer capturas (${registro.capturas_app.length})`}</button>
+    <button className="vr-releer" type="button" disabled={ocupado || deshabilitado} onClick={() => void releer()}>{ocupado ? progreso : `Releer capturas (${registro.capturas_app.length})`}</button>
     <p>Lee las fotos guardadas de este SKU. Revisa las cantidades antes de guardarlas en esta misma visita.</p>
     {imagenes.map((i) => <a key={i.ruta} href={i.url} target="_blank" rel="noopener noreferrer">Abrir captura</a>)}
     {error && <p role="alert">{error}</p>}

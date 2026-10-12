@@ -16,7 +16,7 @@ import {
 import KpiKamCobertura from "./KpiKamCobertura"
 import SupervisionCampo from "./SupervisionCampo"
 import DashboardVisitasRotacion from "./DashboardVisitasRotacion"
-import { tieneCantidadesCaptura } from "../../utils/lecturaCapturasCampo"
+import { completarCantidadesCaptura, tieneCantidadesCaptura } from "../../utils/lecturaCapturasCampo"
 import { crearVisitaCampo, registrarSkuEnVisita, type VisitaActivaCampo } from "../../utils/visitaActivaCampo"
 import { asociarFotos, claveFoto, georreferenciarLocal, localDeCaptura, obtenerPosicionCampo, type FotoBorradorCampo, type LocalCampo, type PosicionCampo } from "../../utils/georreferenciaCampo"
 import { ConfigurarUbicacionLocales, FotosCampo, UbicacionCampo } from "./UbicacionCampo"
@@ -125,6 +125,8 @@ export default function CampoComercial({
   const [evidenciasFotos, setEvidenciasFotos] = useState<FotoBorradorCampo[]>(borradorInicial.evidenciasFotos ?? [])
   const [georreferenciandoFoto, setGeorreferenciandoFoto] = useState(false)
   const revisionFotos = useRef(0)
+  const revisionLectura = useRef(0)
+  const leyendoCapturas = useRef(false)
   const [rutasCapturas, setRutasCapturas] = useState<string[]>(borradorInicial.rutasCapturas ?? [])
   const [lectura, setLectura] = useState<LecturaFavorita>({
     ...LECTURA_VACIA,
@@ -154,7 +156,7 @@ export default function CampoComercial({
     local_captura_coincide: !!nombreLocalOcr && localDeCaptura(nombreLocalOcr, catalogo.locales)?.id === (visitaActiva?.localId ?? localId),
   } : null
 
-  useEffect(() => () => { revisionFotos.current++ }, [])
+  useEffect(() => () => { revisionFotos.current++; revisionLectura.current++ }, [])
 
   useEffect(() => {
     try {
@@ -255,6 +257,7 @@ export default function CampoComercial({
   }, [vistasCapturas])
 
   function seleccionarCapturas(event: React.ChangeEvent<HTMLInputElement>) {
+    if (leyendoCapturas.current || guardando) return
     setNombreLocalOcr(null)
     const nuevas = Array.from(event.target.files ?? [])
     event.target.value = ""
@@ -274,6 +277,7 @@ export default function CampoComercial({
     setLecturaConfirmada(false)
     setMensaje("")
     setError("")
+    if (nuevas.length && archivos.length) void analizar(archivos)
   }
 
   function limpiarCapturas() {
@@ -325,42 +329,46 @@ export default function CampoComercial({
     void guardarArchivosCampo("percha", []).catch(() => undefined)
   }
 
-  async function analizar() {
-    if (!visitaActiva || !productoId || capturas.length === 0) {
+  async function analizar(archivos = capturas): Promise<LecturaFavorita | null> {
+    if (leyendoCapturas.current) return null
+    if (!visitaActiva || !productoId || archivos.length === 0) {
       setError("Inicia la visita, selecciona el SKU y sube entre una y tres capturas de Favorita.")
-      return
+      return null
     }
+    const id = ++revisionLectura.current
+    leyendoCapturas.current = true
     setProcesando(true)
     setProgresoLectura("Preparando lector gratuito…")
     setError("")
     setMensaje("")
     try {
-      const rutas = rutasCapturas.length > 0
-        ? rutasCapturas
-        : await subirImagenesCampo(capturas, "captura")
-      setRutasCapturas(rutas)
       const resultado = await analizarCapturasFavorita(
-        capturas,
-        (porcentaje, texto) => setProgresoLectura(`${texto} ${porcentaje}%`),
+        archivos,
+        (porcentaje, texto) => { if (revisionLectura.current === id) setProgresoLectura(`${texto} ${porcentaje}%`) },
       )
+      if (revisionLectura.current !== id) return null
       comprobarCaptura(resultado)
       setLectura((actual) => ({ ...actual, texto_ocr: resultado.texto_ocr, advertencias: resultado.advertencias }))
       if (!tieneCantidadesCaptura(resultado)) {
         throw new Error("El lector no reconoció cantidades en las capturas. No se han completado rotación ni stock. Revisa las imágenes o ingresa los datos manualmente y selecciona capturas solo como respaldo.")
       }
       setNombreLocalOcr(resultado.local_nombre)
-      setLectura((actual) => combinarLectura(actual, resultado))
+      const combinada = { ...combinarLectura(lectura, resultado), ...completarCantidadesCaptura(lectura, resultado) }
+      setLectura(combinada)
       setLecturaConfirmada(true)
       setCodificado((actual) => actual ?? true)
       setCapturasSoloRespaldo(false)
       setMensaje("Cantidades leídas. Revisa los valores y pulsa Guardar SKU para confirmarlos.")
+      return combinada
     } catch (err) {
+      if (revisionLectura.current !== id) return null
       setNombreLocalOcr(null)
       setLecturaConfirmada(false)
       setError(err instanceof Error ? err.message : "No se pudieron analizar las capturas.")
+      return null
     } finally {
-      setProcesando(false)
-      setProgresoLectura("")
+      leyendoCapturas.current = false
+      if (revisionLectura.current === id) { setProcesando(false); setProgresoLectura("") }
     }
   }
 
@@ -469,7 +477,7 @@ export default function CampoComercial({
   }
 
   async function guardar() {
-    if (guardando || procesando || georreferenciandoFoto) return
+    if (guardando || procesando || leyendoCapturas.current || georreferenciandoFoto) return
     if (!visitaActiva || !productoId) {
       setError("Inicia una visita y selecciona el SKU.")
       return
@@ -482,11 +490,13 @@ export default function CampoComercial({
       setError("Caras en percha debe ser un número entero desde cero.")
       return
     }
+    let lecturaAGuardar = lectura
     if (capturas.length > 0 && !capturasSoloRespaldo && !lecturaConfirmada) {
-      await analizar()
-      return
+      const resultado = await analizar()
+      if (!resultado) return
+      lecturaAGuardar = resultado
     }
-    if (capturas.length > 0 && !capturasSoloRespaldo && !tieneCantidadesCaptura(lectura)) {
+    if (capturas.length > 0 && !capturasSoloRespaldo && !tieneCantidadesCaptura(lecturaAGuardar)) {
       setError("No hay cantidades para guardar de estas capturas. Completa los campos verificables o selecciona capturas solo como respaldo.")
       return
     }
@@ -494,6 +504,8 @@ export default function CampoComercial({
     setError("")
     setMensaje("")
     try {
+      const nombreLocalLeido = lecturaAGuardar.local_nombre ?? nombreLocalOcr
+      const localCapturaCoincide = !!nombreLocalLeido && localDeCaptura(nombreLocalLeido, catalogo.locales)?.id === visitaActiva.localId
       const rutas = rutasCapturas.length > 0 ? rutasCapturas
         : capturas.length > 0 ? await subirImagenesCampo(capturas, "captura") : []
       setRutasCapturas(rutas)
@@ -515,18 +527,18 @@ export default function CampoComercial({
         fotos_percha: rutasPercha,
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
-        confianza_ia: lectura.confianza || null,
-        datos_ia: { ...lectura, lector_estado: capturasSoloRespaldo ? "RESPALDO_MANUAL" : lecturaConfirmada ? "LEIDA_REVISADA" : "SIN_LECTOR",
+        confianza_ia: lecturaAGuardar.confianza || null,
+        datos_ia: { ...lecturaAGuardar, lector_estado: capturasSoloRespaldo ? "RESPALDO_MANUAL" : lecturaConfirmada || capturas.length > 0 ? "LEIDA_REVISADA" : "SIN_LECTOR",
           caras_percha: carasPercha, visita_sesion_id: visitaActiva.id, visita_iniciada_en: visitaActiva.iniciadoEn,
-          georreferencia_visita: georreferenciaVisita,
-          nombre_local_ocr: nombreLocalOcr,
-          local_captura_coincide: !!nombreLocalOcr && localDeCaptura(nombreLocalOcr, catalogo.locales)?.id === visitaActiva.localId,
+          georreferencia_visita: georreferenciaVisita && { ...georreferenciaVisita, nombre_local_captura: nombreLocalLeido, local_captura_coincide: localCapturaCoincide },
+          nombre_local_ocr: nombreLocalLeido,
+          local_captura_coincide: localCapturaCoincide,
           fotos_georreferencia: asociarFotos(rutasPercha, fotosPercha, evidenciasFotos,
             localActual ?? { id: visitaActiva.localId, nombre: "Local seleccionado", codigo: "" }),
         },
-        ...lectura,
-        nombre_reportado: lectura.nombre_producto,
-        codigo_barras: lectura.codigo_barras || lectura.codigo_referencia,
+        ...lecturaAGuardar,
+        nombre_reportado: lecturaAGuardar.nombre_producto,
+        codigo_barras: lecturaAGuardar.codigo_barras || lecturaAGuardar.codigo_referencia,
       })
       setVisitaActiva(registrarSkuEnVisita(visitaActiva, {
         id: productoId, nombre: catalogo.productos.find((item) => item.id === productoId)?.nombre ?? productoId,
@@ -615,15 +627,16 @@ export default function CampoComercial({
 
           {visitaActiva && productoId && <section className="campo-paso">
             <header><b>3</b><div><span>LECTOR DE IMÁGENES · OPCIONAL</span><h3>Completar datos desde capturas de Favorita</h3></div></header>
-            <p>Puedes llenar los campos manualmente o subir de 1 a 3 capturas. El lector completa los valores detectados; revisa y corrige antes de guardar.</p>
+            <p>Sube de 1 a 3 capturas: se leen automáticamente y completan los campos vacíos. Revisa los valores y pulsa Guardar SKU una sola vez. También puedes ingresar los datos manualmente.</p>
             <label className="campo-captura">
               <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarCapturas} disabled={procesando || guardando} />
               <strong>{capturas.length ? `${capturas.length} de 3 imágenes listas · agregar más` : "Tomar fotos o elegir capturas"}</strong>
               <small>Incluye la cabecera y la parte inferior si la información ocupa dos pantallas.</small>
             </label>
             {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas} disabled={guardando || procesando}>Quitar imágenes</button></>}
-            <button className="campo-principal" type="button" disabled={procesando || guardando || capturas.length === 0} onClick={() => void analizar()}>{procesando ? progresoLectura || "Leyendo capturas…" : "Leer información automáticamente · sin costo"}</button>
-            {capturas.length > 0 && <label><span>Uso de las capturas</span><select value={capturasSoloRespaldo ? "RESPALDO" : "LECTURA"} onChange={(e) => setCapturasSoloRespaldo(e.target.value === "RESPALDO")} disabled={guardando || procesando}><option value="LECTURA">Leer y revisar antes de guardar</option><option value="RESPALDO">Solo respaldo: ingresar los datos manualmente</option></select><small>{lecturaConfirmada ? "Lectura realizada: revisa los valores del paso 4." : capturasSoloRespaldo ? "Las imágenes se guardarán como evidencia; los campos se llenan manualmente." : "Al guardar se ejecutará el lector si aún no se ha leído. Después debes revisar y guardar los valores."}</small></label>}
+            {procesando && <p role="status">{progresoLectura || "Leyendo capturas automáticamente…"}</p>}
+            {capturas.length > 0 && !procesando && <button type="button" disabled={guardando} onClick={() => void analizar()}>Volver a leer capturas</button>}
+            {capturas.length > 0 && <label><span>Uso de las capturas</span><select value={capturasSoloRespaldo ? "RESPALDO" : "LECTURA"} onChange={(e) => setCapturasSoloRespaldo(e.target.value === "RESPALDO")} disabled={guardando || procesando}><option value="LECTURA">Lectura automática al seleccionar imágenes</option><option value="RESPALDO">Solo respaldo: ingresar los datos manualmente</option></select><small>{capturasSoloRespaldo ? "Las imágenes se guardarán como evidencia; los campos se llenan manualmente." : lecturaConfirmada ? "Lectura realizada: revisa los valores del paso 4 y guarda el SKU." : "Las cantidades que no se reconozcan quedan vacías; puedes completarlas manualmente."}</small></label>}
             {lectura.texto_ocr && <details><summary>Ver texto reconocido por el lector</summary><pre style={{ whiteSpace: "pre-wrap", fontSize: 11, maxHeight: 220, overflow: "auto" }}>{lectura.texto_ocr}</pre></details>}
             {error && <div className="campo-error campo-error-lectura">{error}</div>}
           </section>}
