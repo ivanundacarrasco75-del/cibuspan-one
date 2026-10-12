@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Guía de trabajo para el siguiente chat. Estado documentado: 8 de octubre de 2026. Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
+Guía de trabajo para el siguiente chat. Estado documentado: 12 de octubre de 2026. Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 
 ## Proyecto y forma de trabajar
 
@@ -169,6 +169,18 @@ Iván dijo que el 01/10 no se produjo Manjar. El documento sí registra OP 26100
 Se agregó edición de fecha de producción por OP+SKU en la vista previa de importación histórica. Conserva fecha_registro y fecha_fin_original; guarda una observación de corrección o fecha provisional, recalcula rango y orden de la vista previa y comparación, y usa las fechas revisadas en el RPC existente. Los días vacíos o imposibles impiden enviar el lote. El JSON de comparación conserva también las fechas contables y las observaciones. Reimportar sigue actualizando por OP+SKU sin crear otra OP. No hay migración SQL nueva: estos campos ya existen en el historial. Esta edición aún no carga PT ni descuenta MP del Kardex. La fecha de Manjar permanece como propuesta del documento hasta que Iván indique el día real. Falta publicar el frontend; el agente no lo despliega por guardar un commit.
 
 Validación de esta edición: 10 pruebas de lectura, comparación y revisión de fechas aprobadas; compilación aprobada. No se ha probado el guardado en la base real desde la sesión del agente.
+
+### Trabajo activo: dashboard de visitas y rotación, 12/10/2026
+
+Iván pidió pausar producción, pedidos e inventario y continuar el dashboard de visitas y rotación. Mantener pendientes las OP al Kardex, las producciones restantes y los despachos históricos; no reanudar ese trabajo sin que lo indique. Adjuntó captura del dashboard Comercial interactivo oscuro como referencia visual y pidió filtros de cliente, local e indicador y comparar todos los SKU en la semana actual y las cuatro anteriores.
+
+Se sustituyó la vista Dashboard semanal de CampoComercial por DashboardVisitasRotacion, con diseño oscuro propio, cliente, local, indicador, tipo de visita (todas/mercaderista/KAM) y semana de referencia. Los filtros del dashboard son independientes del borrador y local de una visita en curso. Preserva registro, supervisión KAM, administración y evidencia de ubicación/fotos; no cambia DashboardV2 ni Comercial interactivo. El gráfico muestra cinco barras por SKU y una tabla con valores, cobertura y variación; conserva SKU sin dato y permite descargar CSV. Puede revisarse cualquier semana pasada con sus cuatro anteriores. Se carga hasta hoy en Quito para la semana en curso, sin inventar datos de los días futuros.
+
+Las cinco semanas son calendario lunes-domingo, calculadas sin desplazamiento por UTC. Se usa la última revisión por cliente/local/SKU en cada semana, antes de agregar entre locales; no suma visitas repetidas ni arrastra valores de otras semanas o campos de una revisión anterior. Rotación, caras, precios y días se promedian entre locales con dato; stock del local se suma una vez; CD se promedia porque puede repetirse la misma referencia en distintos locales. Presencia, codificación, quiebres y con stock sin perchar son porcentajes entre observaciones verificables. Rotación es promedio diario reportado, no venta semanal comprobada. Cero se distingue de ausencia. Muestra cobertura y avisa que distintas coberturas pueden cambiar la comparación; semana actual señalada en curso.
+
+El repositorio nuevo consulta com_kpi_campo_catalogo para opciones autorizadas y com_visitas_campo_sku con RLS y visita CONFIRMADA, paginando 500 hasta completar todas las filas. No usa el límite de 200 registros del RPC para reconstruir las series. El tipo de visita usa el rol guardado junto al autor coincidente; registros antiguos sin rol se mantienen en Todas. No instala SQL, no modifica visitas, recetas ni inventarios. No hay dependencias nuevas. La lectura real de Supabase sigue pendiente de comprobar desde la sesión de Iván. Falta publicar el frontend tras el commit.
+
+Validación: 8 pruebas de semanas, timezone, filtros, últimas revisiones, sumas/promedios, ceros/nulos y variación; prueba de lectura simulada con 702 filas, paginación y error de permisos. No afirmar que se verificó visualmente en navegador: el ejecutable de Chromium no estaba disponible y la descarga falló; revisar la pantalla tras publicar. Scripts: `node --experimental-strip-types --test pruebas/verificar_dashboard_visitas.mjs`, `node pruebas/verificar_dashboard_lectura.mjs`, `npm run build`.
 
 ## Comunicación con Iván
 

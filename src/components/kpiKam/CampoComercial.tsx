@@ -15,6 +15,7 @@ import {
 } from "../../utils/borradorCampoComercial"
 import KpiKamCobertura from "./KpiKamCobertura"
 import SupervisionCampo from "./SupervisionCampo"
+import DashboardVisitasRotacion from "./DashboardVisitasRotacion"
 import { crearVisitaCampo, registrarSkuEnVisita, type VisitaActivaCampo } from "../../utils/visitaActivaCampo"
 import { asociarFotos, claveFoto, georreferenciarLocal, localDeCaptura, obtenerPosicionCampo, type FotoBorradorCampo, type LocalCampo, type PosicionCampo } from "../../utils/georreferenciaCampo"
 import { ConfigurarUbicacionLocales, FotosCampo, UbicacionCampo } from "./UbicacionCampo"
@@ -554,7 +555,7 @@ export default function CampoComercial({
       ) : vista === "ADMIN" && !soloCampo ? (
         <>{catalogo.puede_administrar && <ConfigurarUbicacionLocales locales={catalogo.locales} actualizado={async () => { await cargar(); setMensaje("Ubicación del local registrada. Las próximas visitas se compararán con este punto."); onActualizado() }} />}<KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} /></>
       ) : vista === "DASHBOARD" ? (
-        <DashboardCampo catalogo={catalogo} clienteId={clienteId} setClienteId={setClienteId} semana={semana} visitaEnCurso={!!visitaActiva} />
+        <DashboardVisitasRotacion revision={catalogo} />
       ) : (
         <div className="campo-flujo">
           {!visitaActiva ? <section className="campo-paso">
@@ -663,34 +664,6 @@ export default function CampoComercial({
       )}
     </section>
   )
-}
-
-function DashboardCampo({ catalogo, clienteId, setClienteId, semana, visitaEnCurso }: {
-  catalogo: CatalogoCampoComercial
-  clienteId: string
-  setClienteId: (valor: string) => void
-  semana: { desde: string; hasta: string }
-  visitaEnCurso: boolean
-}) {
-  const r = catalogo.resumen
-  const cobertura = r.posiciones_revisadas > 0 ? r.codificadas / r.posiciones_revisadas * 100 : null
-  return <section className="campo-dashboard">
-    <div className="campo-dashboard-filtro"><div><span>SEMANA</span><strong>{fechaCorta(semana.desde)} – {fechaCorta(semana.hasta)}</strong></div><label><span>Cliente</span><select value={clienteId} onChange={(e) => setClienteId(e.target.value)} disabled={visitaEnCurso}><option value="">Todos los clientes</option>{catalogo.clientes.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select>{visitaEnCurso && <small>Cliente fijado durante la visita en curso.</small>}</label></div>
-    <div className="campo-cards">
-      <Tarjeta titulo="Locales visitados" valor={String(r.locales_visitados)} detalle="Locales con registro esta semana" tono="vino" />
-      <Tarjeta titulo="Cobertura verificada" valor={cobertura == null ? "—" : `${cobertura.toFixed(1)}%`} detalle={`${r.codificadas} de ${r.posiciones_revisadas} posiciones`} tono="verde" />
-      <Tarjeta titulo="Rotación diaria" valor={r.rotacion_diaria_promedio == null ? "—" : r.rotacion_diaria_promedio.toFixed(2)} detalle="Unidades promedio por día" tono="naranja" />
-      <Tarjeta titulo="Quiebres de stock" valor={String(r.quiebres_stock)} detalle="Registros con stock local en cero" tono={r.quiebres_stock > 0 ? "rojo" : "verde"} />
-      <Tarjeta titulo="Presencia en percha" valor={String(r.presentes_percha)} detalle="Posiciones verificadas físicamente" tono="azul" />
-      <Tarjeta titulo="Inventario local" valor={r.dias_inventario_promedio == null ? "—" : `${r.dias_inventario_promedio.toFixed(1)} días`} detalle="Promedio de días disponibles" tono="gris" />
-      <Tarjeta titulo="Con stock sin perchar" valor={String(r.sin_perchar_con_stock)} detalle="Entre las últimas revisiones: stock > 0 y caras = 0" tono={r.sin_perchar_con_stock > 0 ? "rojo" : "verde"} />
-    </div>
-    <div className="campo-registros"><header><div><span>ÚLTIMAS REVISIONES</span><h3>Detalle semanal</h3></div><small>{catalogo.registros.length} registros</small></header>{catalogo.registros.length === 0 ? <p>No hay visitas confirmadas en esta semana.</p> : catalogo.registros.map((item) => <article key={item.id}><div><strong>{item.local_nombre}</strong><span>{item.producto_nombre}</span><small>{fechaCorta(item.fecha)}</small><UbicacionCampo dato={item.georreferencia} /><FotosCampo fotos={item.fotos_georreferencia} /></div><div><b>{item.rotacion_diaria_unidades == null ? "—" : `${item.rotacion_diaria_unidades} u/día`}</b><span>Stock: {item.stock_local_unidades ?? "—"}</span><span>Caras en percha: {item.caras_percha ?? "Sin registrar"}</span>{item.caras_percha === 0 && (item.stock_local_unidades ?? 0) > 0 && <i>CON STOCK NO PERCHADO</i>}</div><i className={item.codificado_app ? "ok" : "alerta"}>{item.codificado_app ? "Codificado" : "No codificado"}</i></article>)}</div>
-  </section>
-}
-
-function Tarjeta({ titulo, valor, detalle, tono }: { titulo: string; valor: string; detalle: string; tono: string }) {
-  return <article className={`campo-card ${tono}`}><span>{titulo}</span><strong>{valor}</strong><small>{detalle}</small></article>
 }
 
 function CampoNumero({ etiqueta, valor, cambiar }: { etiqueta: string; valor: number | null; cambiar: (valor: number | null) => void }) {
