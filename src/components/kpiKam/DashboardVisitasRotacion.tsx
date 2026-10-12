@@ -26,6 +26,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
   const [actualizacion, setActualizacion] = useState(0)
+  const [vista, setVista] = useState<"EVOLUCION" | "CAPTURAS">("EVOLUCION")
   const ventana = useMemo(() => {
     try {
       const semanas = semanasDashboardCampo(referencia)
@@ -75,11 +76,16 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
       <label><span>Semana de referencia</span><input type="date" max={hoy} value={referencia} onChange={(e) => setReferencia(e.target.value)} /></label>
       <button type="button" disabled={cargando || !!ventana.error} onClick={() => setActualizacion((v) => v + 1)}>Actualizar</button>
     </div>
+    <div className="vr-vistas" aria-label="Vistas del dashboard">
+      <button type="button" aria-pressed={vista === "EVOLUCION"} onClick={() => setVista("EVOLUCION")}>Evolución semanal</button>
+      <button type="button" aria-pressed={vista === "CAPTURAS"} onClick={() => setVista("CAPTURAS")}>Releer capturas / visitas{!cargando && !error && !ventana.error && ` (${revisiones.length})`}</button>
+    </div>
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
     {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
     {!cargando && !ventana.error && !error && <>
       <div className="vr-contexto"><span>{clientesTexto} / {localTexto}</span><span>{config.nombre} · {config.unidad}</span></div>
+      {vista === "EVOLUCION" && <>
       <div className="vr-cards">
         <article><span>SKU con dato {esActual ? "esta semana" : "en la semana seleccionada"}</span><strong>{medidos.length} / {series.length}</strong><small>Para {config.nombre.toLowerCase()}</small></article>
         <article><span>Locales revisados</span><strong>{new Set(revisiones.map((r) => r.local_id)).size}</strong><small>Semana de referencia</small></article>
@@ -99,7 +105,19 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
         const distinto = s.semanas[4].locales_con_dato !== s.semanas[3].locales_con_dato
         return <tr key={s.id}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small></td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
       })}</tbody></table></div></section>
-      <details className="vr-revisiones"><summary>Ver registros de visitas de la semana seleccionada ({revisiones.length})</summary><div className="vr-tabla-scroll"><table><thead><tr><th>Fecha</th><th>Local</th><th>SKU</th><th>Tipo de visita</th><th>{config.nombre}</th><th>Capturas y evidencia</th></tr></thead><tbody>{[...revisiones].sort((a, b) => b.visitado_en.localeCompare(a.visitado_en)).map((r) => <tr key={r.id}><td>{r.fecha}</td><td>{r.local_nombre}</td><td>{r.producto_nombre}</td><td>{r.responsable_rol ?? "Sin identificar"}</td><td>{numero(r.valores[indicador])} {config.unidad}</td><td><small>{r.lector_estado ?? "Estado del lector sin registrar"}</small><RecuperarLecturaVisita registro={r} locales={datos.locales} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} /><details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details></td></tr>)}</tbody></table></div></details>
+      </>}
+      {vista === "CAPTURAS" && <section className="vr-revisiones">
+        <h3>Capturas y datos de visitas</h3>
+        <p>Semana del {fecha(semanas[4].desde)} al {fecha(corte)}. Selecciona cliente y local arriba; pulsa “Releer capturas” en el SKU que quieras revisar.</p>
+        {!revisiones.length && <p className="vr-estado">No hay visitas en esta semana con los filtros seleccionados. Prueba otra semana o restablece los filtros.</p>}
+        <div className="vr-lista-visitas">{[...revisiones].sort((a, b) => b.visitado_en.localeCompare(a.visitado_en)).map((r) => <article className="vr-visita" key={r.id}>
+          <header><h4>{r.producto_nombre}</h4><span>{fecha(r.fecha)} · {r.responsable_rol ?? "Sin identificar"}</span></header>
+          <p>{r.local_nombre} · SKU {r.producto_codigo}</p>
+          <p>{config.nombre}: {r.valores[indicador] == null ? "Sin dato" : `${numero(r.valores[indicador])} ${config.unidad}`}</p>
+          <RecuperarLecturaVisita registro={r} locales={datos.locales} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} />
+          <details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details>
+        </article>)}</div>
+      </section>}
     </>}
   </section>
 }

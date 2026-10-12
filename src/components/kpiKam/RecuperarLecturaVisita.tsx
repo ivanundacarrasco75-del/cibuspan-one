@@ -52,13 +52,13 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar 
     } catch (err) { setError(err instanceof Error ? err.message : "No se guardaron las cantidades.") }
     finally { setOcupado(false); setProgreso("") }
   }
-  return <details className="vr-recuperar"><summary>Releer capturas ({registro.capturas_app.length})</summary>
-    <p>Completa el mismo registro. Se conservan las cantidades ya ingresadas; puedes corregirlas expresamente en la columna “Guardar”.</p>
-    <button type="button" disabled={ocupado} onClick={() => void releer()}>{ocupado ? progreso : "Leer las capturas guardadas"}</button>
+  return <div className="vr-recuperar">
+    <button className="vr-releer" type="button" disabled={ocupado} onClick={() => void releer()}>{ocupado ? progreso : `Releer capturas (${registro.capturas_app.length})`}</button>
+    <p>Lee las fotos guardadas de este SKU. Revisa las cantidades antes de guardarlas en esta misma visita.</p>
     {imagenes.map((i) => <a key={i.ruta} href={i.url} target="_blank" rel="noopener noreferrer">Abrir captura</a>)}
     {error && <p role="alert">{error}</p>}
     {lectura?.advertencias.map((a, i) => <p key={i}>{a}</p>)}
     {valores && lectura && <><div className="vr-tabla-scroll"><table><thead><tr><th>Campo</th><th>Ya guardado</th><th>Reconocido ahora</th><th>Guardar</th></tr></thead><tbody>{CAMPOS_CANTIDADES_CAMPO.map(([campo, nombre]) => <tr key={campo}><th>{nombre}</th><td>{registro.lectura_guardada?.[campo] ?? "—"}</td><td>{lectura[campo] ?? "Sin reconocer"}</td><td><input type="number" min="0" step="any" aria-label={`Completar ${nombre}`} disabled={ocupado} value={valores[campo] ?? ""} onChange={(e) => setValores((v) => v && ({ ...v, [campo]: e.target.value === "" ? null : Number(e.target.value) }))} /></td></tr>)}</tbody></table></div><button type="button" disabled={ocupado} onClick={() => void guardar()}>Guardar datos en esta visita</button></>}
     {lectura?.texto_ocr && <details><summary>Texto reconocido</summary><pre>{lectura.texto_ocr}</pre></details>}
-  </details>
+  </div>
 }

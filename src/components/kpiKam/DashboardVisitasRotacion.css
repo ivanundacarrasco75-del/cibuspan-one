@@ -37,7 +37,14 @@
 .campo-comercial .vr-dashboard .vr-estado{padding:28px;text-align:center;color:#b0bfcc}
 .campo-comercial .vr-revisiones{padding:15px;border:1px solid #2b3a49;border-radius:10px;background:#0b151e}
 .campo-comercial .vr-revisiones summary{cursor:pointer;font-size:13px;color:#c4d3e0}
-.campo-comercial .vr-recuperar{min-width:330px;padding:10px 0;text-align:left}.campo-comercial .vr-recuperar a{display:inline-block;margin:8px;color:#67e8f9}.campo-comercial .vr-recuperar pre{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:11px}.campo-comercial .vr-recuperar table{min-width:650px}.campo-comercial .vr-recuperar input{min-width:100px}
+.campo-comercial .vr-vistas{display:flex;flex-wrap:wrap;gap:10px}
+.campo-comercial .vr-vistas button[aria-pressed=true],.campo-comercial .vr-dashboard .vr-releer{background:#164452;border-color:#22d3ee;color:#ecfeff;font-size:13px;font-weight:700}
+.campo-comercial .vr-lista-visitas{display:grid;gap:12px;margin-top:14px}
+.campo-comercial .vr-visita{min-width:0;padding:15px;border:1px solid #30404f;border-radius:9px;background:#10202d}
+.campo-comercial .vr-visita>header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
+.campo-comercial .vr-visita h4{margin:0;font-size:14px;color:#eef3f8;overflow-wrap:anywhere}
+.campo-comercial .vr-visita>header>span{font-size:12px;color:#9edce8}
+.campo-comercial .vr-recuperar{min-width:0;padding:10px 0;text-align:left}.campo-comercial .vr-recuperar a{display:inline-block;margin:8px;color:#67e8f9}.campo-comercial .vr-recuperar pre{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:11px}.campo-comercial .vr-recuperar table{min-width:650px}.campo-comercial .vr-recuperar input{min-width:100px}
 @media(max-width:1200px){.campo-comercial .vr-filtros{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:750px){.campo-comercial .vr-dashboard{padding:15px}.campo-comercial .vr-header,.campo-comercial .vr-chart-panel>header{display:grid}.campo-comercial .vr-filtros{grid-template-columns:repeat(2,minmax(0,1fr));padding:12px}.campo-comercial .vr-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.campo-comercial .vr-header h2{font-size:22px}.campo-comercial .vr-chart-panel,.campo-comercial .vr-tabla-panel{padding:12px}}
 @media(max-width:430px){.campo-comercial .vr-filtros{grid-template-columns:1fr}}

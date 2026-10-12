@@ -206,6 +206,12 @@ Aplicar únicamente este SQL con db query --linked --file, reparar exclusivament
 
 Pruebas: `node --experimental-strip-types --test pruebas/verificar_lectura_capturas.mjs`, `CIBUSPAN_SQL_TEST_MODULE=RUTA_PGLITE node --test pruebas/verificar_recuperacion_campo_sql.mjs`, lectura/dashboard existentes y compilación. Pruebas SQL usan las definiciones reales de com_visitas_campo/com_visitas_campo_sku de la migración original y simulan autenticación/alcance para probar permisos, token concurrente, conservación y ausencia de duplicados.
 
+### Acceso visible a recuperar capturas, 12/10/2026
+
+Iván informó que no encuentra “Releer capturas”. En el código anterior estaba dentro de dos desplegables, al final de una tabla ancha; no se dispone de confirmación de qué versión tiene publicada. Se agregó un botón visible “Releer capturas / visitas” inmediatamente debajo de los filtros de Dashboard semanal. Esa vista muestra tarjetas por fecha/local/SKU con botón directo “Releer capturas (n)” cuando hay imágenes guardadas, conservando filtros y la evolución semanal en su propia vista. La tabla de revisión de cantidades aparece después de leer; el guardado sigue actualizando el mismo detalle y requiere revisión del usuario. No se lee ni guarda en masa.
+
+Cambio limitado a DashboardVisitasRotacion.tsx, su CSS y RecuperarLecturaVisita.tsx. No hay SQL nuevo. Sigue siendo necesaria la función de la actualización anterior 202610120001 para guardar lecturas recuperadas; su instalación y publicación no han sido confirmadas por Iván. Validación: compilación y revisión del diff; sin comprobación visual en navegador ni guardado en la base real.
+
 ## Comunicación con Iván
 
 Responder en español, breve y sin negrillas. Explicar la acción y el resultado en términos operativos. Dar avisos de avance claros durante el trabajo. No repetir todo el historial ni forzar nuevos pasos de aprobación cuando ya están autorizados. Ante un bloqueo, explicar la causa concreta y lo que falta; nunca inventar resultados.
