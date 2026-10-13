@@ -1,7 +1,7 @@
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO } from "./lecturaCapturasCampo.ts"
 
-export const VERSION_VALIDACION_CAMPO = "20261013.1"
+export const VERSION_VALIDACION_CAMPO = "20261013.2"
 export const CAMPOS_LECTURA_VALIDABLES = [...CAMPOS_CANTIDADES_CAMPO, ...CAMPOS_FECHAS_CAMPO] as const
 export type EstadoDatoCampo = "DOBLE_LECTURA" | "REVISION_MANUAL" | "MANUAL_DECLARADO" | "SIN_DATO" | "PENDIENTE"
 export type VerificacionDatoCampo = { estado: EstadoDatoCampo; valor: number | string | null; motivo?: string }
@@ -36,8 +36,11 @@ export function verificarDosLecturasCampo(a: LecturaFavorita, b: LecturaFavorita
   return Object.fromEntries(CAMPOS_LECTURA_VALIDABLES.map(([c]) => {
     const va = a[c] ?? null, vb = b[c] ?? null
     let dato: VerificacionDatoCampo = { estado: "PENDIENTE", valor: va, motivo: "No hubo coincidencia de dos lecturas para este campo." }
-    if (identidad && Math.min(a.confianza, b.confianza) >= .65 && va !== null && va === vb && !coherencia[c]) dato = { estado: "DOBLE_LECTURA", valor: va }
+    const fechaAsociada = c === "cantidad_ultimo_pedido" ? "fecha_ultimo_pedido" : c === "cantidad_ultimo_despacho" ? "fecha_ultimo_despacho" : null
+    const fechaPendiente = fechaAsociada && typeof va === "number" && va > 0 && (!a[fechaAsociada] || a[fechaAsociada] !== b[fechaAsociada] || !!coherencia[fechaAsociada])
+    if (identidad && Math.min(a.confianza, b.confianza) >= .65 && va !== null && va === vb && !coherencia[c] && !fechaPendiente) dato = { estado: "DOBLE_LECTURA", valor: va }
     else if (identidad && a.campos_sin_dato?.includes(c) && b.campos_sin_dato?.includes(c)) dato = { estado: "SIN_DATO", valor: null }
+    else if (fechaPendiente) dato.motivo = "La cantidad no tiene una fecha asociada confirmada en ambas lecturas."
     else if (coherencia[c]) dato.motivo = coherencia[c]
     else if (!identidad) dato.motivo = "No se confirmó local y SKU en dos lecturas."
     return [c, dato]

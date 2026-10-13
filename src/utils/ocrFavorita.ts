@@ -2,6 +2,7 @@ import { createWorker, PSM, type LoggerMessage } from "tesseract.js"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 import { areaCapturaFavorita, type AreaReporteFavorita } from "./areaReporteFavorita"
 
+import { seleccionarCapturasSkuCampo, type TextoImagenCampo } from "./seleccionCapturasSkuCampo"
 import { CAMPOS_LECTURA_VALIDABLES, verificarDosLecturasCampo, VERSION_VALIDACION_CAMPO } from "./validacionLecturasCampo"
 
 type ProgresoOcr = (porcentaje: number, mensaje: string) => void
@@ -10,6 +11,7 @@ export async function leerCapturasFavoritaOcr(
   archivos: File[],
   onProgreso?: ProgresoOcr,
   obtenerArea: (archivo: File) => Promise<AreaReporteFavorita | null> = areaCapturaFavorita,
+  codigoEsperado?: string,
 ): Promise<LecturaFavorita> {
   if (archivos.length === 0) throw new Error("Selecciona al menos una imagen.")
 
@@ -23,27 +25,27 @@ export async function leerCapturasFavoritaOcr(
   })
 
   try {
+    const imagenes: TextoImagenCampo[] = []
     const textos: string[] = []
     const confianzas: number[] = []
     const controles: string[] = [], confianzasControl: number[] = []
-    const confirmaciones: Array<{ campo: string; valor: number | string; texto: string; confianza: number }> = []
+    const confirmaciones: Array<{ campo: string; valor: number | string; texto: string; confianza: number; imagen: number }> = []
     for (indice = 0; indice < archivos.length; indice += 1) {
       onProgreso?.(Math.round(indice / archivos.length * 100), `Leyendo imagen ${indice + 1} de ${archivos.length}…`)
       const area = await obtenerArea(archivos[indice]).catch(() => null)
       await worker.setParameters({ tessedit_pageseg_mode: area ? PSM.SINGLE_BLOCK : PSM.AUTO, preserve_interword_spaces: "1" })
+      let textoCabecera = ""
       if (area) {
         // Conservar fecha/hora del reporte en la cabecera sin mezclarla con cantidades.
         const cabecera = await worker.recognize(archivos[indice], { rectangle: { left: area.left, top: 0, width: area.width, height: area.top } })
-        textos.push(cabecera.data.text)
-        controles.push(cabecera.data.text)
+        textoCabecera = cabecera.data.text
       }
       const resultado = await worker.recognize(archivos[indice], area ? { rectangle: area } : {}, { blocks: true })
-      textos.push(resultado.data.text)
-      confianzas.push(resultado.data.confidence)
+
       await worker.setParameters({ tessedit_pageseg_mode: area ? PSM.AUTO : PSM.SINGLE_BLOCK })
       onProgreso?.(Math.min(99, Math.round((indice + .5) / archivos.length * 100)), "Comprobando cantidades con otra segmentación…")
       const control = await worker.recognize(archivos[indice], area ? { rectangle: area } : {})
-      controles.push(control.data.text); confianzasControl.push(control.data.confidence)
+      imagenes.push({ principal: `${textoCabecera}\n${resultado.data.text}`, control: `${textoCabecera}\n${control.data.text}`, confianza: resultado.data.confidence / 100, confianza_control: control.data.confidence / 100 })
       const a = interpretarReporteFavorita(resultado.data.text), b = interpretarReporteFavorita(control.data.text)
       const lineas = resultado.data.blocks?.flatMap((bloque) => bloque.paragraphs.flatMap((p) => p.lines)) ?? []
       for (const [campo] of CAMPOS_LECTURA_VALIDABLES) {
@@ -55,21 +57,26 @@ export async function leerCapturasFavoritaOcr(
           const right = Math.min(area ? area.left + area.width : Infinity, Math.max(...grupo.map((l) => l.bbox.x1)) + 6), bottom = Math.min(area ? area.top + area.height : Infinity, Math.max(...grupo.map((l) => l.bbox.y1)) + 5)
           await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
           const fila = await worker.recognize(archivos[indice], { rectangle: { left, top, width: right - left, height: bottom - top } }).catch(() => null)
-          if (fila && fila.data.confidence >= 65 && interpretarReporteFavorita(fila.data.text)[campo] === a[campo]) confirmaciones.push({ campo, valor: a[campo]!, texto: fila.data.text, confianza: fila.data.confidence / 100 })
+          if (fila && fila.data.confidence >= 65 && interpretarReporteFavorita(fila.data.text)[campo] === a[campo]) confirmaciones.push({ campo, valor: a[campo]!, texto: fila.data.text, confianza: fila.data.confidence / 100, imagen: indice })
           break
         }
       }
     }
     onProgreso?.(100, "Interpretando valores…")
+    const seleccion = seleccionarCapturasSkuCampo(imagenes, codigoEsperado, interpretarReporteFavorita)
+    // Sin cabecera del SKU se conserva el texto para diagnóstico; la validación
+    // de identidad impide guardarlo automáticamente como otro producto.
+    const indices = seleccion.incluidas.length ? seleccion.incluidas : imagenes.map((_, i) => i)
+    for (const i of indices) { textos.push(imagenes[i].principal); controles.push(imagenes[i].control); confianzas.push(imagenes[i].confianza * 100); confianzasControl.push(imagenes[i].confianza_control * 100) }
     const principal = interpretarReporteFavorita(textos.join("\n"), promedio(confianzas) / 100)
     const control = interpretarReporteFavorita(controles.join("\n"), promedio(confianzasControl) / 100)
     for (const [campo] of CAMPOS_LECTURA_VALIDABLES) {
-      const filas = confirmaciones.filter((f) => f.campo === campo)
+      const filas = confirmaciones.filter((f) => f.campo === campo && indices.includes(f.imagen))
       if (filas.length && filas.every((f) => f.valor === principal[campo])) Object.assign(control, { [campo]: principal[campo] })
     }
     const verificacion = verificarDosLecturasCampo(principal, control)
     return { ...principal, verificacion_campos: verificacion, version_validacion: VERSION_VALIDACION_CAMPO,
-      lectura_control: { principal, control, confirmaciones_fila: confirmaciones },
+      lectura_control: { principal, control, confirmaciones_fila: confirmaciones.filter((f) => indices.includes(f.imagen)), imagenes, capturas_incluidas: seleccion.incluidas, capturas_omitidas: seleccion.omitidas },
       advertencias: [...principal.advertencias, ...Object.entries(verificacion).filter(([, v]) => v.estado === "PENDIENTE").map(([c, v]) => `${c}: ${v.motivo}`)] }
   } finally {
     await worker.terminate()
@@ -97,7 +104,7 @@ export function interpretarReporteFavorita(
     texto_ocr: textoOriginal.slice(0, 20000),
     // El logotipo produce SH, ES, SS, NM, DL o M£ delante de LOCAL.
     // Sólo se admite un prefijo corto en la cabecera; nunca EXISTENCIA EN LOCAL.
-    local_nombre: textoLinea(lineas, /^(?:[A-Z£]{1,3}\s+)?LOCAL\s*[:.-]?\s*(.+)$/),
+    local_nombre: textoLinea(lineas, /^(?:[A-Z£$]{1,3}\s+)?LOCAL\s*[:.-]?\s*(.+)$/),
     codigo_barras: codigoDespues(texto, /CODIGO\s+DE\s+BARRAS\s*[:.-]?/),
     codigo_referencia: codigoDespues(texto, /CODIGO\s+(?:REF\.?\s*)?(?:PROVEEDOR|REFERENCIA)\s*[:.-]?/),
     nombre_producto: producto(lineas),

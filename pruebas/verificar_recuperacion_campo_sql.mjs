@@ -112,9 +112,10 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
   })
   await db.exec(await archivo('202610130001_auditar_lecturas_campo.sql'))
   await db.exec(await archivo('202610130002_coincidencia_local_capturas.sql'))
+  await db.exec(await archivo('202610130003_validacion_pedidos_capturas.sql'))
   const auditar=(datos,token)=>db.query('select public.com_kpi_campo_auditar_lectura($1::uuid,$2::timestamptz,$3::jsonb)',[detalle,token,JSON.stringify(datos)])
   const evidencia=(valor)=>({codigo_barras:'7868304262189',local_nombre:'SUPERMAXI AMERICA',fecha_fuente:'2026-10-12T14:00:00',confianza:.9,rotacion_diaria_unidades:valor,campos_sin_dato:['cantidad_ultimo_pedido']})
-  const datosAuditados=(valor)=>({rotacion_diaria_unidades:valor,version_validacion:'20261013.1',verificacion_campos:{rotacion_diaria_unidades:{estado:'DOBLE_LECTURA',valor}},lectura_control:{principal:evidencia(valor),control:evidencia(valor)}})
+  const datosAuditados=(valor)=>({rotacion_diaria_unidades:valor,version_validacion:'20261013.2',verificacion_campos:{rotacion_diaria_unidades:{estado:'DOBLE_LECTURA',valor}},lectura_control:{principal:evidencia(valor),control:evidencia(valor)}})
   await t.test('Audita y corrige 115 a 1.13, conservando el respaldo transaccional y sin duplicados',async()=>{
     await aplicar({rotacion_diaria_unidades:115},(await actual()).token)
     const antes=await actual();await auditar(datosAuditados(1.13),antes.token)
@@ -137,6 +138,26 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     assert.equal((await actual()).token,antes.token);assert.equal(Number((await actual()).rotacion_diaria_unidades),1.13)
     assert.equal((await db.query('select count(*)::int as n from com_lecturas_campo_auditoria')).rows[0].n,n)
   })
+  await t.test('Cantidad automática sin fecha se rechaza; una cantidad con fecha en ambas lecturas sí se guarda',async()=>{
+    const antes=await actual(), valor=5
+    const d={cantidad_ultimo_pedido:valor,version_validacion:'20261013.2',verificacion_campos:{cantidad_ultimo_pedido:{estado:'DOBLE_LECTURA',valor}},lectura_control:{principal:{...evidencia(1.13),cantidad_ultimo_pedido:valor,fecha_ultimo_pedido:null},control:{...evidencia(1.13),cantidad_ultimo_pedido:valor,fecha_ultimo_pedido:null}}}
+    await assert.rejects(()=>auditar(d,antes.token),/fecha asociada/)
+    assert.equal((await actual()).token,antes.token)
+    d.fecha_ultimo_pedido='2026-10-10';d.verificacion_campos.fecha_ultimo_pedido={estado:'DOBLE_LECTURA',valor:'2026-10-10'}
+    d.lectura_control.principal.fecha_ultimo_pedido='2026-10-10';d.lectura_control.control.fecha_ultimo_pedido='2026-10-10'
+    await auditar(d,antes.token);assert.equal(Number((await actual()).cantidad_ultimo_pedido),5)
+    assert.equal((await actual()).datos_ia.verificacion_campos.cantidad_ultimo_pedido.estado,'DOBLE_LECTURA')
+  })
+  await t.test('Dejar un dato anterior dudoso como pendiente no lo borra ni altera las otras cantidades',async()=>{
+    const antes=await actual()
+    await auditar({version_validacion:'20261013.2',verificacion_campos:{cantidad_ultimo_pedido:{estado:'PENDIENTE',valor:5,motivo:'Sin fecha confirmada en la nueva fuente'}}},antes.token)
+    assert.equal(Number((await actual()).cantidad_ultimo_pedido),5)
+    assert.equal((await actual()).datos_ia.verificacion_campos.cantidad_ultimo_pedido.estado,'PENDIENTE')
+  })
+  await t.test('Un cliente con protocolo antiguo no puede certificar lecturas automáticas',async()=>{
+    const antes=await actual();await assert.rejects(()=>auditar({...datosAuditados(1.13),version_validacion:'20261013.1'},antes.token),/verificación válida/)
+    assert.equal((await actual()).token,antes.token)
+  })
   await t.test('Un nombre exacto único tiene prioridad sobre otro local de nombre más largo',async()=>{
     const secundario='00000000-0000-0000-0000-000000000008'
     await db.query('insert into com_locales_monitoreados(id,nombre) values($1,$2)',[secundario,'SUPERMAXI AMERICA NORTE'])
@@ -152,7 +173,7 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     await db.query('delete from com_locales_monitoreados where id=$1',[repetido])
   })
   await t.test('Protege el dato manual de sustitución automática y respalda la revisión humana',async()=>{
-    await auditar({rotacion_diaria_unidades:1.2,version_validacion:'20261013.1',verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2}}},(await actual()).token)
+    await auditar({rotacion_diaria_unidades:1.2,version_validacion:'20261013.2',verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2}}},(await actual()).token)
     await assert.rejects(async()=>auditar(datosAuditados(1.13),(await actual()).token),/manual declarado/)
     assert.equal(Number((await actual()).rotacion_diaria_unidades),1.2)
   })

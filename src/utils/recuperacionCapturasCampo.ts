@@ -20,6 +20,12 @@ export function localesHistoricosCapturasCampo(registros: RegistroDashboardCampo
 }
 
 export function prepararAuditoriaCapturaCampo(registro: RegistroDashboardCampo, lectura: LecturaFavorita, locales: LocalCampo[]) {
+  if (!lectura.local_nombre || !lectura.codigo_barras) {
+    const texto = (lectura.texto_ocr ?? "").toUpperCase()
+    if (/ACTIVOS/.test(texto) && /EXISTENCIAS/.test(texto) && !/PRECIO\s+AFILIADO|VENTA\s+PROMED/.test(texto)) throw new Error("La captura muestra la lista de productos; falta el detalle del SKU con local, código y cantidades.")
+    if (/PRECIO\s+AFILIADO|VENTA\s+PROMED/.test(texto) && !/CODIGO\s+DE\s+BARRAS|CÓDIGO\s+DE\s+BARRAS/.test(texto)) throw new Error("El detalle está incompleto: falta la primera captura con local y código del SKU.")
+    if (!/PRECIO\s+AFILIADO|VENTA\s+PROMED|LOCAL/.test(texto)) throw new Error("Las imágenes no contienen un detalle identificable de EnPercha; no se pueden obtener cantidades históricas de fotos de percha.")
+  }
   const referencias = localesHistoricosCapturasCampo([registro], locales)
   const localReconocido = localDeCaptura(lectura.local_nombre, referencias)
   if (localReconocido?.id !== registro.local_id) throw new Error(`Local leído: ${lectura.local_nombre ?? "sin reconocer"}; visita: ${registro.local_nombre}. No se encontró una coincidencia única con el local de esta visita.`)
@@ -38,6 +44,12 @@ export function prepararAuditoriaCapturaCampo(registro: RegistroDashboardCampo, 
       if (anterior !== null) borrar.push(c)
       verificacion[c] = comprobado
     } else verificacion[c] = { estado: "PENDIENTE", valor: anterior, motivo: comprobado?.motivo ?? "Falta evidencia." }
+  }
+  for (const [cantidad, fecha] of [["cantidad_ultimo_pedido", "fecha_ultimo_pedido"], ["cantidad_ultimo_despacho", "fecha_ultimo_despacho"]] as const) {
+    if (verificacion[cantidad]?.estado === "DOBLE_LECTURA" && Number(verificacion[cantidad].valor) > 0 && (datos[fecha] ?? registro.lectura_guardada?.[fecha] ?? null) !== lectura[fecha]) {
+      delete datos[cantidad]
+      verificacion[cantidad] = { estado: "PENDIENTE", valor: registro.lectura_guardada?.[cantidad] ?? null, motivo: "La fecha conservada no coincide con la cantidad del reporte." }
+    }
   }
   return { ...datos, ...(borrar.length ? { campos_borrar: borrar } : {}), verificacion_campos: verificacion,
     lectura_control: lectura.lectura_control, version_validacion: VERSION_VALIDACION_CAMPO,

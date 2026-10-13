@@ -20,28 +20,52 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
     const enlace = document.createElement("a")
     enlace.href = url; enlace.download = "diagnostico_lectura_capturas.json"; enlace.click(); URL.revokeObjectURL(url)
   }
-  async function recuperar() {
-    if (ejecutando.current || deshabilitado || !pendientes.length) return
+  async function recuperar(diagnostico?: Map<string, import("../../repositories/campoComercialRepository").LecturaFavorita>) {
+    const seleccionados = diagnostico ? registros.filter((r) => diagnostico.has(r.id) && r.lector_estado !== "RESPALDO_MANUAL") : pendientes
+    if (ejecutando.current || deshabilitado || !seleccionados.length) return
     ejecutando.current = true; cancelada.current = false
-    setOcupado(true); alCambiarEstado(true); setResultados([]); setResumen(""); setProgreso("Iniciando lectura de capturas…")
+    setOcupado(true); alCambiarEstado(true); setResultados([]); setResumen(""); setProgreso(diagnostico ? "Iniciando comprobación del diagnóstico…" : "Iniciando lectura de capturas…")
     try {
-      const respuesta = await recuperarCapturasPendientesCampo({ registros: pendientes, locales,
-        leer: (r, avance) => leerCapturasGuardadasCampo(r.capturas_app!, avance),
+      const respuesta = await recuperarCapturasPendientesCampo({ registros: seleccionados, locales,
+        leer: async (r, avance) => {
+          if (!diagnostico) return leerCapturasGuardadasCampo(r.capturas_app!, avance, r.producto_codigo)
+          avance("Comprobando el texto del diagnóstico, sin releer imágenes…")
+          const { reanalizarDiagnosticoCapturaCampo } = await import("../../utils/reanalizarDiagnosticoCapturasCampo")
+          return reanalizarDiagnosticoCapturaCampo(diagnostico.get(r.id)!, r.producto_codigo)
+        },
         guardar: (r, datos) => completarLecturaVisitaCampo(r.id, r.actualizado_en, datos),
         cancelada: () => cancelada.current,
         progreso: (texto) => { if (vigente.current && !cancelada.current) setProgreso(texto) },
         resultado: (r) => { if (vigente.current) setResultados((actuales) => [...actuales, r]) },
       })
       if (!vigente.current) return
-      setResumen(`${cancelada.current ? "Proceso detenido. " : "Lectura finalizada. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas auditadas; ${respuesta.filter((r) => r.estado === "SIN_CAMBIOS").length} sin cantidades nuevas; ${respuesta.filter((r) => r.estado === "REVISAR").length} para revisar; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${pendientes.length - respuesta.length} sin procesar.`)
+      setResumen(`${cancelada.current ? "Proceso detenido. " : "Lectura finalizada. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas auditadas; ${respuesta.filter((r) => r.estado === "SIN_CAMBIOS").length} sin cantidades nuevas; ${respuesta.filter((r) => r.estado === "REVISAR").length} para revisar; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${seleccionados.length - respuesta.length} sin procesar.`)
       alTerminar()
     } catch (err) { if (vigente.current) setResumen(err instanceof Error ? err.message : "No se pudo completar la recuperación.") }
     finally { ejecutando.current = false; if (vigente.current) { setOcupado(false); alCambiarEstado(false); setProgreso("") } }
   }
+  async function importarDiagnostico(archivo: File | undefined) {
+    if (!archivo || ocupado || deshabilitado || ejecutando.current) return
+    try {
+      if (archivo.size > 30 * 1024 * 1024) throw new Error("El archivo de diagnóstico es demasiado grande.")
+      const datos = JSON.parse(await archivo.text())
+      if (!Array.isArray(datos.resultados) || !datos.resultados.length) throw new Error("Selecciona el diagnóstico descargado por esta app.")
+      const mapa = new Map<string, import("../../repositories/campoComercialRepository").LecturaFavorita>()
+      for (const r of datos.resultados) {
+        if (typeof r?.id !== "string" || !r.lectura?.lectura_control) throw new Error("El diagnóstico no contiene las lecturas originales necesarias.")
+        if (mapa.has(r.id)) throw new Error("El diagnóstico repite una visita; no se aplicó ningún cambio.")
+        mapa.set(r.id, r.lectura)
+      }
+      if (!registros.some((r) => mapa.has(r.id))) throw new Error("Estas visitas no están en los filtros actuales. Restablece los filtros.")
+      await recuperar(mapa)
+    } catch (err) { setResumen(err instanceof Error ? err.message : "No se pudo abrir el diagnóstico.") }
+  }
   return <section className="vr-recuperacion-conjunta">
     <button className="vr-releer" type="button" disabled={ocupado || deshabilitado || !pendientes.length} onClick={() => void recuperar()}>Auditar y corregir capturas ({deshabilitado ? "…" : pendientes.length})</button>
+    <label>Corregir desde diagnóstico JSON<input type="file" accept=".json,application/json" disabled={ocupado || deshabilitado} onChange={(e) => { const archivo = e.target.files?.[0]; e.target.value = ""; void importarDiagnostico(archivo) }} /></label>
+    <p>Selecciona el diagnóstico ya descargado para comprobar y corregir sus visitas sin repetir el OCR. Se conserva el respaldo y se respetan los filtros y los cambios manuales.</p>
     <p>Incluye las cinco semanas de los filtros actuales. Revisa también cantidades ya llenas. Corrige campos con dos lecturas coincidentes, conserva los manuales declarados y guarda un respaldo antes de cada cambio. Los campos dudosos quedan pendientes y fuera del gráfico validado. Mantén la app abierta mientras termina.</p>
-    {ocupado && <><p role="status">{progreso}</p><button type="button" onClick={() => { cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
+    {ocupado && <><p role="status">{progreso}</p><p>{resultados.length} procesadas: {resultados.filter((r) => r.estado === "COMPLETADA").length} guardadas; {resultados.filter((r) => r.estado === "REVISAR").length} para revisar; {resultados.filter((r) => r.estado === "ERROR").length} con error. El gráfico se refresca al terminar.</p><button type="button" onClick={() => { cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
     {resumen && <p role="status">{resumen}</p>}
     {!ocupado && resultados.length > 0 && <button type="button" onClick={descargarDiagnostico}>Descargar diagnóstico de lectura</button>}
     {resultados.length > 0 && <details><summary>Ver resultados por visita ({resultados.length})</summary><ul>{resultados.map((r) => <li key={r.id}>{r.fecha} · {r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}

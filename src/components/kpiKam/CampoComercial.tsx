@@ -346,6 +346,7 @@ export default function CampoComercial({
       const resultado = await analizarCapturasFavorita(
         archivos,
         (porcentaje, texto) => { if (revisionLectura.current === id) setProgresoLectura(`${texto} ${porcentaje}%`) },
+        catalogo.productos.find((p) => p.id === productoId)?.codigo,
       )
       if (revisionLectura.current !== id) return null
       comprobarCaptura(resultado)

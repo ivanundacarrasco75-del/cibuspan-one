@@ -200,9 +200,10 @@ export async function subirImagenesCampo(
 export async function analizarCapturasFavorita(
   archivos: File[],
   onProgreso?: (porcentaje: number, mensaje: string) => void,
+  codigoEsperado?: string,
 ) {
   const { leerCapturasFavoritaOcr } = await import("../utils/ocrFavorita")
-  return leerCapturasFavoritaOcr(archivos, onProgreso)
+  return leerCapturasFavoritaOcr(archivos, onProgreso, undefined, codigoEsperado)
 }
 
 export async function completarLecturaVisitaCampo(id: string, actualizadoEn: string, datos: Record<string, unknown>) {
@@ -213,7 +214,7 @@ export async function completarLecturaVisitaCampo(id: string, actualizadoEn: str
   if (data?.id !== id) throw new Error("La base no confirmó la actualización de esta visita.")
 }
 
-export async function leerCapturasGuardadasCampo(rutas: string[], progreso?: (texto: string) => void) {
+export async function leerCapturasGuardadasCampo(rutas: string[], progreso?: (texto: string) => void, codigoEsperado?: string) {
   progreso?.("Abriendo capturas guardadas…")
   const imagenes = await obtenerFotosCampo(rutas)
   if (imagenes.length !== rutas.length || !imagenes.length) throw new Error("No se pudieron abrir todas las capturas guardadas.")
@@ -223,7 +224,7 @@ export async function leerCapturasGuardadasCampo(rutas: string[], progreso?: (te
     const blob = await respuesta.blob()
     return new File([blob], `captura-${i + 1}`, { type: blob.type })
   }))
-  return analizarCapturasFavorita(archivos, (porcentaje, texto) => progreso?.(`${texto} ${porcentaje}%`))
+  return analizarCapturasFavorita(archivos, (porcentaje, texto) => progreso?.(`${texto} ${porcentaje}%`), codigoEsperado)
 }
 
 export type GuardarVisitaCampo = {

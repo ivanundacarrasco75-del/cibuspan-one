@@ -34,7 +34,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
         return new File([blob], `captura-${i + 1}`, { type: blob.type })
       }))
       if (revision.current !== id) return
-      const resultado = await analizarCapturasFavorita(archivos, (porcentaje, mensaje) => { if (revision.current === id) setProgreso(`${mensaje} ${porcentaje}%`) })
+      const resultado = await analizarCapturasFavorita(archivos, (porcentaje, mensaje) => { if (revision.current === id) setProgreso(`${mensaje} ${porcentaje}%`) }, registro.producto_codigo)
       if (revision.current !== id) return
       setLectura(resultado)
       const localLeido = resultado.local_nombre ? localDeCaptura(resultado.local_nombre, locales) : null
