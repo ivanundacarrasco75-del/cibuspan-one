@@ -183,5 +183,34 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     assert.equal((await actual()).datos_ia.caras_percha,6)
   })
 
+  if(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO) await t.test('Granda Centeno real: lectura 1,60 se guarda con el RPC existente y llega al gráfico validado',async()=>{
+    const {createServer}=await import('vite'),{fileURLToPath}=await import('node:url')
+    const server=await createServer({root:fileURLToPath(new URL('..',import.meta.url)),server:{middlewareMode:true},appType:'custom'})
+    await db.exec('begin')
+    try {
+      const {reanalizarDiagnosticoCapturaCampo}=await server.ssrLoadModule('/src/utils/reanalizarDiagnosticoCapturasCampo.ts')
+      const {guardarLecturaComprobadaCampo}=await server.ssrLoadModule('/src/utils/recuperacionCapturasCampo.ts')
+      const {CAMPOS_CANTIDADES_CAMPO,CAMPOS_FECHAS_CAMPO}=await server.ssrLoadModule('/src/utils/lecturaCapturasCampo.ts')
+      const {resumirSemanasCampo,semanasDashboardCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
+      const diagnostico=JSON.parse(await readFile(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO,'utf8'))
+      const fuente=diagnostico.resultados.find(r=>r.id==='6b954b4e-697b-4247-bd96-3a6a484ae90e')
+      const lectura=reanalizarDiagnosticoCapturaCampo(fuente.lectura,'7868304262196')
+      await db.query('update productos set codigo=$1 where id=$2',['7868304262196',producto])
+      await db.query('update com_locales_monitoreados set nombre=$1 where id=$2',['SUPERMAXI GRANDA CENTENO',local])
+      await db.exec("update com_visitas_campo_sku set rotacion_diaria_unidades=null, datos_ia=datos_ia-'verificacion_campos'")
+      const antes=await actual(), registro={id:detalle,actualizado_en:antes.token,local_id:local,local_nombre:'SUPERMAXI GRANDA CENTENO',
+        producto_id:producto,producto_codigo:'7868304262196',cliente_id:cliente,fecha:'2026-10-12',visitado_en:'2026-10-12T12:35:07',
+        lectura_guardada:{...Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([c])=>[c,antes[c]==null?null:Number(antes[c])])),...Object.fromEntries(CAMPOS_FECHAS_CAMPO.map(([c])=>[c,antes[c]??null]))},valores:{rotacion:null}}
+      assert.equal(await guardarLecturaComprobadaCampo({registro,lectura,locales:[{id:local,nombre:registro.local_nombre}],cancelada:()=>false,
+        guardar:datos=>auditar(datos,antes.token)}),true)
+      const despues=await actual()
+      assert.equal(Number(despues.rotacion_diaria_unidades),1.6)
+      assert.equal(despues.datos_ia.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
+      const persistido={...registro,lectura_guardada:{rotacion_diaria_unidades:Number(despues.rotacion_diaria_unidades)},verificacion_campos:despues.datos_ia.verificacion_campos,valores:{rotacion:Number(despues.rotacion_diaria_unidades)}}
+      assert.equal(resumirSemanasCampo({registros:[persistido],productos:[{id:producto,codigo:registro.producto_codigo,nombre:'Granos'}],semanas:semanasDashboardCampo('2026-10-12'),indicador:'rotacion',soloValidados:true})[0].semanas[4].valor,1.6)
+      assert.equal(despues.visita_id,antes.visita_id);assert.deepEqual(despues.capturas_app,antes.capturas_app)
+    } finally { await db.exec('rollback');await server.close() }
+  })
+
  }finally{await db.close()}
 })

@@ -116,13 +116,13 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
       </>}
       {vista === "CAPTURAS" && <section className="vr-revisiones">
         <h3>Capturas y datos de visitas</h3>
-        <p>Semana del {fecha(semanas[4].desde)} al {fecha(corte)}. Selecciona cliente y local arriba; pulsa “Releer capturas” en el SKU que quieras revisar.</p>
+        <p>Semana del {fecha(semanas[4].desde)} al {fecha(corte)}. Selecciona cliente y local arriba; pulsa “Releer y guardar comprobados” para actualizar el SKU y el gráfico.</p>
         {!revisiones.length && <p className="vr-estado">No hay visitas en esta semana con los filtros seleccionados. Prueba otra semana o restablece los filtros.</p>}
         <div className="vr-lista-visitas">{[...revisiones].sort((a, b) => b.visitado_en.localeCompare(a.visitado_en)).map((r) => <article className="vr-visita" key={r.id}>
           <header><h4>{r.producto_nombre}</h4><span>{fecha(r.fecha)} · {r.responsable_rol ?? "Sin identificar"}</span></header>
           <p>{r.local_nombre} · SKU {r.producto_codigo}</p>
           <p>{config.nombre}: {r.valores[indicador] == null ? "Sin dato" : `${numero(r.valores[indicador])} ${config.unidad}`}{r.valores[indicador] != null && (valorIndicadorValidadoCampo(r, indicador) === null ? " · Pendiente de validar" : " · Validado / manual declarado")}</p>
-          <RecuperarLecturaVisita registro={r} locales={datos.locales} deshabilitado={recuperando} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} />
+          <RecuperarLecturaVisita registro={r} locales={datos.locales} deshabilitado={recuperando} alCompletar={() => { setMensaje(`Datos guardados en ${r.local_nombre} · ${r.producto_nombre}.`); setVista("EVOLUCION"); setActualizacion((v) => v + 1) }} />
           <details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details>
         </article>)}</div>
       </section>}

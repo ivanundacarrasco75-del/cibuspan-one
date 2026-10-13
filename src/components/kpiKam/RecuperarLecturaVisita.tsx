@@ -4,6 +4,7 @@ import { CAMPOS_LECTURA_VALIDABLES, VERSION_VALIDACION_CAMPO, type VerificacionC
 import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO, proponerLecturaRevisadaCampo, prepararRecuperacionCaptura, tieneCantidadesCaptura, type CampoCantidadCaptura, type CampoFechaCaptura } from "../../utils/lecturaCapturasCampo"
 import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "../../utils/georreferenciaCampo"
+import { guardarLecturaComprobadaCampo } from "../../utils/recuperacionCapturasCampo"
 
 export default function RecuperarLecturaVisita({ registro, locales, alCompletar, deshabilitado = false }: { registro: RegistroDashboardCampo; locales: LocalCampo[]; alCompletar: () => void; deshabilitado?: boolean }) {
   const [lectura, setLectura] = useState<LecturaFavorita | null>(null)
@@ -17,10 +18,12 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
   const [progreso, setProgreso] = useState("")
   const [error, setError] = useState("")
   const revision = useRef(0)
+  const operacion = useRef(false)
   useEffect(() => () => { revision.current++ }, [])
   if (!registro.capturas_app?.length) return <small>Sin capturas de la app guardadas.</small>
   async function releer() {
-    if (deshabilitado || ocupado) return
+    if (deshabilitado || ocupado || operacion.current) return
+    operacion.current = true
     const id = ++revision.current
     setOcupado(true); setError(""); setMensaje(""); setLectura(null); setValores(null); setCamposBorrar([]); setConfirmados([]); setProgreso("Abriendo capturas guardadas…")
     try {
@@ -45,13 +48,21 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
       }
       const propuesta = proponerLecturaRevisadaCampo(registro.lectura_guardada ?? {}, resultado)
       setValores(propuesta.valores); setFechas(propuesta.fechas); setCamposBorrar(propuesta.camposBorrar)
-      setMensaje("Lectura aplicada a la propuesta. Revisa los valores y pulsa Guardar cambios para actualizar esta visita.")
+      setProgreso("Guardando los campos comprobados…")
+      const guardada = await guardarLecturaComprobadaCampo({ registro, lectura: resultado, locales,
+        cancelada: () => revision.current !== id,
+        guardar: (datos) => completarLecturaVisitaCampo(registro.id, registro.actualizado_en, datos),
+      })
+      if (revision.current !== id) return
+      if (guardada) { alCompletar(); return }
+      setMensaje("Sin cambios automáticos. Puedes revisar y guardar manualmente los campos pendientes.")
       if (!tieneCantidadesCaptura(resultado)) setError("El lector no reconoció cantidades. Revisa el texto reconocido; puedes completar manualmente los valores verificables antes de guardar.")
     } catch (err) { if (revision.current === id) setError(err instanceof Error ? err.message : "No se pudieron leer las capturas.") }
-    finally { if (revision.current === id) { setOcupado(false); setProgreso("") } }
+    finally { operacion.current = false; if (revision.current === id) { setOcupado(false); setProgreso("") } }
   }
   async function guardar() {
-    if (!valores || !lectura || ocupado || deshabilitado) return
+    if (!valores || !lectura || ocupado || deshabilitado || operacion.current) return
+    operacion.current = true
     setOcupado(true); setError(""); setProgreso("Completando esta visita…")
     try {
       const datos = hayCambiosDatos ? prepararRecuperacionCaptura(valores, lectura, registro.lectura_guardada ?? {}, fechas, camposBorrar) : { confianza: lectura.confianza, texto_ocr: lectura.texto_ocr ?? "", advertencias: lectura.advertencias }
@@ -59,7 +70,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
       await completarLecturaVisitaCampo(registro.id, registro.actualizado_en, { ...datos, verificacion_campos: verificacion, version_validacion: VERSION_VALIDACION_CAMPO })
       alCompletar()
     } catch (err) { setError(err instanceof Error ? err.message : "No se guardaron las cantidades.") }
-    finally { setOcupado(false); setProgreso("") }
+    finally { operacion.current = false; setOcupado(false); setProgreso("") }
   }
   function marcarBorrado(campo: string, vacio: boolean) {
     setCamposBorrar((actuales) => vacio && registro.lectura_guardada?.[campo as CampoCantidadCaptura | CampoFechaCaptura] != null ? [...new Set([...actuales, campo])] : actuales.filter((c) => c !== campo))
@@ -82,10 +93,10 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
   const hayCambios = hayCambiosDatos || confirmados.length > 0
   const campos = [...CAMPOS_CANTIDADES_CAMPO.slice(0, -2), CAMPOS_FECHAS_CAMPO[0], CAMPOS_CANTIDADES_CAMPO.at(-2)!, CAMPOS_FECHAS_CAMPO[1], CAMPOS_CANTIDADES_CAMPO.at(-1)!]
   return <div className="vr-recuperar">
-    <button className="vr-releer" type="button" disabled={ocupado || deshabilitado} onClick={() => void releer()}>{ocupado ? progreso : `Releer capturas (${registro.capturas_app.length})`}</button>
-    <p>Lee las fotos guardadas de este SKU. Revisa las cantidades antes de guardarlas en esta misma visita.</p>
+    <button className="vr-releer" type="button" disabled={ocupado || deshabilitado} onClick={() => void releer()}>{ocupado ? progreso : `Releer y guardar comprobados (${registro.capturas_app.length})`}</button>
+    <p>Lee las capturas, guarda automáticamente los campos comprobados y actualiza el gráfico. Los datos manuales declarados se conservan; los campos dudosos quedan para revisión.</p>
     {imagenes.map((i) => <a key={i.ruta} href={i.url} target="_blank" rel="noopener noreferrer">Abrir captura</a>)}
-    {error && !valores && <p role="alert">{error}</p>}
+    {error && <p className="vr-error" role="alert">{error}</p>}
     {lectura?.advertencias.map((a, i) => <p key={i}>{a}</p>)}
     {valores && lectura && <>
       <button type="button" disabled={ocupado || deshabilitado} onClick={aplicarReconocidos}>Aplicar valores reconocidos</button>
@@ -101,7 +112,6 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
         }} />{camposBorrar.includes(campo) ? <small>Se quitará el dato anterior al guardar.</small> : lectura[campo] == null && valor != null && valor === registro.lectura_guardada?.[campo] && <small>Dato anterior conservado: el lector no reconoció este campo.</small>}<label><input type="checkbox" style={{ width: "auto" }} disabled={ocupado || deshabilitado} checked={confirmados.includes(campo)} onChange={(e) => setConfirmados((v) => e.target.checked ? [...new Set([...v, campo])] : v.filter((c) => c !== campo))} />Comprobé este campo en la captura</label></td></tr>
       })}</tbody></table></div>
       {mensaje && <p role="status">{mensaje}</p>}
-      {error && <p className="vr-error" role="alert">{error}</p>}
       <button type="button" disabled={ocupado || deshabilitado || !hayCambios} onClick={() => void guardar()}>{ocupado ? progreso : "Guardar cambios en esta visita"}</button>
       {!hayCambios && <p>Sin cambios pendientes: los valores de la columna Guardar ya están en esta visita. Si comprobaste un campo pendiente en la captura, marca su casilla para registrarlo como revisión manual.</p>}
     </>}

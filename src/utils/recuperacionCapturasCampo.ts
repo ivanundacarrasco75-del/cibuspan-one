@@ -56,6 +56,26 @@ export function prepararAuditoriaCapturaCampo(registro: RegistroDashboardCampo, 
     confianza: lectura.confianza, texto_ocr: lectura.texto_ocr ?? "", advertencias: lectura.advertencias }
 }
 
+// Releer también persiste la lectura comprobada: reconocer no equivale a guardar.
+// Reutiliza el RPC auditado y no escribe otra vez si los campos ya están validados.
+export async function guardarLecturaComprobadaCampo({ registro, lectura, locales, guardar, cancelada }: {
+  registro: RegistroDashboardCampo; lectura: LecturaFavorita; locales: LocalCampo[]
+  guardar: (datos: Record<string, unknown>) => Promise<void>; cancelada: () => boolean
+}) {
+  if (cancelada() || registro.lector_estado === "RESPALDO_MANUAL" ||
+    !Object.values(lectura.verificacion_campos ?? {}).some((v) => v.estado === "DOBLE_LECTURA")) return false
+  const datos = prepararAuditoriaCapturaCampo(registro, lectura, locales)
+  const verificacion = datos.verificacion_campos
+  const necesitaGuardar = CAMPOS_LECTURA_VALIDABLES.some(([c]) => {
+    const nueva = verificacion[c], previa = registro.verificacion_campos?.[c]
+    return ["DOBLE_LECTURA", "SIN_DATO"].includes(nueva.estado) &&
+      (nueva.valor !== (registro.lectura_guardada?.[c] ?? null) || nueva.estado !== previa?.estado || nueva.valor !== previa?.valor)
+  })
+  if (!necesitaGuardar || cancelada()) return false
+  await guardar(datos)
+  return true
+}
+
 export function prepararRecuperacionAutomaticaCampo(registro: RegistroDashboardCampo, lectura: LecturaFavorita, locales: LocalCampo[]) {
   if (!Number.isFinite(lectura.confianza) || lectura.confianza < 0.8) throw new Error(`Confianza general del lector ${Number.isFinite(lectura.confianza) ? Math.round(lectura.confianza * 100) : 0}%. Revisa las cantidades; puedes guardar una lectura verificada individualmente.`)
   if (localDeCaptura(lectura.local_nombre, locales)?.id !== registro.local_id) throw new Error("No se pudo verificar el local de la captura; requiere revisión individual.")

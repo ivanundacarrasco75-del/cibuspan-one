@@ -9,12 +9,13 @@ try {
  const {verificarDosLecturasCampo}=await server.ssrLoadModule('/src/utils/validacionLecturasCampo.ts')
  const {seleccionarCapturasSkuCampo}=await server.ssrLoadModule('/src/utils/seleccionCapturasSkuCampo.ts')
  const {reanalizarDiagnosticoCapturaCampo}=await server.ssrLoadModule('/src/utils/reanalizarDiagnosticoCapturasCampo.ts')
- const {prepararAuditoriaCapturaCampo}=await server.ssrLoadModule('/src/utils/recuperacionCapturasCampo.ts')
+ const {prepararAuditoriaCapturaCampo,guardarLecturaComprobadaCampo}=await server.ssrLoadModule('/src/utils/recuperacionCapturasCampo.ts')
+ const {resumirSemanasCampo,semanasDashboardCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
  const texto=(codigo,stock=3,fecha='12/10/2026 17:19:37')=>`Detalle del producto\n${fecha}\n$ LOCAL: SUPERMAXI AMERICA\nCódigo de barras ${codigo}\nPrecio afiliado 2.18\nVenta promedio diaria (Cant): .47\nExistencia en local ${stock}\nFecha ult. pedido =\nCantidad del pedido 5`
  const img=t=>({principal:t,control:t,confianza:.9,confianza_control:.9})
  await test('El símbolo de logotipo $ no impide identificar el local; no altera el precio',()=>{
   const r=interpretarReporteFavorita('$ LOCAL: — SUPERMAXI GRANDA CENTENO\nPrecio afiliado $1.96',.9)
-  assert.match(r.local_nombre,/SUPERMAXI GRANDA CENTENO/);assert.equal(r.precio_afiliado,1.96)
+  assert.equal(r.local_nombre,'SUPERMAXI GRANDA CENTENO');assert.equal(r.precio_afiliado,1.96)
  })
  await test('Dos cantidades 5 coincidentes sin fecha de pedido permanecen pendientes',()=>{
   const a=interpretarReporteFavorita(texto('7868304276308'),.9)
@@ -80,9 +81,31 @@ try {
   const r=reanalizar([img(rotacion(113)),otro])
   assert.equal(r.rotacion_diaria_unidades,113);assert.equal(r.verificacion_campos.rotacion_diaria_unidades.estado,'PENDIENTE')
  })
+ const visita=()=>({id:'v',local_id:'l',local_nombre:'SUPERMAXI AMERICA',fecha:'2026-10-12',visitado_en:'2026-10-12T12:00:00',actualizado_en:'token',
+  cliente_id:'c',producto_id:'p',producto_nombre:'Granos',producto_codigo:'7868304262196',lectura_guardada:{rotacion_diaria_unidades:null},valores:{rotacion:null}})
+ const guardarComprobada=(registro,lectura,guardar,cancelada=()=>false)=>guardarLecturaComprobadaCampo({registro,lectura,guardar,cancelada,locales:[{id:'l',nombre:registro.local_nombre}]})
+ await test('Una relectura comprobada guarda el dato vacío y el gráfico usa el valor persistido; repetir no escribe',async()=>{
+  const registro=visita(),l=reanalizar([img(rotacion(1.6,10,6.25))]);let llamadas=0
+  const args={registros:[registro],productos:[{id:'p',codigo:registro.producto_codigo,nombre:'Granos'}],semanas:semanasDashboardCampo('2026-10-12'),indicador:'rotacion',soloValidados:true}
+  assert.equal(resumirSemanasCampo(args)[0].semanas[4].valor,null)
+  assert.equal(await guardarComprobada(registro,l,async datos=>{
+   llamadas++;assert.equal(datos.rotacion_diaria_unidades,1.6)
+   registro.lectura_guardada={...registro.lectura_guardada,...Object.fromEntries(Object.entries(datos).filter(([c])=>c in l.verificacion_campos))}
+   registro.verificacion_campos=datos.verificacion_campos;registro.valores.rotacion=datos.rotacion_diaria_unidades
+  }),true)
+  assert.equal(resumirSemanasCampo(args)[0].semanas[4].valor,1.6)
+  assert.equal(await guardarComprobada(registro,l,async()=>{llamadas++}),false);assert.equal(llamadas,1)
+ })
+ await test('Un fallo de guardado no anuncia éxito ni añade un dato leído al gráfico; cancelación no escribe',async()=>{
+  const registro=visita(),l=reanalizar([img(rotacion(1.6,10,6.25))]);let llamadas=0
+  await assert.rejects(()=>guardarComprobada(registro,l,async()=>{llamadas++;throw new Error('La visita cambió')}),/cambió/)
+  assert.equal(registro.lectura_guardada.rotacion_diaria_unidades,null)
+  assert.equal(await guardarComprobada(registro,l,async()=>{llamadas++},()=>true),false);assert.equal(llamadas,1)
+  assert.equal(await guardarComprobada({...registro,lector_estado:'RESPALDO_MANUAL'},l,async()=>{llamadas++}),false);assert.equal(llamadas,1)
+ })
  if(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO) {
   const datos=JSON.parse(await readFile(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO,'utf8'))
-  await test('Diagnóstico real: reanaliza 208 visitas sin OCR, resuelve los dos casos de texto y mantiene los siete bloqueos',()=>{
+  await test('Diagnóstico real: reanaliza 208 visitas sin OCR, resuelve los dos casos de texto y mantiene los siete bloqueos',async()=>{
    assert.equal(datos.resultados.length,208)
    const fallos=[], corregidos=new Map()
    for(const r of datos.resultados) {
@@ -105,6 +128,13 @@ try {
    assert.equal(granos.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
    assert.equal(granos.lectura_control.comprobacion_inventario.stock,10)
    assert.equal(granos.lectura_control.comprobacion_inventario.dias,8.83)
+   const granda=corregidos.get('6b954b4e-697b-4247-bd96-3a6a484ae90e')
+   assert.equal(granda.lectura_control.principal.local_nombre,granda.lectura_control.control.local_nombre)
+   const registro={...visita(),local_nombre:'SUPERMAXI GRANDA CENTENO'}
+   assert.equal(granda.rotacion_diaria_unidades,1.6);assert.equal(granda.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
+   let guardada
+   assert.equal(await guardarComprobada(registro,granda,async datos=>{guardada=datos}),true)
+   assert.equal(guardada.rotacion_diaria_unidades,1.6);assert.equal(guardada.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
    console.log('Textos reales: 201 preparados y 7 conservados para revisión; no se escribió en Supabase.')
   })
  }
