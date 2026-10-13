@@ -75,7 +75,10 @@ export function localDeCaptura(nombre: string | null, locales: LocalCampo[]) {
   const normalizar = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "")
   const texto = normalizar(nombre ?? "")
   if (texto.length < 6) return null
-  const candidatas = locales.filter((l) => {
+  const unicos = [...new Map(locales.map((l) => [l.id, l])).values()]
+  const exactas = unicos.filter((l) => normalizar(l.nombre) === texto)
+  if (exactas.length) return exactas.length === 1 ? exactas[0] : null
+  const candidatas = unicos.filter((l) => {
     const n = normalizar(l.nombre)
     return n.length >= 6 && (n.includes(texto) || texto.includes(n))
   })

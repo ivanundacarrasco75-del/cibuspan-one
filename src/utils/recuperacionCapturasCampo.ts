@@ -11,8 +11,18 @@ export const capturasPendientesCampo = (registros: RegistroDashboardCampo[]) => 
   (r.version_validacion !== VERSION_VALIDACION_CAMPO || CAMPOS_LECTURA_VALIDABLES.some(([c]) => !r.verificacion_campos?.[c] || r.verificacion_campos[c].estado === "PENDIENTE")),
 )
 
+// El catálogo de selección sólo incluye locales activos; las visitas históricas
+// conservan el ID/nombre del local real aunque éste haya sido desactivado.
+export function localesHistoricosCapturasCampo(registros: RegistroDashboardCampo[], locales: LocalCampo[]) {
+  const referencias = new Map(locales.map((l) => [l.id, l]))
+  for (const r of registros) if (!referencias.has(r.local_id)) referencias.set(r.local_id, { id: r.local_id, nombre: r.local_nombre, codigo: "" })
+  return [...referencias.values()]
+}
+
 export function prepararAuditoriaCapturaCampo(registro: RegistroDashboardCampo, lectura: LecturaFavorita, locales: LocalCampo[]) {
-  if (localDeCaptura(lectura.local_nombre, locales)?.id !== registro.local_id) throw new Error("No se confirmó el local de la captura.")
+  const referencias = localesHistoricosCapturasCampo([registro], locales)
+  const localReconocido = localDeCaptura(lectura.local_nombre, referencias)
+  if (localReconocido?.id !== registro.local_id) throw new Error(`Local leído: ${lectura.local_nombre ?? "sin reconocer"}; visita: ${registro.local_nombre}. No se encontró una coincidencia única con el local de esta visita.`)
   if ((lectura.codigo_barras ?? "").replace(/\D/g, "") !== registro.producto_codigo.replace(/T$/i, "")) throw new Error("La captura no corresponde al SKU guardado.")
   if (lectura.fecha_fuente && lectura.fecha_fuente.slice(0, 10) !== registro.fecha) throw new Error("La fecha de la captura no coincide con la visita; no se cambia automáticamente.")
   if (!lectura.verificacion_campos || !lectura.lectura_control) throw new Error("Falta la lectura de control; actualiza la app.")
@@ -62,6 +72,7 @@ export async function recuperarCapturasPendientesCampo({ registros, locales, lee
   resultado: (resultado: ResultadoRecuperacionCampo) => void
 }) {
   const resultados: ResultadoRecuperacionCampo[] = []
+  const referencias = localesHistoricosCapturasCampo(registros, locales)
   const unicos = [...new Map(registros.map((r) => [r.id, r])).values()]
   for (const [i, registro] of unicos.entries()) {
     if (cancelada()) break
@@ -73,7 +84,7 @@ export async function recuperarCapturasPendientesCampo({ registros, locales, lee
       lectura = await leer(registro, (texto) => progreso(`${prefijo}: ${texto}`))
       if (cancelada()) break
       let datos: Record<string, unknown> | null
-      try { datos = lectura.verificacion_campos ? prepararAuditoriaCapturaCampo(registro, lectura, locales) : prepararRecuperacionAutomaticaCampo(registro, lectura, locales) }
+      try { datos = lectura.verificacion_campos ? prepararAuditoriaCapturaCampo(registro, lectura, referencias) : prepararRecuperacionAutomaticaCampo(registro, lectura, referencias) }
       catch (err) { respuesta = { ...base, estado: "REVISAR", mensaje: err instanceof Error ? err.message : "Revisa la captura.", lectura }; resultados.push(respuesta); resultado(respuesta); continue }
       if (!datos) respuesta = { ...base, estado: "SIN_CAMBIOS", mensaje: "No se reconocieron cantidades nuevas para los campos vacíos." }
       else {

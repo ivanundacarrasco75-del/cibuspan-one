@@ -111,6 +111,7 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     assert.equal((await db.query('select count(*)::int as n from com_visitas_campo_sku')).rows[0].n,1)
   })
   await db.exec(await archivo('202610130001_auditar_lecturas_campo.sql'))
+  await db.exec(await archivo('202610130002_coincidencia_local_capturas.sql'))
   const auditar=(datos,token)=>db.query('select public.com_kpi_campo_auditar_lectura($1::uuid,$2::timestamptz,$3::jsonb)',[detalle,token,JSON.stringify(datos)])
   const evidencia=(valor)=>({codigo_barras:'7868304262189',local_nombre:'SUPERMAXI AMERICA',fecha_fuente:'2026-10-12T14:00:00',confianza:.9,rotacion_diaria_unidades:valor,campos_sin_dato:['cantidad_ultimo_pedido']})
   const datosAuditados=(valor)=>({rotacion_diaria_unidades:valor,version_validacion:'20261013.1',verificacion_campos:{rotacion_diaria_unidades:{estado:'DOBLE_LECTURA',valor}},lectura_control:{principal:evidencia(valor),control:evidencia(valor)}})
@@ -135,6 +136,20 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     }
     assert.equal((await actual()).token,antes.token);assert.equal(Number((await actual()).rotacion_diaria_unidades),1.13)
     assert.equal((await db.query('select count(*)::int as n from com_lecturas_campo_auditoria')).rows[0].n,n)
+  })
+  await t.test('Un nombre exacto único tiene prioridad sobre otro local de nombre más largo',async()=>{
+    const secundario='00000000-0000-0000-0000-000000000008'
+    await db.query('insert into com_locales_monitoreados(id,nombre) values($1,$2)',[secundario,'SUPERMAXI AMERICA NORTE'])
+    await auditar(datosAuditados(1.13),(await actual()).token)
+    await assert.rejects(async()=>auditar({...datosAuditados(2),lectura_control:{principal:{...evidencia(2),local_nombre:'SUPERMAXI AMERICA NORTE'},control:{...evidencia(2),local_nombre:'SUPERMAXI AMERICA NORTE'}}},(await actual()).token),/otro local|identidad/)
+    await db.query('delete from com_locales_monitoreados where id=$1',[secundario])
+  })
+  await t.test('Nombres exactos duplicados siguen bloqueados: no se elige un local arbitrariamente',async()=>{
+    const repetido='00000000-0000-0000-0000-000000000009'
+    await db.query('insert into com_locales_monitoreados(id,nombre) values($1,$2)',[repetido,'SUPERMAXI AMERICA'])
+    await assert.rejects(async()=>auditar(datosAuditados(2),(await actual()).token),/identidad/)
+    assert.equal(Number((await actual()).rotacion_diaria_unidades),1.13)
+    await db.query('delete from com_locales_monitoreados where id=$1',[repetido])
   })
   await t.test('Protege el dato manual de sustitución automática y respalda la revisión humana',async()=>{
     await auditar({rotacion_diaria_unidades:1.2,version_validacion:'20261013.1',verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2}}},(await actual()).token)

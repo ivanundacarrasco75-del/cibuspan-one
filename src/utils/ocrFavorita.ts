@@ -95,8 +95,9 @@ export function interpretarReporteFavorita(
 
   const lectura: LecturaFavorita = {
     texto_ocr: textoOriginal.slice(0, 20000),
-    // El logotipo rojo puede aparecer como S/E antes de la etiqueta LOCAL.
-    local_nombre: textoLinea(lineas, /^(?:[A-Z]\s+)?LOCAL\s*[:.-]?\s*(.+)$/),
+    // El logotipo produce SH, ES, SS, NM, DL o M£ delante de LOCAL.
+    // Sólo se admite un prefijo corto en la cabecera; nunca EXISTENCIA EN LOCAL.
+    local_nombre: textoLinea(lineas, /^(?:[A-Z£]{1,3}\s+)?LOCAL\s*[:.-]?\s*(.+)$/),
     codigo_barras: codigoDespues(texto, /CODIGO\s+DE\s+BARRAS\s*[:.-]?/),
     codigo_referencia: codigoDespues(texto, /CODIGO\s+(?:REF\.?\s*)?(?:PROVEEDOR|REFERENCIA)\s*[:.-]?/),
     nombre_producto: producto(lineas),
