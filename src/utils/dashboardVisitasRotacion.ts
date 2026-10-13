@@ -29,6 +29,8 @@ export type RegistroDashboardCampo = {
   georreferencia?: GeorreferenciaCampo | null; fotos_georreferencia?: FotoCampo[]
   capturas_app?: string[]; lectura_guardada?: Partial<LecturaFavorita>; lector_estado?: string | null
   verificacion_campos?: VerificacionCamposCampo; version_validacion?: string
+  lectura_almacenada?: LecturaFavorita
+  registrado_por?: string; puede_procesar?: boolean
   valores: Record<IndicadorCampo, number | null>
 }
 export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador: IndicadorCampo) {

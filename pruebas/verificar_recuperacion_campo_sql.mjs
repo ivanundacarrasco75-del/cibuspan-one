@@ -190,6 +190,7 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     try {
       const {reanalizarDiagnosticoCapturaCampo}=await server.ssrLoadModule('/src/utils/reanalizarDiagnosticoCapturasCampo.ts')
       const {guardarLecturaComprobadaCampo}=await server.ssrLoadModule('/src/utils/recuperacionCapturasCampo.ts')
+      const {procesarVisitasAutomaticamenteCampo,visitasSinProcesarCampo}=await server.ssrLoadModule('/src/utils/procesamientoAutomaticoCampo.ts')
       const {CAMPOS_CANTIDADES_CAMPO,CAMPOS_FECHAS_CAMPO}=await server.ssrLoadModule('/src/utils/lecturaCapturasCampo.ts')
       const {resumirSemanasCampo,semanasDashboardCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
       const diagnostico=JSON.parse(await readFile(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO,'utf8'))
@@ -209,6 +210,14 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
       const persistido={...registro,lectura_guardada:{rotacion_diaria_unidades:Number(despues.rotacion_diaria_unidades)},verificacion_campos:despues.datos_ia.verificacion_campos,valores:{rotacion:Number(despues.rotacion_diaria_unidades)}}
       assert.equal(resumirSemanasCampo({registros:[persistido],productos:[{id:producto,codigo:registro.producto_codigo,nombre:'Granos'}],semanas:semanasDashboardCampo('2026-10-12'),indicador:'rotacion',soloValidados:true})[0].semanas[4].valor,1.6)
       assert.equal(despues.visita_id,antes.visita_id);assert.deepEqual(despues.capturas_app,antes.capturas_app)
+      const completo={...persistido,actualizado_en:despues.token,capturas_app:despues.capturas_app,lectura_almacenada:fuente.lectura,
+        lectura_guardada:{...Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([c])=>[c,despues[c]==null?null:Number(despues[c])])),...Object.fromEntries(CAMPOS_FECHAS_CAMPO.map(([c])=>[c,despues[c]??null]))}}
+      const resultados=await procesarVisitasAutomaticamenteCampo({registros:[completo],locales:[{id:local,nombre:registro.local_nombre}],
+        leerImagenes:async()=>{throw new Error('No debe descargar imágenes ya leídas')},guardar:(r,datos)=>auditar(datos,r.actualizado_en),cancelada:()=>false,progreso:()=>{},resultado:()=>{}})
+      assert.equal(resultados[0].estado,'COMPLETADA')
+      const automatico=await actual()
+      assert.equal(Number(automatico.rotacion_diaria_unidades),1.6)
+      assert.equal(visitasSinProcesarCampo([{...completo,lectura_almacenada:automatico.datos_ia}]).length,0)
     } finally { await db.exec('rollback');await server.close() }
   })
 

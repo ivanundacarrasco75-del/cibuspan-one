@@ -20,7 +20,10 @@ export async function obtenerDashboardVisitasRotacion(clienteId: string, desde: 
   ])
   if (catalogo.error) throw new Error(`No se pudo cargar el catálogo de visitas: ${catalogo.error.message}`)
   const datos = catalogo.data ?? {}
-  return { clientes: datos.clientes ?? [], locales: datos.locales ?? [], productos: datos.productos ?? [], registros }
+  const administrador = datos.puede_administrar === true
+  const usuarioId = administrador ? null : (await supabase.auth.getUser()).data.user?.id
+  return { clientes: datos.clientes ?? [], locales: datos.locales ?? [], productos: datos.productos ?? [],
+    registros: registros.map((r) => ({ ...r, puede_procesar: administrador || !!usuarioId && r.registrado_por === usuarioId })) }
 }
 
 async function leerRegistros(clienteId: string, desde: string, hasta: string) {
@@ -51,6 +54,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
       registros.push({
         id: fila.id, fecha: visita.fecha_visita, visitado_en: visita.visitado_en,
         actualizado_en: fila.actualizado_en, cliente_id: visita.cliente_id,
+        registrado_por: visita.registrado_por,
         local_id: visita.local_monitoreado_id, local_nombre: visita.local?.nombre ?? "Local",
         producto_id: fila.producto_id, producto_codigo: producto?.codigo ?? "", producto_nombre: producto?.nombre ?? "SKU",
         responsable_rol: datos.responsable_id === visita.registrado_por && typeof datos.responsable_rol === "string" ? datos.responsable_rol : null,
@@ -60,6 +64,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         verificacion_campos: (datos.verificacion_campos ?? {}) as NonNullable<RegistroDashboardCampo["verificacion_campos"]>,
         version_validacion: typeof datos.version_validacion === "string" ? datos.version_validacion : undefined,
         lector_estado: typeof datos.lector_estado === "string" ? datos.lector_estado : null,
+        lectura_almacenada: { ...datos, confianza: numero(fila.confianza_ia) ?? numero(datos.confianza) ?? 0 } as LecturaFavorita,
         lectura_guardada: { ...Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([campo]) => [campo, numero(fila[campo])])), fecha_ultimo_pedido: fila.fecha_ultimo_pedido ?? null, fecha_ultimo_despacho: fila.fecha_ultimo_despacho ?? null } as Partial<LecturaFavorita>,
         valores: {
           rotacion: numero(fila.rotacion_diaria_unidades), stock, dias: numero(fila.dias_inventario_local), caras,

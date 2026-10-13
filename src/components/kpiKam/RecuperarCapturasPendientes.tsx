@@ -3,6 +3,7 @@ import { completarLecturaVisitaCampo, leerCapturasGuardadasCampo } from "../../r
 import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacion"
 import type { LocalCampo } from "../../utils/georreferenciaCampo"
 import { capturasPendientesCampo, recuperarCapturasPendientesCampo, type ResultadoRecuperacionCampo } from "../../utils/recuperacionCapturasCampo"
+import { claveProcesamientoCampo, excepcionesProcesamientoCampo, procesarVisitasAutomaticamenteCampo, visitasSinProcesarCampo } from "../../utils/procesamientoAutomaticoCampo"
 
 export default function RecuperarCapturasPendientes({ registros, locales, deshabilitado, alCambiarEstado, alTerminar }: {
   registros: RegistroDashboardCampo[]; locales: LocalCampo[]; deshabilitado: boolean
@@ -13,20 +14,29 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
   const [resultados, setResultados] = useState<ResultadoRecuperacionCampo[]>([])
   const [resumen, setResumen] = useState("")
   const cancelada = useRef(false), ejecutando = useRef(false), vigente = useRef(true)
+  const intentadas = useRef(new Set<string>()), pausada = useRef(false)
   useEffect(() => { vigente.current = true; return () => { vigente.current = false; cancelada.current = true } }, [])
   const pendientes = capturasPendientesCampo(registros)
+  const excepciones = [...new Map([...excepcionesProcesamientoCampo(registros), ...resultados.filter((r) => r.estado === "ERROR" || r.estado === "REVISAR" || r.mensaje.includes("Excepciones:"))].map((r) => [r.id, r])).values()]
+  useEffect(() => {
+    if (!deshabilitado && !ocupado && !pausada.current && visitasSinProcesarCampo(registros).some((r) => !intentadas.current.has(claveProcesamientoCampo(r)))) void recuperar(undefined, true)
+  }, [registros, locales, deshabilitado, ocupado])
   function descargarDiagnostico() {
     const url = URL.createObjectURL(new Blob([JSON.stringify({ resumen, resultados }, null, 2)], { type: "application/json" }))
     const enlace = document.createElement("a")
     enlace.href = url; enlace.download = "diagnostico_lectura_capturas.json"; enlace.click(); URL.revokeObjectURL(url)
   }
-  async function recuperar(diagnostico?: Map<string, import("../../repositories/campoComercialRepository").LecturaFavorita>) {
-    const seleccionados = diagnostico ? registros.filter((r) => diagnostico.has(r.id) && r.lector_estado !== "RESPALDO_MANUAL") : pendientes
+  async function recuperar(diagnostico?: Map<string, import("../../repositories/campoComercialRepository").LecturaFavorita>, automatico = false) {
+    const seleccionados = automatico ? visitasSinProcesarCampo(registros).filter((r) => !intentadas.current.has(claveProcesamientoCampo(r)))
+      : diagnostico ? registros.filter((r) => diagnostico.has(r.id) && r.lector_estado !== "RESPALDO_MANUAL") : pendientes
     if (ejecutando.current || deshabilitado || !seleccionados.length) return
     ejecutando.current = true; cancelada.current = false
+    for (const r of seleccionados) intentadas.current.add(claveProcesamientoCampo(r))
     setOcupado(true); alCambiarEstado(true); setResultados([]); setResumen(""); setProgreso(diagnostico ? "Iniciando comprobación del diagnóstico…" : "Iniciando lectura de capturas…")
     try {
-      const respuesta = await recuperarCapturasPendientesCampo({ registros: seleccionados, locales,
+      let guardadas = 0
+      const respuesta = await (automatico ? procesarVisitasAutomaticamenteCampo : recuperarCapturasPendientesCampo)({ registros: seleccionados, locales,
+        leerImagenes: (r: RegistroDashboardCampo, avance: (texto: string) => void) => leerCapturasGuardadasCampo(r.capturas_app!, avance, r.producto_codigo),
         leer: async (r, avance) => {
           if (!diagnostico) return leerCapturasGuardadasCampo(r.capturas_app!, avance, r.producto_codigo)
           avance("Comprobando el texto del diagnóstico, sin releer imágenes…")
@@ -36,10 +46,11 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
         guardar: (r, datos) => completarLecturaVisitaCampo(r.id, r.actualizado_en, datos),
         cancelada: () => cancelada.current,
         progreso: (texto) => { if (vigente.current && !cancelada.current) setProgreso(texto) },
-        resultado: (r) => { if (vigente.current) setResultados((actuales) => [...actuales, r]) },
+        resultado: (r) => { if (vigente.current) { setResultados((actuales) => [...actuales, r]); if (r.estado === "COMPLETADA" && ++guardadas % 10 === 0) alTerminar() } },
       })
       if (!vigente.current) return
-      setResumen(`${cancelada.current ? "Proceso detenido. " : "Lectura finalizada. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas auditadas; ${respuesta.filter((r) => r.estado === "SIN_CAMBIOS").length} sin cantidades nuevas; ${respuesta.filter((r) => r.estado === "REVISAR").length} para revisar; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${seleccionados.length - respuesta.length} sin procesar.`)
+      for (const r of seleccionados) if (!respuesta.some((p) => p.id === r.id)) intentadas.current.delete(claveProcesamientoCampo(r))
+      setResumen(`${cancelada.current ? "Proceso detenido. " : "Procesamiento finalizado. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas con datos guardados; ${respuesta.filter((r) => r.estado === "REVISAR" || r.mensaje.includes("Excepciones:")).length} visitas con excepciones; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${seleccionados.length - respuesta.length} sin procesar.`)
       alTerminar()
     } catch (err) { if (vigente.current) setResumen(err instanceof Error ? err.message : "No se pudo completar la recuperación.") }
     finally { ejecutando.current = false; if (vigente.current) { setOcupado(false); alCambiarEstado(false); setProgreso("") } }
@@ -61,13 +72,18 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
     } catch (err) { setResumen(err instanceof Error ? err.message : "No se pudo abrir el diagnóstico.") }
   }
   return <section className="vr-recuperacion-conjunta">
+    <p>Los datos se procesan automáticamente. Se reutilizan las lecturas guardadas y se comprueban las capturas que lo necesitan; los datos comprobados se guardan y aparecen en el gráfico.</p>
+    {ocupado && <><p role="status">{progreso}</p><p>{resultados.length} visitas procesadas · el gráfico se actualiza durante el proceso. Mantén esta pantalla abierta hasta terminar.</p><button type="button" onClick={() => { pausada.current = true; cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
+    {!ocupado && pausada.current && <button type="button" onClick={() => { pausada.current = false; void recuperar(undefined, true) }}>Continuar procesamiento automático</button>}
+    {resumen && <p role="status">{resumen}</p>}
+    {excepciones.length > 0 && <details><summary>Ver excepciones ({excepciones.length})</summary><ul>{excepciones.map((r) => <li key={r.id}>{r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}
+    <details><summary>Herramientas de recuperación</summary>
     <button className="vr-releer" type="button" disabled={ocupado || deshabilitado || !pendientes.length} onClick={() => void recuperar()}>Auditar y corregir capturas ({deshabilitado ? "…" : pendientes.length})</button>
     <label>Corregir desde diagnóstico JSON<input type="file" accept=".json,application/json" disabled={ocupado || deshabilitado} onChange={(e) => { const archivo = e.target.files?.[0]; e.target.value = ""; void importarDiagnostico(archivo) }} /></label>
     <p>Selecciona el diagnóstico ya descargado para comprobar y corregir sus visitas sin repetir el OCR. Se conserva el respaldo y se respetan los filtros y los cambios manuales.</p>
     <p>Incluye las cinco semanas de los filtros actuales. Revisa también cantidades ya llenas. Corrige campos con dos lecturas coincidentes, conserva los manuales declarados y guarda un respaldo antes de cada cambio. Los campos dudosos quedan pendientes y fuera del gráfico validado. Mantén la app abierta mientras termina.</p>
-    {ocupado && <><p role="status">{progreso}</p><p>{resultados.length} procesadas: {resultados.filter((r) => r.estado === "COMPLETADA").length} guardadas; {resultados.filter((r) => r.estado === "REVISAR").length} para revisar; {resultados.filter((r) => r.estado === "ERROR").length} con error. El gráfico se refresca al terminar.</p><button type="button" onClick={() => { cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
-    {resumen && <p role="status">{resumen}</p>}
     {!ocupado && resultados.length > 0 && <button type="button" onClick={descargarDiagnostico}>Descargar diagnóstico de lectura</button>}
     {resultados.length > 0 && <details><summary>Ver resultados por visita ({resultados.length})</summary><ul>{resultados.map((r) => <li key={r.id}>{r.fecha} · {r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}
+    </details>
   </section>
 }
