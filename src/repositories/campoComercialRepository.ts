@@ -1,12 +1,16 @@
 import { supabase } from "../lib/supabase"
 import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
 import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo } from "../utils/georreferenciaCampo"
+import { verificacionManualCampo, VERSION_VALIDACION_CAMPO, type VerificacionCamposCampo } from "../utils/validacionLecturasCampo"
 
 export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
 
 export type LecturaFavorita = {
   texto_ocr?: string
   campos_sin_dato?: string[]
+  verificacion_campos?: VerificacionCamposCampo
+  lectura_control?: Record<string, unknown>
+  version_validacion?: string
   local_nombre: string | null
   codigo_barras: string | null
   codigo_referencia: string | null
@@ -202,7 +206,7 @@ export async function analizarCapturasFavorita(
 }
 
 export async function completarLecturaVisitaCampo(id: string, actualizadoEn: string, datos: Record<string, unknown>) {
-  const { data, error } = await supabase.rpc("com_kpi_campo_completar_lectura", {
+  const { data, error } = await supabase.rpc(datos.verificacion_campos ? "com_kpi_campo_auditar_lectura" : "com_kpi_campo_completar_lectura", {
     p_registro_id: id, p_actualizado_en: actualizadoEn, p_datos: datos,
   })
   if (error) throw new Error(`No se pudieron completar los datos: ${error.message}`)
@@ -257,6 +261,8 @@ export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
       ...datos,
       datos_ia: {
         ...datos.datos_ia,
+        version_validacion: VERSION_VALIDACION_CAMPO,
+        verificacion_campos: (datos.datos_ia as LecturaFavorita).verificacion_campos ?? (!datos.capturas_app?.length || (datos.datos_ia as Record<string, unknown>).lector_estado === "RESPALDO_MANUAL" ? verificacionManualCampo(datos, "MANUAL_DECLARADO") : {}),
         responsable_id: sesion.user.id,
         responsable_rol: perfil.rol,
         responsable_nombre: perfil.nombre || sesion.user.email || "Sin nombre",

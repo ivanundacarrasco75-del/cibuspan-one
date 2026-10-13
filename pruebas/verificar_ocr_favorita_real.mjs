@@ -28,7 +28,8 @@ try{
  const r=await leerCapturasFavoritaOcr(archivos,undefined,async(a)=>areas.get(a))
  assert.equal(r.local_nombre,'SUPERMAXI AMERICA');assert.equal(r.codigo_barras,'7868304262189')
  const esperados={precio_comercio:2.53,precio_afiliado:2.14,rotacion_diaria_unidades:.63,venta_diaria_valor:1.36,prediccion_venta_unidades:0,participacion_clase:1.34,participacion_subclase:2.4,stock_local_unidades:9,dias_inventario_local:14.22,stock_cd_cajas:0,unidades_por_caja:5,dias_inventario_cd:0,cantidad_ultimo_pedido:null,cantidad_ultimo_despacho:5}
- for(const [campo,v] of Object.entries(esperados))assert.equal(r[campo],v,campo)
+ for(const [campo,v] of Object.entries(esperados)){assert.equal(r[campo],v,campo);if(v!==null)assert.equal(r.verificacion_campos[campo].estado,'DOBLE_LECTURA',campo+' debe pasar el control')}
+ assert.equal(r.verificacion_campos.fecha_ultimo_despacho.estado,'DOBLE_LECTURA')
  assert.equal(r.fecha_ultimo_pedido,null);assert.equal(r.fecha_ultimo_despacho,'2026-09-21')
  assert.equal(r.fecha_fuente,'2026-09-21T17:08:51')
  const datos=prepararRecuperacionAutomaticaCampo({local_id:'america',producto_codigo:'7868304262189',lectura_guardada:{stock_local_unidades:0}},r,[{id:'america',nombre:'SUPERMAXI AMERICA',codigo:'1'}])

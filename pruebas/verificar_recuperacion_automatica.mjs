@@ -136,10 +136,10 @@ FECHA ULT. DESPACHO: 2026-09-21`,.9)
   })
   assert.deepEqual(escritos,['r1']);assert.equal(r.length,1)
  })
- await test('Una segunda ejecución no escribe ni duplica los registros completados; respeta imágenes solo de respaldo',async()=>{
+ await test('Los registros llenos también se incluyen para auditar; respeta imágenes solo de respaldo',async()=>{
   const r=lectura(),fila=registro('r1',{lectura_guardada:{...r}});let guardados=0
   const respuesta=await recuperarCapturasPendientesCampo({registros:[fila],locales,cancelada:()=>false,progreso:()=>{},resultado:()=>{},leer:async()=>r,guardar:async()=>{guardados++}})
   assert.equal(guardados,0);assert.equal(respuesta[0].estado,'SIN_CAMBIOS')
-  assert.equal(capturasPendientesCampo([registro('r2',{lector_estado:'RESPALDO_MANUAL'}),registro('r3',{capturas_app:[]}),fila]).length,0)
+  assert.equal(capturasPendientesCampo([registro('r2',{lector_estado:'RESPALDO_MANUAL'}),registro('r3',{capturas_app:[]}),fila]).length,1)
  })
 } finally { await server.close() }

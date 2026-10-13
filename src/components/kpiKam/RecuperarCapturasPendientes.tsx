@@ -33,14 +33,14 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
         resultado: (r) => { if (vigente.current) setResultados((actuales) => [...actuales, r]) },
       })
       if (!vigente.current) return
-      setResumen(`${cancelada.current ? "Proceso detenido. " : "Lectura finalizada. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas completadas; ${respuesta.filter((r) => r.estado === "SIN_CAMBIOS").length} sin cantidades nuevas; ${respuesta.filter((r) => r.estado === "REVISAR").length} para revisar; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${pendientes.length - respuesta.length} sin procesar.`)
+      setResumen(`${cancelada.current ? "Proceso detenido. " : "Lectura finalizada. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas auditadas; ${respuesta.filter((r) => r.estado === "SIN_CAMBIOS").length} sin cantidades nuevas; ${respuesta.filter((r) => r.estado === "REVISAR").length} para revisar; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${pendientes.length - respuesta.length} sin procesar.`)
       alTerminar()
     } catch (err) { if (vigente.current) setResumen(err instanceof Error ? err.message : "No se pudo completar la recuperación.") }
     finally { ejecutando.current = false; if (vigente.current) { setOcupado(false); alCambiarEstado(false); setProgreso("") } }
   }
   return <section className="vr-recuperacion-conjunta">
-    <button className="vr-releer" type="button" disabled={ocupado || deshabilitado || !pendientes.length} onClick={() => void recuperar()}>Leer y completar todas las capturas pendientes ({deshabilitado ? "…" : pendientes.length})</button>
-    <p>Incluye las cinco semanas de los filtros actuales. Completa campos vacíos al verificar local, SKU y calidad de lectura. Los casos dudosos quedan para revisión. Mantén la app abierta mientras termina.</p>
+    <button className="vr-releer" type="button" disabled={ocupado || deshabilitado || !pendientes.length} onClick={() => void recuperar()}>Auditar y corregir capturas ({deshabilitado ? "…" : pendientes.length})</button>
+    <p>Incluye las cinco semanas de los filtros actuales. Revisa también cantidades ya llenas. Corrige campos con dos lecturas coincidentes, conserva los manuales declarados y guarda un respaldo antes de cada cambio. Los campos dudosos quedan pendientes y fuera del gráfico validado. Mantén la app abierta mientras termina.</p>
     {ocupado && <><p role="status">{progreso}</p><button type="button" onClick={() => { cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
     {resumen && <p role="status">{resumen}</p>}
     {!ocupado && resultados.length > 0 && <button type="button" onClick={descargarDiagnostico}>Descargar diagnóstico de lectura</button>}

@@ -1,4 +1,5 @@
 import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
+import { datoVerificadoCampo, type VerificacionCamposCampo } from "./validacionLecturasCampo.ts"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 
 export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
@@ -27,7 +28,18 @@ export type RegistroDashboardCampo = {
   producto_id: string; producto_codigo: string; producto_nombre: string; responsable_rol: string | null
   georreferencia?: GeorreferenciaCampo | null; fotos_georreferencia?: FotoCampo[]
   capturas_app?: string[]; lectura_guardada?: Partial<LecturaFavorita>; lector_estado?: string | null
+  verificacion_campos?: VerificacionCamposCampo; version_validacion?: string
   valores: Record<IndicadorCampo, number | null>
+}
+export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador: IndicadorCampo) {
+  const campos: Partial<Record<IndicadorCampo, string>> = { rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local", precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor", prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd", quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades" }
+  const campo = campos[indicador]
+  if (!campo) return r.valores[indicador]
+  const actual = r.lectura_guardada?.[campo as keyof LecturaFavorita]
+  if (datoVerificadoCampo(campo, actual, r.verificacion_campos)) return r.valores[indicador]
+  // La captura sólo de respaldo y el ingreso sin lector son declaraciones manuales.
+  if (!Object.keys(r.verificacion_campos ?? {}).length && ["RESPALDO_MANUAL", "SIN_LECTOR"].includes(r.lector_estado ?? "")) return r.valores[indicador]
+  return null
 }
 export type PuntoSemanaCampo = {
   valor: number | null; locales_con_dato: number; locales_revisados: number; ultima_fecha: string | null
@@ -52,9 +64,9 @@ export function semanasDashboardCampo(referencia: string): SemanaCampo[] {
   }))
 }
 
-export function resumirSemanasCampo({ registros, productos, semanas, indicador, clienteId = "", localId = "", origen = "TODOS" }: {
+export function resumirSemanasCampo({ registros, productos, semanas, indicador, clienteId = "", localId = "", origen = "TODOS", soloValidados = false }: {
   registros: RegistroDashboardCampo[]; productos: ProductoDashboardCampo[]; semanas: SemanaCampo[]
-  indicador: IndicadorCampo; clienteId?: string; localId?: string; origen?: OrigenVisitaCampo
+  soloValidados?: boolean; indicador: IndicadorCampo; clienteId?: string; localId?: string; origen?: OrigenVisitaCampo
 }): SerieSkuCampo[] {
   const ultimos = new Map<string, RegistroDashboardCampo>()
   const visibles = registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
@@ -77,8 +89,9 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
     ...producto,
     semanas: semanas.map((_, indice) => {
       const registrosSku = agrupados.get(`${indice}|${producto.id}`) ?? []
-      const datos = registrosSku.filter((r) => r.valores[indicador] !== null && Number.isFinite(r.valores[indicador]))
-      const suma = datos.reduce((total, r) => total + (r.valores[indicador] ?? 0), 0)
+      const valores = registrosSku.map((r) => soloValidados ? valorIndicadorValidadoCampo(r, indicador) : r.valores[indicador])
+      const datos = registrosSku.filter((_, i) => valores[i] !== null && Number.isFinite(valores[i]))
+      const suma = valores.reduce<number>((total, v) => total + (v !== null && Number.isFinite(v) ? v : 0), 0)
       return {
         valor: !datos.length ? null : config.agregacion === "SUMA" ? suma : suma / datos.length,
         locales_con_dato: datos.length, locales_revisados: registrosSku.length,

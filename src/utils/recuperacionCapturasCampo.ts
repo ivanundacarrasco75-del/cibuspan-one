@@ -3,10 +3,36 @@ import type { RegistroDashboardCampo } from "./dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "./georreferenciaCampo"
 import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO, completarCantidadesCaptura, prepararRecuperacionCaptura } from "./lecturaCapturasCampo"
 
+import { CAMPOS_LECTURA_VALIDABLES, VERSION_VALIDACION_CAMPO, type VerificacionCamposCampo } from "./validacionLecturasCampo"
+
 export type ResultadoRecuperacionCampo = { id: string; producto: string; local: string; fecha: string; estado: "COMPLETADA" | "SIN_CAMBIOS" | "REVISAR" | "ERROR"; mensaje: string; lectura?: LecturaFavorita }
 export const capturasPendientesCampo = (registros: RegistroDashboardCampo[]) => registros.filter((r) =>
-  r.capturas_app?.length && r.lector_estado !== "RESPALDO_MANUAL" && CAMPOS_CANTIDADES_CAMPO.some(([c]) => r.lectura_guardada?.[c] == null),
+  r.capturas_app?.length && r.lector_estado !== "RESPALDO_MANUAL" &&
+  (r.version_validacion !== VERSION_VALIDACION_CAMPO || CAMPOS_LECTURA_VALIDABLES.some(([c]) => !r.verificacion_campos?.[c] || r.verificacion_campos[c].estado === "PENDIENTE")),
 )
+
+export function prepararAuditoriaCapturaCampo(registro: RegistroDashboardCampo, lectura: LecturaFavorita, locales: LocalCampo[]) {
+  if (localDeCaptura(lectura.local_nombre, locales)?.id !== registro.local_id) throw new Error("No se confirmó el local de la captura.")
+  if ((lectura.codigo_barras ?? "").replace(/\D/g, "") !== registro.producto_codigo.replace(/T$/i, "")) throw new Error("La captura no corresponde al SKU guardado.")
+  if (lectura.fecha_fuente && lectura.fecha_fuente.slice(0, 10) !== registro.fecha) throw new Error("La fecha de la captura no coincide con la visita; no se cambia automáticamente.")
+  if (!lectura.verificacion_campos || !lectura.lectura_control) throw new Error("Falta la lectura de control; actualiza la app.")
+  const datos: Record<string, unknown> = {}, borrar: string[] = [], verificacion: VerificacionCamposCampo = {}
+  for (const [c] of CAMPOS_LECTURA_VALIDABLES) {
+    const anterior = registro.lectura_guardada?.[c] ?? null, manual = registro.verificacion_campos?.[c]
+    if (manual && ["REVISION_MANUAL", "MANUAL_DECLARADO"].includes(manual.estado) && manual.valor === anterior) { verificacion[c] = manual; continue }
+    const comprobado = lectura.verificacion_campos[c]
+    if (comprobado?.estado === "DOBLE_LECTURA") {
+      if (comprobado.valor !== anterior) datos[c] = comprobado.valor
+      verificacion[c] = comprobado
+    } else if (comprobado?.estado === "SIN_DATO") {
+      if (anterior !== null) borrar.push(c)
+      verificacion[c] = comprobado
+    } else verificacion[c] = { estado: "PENDIENTE", valor: anterior, motivo: comprobado?.motivo ?? "Falta evidencia." }
+  }
+  return { ...datos, ...(borrar.length ? { campos_borrar: borrar } : {}), verificacion_campos: verificacion,
+    lectura_control: lectura.lectura_control, version_validacion: VERSION_VALIDACION_CAMPO,
+    confianza: lectura.confianza, texto_ocr: lectura.texto_ocr ?? "", advertencias: lectura.advertencias }
+}
 
 export function prepararRecuperacionAutomaticaCampo(registro: RegistroDashboardCampo, lectura: LecturaFavorita, locales: LocalCampo[]) {
   if (!Number.isFinite(lectura.confianza) || lectura.confianza < 0.8) throw new Error(`Confianza general del lector ${Number.isFinite(lectura.confianza) ? Math.round(lectura.confianza * 100) : 0}%. Revisa las cantidades; puedes guardar una lectura verificada individualmente.`)
@@ -47,13 +73,13 @@ export async function recuperarCapturasPendientesCampo({ registros, locales, lee
       lectura = await leer(registro, (texto) => progreso(`${prefijo}: ${texto}`))
       if (cancelada()) break
       let datos: Record<string, unknown> | null
-      try { datos = prepararRecuperacionAutomaticaCampo(registro, lectura, locales) }
+      try { datos = lectura.verificacion_campos ? prepararAuditoriaCapturaCampo(registro, lectura, locales) : prepararRecuperacionAutomaticaCampo(registro, lectura, locales) }
       catch (err) { respuesta = { ...base, estado: "REVISAR", mensaje: err instanceof Error ? err.message : "Revisa la captura.", lectura }; resultados.push(respuesta); resultado(respuesta); continue }
       if (!datos) respuesta = { ...base, estado: "SIN_CAMBIOS", mensaje: "No se reconocieron cantidades nuevas para los campos vacíos." }
       else {
         progreso(`${prefijo}: guardando cantidades…`)
         await guardar(registro, datos)
-        respuesta = { ...base, estado: "COMPLETADA", mensaje: `${[...CAMPOS_CANTIDADES_CAMPO, ...CAMPOS_FECHAS_CAMPO].filter(([c]) => c in datos!).length} campos completados. Se conservaron los datos anteriores.` }
+        respuesta = { ...base, estado: "COMPLETADA", mensaje: lectura.verificacion_campos ? `${[...CAMPOS_CANTIDADES_CAMPO, ...CAMPOS_FECHAS_CAMPO].filter(([c]) => c in datos!).length + ((datos.campos_borrar as string[] | undefined)?.length ?? 0)} campos corregidos/completados con respaldo; ${Object.values(datos.verificacion_campos as VerificacionCamposCampo).filter((v) => v.estado === "PENDIENTE").length} campos pendientes. Los manuales declarados se conservan.` : `${[...CAMPOS_CANTIDADES_CAMPO, ...CAMPOS_FECHAS_CAMPO].filter(([c]) => c in datos!).length} campos completados. Se conservaron los datos anteriores.` }
       }
     } catch (err) { respuesta = { ...base, estado: "ERROR", mensaje: err instanceof Error ? err.message : "No se pudo completar esta visita." } }
     resultados.push({ ...respuesta, lectura }); resultado({ ...respuesta, lectura })

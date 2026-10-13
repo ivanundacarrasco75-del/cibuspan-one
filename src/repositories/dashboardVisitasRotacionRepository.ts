@@ -57,6 +57,8 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         georreferencia: (datos.georreferencia_visita ?? null) as GeorreferenciaCampo | null,
         fotos_georreferencia: Array.isArray(datos.fotos_georreferencia) ? datos.fotos_georreferencia as FotoCampo[] : [],
         capturas_app: Array.isArray(fila.capturas_app) ? fila.capturas_app : [],
+        verificacion_campos: (datos.verificacion_campos ?? {}) as NonNullable<RegistroDashboardCampo["verificacion_campos"]>,
+        version_validacion: typeof datos.version_validacion === "string" ? datos.version_validacion : undefined,
         lector_estado: typeof datos.lector_estado === "string" ? datos.lector_estado : null,
         lectura_guardada: { ...Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([campo]) => [campo, numero(fila[campo])])), fecha_ultimo_pedido: fila.fecha_ultimo_pedido ?? null, fecha_ultimo_despacho: fila.fecha_ultimo_despacho ?? null } as Partial<LecturaFavorita>,
         valores: {

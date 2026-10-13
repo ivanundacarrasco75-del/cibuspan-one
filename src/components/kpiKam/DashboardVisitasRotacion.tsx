@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { obtenerDashboardVisitasRotacion, type DatosDashboardCampo } from "../../repositories/dashboardVisitasRotacionRepository"
 import {
-  fechaHoyCampoDashboard, INDICADORES_CAMPO, resumirSemanasCampo, semanasDashboardCampo, variacionSemanalCampo,
+  valorIndicadorValidadoCampo, fechaHoyCampoDashboard, INDICADORES_CAMPO, resumirSemanasCampo, semanasDashboardCampo, variacionSemanalCampo,
   type IndicadorCampo, type OrigenVisitaCampo, type SerieSkuCampo, type SemanaCampo,
 } from "../../utils/dashboardVisitasRotacion"
 import "./DashboardVisitasRotacion.css"
@@ -21,6 +21,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
   const [clienteId, setClienteId] = useState("")
   const [localId, setLocalId] = useState("")
   const [indicador, setIndicador] = useState<IndicadorCampo>("rotacion")
+  const [soloValidados, setSoloValidados] = useState(true)
   const [origen, setOrigen] = useState<OrigenVisitaCampo>("TODOS")
   const [datos, setDatos] = useState(VACIO)
   const [cargando, setCargando] = useState(true)
@@ -51,20 +52,21 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
   }, [clienteId, desde, hasta, corte, revision, actualizacion])
   const config = INDICADORES_CAMPO.find((item) => item.id === indicador)!
   const unidadCambio = config.unidad === "%" ? "puntos porcentuales" : config.unidad
-  const series = useMemo(() => resumirSemanasCampo({ registros: datos.registros, productos: datos.productos, semanas: ventana.semanas, indicador, clienteId, localId, origen }), [datos, ventana.semanas, indicador, clienteId, localId, origen])
+  const series = useMemo(() => resumirSemanasCampo({ registros: datos.registros, productos: datos.productos, semanas: ventana.semanas, indicador, clienteId, localId, origen, soloValidados }), [datos, ventana.semanas, indicador, clienteId, localId, origen, soloValidados])
   const esActual = ventana.semanas.length > 0 && hoy >= desde && hoy >= ventana.semanas[4].desde && hoy <= hasta
   const semanas = ventana.semanas.map((s, i) => ({ ...s, etiqueta: i === 4 ? esActual ? "Esta semana · en curso" : "Semana seleccionada" : s.etiqueta }))
   const medidos = series.filter((s) => s.semanas[4]?.valor !== null && s.semanas[4]?.valor !== undefined)
   const comparables = series.filter((s) => s.semanas[4]?.valor != null && s.semanas[3]?.valor != null)
   const revisiones = datos.registros.filter((r) => r.fecha >= (semanas[4]?.desde ?? "9999") && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
   const registrosCapturas = datos.registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
+  const pendientesIndicador = registrosCapturas.filter((r) => r.valores[indicador] != null && valorIndicadorValidadoCampo(r, indicador) === null).length
   const clientesTexto = datos.clientes.find((c) => c.id === clienteId)?.nombre ?? "Todos los clientes"
   const localTexto = datos.locales.find((l) => l.id === localId)?.nombre ?? "Todos los locales"
   function restablecer() { setClienteId(""); setLocalId(""); setIndicador("rotacion"); setOrigen("TODOS"); setReferencia(hoy) }
   function descargar() {
     const celda = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`
-    const encabezado = ["Cliente", "Local", "SKU", "Producto", "Indicador", "Unidad", ...semanas.flatMap((s) => [`${s.desde} a ${s.hasta}`, "Locales con dato", "Última revisión"])]
-    const filas = series.map((s) => [clientesTexto, localTexto, s.codigo, s.nombre, config.nombre, config.unidad, ...s.semanas.flatMap((p) => [p.valor, p.locales_con_dato, p.ultima_fecha])])
+    const encabezado = ["Cliente", "Local", "SKU", "Producto", "Indicador", "Unidad", "Estado de datos", ...semanas.flatMap((s) => [`${s.desde} a ${s.hasta}`, "Locales con dato", "Última revisión"])]
+    const filas = series.map((s) => [clientesTexto, localTexto, s.codigo, s.nombre, config.nombre, config.unidad, soloValidados ? "Validados / manuales declarados" : "Sin validar incluidos", ...s.semanas.flatMap((p) => [p.valor, p.locales_con_dato, p.ultima_fecha])])
     const contenido = "\uFEFF" + [encabezado, ...filas].map((fila) => fila.map(celda).join(";")).join("\r\n")
     const url = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" })), enlace = document.createElement("a")
     enlace.href = url; enlace.download = `visitas_${indicador}_${corte}.csv`; enlace.click(); URL.revokeObjectURL(url)
@@ -76,6 +78,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
       <label><span>Local</span><select value={localId} disabled={cargando} onChange={(e) => setLocalId(e.target.value)}><option value="">Todos los locales</option>{datos.locales.map((l) => <option key={l.id} value={l.id}>{l.codigo} · {l.nombre}</option>)}</select></label>
       <label><span>Indicador</span><select value={indicador} onChange={(e) => setIndicador(e.target.value as IndicadorCampo)}>{INDICADORES_CAMPO.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}</select></label>
       <label><span>Tipo de visita</span><select value={origen} onChange={(e) => setOrigen(e.target.value as OrigenVisitaCampo)}><option value="TODOS">Todas las visitas</option><option value="MERCADERISTA">Mercaderista</option><option value="KAM">KAM</option></select></label>
+      <label><span>Calidad de datos</span><select value={soloValidados ? "VALIDADOS" : "TODOS"} onChange={(e) => setSoloValidados(e.target.value === "VALIDADOS")}><option value="VALIDADOS">Validados y manuales declarados</option><option value="TODOS">Todos · incluye datos sin validar</option></select></label>
       <label><span>Semana de referencia</span><input type="date" max={hoy} value={referencia} onChange={(e) => setReferencia(e.target.value)} /></label>
       <button type="button" disabled={cargando || !!ventana.error} onClick={() => setActualizacion((v) => v + 1)}>Actualizar</button>
     </fieldset>
@@ -85,6 +88,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
     </div>
     <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
+    <p role="status">{pendientesIndicador} mediciones de {config.nombre.toLowerCase()} pendientes de validar en estas cinco semanas. {soloValidados ? "No se incluyen en los gráficos ni en la descarga. Los manuales declarados se identifican como ingreso humano." : "Vista de auditoría: incluye cantidades sin validar; no usar para conclusiones."}</p>
     {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
     {!cargando && !ventana.error && !error && <>
@@ -101,7 +105,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
         <div className="vr-leyenda">{semanas.map((s, i) => <span key={s.desde}><i style={{ background: COLORES[i] }} /><span>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></span></span>)}</div>
         {series.length > 0 && !series.some((s) => s.semanas.some((p) => p.valor !== null)) && <p className="vr-estado">No hay mediciones de {config.nombre.toLowerCase()} para estos filtros en las cinco semanas.</p>}
         {!series.length ? <p className="vr-estado">No hay SKU disponibles para este cliente.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} />}
-        <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. “Sin dato” significa que falta una medición; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
+        <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. “Sin dato” significa que falta una medición o está pendiente de validar; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
         {origen !== "TODOS" && <p className="vr-nota">El tipo de visita usa el rol registrado al guardar. Las visitas antiguas sin rol identificado aparecen en “Todas las visitas”.</p>}
       </section>
       <section className="vr-tabla-panel"><h3>Comparación de las cinco semanas</h3><p>{config.unidad} · Debajo de cada valor: locales con dato / locales revisados.</p><div className="vr-tabla-scroll"><table><thead><tr><th>SKU</th>{semanas.map((s) => <th key={s.desde}>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></th>)}<th>Variación vs anterior</th></tr></thead><tbody>{series.map((s) => {
@@ -117,7 +121,7 @@ export default function DashboardVisitasRotacion({ revision }: { revision: unkno
         <div className="vr-lista-visitas">{[...revisiones].sort((a, b) => b.visitado_en.localeCompare(a.visitado_en)).map((r) => <article className="vr-visita" key={r.id}>
           <header><h4>{r.producto_nombre}</h4><span>{fecha(r.fecha)} · {r.responsable_rol ?? "Sin identificar"}</span></header>
           <p>{r.local_nombre} · SKU {r.producto_codigo}</p>
-          <p>{config.nombre}: {r.valores[indicador] == null ? "Sin dato" : `${numero(r.valores[indicador])} ${config.unidad}`}</p>
+          <p>{config.nombre}: {r.valores[indicador] == null ? "Sin dato" : `${numero(r.valores[indicador])} ${config.unidad}`}{r.valores[indicador] != null && (valorIndicadorValidadoCampo(r, indicador) === null ? " · Pendiente de validar" : " · Validado / manual declarado")}</p>
           <RecuperarLecturaVisita registro={r} locales={datos.locales} deshabilitado={recuperando} alCompletar={() => { setMensaje(`Datos completados en la visita de ${r.producto_nombre}. No se creó otra visita.`); setActualizacion((v) => v + 1) }} />
           <details><summary>Ubicación y fotos</summary><UbicacionCampo dato={r.georreferencia} /><FotosCampo fotos={r.fotos_georreferencia} /></details>
         </article>)}</div>

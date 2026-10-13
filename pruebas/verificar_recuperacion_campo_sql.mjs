@@ -13,8 +13,8 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
   await db.exec(`create schema auth; create role anon; create role authenticated;
     create table auth.users(id uuid primary key);
     create table public.app_profiles(user_id uuid primary key,rol text,activo boolean default true);
-    create table public.clientes(id uuid primary key); create table public.productos(id uuid primary key);
-    create table public.com_locales_monitoreados(id uuid primary key);
+    create table public.clientes(id uuid primary key); create table public.productos(id uuid primary key,codigo text default '7868304262189');
+    create table public.com_locales_monitoreados(id uuid primary key,nombre text default 'SUPERMAXI AMERICA',cliente_id uuid default '00000000-0000-0000-0000-000000000003');
     create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create function public.app_puede(text,uuid) returns boolean language sql as $$select coalesce(current_setting('prueba.permiso',true),'si') <> 'no'$$;
     create function public.com_puede_ver_cliente_campo(uuid,uuid,date) returns boolean language sql as $$select coalesce(current_setting('prueba.acceso',true),'si') <> 'no'$$;
@@ -24,7 +24,7 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
   const base=await archivo('202609220001_kpi_kam_campo_rotacion.sql')
   for(const tabla of ['com_visitas_campo','com_visitas_campo_sku']) await db.exec(base.match(new RegExp(`create table if not exists public.${tabla} \\([\\s\\S]*?\\n\\);`))[0])
   await db.exec(`insert into auth.users values('${autor}'),('${otro}'); insert into app_profiles values('${autor}','MERCADERISTA',true),('${otro}','KAM',true);
-    insert into clientes values('${cliente}'); insert into productos values('${producto}'); insert into com_locales_monitoreados values('${local}');
+    insert into clientes values('${cliente}'); insert into productos(id) values('${producto}'); insert into com_locales_monitoreados(id) values('${local}');
     insert into com_visitas_campo(id,cliente_id,local_monitoreado_id,fecha_visita,registrado_por) values('${visita}','${cliente}','${local}','2026-10-12','${autor}');
     insert into com_visitas_campo_sku(id,visita_id,producto_id,stock_local_unidades,capturas_app,fotos_percha,datos_ia) values('${detalle}','${visita}','${producto}',7,array['original.png'],array['percha.png'],'{"caras_percha":6,"responsable_id":"${autor}","georreferencia_visita":{"estado":"COMPATIBLE"}}');
   `)
@@ -110,5 +110,42 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     assert.equal((await actual()).token,antes.token)
     assert.equal((await db.query('select count(*)::int as n from com_visitas_campo_sku')).rows[0].n,1)
   })
+  await db.exec(await archivo('202610130001_auditar_lecturas_campo.sql'))
+  const auditar=(datos,token)=>db.query('select public.com_kpi_campo_auditar_lectura($1::uuid,$2::timestamptz,$3::jsonb)',[detalle,token,JSON.stringify(datos)])
+  const evidencia=(valor)=>({codigo_barras:'7868304262189',local_nombre:'SUPERMAXI AMERICA',fecha_fuente:'2026-10-12T14:00:00',confianza:.9,rotacion_diaria_unidades:valor,campos_sin_dato:['cantidad_ultimo_pedido']})
+  const datosAuditados=(valor)=>({rotacion_diaria_unidades:valor,version_validacion:'20261013.1',verificacion_campos:{rotacion_diaria_unidades:{estado:'DOBLE_LECTURA',valor}},lectura_control:{principal:evidencia(valor),control:evidencia(valor)}})
+  await t.test('Audita y corrige 115 a 1.13, conservando el respaldo transaccional y sin duplicados',async()=>{
+    await aplicar({rotacion_diaria_unidades:115},(await actual()).token)
+    const antes=await actual();await auditar(datosAuditados(1.13),antes.token)
+    assert.equal(Number((await actual()).rotacion_diaria_unidades),1.13)
+    const historial=(await db.query('select * from com_lecturas_campo_auditoria')).rows
+    assert.equal(historial.length,1);assert.equal(historial[0].anterior.rotacion_diaria_unidades,115);assert.equal(historial[0].posterior.rotacion_diaria_unidades,1.13)
+    assert.deepEqual(historial[0].anterior.capturas_app,historial[0].posterior.capturas_app)
+    assert.equal((await db.query('select count(*)::int as n from com_visitas_campo_sku')).rows[0].n,1)
+  })
+  await t.test('Valida metadatos sin modificar cantidades; el token anterior impide repetir el guardado',async()=>{
+    const antes=await actual(), d=datosAuditados(1.13);delete d.rotacion_diaria_unidades
+    await auditar(d,antes.token);assert.equal(Number((await actual()).rotacion_diaria_unidades),1.13)
+    await assert.rejects(async()=>auditar(d,antes.token),/cambió/)
+  })
+  await t.test('Evidencia incorrecta o etiqueta distinta del valor guardado revierte cambios y respaldo',async()=>{
+    const antes=await actual(), n=(await db.query('select count(*)::int as n from com_lecturas_campo_auditoria')).rows[0].n
+    for(const cambiar of [d=>{d.lectura_control.control.rotacion_diaria_unidades=115},d=>{d.verificacion_campos.rotacion_diaria_unidades.valor=115},d=>{d.lectura_control.principal.codigo_barras='7868304262196'},d=>{d.lectura_control.principal.local_nombre='SUPERMAXI OTRO'},d=>{d.lectura_control.principal.fecha_fuente='2026-10-01T14:00:00'}]){
+      const d=datosAuditados(2);cambiar(d);await assert.rejects(async()=>auditar(d,antes.token))
+    }
+    assert.equal((await actual()).token,antes.token);assert.equal(Number((await actual()).rotacion_diaria_unidades),1.13)
+    assert.equal((await db.query('select count(*)::int as n from com_lecturas_campo_auditoria')).rows[0].n,n)
+  })
+  await t.test('Protege el dato manual de sustitución automática y respalda la revisión humana',async()=>{
+    await auditar({rotacion_diaria_unidades:1.2,version_validacion:'20261013.1',verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2}}},(await actual()).token)
+    await assert.rejects(async()=>auditar(datosAuditados(1.13),(await actual()).token),/manual declarado/)
+    assert.equal(Number((await actual()).rotacion_diaria_unidades),1.2)
+  })
+  await t.test('Los mismos controles de permisos y campos protegidos se aplican a auditoría',async()=>{
+    await sesion('');await assert.rejects(async()=>auditar(datosAuditados(2),(await actual()).token),/permiso/);await sesion(autor)
+    await assert.rejects(async()=>auditar({...datosAuditados(2),caras_percha:0},(await actual()).token),/campo caras_percha/)
+    assert.equal((await actual()).datos_ia.caras_percha,6)
+  })
+
  }finally{await db.close()}
 })

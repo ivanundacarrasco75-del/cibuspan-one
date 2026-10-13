@@ -2,6 +2,8 @@ import { createWorker, PSM, type LoggerMessage } from "tesseract.js"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 import { areaCapturaFavorita, type AreaReporteFavorita } from "./areaReporteFavorita"
 
+import { CAMPOS_LECTURA_VALIDABLES, verificarDosLecturasCampo, VERSION_VALIDACION_CAMPO } from "./validacionLecturasCampo"
+
 type ProgresoOcr = (porcentaje: number, mensaje: string) => void
 
 export async function leerCapturasFavoritaOcr(
@@ -23,6 +25,8 @@ export async function leerCapturasFavoritaOcr(
   try {
     const textos: string[] = []
     const confianzas: number[] = []
+    const controles: string[] = [], confianzasControl: number[] = []
+    const confirmaciones: Array<{ campo: string; valor: number | string; texto: string; confianza: number }> = []
     for (indice = 0; indice < archivos.length; indice += 1) {
       onProgreso?.(Math.round(indice / archivos.length * 100), `Leyendo imagen ${indice + 1} de ${archivos.length}…`)
       const area = await obtenerArea(archivos[indice]).catch(() => null)
@@ -31,16 +35,42 @@ export async function leerCapturasFavoritaOcr(
         // Conservar fecha/hora del reporte en la cabecera sin mezclarla con cantidades.
         const cabecera = await worker.recognize(archivos[indice], { rectangle: { left: area.left, top: 0, width: area.width, height: area.top } })
         textos.push(cabecera.data.text)
+        controles.push(cabecera.data.text)
       }
-      const resultado = await worker.recognize(archivos[indice], area ? { rectangle: area } : {})
+      const resultado = await worker.recognize(archivos[indice], area ? { rectangle: area } : {}, { blocks: true })
       textos.push(resultado.data.text)
       confianzas.push(resultado.data.confidence)
+      await worker.setParameters({ tessedit_pageseg_mode: area ? PSM.AUTO : PSM.SINGLE_BLOCK })
+      onProgreso?.(Math.min(99, Math.round((indice + .5) / archivos.length * 100)), "Comprobando cantidades con otra segmentación…")
+      const control = await worker.recognize(archivos[indice], area ? { rectangle: area } : {})
+      controles.push(control.data.text); confianzasControl.push(control.data.confidence)
+      const a = interpretarReporteFavorita(resultado.data.text), b = interpretarReporteFavorita(control.data.text)
+      const lineas = resultado.data.blocks?.flatMap((bloque) => bloque.paragraphs.flatMap((p) => p.lines)) ?? []
+      for (const [campo] of CAMPOS_LECTURA_VALIDABLES) {
+        if (a[campo] == null || a[campo] === b[campo]) continue
+        for (let j = 0; j < lineas.length; j++) {
+          const grupo = lineas.slice(j, j + 2)
+          if (interpretarReporteFavorita(grupo.map((l) => l.text).join("\n"))[campo] !== a[campo]) continue
+          const left = Math.max(0, Math.min(...grupo.map((l) => l.bbox.x0)) - 6), top = Math.max(0, Math.min(...grupo.map((l) => l.bbox.y0)) - 5)
+          const right = Math.min(area ? area.left + area.width : Infinity, Math.max(...grupo.map((l) => l.bbox.x1)) + 6), bottom = Math.min(area ? area.top + area.height : Infinity, Math.max(...grupo.map((l) => l.bbox.y1)) + 5)
+          await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
+          const fila = await worker.recognize(archivos[indice], { rectangle: { left, top, width: right - left, height: bottom - top } }).catch(() => null)
+          if (fila && fila.data.confidence >= 65 && interpretarReporteFavorita(fila.data.text)[campo] === a[campo]) confirmaciones.push({ campo, valor: a[campo]!, texto: fila.data.text, confianza: fila.data.confidence / 100 })
+          break
+        }
+      }
     }
     onProgreso?.(100, "Interpretando valores…")
-    return interpretarReporteFavorita(
-      textos.join("\n"),
-      promedio(confianzas) / 100,
-    )
+    const principal = interpretarReporteFavorita(textos.join("\n"), promedio(confianzas) / 100)
+    const control = interpretarReporteFavorita(controles.join("\n"), promedio(confianzasControl) / 100)
+    for (const [campo] of CAMPOS_LECTURA_VALIDABLES) {
+      const filas = confirmaciones.filter((f) => f.campo === campo)
+      if (filas.length && filas.every((f) => f.valor === principal[campo])) Object.assign(control, { [campo]: principal[campo] })
+    }
+    const verificacion = verificarDosLecturasCampo(principal, control)
+    return { ...principal, verificacion_campos: verificacion, version_validacion: VERSION_VALIDACION_CAMPO,
+      lectura_control: { principal, control, confirmaciones_fila: confirmaciones },
+      advertencias: [...principal.advertencias, ...Object.entries(verificacion).filter(([, v]) => v.estado === "PENDIENTE").map(([c, v]) => `${c}: ${v.motivo}`)] }
   } finally {
     await worker.terminate()
   }
