@@ -6,6 +6,7 @@ export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
 
 export type LecturaFavorita = {
   texto_ocr?: string
+  campos_sin_dato?: string[]
   local_nombre: string | null
   codigo_barras: string | null
   codigo_referencia: string | null

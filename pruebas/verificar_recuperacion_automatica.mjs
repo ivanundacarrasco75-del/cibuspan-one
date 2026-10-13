@@ -27,6 +27,23 @@ const registro=(id='r1',extra={})=>({id,local_id:'l1',local_nombre:locales[0].no
 const lectura=()=>interpretarReporteFavorita(texto,.92)
 
 try {
+ await test('Cantidad de pedido no toma el año de una fecha; fecha y cantidad se reconocen por separado',()=>{
+  let r=interpretarReporteFavorita('FECHA ULT. PEDIDO: 2026-10-10\nCANTIDAD DEL PEDIDO: 5',.9)
+  assert.equal(r.fecha_ultimo_pedido,'2026-10-10');assert.equal(r.cantidad_ultimo_pedido,5)
+  r=interpretarReporteFavorita('CANTIDAD DEL PEDIDO: 2026-10-10',.9)
+  assert.equal(r.cantidad_ultimo_pedido,null)
+  r=interpretarReporteFavorita('FECHA ULT. PEDIDO: -\nCANTIDAD DEL PEDIDO: -\nFECHA ULT. DESPACHO: 2026-10-10\nCANTIDAD DEL DESPACHO: 5.00 unidades',.9)
+  assert.equal(r.fecha_ultimo_pedido,null);assert.equal(r.cantidad_ultimo_pedido,null)
+  assert.deepEqual(r.campos_sin_dato,['fecha_ultimo_pedido','cantidad_ultimo_pedido'])
+  assert.equal(r.fecha_ultimo_despacho,'2026-10-10')
+ })
+ await test('CD con dos presentaciones suma cajas y no inventa una capacidad única ni duplica capturas repetidas',()=>{
+  const cd='EXISTENCIA EN CD: 0 cajas de 7 unidades\n9 cajas de 5 unidades\nDÍAS INVENTARIO CD: 0.0 días'
+  const r=interpretarReporteFavorita(cd+'\n'+cd,.9)
+  assert.equal(r.stock_cd_cajas,9);assert.equal(r.unidades_por_caja,null);assert.equal(r.dias_inventario_cd,0)
+  assert.ok(r.advertencias.some(a=>a.includes('distintas capacidades')))
+  assert.equal(r.advertencias.some(a=>a.startsWith('Valores distintos')),false)
+ })
  await test('Reconoce el formato real de EnPercha: logotipo, categorías y etiquetas partidas',()=>{
   const r=interpretarReporteFavorita(`E LOCAL: SUPERMAXI AMERICA
 CÓDIGO DE BARRAS: 7868304262189

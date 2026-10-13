@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import { analizarCapturasFavorita, completarLecturaVisitaCampo, obtenerFotosCampo, type LecturaFavorita } from "../../repositories/campoComercialRepository"
-import { CAMPOS_CANTIDADES_CAMPO, completarCantidadesCaptura, prepararRecuperacionCaptura, tieneCantidadesCaptura, type CampoCantidadCaptura } from "../../utils/lecturaCapturasCampo"
+import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO, completarCantidadesCaptura, completarFechasCaptura, prepararRecuperacionCaptura, tieneCantidadesCaptura, type CampoCantidadCaptura, type CampoFechaCaptura } from "../../utils/lecturaCapturasCampo"
 import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "../../utils/georreferenciaCampo"
 
 export default function RecuperarLecturaVisita({ registro, locales, alCompletar, deshabilitado = false }: { registro: RegistroDashboardCampo; locales: LocalCampo[]; alCompletar: () => void; deshabilitado?: boolean }) {
   const [lectura, setLectura] = useState<LecturaFavorita | null>(null)
   const [valores, setValores] = useState<Record<CampoCantidadCaptura, number | null> | null>(null)
+  const [fechas, setFechas] = useState<Record<CampoFechaCaptura, string | null>>({ fecha_ultimo_pedido: null, fecha_ultimo_despacho: null })
+  const [camposBorrar, setCamposBorrar] = useState<string[]>([])
+  const [mensaje, setMensaje] = useState("")
   const [imagenes, setImagenes] = useState<Array<{ ruta: string; url: string }>>([])
   const [ocupado, setOcupado] = useState(false)
   const [progreso, setProgreso] = useState("")
@@ -17,7 +20,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
   async function releer() {
     if (deshabilitado || ocupado) return
     const id = ++revision.current
-    setOcupado(true); setError(""); setLectura(null); setValores(null); setProgreso("Abriendo capturas guardadas…")
+    setOcupado(true); setError(""); setMensaje(""); setLectura(null); setValores(null); setCamposBorrar([]); setProgreso("Abriendo capturas guardadas…")
     try {
       const urls = await obtenerFotosCampo(registro.capturas_app!)
       if (revision.current !== id) return
@@ -39,6 +42,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
         throw new Error("El código reconocido corresponde a otro SKU. Revisa las capturas; no se aplicaron cambios.")
       }
       setValores(completarCantidadesCaptura(registro.lectura_guardada ?? {}, resultado))
+      setFechas(completarFechasCaptura(registro.lectura_guardada ?? {}, resultado))
       if (!tieneCantidadesCaptura(resultado)) setError("El lector no reconoció cantidades. Revisa el texto reconocido; puedes completar manualmente los valores verificables antes de guardar.")
     } catch (err) { if (revision.current === id) setError(err instanceof Error ? err.message : "No se pudieron leer las capturas.") }
     finally { if (revision.current === id) { setOcupado(false); setProgreso("") } }
@@ -47,19 +51,54 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
     if (!valores || !lectura || ocupado || deshabilitado) return
     setOcupado(true); setError(""); setProgreso("Completando esta visita…")
     try {
-      const datos = prepararRecuperacionCaptura(valores, lectura, registro.lectura_guardada ?? {})
+      const datos = prepararRecuperacionCaptura(valores, lectura, registro.lectura_guardada ?? {}, fechas, camposBorrar)
       await completarLecturaVisitaCampo(registro.id, registro.actualizado_en, datos)
       alCompletar()
     } catch (err) { setError(err instanceof Error ? err.message : "No se guardaron las cantidades.") }
     finally { setOcupado(false); setProgreso("") }
   }
+  function marcarBorrado(campo: string, vacio: boolean) {
+    setCamposBorrar((actuales) => vacio && registro.lectura_guardada?.[campo as CampoCantidadCaptura | CampoFechaCaptura] != null ? [...new Set([...actuales, campo])] : actuales.filter((c) => c !== campo))
+  }
+  function aplicarReconocidos() {
+    if (!lectura || !valores) return
+    const cantidades = { ...valores }, fechasNuevas = { ...fechas }, borrar = new Set(camposBorrar)
+    for (const [c] of CAMPOS_CANTIDADES_CAMPO) {
+      if (lectura[c] != null) { cantidades[c] = lectura[c]; borrar.delete(c) }
+      else if (lectura.campos_sin_dato?.includes(c)) { cantidades[c] = null; if (registro.lectura_guardada?.[c] != null) borrar.add(c) }
+    }
+    for (const [c] of CAMPOS_FECHAS_CAMPO) {
+      if (lectura[c]) { fechasNuevas[c] = lectura[c]; borrar.delete(c) }
+      else if (lectura.campos_sin_dato?.includes(c)) { fechasNuevas[c] = null; if (registro.lectura_guardada?.[c] != null) borrar.add(c) }
+    }
+    setValores(cantidades); setFechas(fechasNuevas); setCamposBorrar([...borrar]); setError("")
+    setMensaje("Valores reconocidos aplicados a la columna Guardar. Revisa las correcciones y guarda los cambios.")
+  }
+  const hayCambios = valores && (camposBorrar.length > 0 || CAMPOS_CANTIDADES_CAMPO.some(([c]) => valores[c] != null && valores[c] !== registro.lectura_guardada?.[c]) || CAMPOS_FECHAS_CAMPO.some(([c]) => fechas[c] != null && fechas[c] !== registro.lectura_guardada?.[c]))
+  const campos = [...CAMPOS_CANTIDADES_CAMPO.slice(0, -2), CAMPOS_FECHAS_CAMPO[0], CAMPOS_CANTIDADES_CAMPO.at(-2)!, CAMPOS_FECHAS_CAMPO[1], CAMPOS_CANTIDADES_CAMPO.at(-1)!]
   return <div className="vr-recuperar">
     <button className="vr-releer" type="button" disabled={ocupado || deshabilitado} onClick={() => void releer()}>{ocupado ? progreso : `Releer capturas (${registro.capturas_app.length})`}</button>
     <p>Lee las fotos guardadas de este SKU. Revisa las cantidades antes de guardarlas en esta misma visita.</p>
     {imagenes.map((i) => <a key={i.ruta} href={i.url} target="_blank" rel="noopener noreferrer">Abrir captura</a>)}
-    {error && <p role="alert">{error}</p>}
+    {error && !valores && <p role="alert">{error}</p>}
     {lectura?.advertencias.map((a, i) => <p key={i}>{a}</p>)}
-    {valores && lectura && <><div className="vr-tabla-scroll"><table><thead><tr><th>Campo</th><th>Ya guardado</th><th>Reconocido ahora</th><th>Guardar</th></tr></thead><tbody>{CAMPOS_CANTIDADES_CAMPO.map(([campo, nombre]) => <tr key={campo}><th>{nombre}</th><td>{registro.lectura_guardada?.[campo] ?? "—"}</td><td>{lectura[campo] ?? "Sin reconocer"}</td><td><input type="number" min="0" step="any" aria-label={`Completar ${nombre}`} disabled={ocupado} value={valores[campo] ?? ""} onChange={(e) => setValores((v) => v && ({ ...v, [campo]: e.target.value === "" ? null : Number(e.target.value) }))} /></td></tr>)}</tbody></table></div><button type="button" disabled={ocupado} onClick={() => void guardar()}>Guardar datos en esta visita</button></>}
+    {valores && lectura && <>
+      <button type="button" disabled={ocupado || deshabilitado} onClick={aplicarReconocidos}>Aplicar valores reconocidos</button>
+      <p>La columna Guardar conserva los datos anteriores hasta que apliques la lectura o los corrijas. Dejar vacío un dato guardado permite quitarlo expresamente. Fecha y cantidad de pedido son campos distintos.</p>
+      <div className="vr-tabla-scroll"><table><thead><tr><th>Campo</th><th>Ya guardado</th><th>Reconocido ahora</th><th>Guardar</th></tr></thead><tbody>{campos.map(([campo, nombre]) => {
+        const esFecha = campo.startsWith("fecha_"), cantidad = campo as CampoCantidadCaptura, fecha = campo as CampoFechaCaptura
+        return <tr key={campo}><th>{nombre}</th><td>{registro.lectura_guardada?.[campo] ?? "—"}</td><td>{lectura[campo] ?? (lectura.campos_sin_dato?.includes(campo) ? "Sin dato en captura (—)" : "Sin reconocer")}</td><td><input type={esFecha ? "date" : "number"} min={esFecha ? undefined : "0"} step={esFecha ? undefined : "any"} aria-label={`Completar ${nombre}`} disabled={ocupado || deshabilitado} value={(esFecha ? fechas[fecha] : valores[cantidad]) ?? ""} onChange={(e) => {
+          const vacio = e.target.value === ""; marcarBorrado(campo, vacio)
+          if (esFecha) setFechas((v) => ({ ...v, [fecha]: vacio ? null : e.target.value }))
+          else setValores((v) => v && ({ ...v, [cantidad]: vacio ? null : Number(e.target.value) }))
+          setError(""); setMensaje("")
+        }} />{camposBorrar.includes(campo) && <small>Se quitará el dato anterior al guardar.</small>}</td></tr>
+      })}</tbody></table></div>
+      {mensaje && <p role="status">{mensaje}</p>}
+      {error && <p className="vr-error" role="alert">{error}</p>}
+      <button type="button" disabled={ocupado || deshabilitado || !hayCambios} onClick={() => void guardar()}>{ocupado ? progreso : "Guardar cambios en esta visita"}</button>
+      {!hayCambios && <p>Sin cambios pendientes: los valores de la columna Guardar ya están en esta visita. Pulsa Aplicar valores reconocidos para usar las correcciones del lector.</p>}
+    </>}
     {lectura?.texto_ocr && <details><summary>Texto reconocido</summary><pre>{lectura.texto_ocr}</pre></details>}
   </div>
 }

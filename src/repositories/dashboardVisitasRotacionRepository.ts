@@ -31,7 +31,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
       rotacion_diaria_unidades, stock_local_unidades, dias_inventario_local,
       precio_comercio, precio_afiliado, venta_diaria_valor, prediccion_venta_unidades,
       stock_cd_cajas, dias_inventario_cd, participacion_clase, participacion_subclase,
-      unidades_por_caja, cantidad_ultimo_pedido, cantidad_ultimo_despacho,
+      unidades_por_caja, cantidad_ultimo_pedido, cantidad_ultimo_despacho, fecha_ultimo_pedido, fecha_ultimo_despacho,
       producto:productos(nombre, codigo),
       producto_id,
       visita:com_visitas_campo!inner(fecha_visita, visitado_en, cliente_id, registrado_por,
@@ -58,7 +58,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         fotos_georreferencia: Array.isArray(datos.fotos_georreferencia) ? datos.fotos_georreferencia as FotoCampo[] : [],
         capturas_app: Array.isArray(fila.capturas_app) ? fila.capturas_app : [],
         lector_estado: typeof datos.lector_estado === "string" ? datos.lector_estado : null,
-        lectura_guardada: Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([campo]) => [campo, numero(fila[campo])])) as Partial<LecturaFavorita>,
+        lectura_guardada: { ...Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([campo]) => [campo, numero(fila[campo])])), fecha_ultimo_pedido: fila.fecha_ultimo_pedido ?? null, fecha_ultimo_despacho: fila.fecha_ultimo_despacho ?? null } as Partial<LecturaFavorita>,
         valores: {
           rotacion: numero(fila.rotacion_diaria_unidades), stock, dias: numero(fila.dias_inventario_local), caras,
           precio: numero(fila.precio_comercio), precio_afiliado: numero(fila.precio_afiliado), venta: numero(fila.venta_diaria_valor),

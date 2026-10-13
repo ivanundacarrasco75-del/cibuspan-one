@@ -29,6 +29,7 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     insert into com_visitas_campo_sku(id,visita_id,producto_id,stock_local_unidades,capturas_app,fotos_percha,datos_ia) values('${detalle}','${visita}','${producto}',7,array['original.png'],array['percha.png'],'{"caras_percha":6,"responsable_id":"${autor}","georreferencia_visita":{"estado":"COMPATIBLE"}}');
   `)
   await db.exec(await archivo('202610120001_completar_lecturas_campo.sql'))
+  await db.exec(await archivo('202610120002_revisar_lecturas_campo.sql'))
   const sesion=(id)=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[id])
   const actual=async()=> (await db.query('select *, actualizado_en::text as token from com_visitas_campo_sku')).rows[0]
   const aplicar=(datos,token)=>db.query('select public.com_kpi_campo_completar_lectura($1::uuid,$2::timestamptz,$3::jsonb) as respuesta',[detalle,token,JSON.stringify(datos)])
@@ -87,6 +88,27 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
     await sesion(autor);await db.exec("update com_visitas_campo set estado='ANULADA'")
     await assert.rejects(()=>aplicar({venta_diaria_valor:99},token),/autor o un administrador/)
     assert.equal(Number((await actual()).venta_diaria_valor),4)
+  })
+  await db.exec("update com_visitas_campo set estado='CONFIRMADA'")
+  await t.test('Guarda fechas completas y permite revisión sin cambiar cantidades',async()=>{
+    await aplicar({fecha_ultimo_pedido:'2026-10-10',fecha_ultimo_despacho:'2026-10-11'},(await actual()).token)
+    const r=await actual();assert.equal(r.fecha_ultimo_pedido.toISOString().slice(0,10),'2026-10-10');assert.equal(r.fecha_ultimo_despacho.toISOString().slice(0,10),'2026-10-11')
+    assert.equal(r.datos_ia.fecha_ultimo_pedido,'2026-10-10');assert.equal(r.datos_ia.caras_percha,6)
+    assert.equal((await db.query('select fecha_visita::text as fecha from com_visitas_campo')).rows[0].fecha,'2026-10-12')
+  })
+  await t.test('Corrige el año mal guardado como cantidad únicamente al quitarlo expresamente',async()=>{
+    await aplicar({cantidad_ultimo_pedido:2026},(await actual()).token)
+    const antes=await actual()
+    await aplicar({campos_borrar:['cantidad_ultimo_pedido','fecha_ultimo_pedido']},antes.token)
+    const r=await actual();assert.equal(r.cantidad_ultimo_pedido,null);assert.equal(r.fecha_ultimo_pedido,null);assert.equal(r.datos_ia.cantidad_ultimo_pedido,null)
+    assert.equal(Number(r.stock_local_unidades),0);assert.deepEqual(r.capturas_app,['original.png']);assert.equal(r.datos_ia.caras_percha,6)
+    await assert.rejects(()=>aplicar({campos_borrar:['stock_local_unidades']},antes.token),/cambió/)
+  })
+  await t.test('Fechas inválidas, borrados ajenos y valor/borrado simultáneo no alteran el detalle',async()=>{
+    const antes=await actual()
+    for(const datos of [{fecha_ultimo_pedido:2026},{fecha_ultimo_pedido:'2026'},{fecha_ultimo_pedido:'2026-02-30'},{campos_borrar:['fecha_visita']},{campos_borrar:['caras_percha']},{campos_borrar:'cantidad_ultimo_pedido'},{stock_local_unidades:9,campos_borrar:['stock_local_unidades']}])await assert.rejects(()=>aplicar(datos,antes.token))
+    assert.equal((await actual()).token,antes.token)
+    assert.equal((await db.query('select count(*)::int as n from com_visitas_campo_sku')).rows[0].n,1)
   })
  }finally{await db.close()}
 })

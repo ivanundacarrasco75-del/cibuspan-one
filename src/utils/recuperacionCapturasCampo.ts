@@ -1,7 +1,7 @@
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 import type { RegistroDashboardCampo } from "./dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "./georreferenciaCampo"
-import { CAMPOS_CANTIDADES_CAMPO, completarCantidadesCaptura, prepararRecuperacionCaptura } from "./lecturaCapturasCampo"
+import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO, completarCantidadesCaptura, prepararRecuperacionCaptura } from "./lecturaCapturasCampo"
 
 export type ResultadoRecuperacionCampo = { id: string; producto: string; local: string; fecha: string; estado: "COMPLETADA" | "SIN_CAMBIOS" | "REVISAR" | "ERROR"; mensaje: string; lectura?: LecturaFavorita }
 export const capturasPendientesCampo = (registros: RegistroDashboardCampo[]) => registros.filter((r) =>
@@ -9,13 +9,14 @@ export const capturasPendientesCampo = (registros: RegistroDashboardCampo[]) => 
 )
 
 export function prepararRecuperacionAutomaticaCampo(registro: RegistroDashboardCampo, lectura: LecturaFavorita, locales: LocalCampo[]) {
-  if (!Number.isFinite(lectura.confianza) || lectura.confianza < 0.8) throw new Error("Lectura de baja calidad; requiere revisión individual.")
+  if (!Number.isFinite(lectura.confianza) || lectura.confianza < 0.8) throw new Error(`Confianza general del lector ${Number.isFinite(lectura.confianza) ? Math.round(lectura.confianza * 100) : 0}%. Revisa las cantidades; puedes guardar una lectura verificada individualmente.`)
   if (localDeCaptura(lectura.local_nombre, locales)?.id !== registro.local_id) throw new Error("No se pudo verificar el local de la captura; requiere revisión individual.")
   const codigo = (lectura.codigo_barras ?? "").replace(/\D/g, "")
   if (!/^\d{13}$/.test(codigo) || codigo !== registro.producto_codigo.replace(/T$/i, "")) throw new Error("No se pudo verificar el SKU de la captura; requiere revisión individual.")
   if (lectura.advertencias.some((a) => a.startsWith("Valores distintos"))) throw new Error("Las capturas contienen cantidades contradictorias; requiere revisión individual.")
   const nuevos = CAMPOS_CANTIDADES_CAMPO.filter(([c]) => registro.lectura_guardada?.[c] == null && lectura[c] != null)
-  if (!nuevos.length) return null
+  const nuevasFechas = CAMPOS_FECHAS_CAMPO.filter(([c]) => registro.lectura_guardada?.[c] == null && lectura[c] != null)
+  if (!nuevos.length && !nuevasFechas.length) return null
   for (const [campo] of nuevos) {
     const valor = lectura[campo]!
     if (!Number.isFinite(valor) || valor < 0 || (campo.startsWith("participacion_") && valor > 100)) throw new Error("Se reconoció una cantidad inválida; requiere revisión individual.")
@@ -52,7 +53,7 @@ export async function recuperarCapturasPendientesCampo({ registros, locales, lee
       else {
         progreso(`${prefijo}: guardando cantidades…`)
         await guardar(registro, datos)
-        respuesta = { ...base, estado: "COMPLETADA", mensaje: `${CAMPOS_CANTIDADES_CAMPO.filter(([c]) => c in datos!).length} campos completados. Se conservaron los datos anteriores.` }
+        respuesta = { ...base, estado: "COMPLETADA", mensaje: `${[...CAMPOS_CANTIDADES_CAMPO, ...CAMPOS_FECHAS_CAMPO].filter(([c]) => c in datos!).length} campos completados. Se conservaron los datos anteriores.` }
       }
     } catch (err) { respuesta = { ...base, estado: "ERROR", mensaje: err instanceof Error ? err.message : "No se pudo completar esta visita." } }
     resultados.push({ ...respuesta, lectura }); resultado({ ...respuesta, lectura })
