@@ -3,7 +3,7 @@ import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 import { areaCapturaFavorita, type AreaReporteFavorita } from "./areaReporteFavorita"
 
 import { seleccionarCapturasSkuCampo, type TextoImagenCampo } from "./seleccionCapturasSkuCampo"
-import { CAMPOS_LECTURA_VALIDABLES, verificarDosLecturasCampo, VERSION_VALIDACION_CAMPO } from "./validacionLecturasCampo"
+import { CAMPOS_LECTURA_VALIDABLES, conciliarRotacionInventarioCampo, verificarDosLecturasCampo, VERSION_VALIDACION_CAMPO } from "./validacionLecturasCampo"
 
 type ProgresoOcr = (porcentaje: number, mensaje: string) => void
 
@@ -74,9 +74,13 @@ export async function leerCapturasFavoritaOcr(
       const filas = confirmaciones.filter((f) => f.campo === campo && indices.includes(f.imagen))
       if (filas.length && filas.every((f) => f.valor === principal[campo])) Object.assign(control, { [campo]: principal[campo] })
     }
+    const comprobacionInventario = conciliarRotacionInventarioCampo(principal, control, indices.flatMap((i) => [
+      interpretarReporteFavorita(imagenes[i].principal, imagenes[i].confianza),
+      interpretarReporteFavorita(imagenes[i].control, imagenes[i].confianza_control),
+    ]))
     const verificacion = verificarDosLecturasCampo(principal, control)
     return { ...principal, verificacion_campos: verificacion, version_validacion: VERSION_VALIDACION_CAMPO,
-      lectura_control: { principal, control, confirmaciones_fila: confirmaciones.filter((f) => indices.includes(f.imagen)), imagenes, capturas_incluidas: seleccion.incluidas, capturas_omitidas: seleccion.omitidas },
+      lectura_control: { principal, control, comprobacion_inventario: comprobacionInventario, confirmaciones_fila: confirmaciones.filter((f) => indices.includes(f.imagen)), imagenes, capturas_incluidas: seleccion.incluidas, capturas_omitidas: seleccion.omitidas },
       advertencias: [...principal.advertencias, ...Object.entries(verificacion).filter(([, v]) => v.estado === "PENDIENTE").map(([c, v]) => `${c}: ${v.motivo}`)] }
   } finally {
     await worker.terminate()

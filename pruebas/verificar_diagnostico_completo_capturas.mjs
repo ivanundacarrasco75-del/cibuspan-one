@@ -40,6 +40,46 @@ try {
  await test('Un diagnóstico sin las lecturas originales no produce una corrección',()=>{
   assert.throws(()=>reanalizarDiagnosticoCapturaCampo({confianza:.9},'7868304276308'),/originales/)
  })
+ const rotacion=(r,stock=10,dias=8.83)=>`${texto('7868304262196',stock)}\nVenta promedio diaria (Cant): ${r}\nDías inventario local ${dias}`
+ const reanalizar=imagenes=>reanalizarDiagnosticoCapturaCampo({confianza:.9,lectura_control:{
+  principal:interpretarReporteFavorita(imagenes.map(i=>i.principal).join('\n'),.9),
+  control:interpretarReporteFavorita(imagenes.map(i=>i.control).join('\n'),.9),imagenes}},'7868304262196')
+ await test('Stock dividido por días resuelve 113 frente a 1,13 y conserva la evidencia original',()=>{
+  const imagenes=[{...img(rotacion(113)),control:rotacion(1.13)},img(rotacion(1.13))]
+  const l=reanalizar(imagenes)
+  assert.equal(l.rotacion_diaria_unidades,1.13);assert.equal(l.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
+  assert.equal(l.verificacion_campos.stock_local_unidades.estado,'DOBLE_LECTURA');assert.equal(l.verificacion_campos.dias_inventario_local.estado,'DOBLE_LECTURA')
+  assert.deepEqual(l.lectura_control.comprobacion_inventario.lecturas_observadas,[113,1.13,1.13,1.13])
+  assert.ok(l.lectura_control.comprobacion_inventario.cociente>1.13)
+  assert.match(imagenes[0].principal,/Cant\): 113/)
+  const patch=prepararAuditoriaCapturaCampo({local_id:'l',local_nombre:'SUPERMAXI AMERICA',fecha:'2026-10-12',producto_codigo:'7868304262196',lectura_guardada:{rotacion_diaria_unidades:115}},l,[{id:'l',nombre:'SUPERMAXI AMERICA'}])
+  assert.equal(patch.rotacion_diaria_unidades,1.13)
+ })
+ await test('El cociente no inventa 1,13 si las imágenes sólo contienen 113 ni valida rotación de 100',()=>{
+  for(const imagenes of [[img(rotacion(113))],[img(rotacion(100,100,1))]]) {
+   const l=reanalizar(imagenes)
+   assert.equal(l.verificacion_campos.rotacion_diaria_unidades.estado,'PENDIENTE')
+   assert.equal(l.lectura_control.comprobacion_inventario,null)
+  }
+ })
+ await test('Stock contradictorio y días cero no permiten corregir la rotación; cero declarado se conserva',()=>{
+  for(const imagenes of [[{...img(rotacion(113)),control:rotacion(1.13,11)},img(rotacion(1.13))],
+   [{...img(rotacion(113,10,0)),control:rotacion(1.13,10,0)},img(rotacion(1.13,10,0))]]) {
+   const l=reanalizar(imagenes)
+   assert.equal(l.lectura_control.comprobacion_inventario,null)
+   assert.equal(l.verificacion_campos.rotacion_diaria_unidades.estado,'PENDIENTE')
+  }
+  const l=reanalizar([img(rotacion(0,0,0))])
+  assert.equal(l.rotacion_diaria_unidades,0);assert.equal(l.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
+ })
+ await test('Dos candidatos cercanos compatibles con el redondeo permanecen pendientes; otro SKU no aporta rotación',()=>{
+  const l=reanalizar([img(rotacion(1.13)),img(rotacion(1.14))])
+  assert.equal(l.lectura_control.comprobacion_inventario,null)
+  assert.equal(l.verificacion_campos.rotacion_diaria_unidades.estado,'PENDIENTE')
+  const otro=img(rotacion(1.13).replaceAll('7868304262196','7868304276308'))
+  const r=reanalizar([img(rotacion(113)),otro])
+  assert.equal(r.rotacion_diaria_unidades,113);assert.equal(r.verificacion_campos.rotacion_diaria_unidades.estado,'PENDIENTE')
+ })
  if(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO) {
   const datos=JSON.parse(await readFile(process.env.CIBUSPAN_DIAGNOSTICO_COMPLETO,'utf8'))
   await test('Diagnóstico real: reanaliza 208 visitas sin OCR, resuelve los dos casos de texto y mantiene los siete bloqueos',()=>{
@@ -60,6 +100,11 @@ try {
    const maiz=corregidos.get('ba9e6e68-bcff-46f3-924f-d092c5a1d7dc')
    assert.equal(maiz.codigo_barras,'7868304276308');assert.equal(maiz.stock_local_unidades,3);assert.equal(maiz.precio_afiliado,2.18);assert.equal(maiz.dias_inventario_local,6.42)
    assert.equal(corregidos.get('6b954b4e-697b-4247-bd96-3a6a484ae90e').local_nombre.replace(/^— /,''),'SUPERMAXI GRANDA CENTENO')
+   const granos=corregidos.get('10e65c28-ce9c-4c28-abf4-292fb0b0f6ed')
+   assert.equal(granos.rotacion_diaria_unidades,1.13)
+   assert.equal(granos.verificacion_campos.rotacion_diaria_unidades.estado,'DOBLE_LECTURA')
+   assert.equal(granos.lectura_control.comprobacion_inventario.stock,10)
+   assert.equal(granos.lectura_control.comprobacion_inventario.dias,8.83)
    console.log('Textos reales: 201 preparados y 7 conservados para revisión; no se escribió en Supabase.')
   })
  }

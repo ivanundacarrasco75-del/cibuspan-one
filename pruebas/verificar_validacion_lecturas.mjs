@@ -22,6 +22,7 @@ try {
   const v=verificarDosLecturasCampo({...a,rotacion_diaria_unidades:113},{...b,rotacion_diaria_unidades:113})
   assert.equal(v.rotacion_diaria_unidades.estado,'PENDIENTE');assert.equal(v.rotacion_diaria_unidades.valor,113)
   assert.equal(v.precio_comercio.estado,'DOBLE_LECTURA')
+  assert.equal(verificarDosLecturasCampo({...a,rotacion_diaria_unidades:0},{...b,rotacion_diaria_unidades:0}).rotacion_diaria_unidades.estado,'PENDIENTE')
  })
  await test('Audita columnas ya llenas, quita año tomado como cantidad y preserva declaraciones manuales',()=>{
   const datos=prepararAuditoriaCapturaCampo(r,lectura,[{id:'l',nombre:a.local_nombre}])

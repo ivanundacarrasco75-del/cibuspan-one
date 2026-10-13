@@ -1,7 +1,7 @@
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 import { interpretarReporteFavorita } from "./ocrFavorita"
 import { separarTextosDiagnosticoCampo, seleccionarCapturasSkuCampo, type TextoImagenCampo } from "./seleccionCapturasSkuCampo"
-import { CAMPOS_LECTURA_VALIDABLES, verificarDosLecturasCampo, VERSION_VALIDACION_CAMPO } from "./validacionLecturasCampo"
+import { CAMPOS_LECTURA_VALIDABLES, conciliarRotacionInventarioCampo, verificarDosLecturasCampo, VERSION_VALIDACION_CAMPO } from "./validacionLecturasCampo"
 
 export function reanalizarDiagnosticoCapturaCampo(lectura: LecturaFavorita, codigoEsperado: string): LecturaFavorita {
   const evidencia = lectura.lectura_control
@@ -23,8 +23,12 @@ export function reanalizarDiagnosticoCapturaCampo(lectura: LecturaFavorita, codi
       (f.imagen !== undefined ? indices.includes(f.imagen) : indices.length === imagenes.length))
     if (principal[campo] != null && comprobaciones.length && comprobaciones.every((f) => interpretarReporteFavorita(f.texto)[campo] === principal[campo])) Object.assign(control, {[campo]: principal[campo]})
   }
+  const comprobacionInventario = conciliarRotacionInventarioCampo(principal, control, indices.flatMap((i) => [
+    interpretarReporteFavorita(imagenes[i].principal, imagenes[i].confianza),
+    interpretarReporteFavorita(imagenes[i].control, imagenes[i].confianza_control),
+  ]))
   const verificacion = verificarDosLecturasCampo(principal, control)
   return { ...principal, version_validacion: VERSION_VALIDACION_CAMPO, verificacion_campos: verificacion,
-    lectura_control: { principal, control, imagenes, confirmaciones_fila: filas, capturas_incluidas: seleccion.incluidas, capturas_omitidas: seleccion.omitidas, origen: "REANALISIS_DIAGNOSTICO" },
+    lectura_control: { principal, control, comprobacion_inventario: comprobacionInventario, imagenes, confirmaciones_fila: filas, capturas_incluidas: seleccion.incluidas, capturas_omitidas: seleccion.omitidas, origen: "REANALISIS_DIAGNOSTICO" },
     advertencias: [...principal.advertencias, ...Object.entries(verificacion).filter(([, v]) => v.estado === "PENDIENTE").map(([c,v]) => `${c}: ${v.motivo}`)] }
 }
