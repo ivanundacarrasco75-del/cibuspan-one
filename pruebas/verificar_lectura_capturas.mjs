@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { CAMPOS_CANTIDADES_CAMPO, tieneCantidadesCaptura, completarCantidadesCaptura, completarFechasCaptura, prepararRecuperacionCaptura } from '../src/utils/lecturaCapturasCampo.ts'
+import { CAMPOS_CANTIDADES_CAMPO, tieneCantidadesCaptura, completarCantidadesCaptura, completarFechasCaptura, proponerLecturaRevisadaCampo, prepararRecuperacionCaptura } from '../src/utils/lecturaCapturasCampo.ts'
 
 const lectura = (extra={}) => ({confianza:.9,advertencias:[],texto_ocr:'Texto de captura',...Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([k])=>[k,null])),...extra})
 test('Reconocer solo nombre o código no es una lectura de cantidades; cero sí lo es',()=>{
@@ -38,4 +38,15 @@ test('Quitar una cantidad incorrecta requiere borrado expreso; no borra fecha de
  assert.deepEqual(p.campos_borrar,['cantidad_ultimo_pedido']);assert.equal('stock_local_unidades' in p,false)
  assert.throws(()=>prepararRecuperacionCaptura(v,r,actual,completarFechasCaptura(actual,r),['fecha_visita']),/Solo/)
  assert.throws(()=>prepararRecuperacionCaptura({...v,cantidad_ultimo_pedido:5},r,actual,completarFechasCaptura(actual,r),['cantidad_ultimo_pedido']),/a la vez/)
+})
+test('Revisión propone ceros reconocidos, conserva campos desconocidos y quita solo ausencias explícitas',()=>{
+ const actual={stock_local_unidades:14,precio_comercio:2.5,cantidad_ultimo_pedido:2026,fecha_ultimo_pedido:'2026-10-10'}
+ const r=lectura({stock_local_unidades:0,campos_sin_dato:['cantidad_ultimo_pedido']})
+ const p=proponerLecturaRevisadaCampo(actual,r)
+ assert.equal(p.valores.stock_local_unidades,0);assert.equal(p.valores.precio_comercio,2.5)
+ assert.equal(p.valores.cantidad_ultimo_pedido,null);assert.equal(p.fechas.fecha_ultimo_pedido,'2026-10-10')
+ assert.deepEqual(p.camposBorrar,['cantidad_ultimo_pedido'])
+ const patch=prepararRecuperacionCaptura(p.valores,r,actual,p.fechas,p.camposBorrar)
+ assert.equal(patch.stock_local_unidades,0);assert.equal('precio_comercio' in patch,false);assert.equal('fecha_ultimo_pedido' in patch,false)
+ assert.equal(actual.stock_local_unidades,14);assert.equal(actual.cantidad_ultimo_pedido,2026)
 })

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { analizarCapturasFavorita, completarLecturaVisitaCampo, obtenerFotosCampo, type LecturaFavorita } from "../../repositories/campoComercialRepository"
-import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO, completarCantidadesCaptura, completarFechasCaptura, prepararRecuperacionCaptura, tieneCantidadesCaptura, type CampoCantidadCaptura, type CampoFechaCaptura } from "../../utils/lecturaCapturasCampo"
+import { CAMPOS_CANTIDADES_CAMPO, CAMPOS_FECHAS_CAMPO, proponerLecturaRevisadaCampo, prepararRecuperacionCaptura, tieneCantidadesCaptura, type CampoCantidadCaptura, type CampoFechaCaptura } from "../../utils/lecturaCapturasCampo"
 import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "../../utils/georreferenciaCampo"
 
@@ -41,8 +41,9 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
       if (/^\d{13}$/.test(codigo) && codigo !== registro.producto_codigo.replace(/T$/i, "")) {
         throw new Error("El código reconocido corresponde a otro SKU. Revisa las capturas; no se aplicaron cambios.")
       }
-      setValores(completarCantidadesCaptura(registro.lectura_guardada ?? {}, resultado))
-      setFechas(completarFechasCaptura(registro.lectura_guardada ?? {}, resultado))
+      const propuesta = proponerLecturaRevisadaCampo(registro.lectura_guardada ?? {}, resultado)
+      setValores(propuesta.valores); setFechas(propuesta.fechas); setCamposBorrar(propuesta.camposBorrar)
+      setMensaje("Lectura aplicada a la propuesta. Revisa los valores y pulsa Guardar cambios para actualizar esta visita.")
       if (!tieneCantidadesCaptura(resultado)) setError("El lector no reconoció cantidades. Revisa el texto reconocido; puedes completar manualmente los valores verificables antes de guardar.")
     } catch (err) { if (revision.current === id) setError(err instanceof Error ? err.message : "No se pudieron leer las capturas.") }
     finally { if (revision.current === id) { setOcupado(false); setProgreso("") } }
@@ -84,15 +85,16 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
     {lectura?.advertencias.map((a, i) => <p key={i}>{a}</p>)}
     {valores && lectura && <>
       <button type="button" disabled={ocupado || deshabilitado} onClick={aplicarReconocidos}>Aplicar valores reconocidos</button>
-      <p>La columna Guardar conserva los datos anteriores hasta que apliques la lectura o los corrijas. Dejar vacío un dato guardado permite quitarlo expresamente. Fecha y cantidad de pedido son campos distintos.</p>
+      <p>La columna Guardar propone los valores reconocidos. Cuando el lector no reconoce un campo, conserva el anterior y lo señala. Revisa antes de guardar.</p>
       <div className="vr-tabla-scroll"><table><thead><tr><th>Campo</th><th>Ya guardado</th><th>Reconocido ahora</th><th>Guardar</th></tr></thead><tbody>{campos.map(([campo, nombre]) => {
         const esFecha = campo.startsWith("fecha_"), cantidad = campo as CampoCantidadCaptura, fecha = campo as CampoFechaCaptura
-        return <tr key={campo}><th>{nombre}</th><td>{registro.lectura_guardada?.[campo] ?? "—"}</td><td>{lectura[campo] ?? (lectura.campos_sin_dato?.includes(campo) ? "Sin dato en captura (—)" : "Sin reconocer")}</td><td><input type={esFecha ? "date" : "number"} min={esFecha ? undefined : "0"} step={esFecha ? undefined : "any"} aria-label={`Completar ${nombre}`} disabled={ocupado || deshabilitado} value={(esFecha ? fechas[fecha] : valores[cantidad]) ?? ""} onChange={(e) => {
+        const valor = esFecha ? fechas[fecha] : valores[cantidad]
+        return <tr key={campo} className={camposBorrar.includes(campo) || valor != null && valor !== registro.lectura_guardada?.[campo] ? "vr-cambio-lectura" : undefined}><th>{nombre}</th><td>{registro.lectura_guardada?.[campo] ?? "—"}</td><td>{lectura[campo] ?? (lectura.campos_sin_dato?.includes(campo) ? "Sin dato en captura (—)" : "Sin reconocer")}</td><td><input type={esFecha ? "date" : "number"} min={esFecha ? undefined : "0"} step={esFecha ? undefined : "any"} aria-label={`Completar ${nombre}`} disabled={ocupado || deshabilitado} value={valor ?? ""} onChange={(e) => {
           const vacio = e.target.value === ""; marcarBorrado(campo, vacio)
           if (esFecha) setFechas((v) => ({ ...v, [fecha]: vacio ? null : e.target.value }))
           else setValores((v) => v && ({ ...v, [cantidad]: vacio ? null : Number(e.target.value) }))
           setError(""); setMensaje("")
-        }} />{camposBorrar.includes(campo) && <small>Se quitará el dato anterior al guardar.</small>}</td></tr>
+        }} />{camposBorrar.includes(campo) ? <small>Se quitará el dato anterior al guardar.</small> : lectura[campo] == null && valor != null && valor === registro.lectura_guardada?.[campo] && <small>Dato anterior conservado: el lector no reconoció este campo.</small>}</td></tr>
       })}</tbody></table></div>
       {mensaje && <p role="status">{mensaje}</p>}
       {error && <p className="vr-error" role="alert">{error}</p>}

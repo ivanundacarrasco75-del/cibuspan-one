@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const server = await createServer({root:fileURLToPath(new URL('..',import.meta.url)),server:{middlewareMode:true},appType:'custom'})
 const { interpretarReporteFavorita } = await server.ssrLoadModule('/src/utils/ocrFavorita.ts')
 const {detectarAreaReporteFavorita}=await server.ssrLoadModule('/src/utils/areaReporteFavorita.ts')
+const {proponerLecturaRevisadaCampo,prepararRecuperacionCaptura}=await server.ssrLoadModule('/src/utils/lecturaCapturasCampo.ts')
 const { prepararRecuperacionAutomaticaCampo, recuperarCapturasPendientesCampo, capturasPendientesCampo } = await server.ssrLoadModule('/src/utils/recuperacionCapturasCampo.ts')
 const texto = `Local: SUPERMAXI PLAZA NORTE
 Código de barras: 7868304262189
@@ -27,6 +28,18 @@ const registro=(id='r1',extra={})=>({id,local_id:'l1',local_nombre:locales[0].no
 const lectura=()=>interpretarReporteFavorita(texto,.92)
 
 try {
+ await test('Texto 1.13 llega a la propuesta y al guardado, corrigiendo 115 y stock 14 sin tocar el original',()=>{
+  const actual={rotacion_diaria_unidades:115,stock_local_unidades:14}
+  for(const etiqueta of ['DIARIA','DIARlA','DIAR1A','DIARTA']){
+   const r=interpretarReporteFavorita(`VENTA PROMEDIO ${etiqueta} (CANT): 1.13\nVENTA PROMEDIO ${etiqueta} (VALOR): $1.92\nEXISTENCIA EN LOCAL: 10 unidades`,.9)
+   const propuesta=proponerLecturaRevisadaCampo(actual,r)
+   assert.equal(r.rotacion_diaria_unidades,1.13)
+   assert.equal(propuesta.valores.rotacion_diaria_unidades,1.13);assert.equal(propuesta.valores.stock_local_unidades,10)
+   const patch=prepararRecuperacionCaptura(propuesta.valores,r,actual,propuesta.fechas,propuesta.camposBorrar)
+   assert.equal(patch.rotacion_diaria_unidades,1.13);assert.equal(patch.stock_local_unidades,10);assert.equal(patch.venta_diaria_valor,1.92)
+  }
+  assert.deepEqual(actual,{rotacion_diaria_unidades:115,stock_local_unidades:14})
+ })
  await test('Cantidad de pedido no toma el año de una fecha; fecha y cantidad se reconocen por separado',()=>{
   let r=interpretarReporteFavorita('FECHA ULT. PEDIDO: 2026-10-10\nCANTIDAD DEL PEDIDO: 5',.9)
   assert.equal(r.fecha_ultimo_pedido,'2026-10-10');assert.equal(r.cantidad_ultimo_pedido,5)

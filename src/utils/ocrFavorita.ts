@@ -73,8 +73,9 @@ export function interpretarReporteFavorita(
     fecha_fuente: fechaFuente(texto),
     precio_comercio: cantidad(/PRECIO\s+COMERCIO\s*[:=]?/, "precio comercio"),
     precio_afiliado: cantidad(/PRECIO\s+AFILIADO\s*[:=]?/, "precio afiliado"),
-    rotacion_diaria_unidades: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*CANT(?:IDAD)?\.?\s*\)?\s*[:=]?/, "rotación diaria"),
-    venta_diaria_valor: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*VALOR\.?\s*\)?\s*[:=]?/, "venta diaria"),
+    // I/l/1/T pueden confundirse en las etiquetas; nunca se cambian los dígitos del valor.
+    rotacion_diaria_unidades: cantidad(/VENTA\s+PROMED[I1L]O\s+D[I1LT]AR[I1LT]A\s*\(?\s*CANT(?:IDAD)?\.?\s*\)?\s*[:=]?/, "rotación diaria"),
+    venta_diaria_valor: cantidad(/VENTA\s+PROMED[I1L]O\s+D[I1LT]AR[I1LT]A\s*\(?\s*VALOR\.?\s*\)?\s*[:=]?/, "venta diaria"),
     prediccion_venta_unidades: cantidad(/PREDICCION\s+DE\s+VENTAS\s+FUTURAS\s*(?:\(\s*CANT(?:IDAD)?\.?\s*\))?\s*[:=]?/, "predicción"),
     participacion_clase: cantidad(/PARTICIPACION\s+(?:CLASE|CLA)\b\.?\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación clase", texto, true),
     participacion_subclase: cantidad(/PARTICIPACION\s+(?:SUBCLASE|SCLA)\b\.?\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación subclase", texto, true),

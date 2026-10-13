@@ -19,6 +19,19 @@ export const tieneCantidadesCaptura = (datos: Partial<LecturaFavorita>) => CAMPO
 export function completarCantidadesCaptura(actual: Partial<LecturaFavorita>, lectura: LecturaFavorita) {
   return Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([campo]) => [campo, actual[campo] ?? lectura[campo] ?? null])) as Record<CampoCantidadCaptura, number | null>
 }
+// Releer una visita prepara una propuesta para revisión; no guarda ni cambia el original.
+export function proponerLecturaRevisadaCampo(actual: Partial<LecturaFavorita>, lectura: LecturaFavorita) {
+  const valores = Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.map(([c]) => [c, lectura[c] ?? actual[c] ?? null])) as Record<CampoCantidadCaptura, number | null>
+  const fechas = Object.fromEntries(CAMPOS_FECHAS_CAMPO.map(([c]) => [c, lectura[c] ?? actual[c] ?? null])) as Record<CampoFechaCaptura, string | null>
+  const camposBorrar: string[] = []
+  for (const [c] of CAMPOS_CANTIDADES_CAMPO) if (lectura[c] == null && lectura.campos_sin_dato?.includes(c)) {
+    valores[c] = null; if (actual[c] != null) camposBorrar.push(c)
+  }
+  for (const [c] of CAMPOS_FECHAS_CAMPO) if (lectura[c] == null && lectura.campos_sin_dato?.includes(c)) {
+    fechas[c] = null; if (actual[c] != null) camposBorrar.push(c)
+  }
+  return { valores, fechas, camposBorrar }
+}
 export function prepararRecuperacionCaptura(valores: Record<CampoCantidadCaptura, number | null>, lectura: LecturaFavorita, actual: Partial<LecturaFavorita>, fechas = completarFechasCaptura(actual, lectura), camposBorrar: string[] = []) {
   const cantidades = Object.fromEntries(CAMPOS_CANTIDADES_CAMPO.filter(([campo]) => valores[campo] !== null && valores[campo] !== actual[campo]).map(([campo]) => {
     const valor = valores[campo]!
