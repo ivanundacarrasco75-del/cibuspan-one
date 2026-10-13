@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const server = await createServer({root:fileURLToPath(new URL('..',import.meta.url)),server:{middlewareMode:true},appType:'custom'})
 const { interpretarReporteFavorita } = await server.ssrLoadModule('/src/utils/ocrFavorita.ts')
+const {detectarAreaReporteFavorita}=await server.ssrLoadModule('/src/utils/areaReporteFavorita.ts')
 const { prepararRecuperacionAutomaticaCampo, recuperarCapturasPendientesCampo, capturasPendientesCampo } = await server.ssrLoadModule('/src/utils/recuperacionCapturasCampo.ts')
 const texto = `Local: SUPERMAXI PLAZA NORTE
 Código de barras: 7868304262189
@@ -26,6 +27,34 @@ const registro=(id='r1',extra={})=>({id,local_id:'l1',local_nombre:locales[0].no
 const lectura=()=>interpretarReporteFavorita(texto,.92)
 
 try {
+ await test('Reconoce el formato real de EnPercha: logotipo, categorías y etiquetas partidas',()=>{
+  const r=interpretarReporteFavorita(`E LOCAL: SUPERMAXI AMERICA
+CÓDIGO DE BARRAS: 7868304262189
+PAN INTEGRAL GDE PANGOLIN.
+PREDICCIÓN DE VENTAS FUTURAS 0.00
+(CANT.):
+PARTICIPACIÓN CLA. PAN INTEGRAL 1.34 %
+PRECORTADO
+PARTICIPACIÓN SCLA. INTEGRALES 2.40 %
+DÍAS DE INVENTARIO LOCAL: 14.22080s
+FECHA ULT. PEDIDO: -
+CANTIDAD DEL PEDIDO: -
+FECHA ULT. DESPACHO: 2026-09-21`,.9)
+  assert.equal(r.local_nombre,'SUPERMAXI AMERICA');assert.equal(r.prediccion_venta_unidades,0)
+  assert.equal(r.participacion_clase,1.34);assert.equal(r.participacion_subclase,2.4)
+  assert.equal(r.dias_inventario_local,null);assert.equal(r.fecha_ultimo_pedido,null);assert.equal(r.fecha_ultimo_despacho,'2026-09-21')
+  assert.equal(interpretarReporteFavorita('EXISTENCIA EN LOCAL: 9',.9).local_nombre,null)
+  assert.equal(interpretarReporteFavorita('S LOCAL: SUPERMAXI AMERICA',.9).local_nombre,'SUPERMAXI AMERICA')
+  assert.equal(interpretarReporteFavorita('PARTICIPACIÓN SCLA. INTEGRALES 240 %',.9).participacion_subclase,null)
+ })
+ await test('Delimita el reporte por las barras de EnPercha y conserva imágenes sin ese formato',()=>{
+  const w=300,h=700,px=new Uint8Array(w*h*4).fill(255)
+  for(let y=0;y<h;y++)if(y<80 || y>=600 && y<650)for(let x=0;x<w;x++)px.set([0,170,230,255],(y*w+x)*4)
+  const a=detectarAreaReporteFavorita(w,h,px)
+  assert.ok(a);assert.equal(a.top,82);assert.equal(a.top+a.height,600);assert.ok(a.left>0);assert.ok(a.left+a.width<w)
+  assert.equal(detectarAreaReporteFavorita(w,h,new Uint8Array(w*h*4).fill(255)),null)
+  assert.equal(detectarAreaReporteFavorita(700,300,px),null)
+ })
  await test('Lee cantidades sin dos puntos, sin arrastrar etiquetas y manteniendo decimales',()=>{
   const r=lectura()
   assert.equal(r.rotacion_diaria_unidades,1.25);assert.equal(r.venta_diaria_valor,2.87)
@@ -67,6 +96,7 @@ try {
    guardar:async(r,datos)=>{assert.equal(r.actualizado_en,'token-inicial');assert.equal('stock_local_unidades' in datos,false);orden.push('guardar '+r.id);if(r.id==='r2')throw new Error('Token obsoleto');escritos.push(r.id)},
   })
   assert.deepEqual(escritos,['r1','r4']);assert.deepEqual(r.map(r=>r.estado),['COMPLETADA','ERROR','REVISAR','COMPLETADA'])
+  assert.equal(r[2].lectura.confianza,.5);assert.equal(r[2].lectura.texto_ocr,texto)
   assert.deepEqual(orden,['leer r1','guardar r1','leer r2','guardar r2','leer r3','leer r4','guardar r4']);assert.equal(actualizaciones.length,4)
  })
  await test('Cancelar durante OCR impide guardar ese registro y continuar; los previos se conservan',async()=>{

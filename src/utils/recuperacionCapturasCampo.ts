@@ -3,7 +3,7 @@ import type { RegistroDashboardCampo } from "./dashboardVisitasRotacion"
 import { localDeCaptura, type LocalCampo } from "./georreferenciaCampo"
 import { CAMPOS_CANTIDADES_CAMPO, completarCantidadesCaptura, prepararRecuperacionCaptura } from "./lecturaCapturasCampo"
 
-export type ResultadoRecuperacionCampo = { id: string; producto: string; local: string; fecha: string; estado: "COMPLETADA" | "SIN_CAMBIOS" | "REVISAR" | "ERROR"; mensaje: string }
+export type ResultadoRecuperacionCampo = { id: string; producto: string; local: string; fecha: string; estado: "COMPLETADA" | "SIN_CAMBIOS" | "REVISAR" | "ERROR"; mensaje: string; lectura?: LecturaFavorita }
 export const capturasPendientesCampo = (registros: RegistroDashboardCampo[]) => registros.filter((r) =>
   r.capturas_app?.length && r.lector_estado !== "RESPALDO_MANUAL" && CAMPOS_CANTIDADES_CAMPO.some(([c]) => r.lectura_guardada?.[c] == null),
 )
@@ -41,12 +41,13 @@ export async function recuperarCapturasPendientesCampo({ registros, locales, lee
     const base = { id: registro.id, producto: registro.producto_nombre, local: registro.local_nombre, fecha: registro.fecha }
     const prefijo = `${i + 1} de ${unicos.length} · ${registro.local_nombre} · ${registro.producto_nombre}`
     let respuesta: ResultadoRecuperacionCampo
+    let lectura: LecturaFavorita | undefined
     try {
-      const lectura = await leer(registro, (texto) => progreso(`${prefijo}: ${texto}`))
+      lectura = await leer(registro, (texto) => progreso(`${prefijo}: ${texto}`))
       if (cancelada()) break
       let datos: Record<string, unknown> | null
       try { datos = prepararRecuperacionAutomaticaCampo(registro, lectura, locales) }
-      catch (err) { respuesta = { ...base, estado: "REVISAR", mensaje: err instanceof Error ? err.message : "Revisa la captura." }; resultados.push(respuesta); resultado(respuesta); continue }
+      catch (err) { respuesta = { ...base, estado: "REVISAR", mensaje: err instanceof Error ? err.message : "Revisa la captura.", lectura }; resultados.push(respuesta); resultado(respuesta); continue }
       if (!datos) respuesta = { ...base, estado: "SIN_CAMBIOS", mensaje: "No se reconocieron cantidades nuevas para los campos vacíos." }
       else {
         progreso(`${prefijo}: guardando cantidades…`)
@@ -54,7 +55,7 @@ export async function recuperarCapturasPendientesCampo({ registros, locales, lee
         respuesta = { ...base, estado: "COMPLETADA", mensaje: `${CAMPOS_CANTIDADES_CAMPO.filter(([c]) => c in datos!).length} campos completados. Se conservaron los datos anteriores.` }
       }
     } catch (err) { respuesta = { ...base, estado: "ERROR", mensaje: err instanceof Error ? err.message : "No se pudo completar esta visita." } }
-    resultados.push(respuesta); resultado(respuesta)
+    resultados.push({ ...respuesta, lectura }); resultado({ ...respuesta, lectura })
   }
   return resultados
 }

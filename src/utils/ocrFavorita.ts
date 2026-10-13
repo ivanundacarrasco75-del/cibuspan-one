@@ -1,11 +1,13 @@
 import { createWorker, PSM, type LoggerMessage } from "tesseract.js"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
+import { areaCapturaFavorita, type AreaReporteFavorita } from "./areaReporteFavorita"
 
 type ProgresoOcr = (porcentaje: number, mensaje: string) => void
 
 export async function leerCapturasFavoritaOcr(
   archivos: File[],
   onProgreso?: ProgresoOcr,
+  obtenerArea: (archivo: File) => Promise<AreaReporteFavorita | null> = areaCapturaFavorita,
 ): Promise<LecturaFavorita> {
   if (archivos.length === 0) throw new Error("Selecciona al menos una imagen.")
 
@@ -19,15 +21,18 @@ export async function leerCapturasFavoritaOcr(
   })
 
   try {
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
-      preserve_interword_spaces: "1",
-    })
     const textos: string[] = []
     const confianzas: number[] = []
     for (indice = 0; indice < archivos.length; indice += 1) {
       onProgreso?.(Math.round(indice / archivos.length * 100), `Leyendo imagen ${indice + 1} de ${archivos.length}…`)
-      const resultado = await worker.recognize(archivos[indice])
+      const area = await obtenerArea(archivos[indice]).catch(() => null)
+      await worker.setParameters({ tessedit_pageseg_mode: area ? PSM.SINGLE_BLOCK : PSM.AUTO, preserve_interword_spaces: "1" })
+      if (area) {
+        // Conservar fecha/hora del reporte en la cabecera sin mezclarla con cantidades.
+        const cabecera = await worker.recognize(archivos[indice], { rectangle: { left: area.left, top: 0, width: area.width, height: area.top } })
+        textos.push(cabecera.data.text)
+      }
+      const resultado = await worker.recognize(archivos[indice], area ? { rectangle: area } : {})
       textos.push(resultado.data.text)
       confianzas.push(resultado.data.confidence)
     }
@@ -48,9 +53,10 @@ export function interpretarReporteFavorita(
   const texto = normalizarTexto(textoOriginal)
   const lineas = texto.split("\n").map((linea) => linea.trim()).filter(Boolean)
   const conflictos: string[] = []
-  const cantidad = (etiqueta: RegExp, nombre: string, fuente = texto) => {
+  const cantidad = (etiqueta: RegExp, nombre: string, fuente = texto, porcentaje = false) => {
     const valores = [...fuente.matchAll(new RegExp(etiqueta.source, "g"))].map((m) =>
-      primerNumero(fuente.slice(m.index! + m[0].length, m.index! + m[0].length + 120)),
+      porcentaje ? porcentajeEnFila(fuente.slice(m.index! + m[0].length, m.index! + m[0].length + 160))
+        : primerNumero(fuente.slice(m.index! + m[0].length, m.index! + m[0].length + 120)),
     ).filter((v): v is number => v !== null)
     if (new Set(valores).size > 1) { conflictos.push(`Valores distintos para ${nombre} entre las capturas; revisa las imágenes.`); return null }
     return valores[0] ?? null
@@ -58,7 +64,8 @@ export function interpretarReporteFavorita(
 
   const lectura: LecturaFavorita = {
     texto_ocr: textoOriginal.slice(0, 20000),
-    local_nombre: textoLinea(lineas, /^LOCAL\s*[:.-]?\s*(.+)$/),
+    // El logotipo rojo puede aparecer como S/E antes de la etiqueta LOCAL.
+    local_nombre: textoLinea(lineas, /^(?:[A-Z]\s+)?LOCAL\s*[:.-]?\s*(.+)$/),
     codigo_barras: codigoDespues(texto, /CODIGO\s+DE\s+BARRAS\s*[:.-]?/),
     codigo_referencia: codigoDespues(texto, /CODIGO\s+(?:REF\.?\s*)?(?:PROVEEDOR|REFERENCIA)\s*[:.-]?/),
     nombre_producto: producto(lineas),
@@ -66,10 +73,10 @@ export function interpretarReporteFavorita(
     precio_comercio: cantidad(/PRECIO\s+COMERCIO\s*[:=]?/, "precio comercio"),
     precio_afiliado: cantidad(/PRECIO\s+AFILIADO\s*[:=]?/, "precio afiliado"),
     rotacion_diaria_unidades: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*CANT(?:IDAD)?\.?\s*\)?\s*[:=]?/, "rotación diaria"),
-    venta_diaria_valor: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*VALOR\s*\)?\s*[:=]?/, "venta diaria"),
+    venta_diaria_valor: cantidad(/VENTA\s+PROMEDIO\s+DIARIA\s*\(?\s*VALOR\.?\s*\)?\s*[:=]?/, "venta diaria"),
     prediccion_venta_unidades: cantidad(/PREDICCION\s+DE\s+VENTAS\s+FUTURAS\s*(?:\(\s*CANT(?:IDAD)?\.?\s*\))?\s*[:=]?/, "predicción"),
-    participacion_clase: cantidad(/PARTICIPACION\s+(?:CLASE|CLA)\b\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación clase"),
-    participacion_subclase: cantidad(/PARTICIPACION\s+(?:SUBCLASE|SCLA)\b\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación subclase"),
+    participacion_clase: cantidad(/PARTICIPACION\s+(?:CLASE|CLA)\b\.?\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación clase", texto, true),
+    participacion_subclase: cantidad(/PARTICIPACION\s+(?:SUBCLASE|SCLA)\b\.?\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación subclase", texto, true),
     stock_local_unidades: cantidad(/EXISTENCIA\s+EN\s+LOCAL\s*[:=]?/, "stock local"),
     dias_inventario_local: cantidad(/DIAS\s+(?:DE\s+)?INVENTARIO\s+LOCAL\s*[:=]?/, "días de inventario local"),
     stock_cd_cajas: cantidad(/EXISTENCIA\s+EN\s+CD\s*[:=]?/, "stock CD"),
@@ -109,10 +116,23 @@ function fragmentoDespues(texto: string, etiqueta: RegExp, longitud = 120) {
 
 function primerNumero(fragmento: string) {
   // Un campo sin valor no puede tomar el número de la siguiente etiqueta.
-  const coincidencia = fragmento.match(/^\s*\$?\s*(-?\d+(?:[.,]\d+)?)(?![\d.,])/)
+  const coincidencia = fragmento.match(/^\s*\$?\s*(-?\d+(?:[.,]\d+)?)(?![\d.,A-Z])/)
   if (!coincidencia) return null
   const numero = Number(coincidencia[1].replace(",", "."))
   return Number.isFinite(numero) ? numero : null
+}
+
+function porcentajeEnFila(fragmento: string) {
+  const inmediato = primerNumero(fragmento)
+  if (inmediato !== null) return inmediato >= 0 && inmediato <= 100 ? inmediato : null
+  // CLA/SCLA incluyen la descripción de la categoría, a veces en dos líneas.
+  const filas = fragmento.trimStart().split("\n").slice(0, 2)
+  for (const [i, fila] of filas.entries()) {
+    if (i > 0 && /^(?:PARTICIPACION|EXISTENCIA|DIAS|PRECIO|VENTA|FECHA|CANTIDAD)\b/.test(fila.trim())) break
+    const m = fila.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*%\s*$/)
+    if (m) { const valor = Number(m[1].replace(",", ".")); return valor <= 100 ? valor : null }
+  }
+  return null
 }
 
 function codigoDespues(texto: string, etiqueta: RegExp) {
@@ -153,9 +173,9 @@ function fechaFuente(texto: string) {
 
 function fechaDespues(texto: string, etiqueta: RegExp) {
   const fragmento = fragmentoDespues(texto, etiqueta, 60)
-  const iso = fragmento.match(/(20\d{2})[/-](\d{1,2})[/-](\d{1,2})/)
+  const iso = fragmento.match(/^\s*(20\d{2})[/-](\d{1,2})[/-](\d{1,2})\b/)
   if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`
-  const local = fragmento.match(/(\d{1,2})[/-](\d{1,2})[/-](20\d{2})/)
+  const local = fragmento.match(/^\s*(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b/)
   if (local) return `${local[3]}-${local[2].padStart(2, "0")}-${local[1].padStart(2, "0")}`
   return null
 }

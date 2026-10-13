@@ -15,6 +15,11 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
   const cancelada = useRef(false), ejecutando = useRef(false), vigente = useRef(true)
   useEffect(() => { vigente.current = true; return () => { vigente.current = false; cancelada.current = true } }, [])
   const pendientes = capturasPendientesCampo(registros)
+  function descargarDiagnostico() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ resumen, resultados }, null, 2)], { type: "application/json" }))
+    const enlace = document.createElement("a")
+    enlace.href = url; enlace.download = "diagnostico_lectura_capturas.json"; enlace.click(); URL.revokeObjectURL(url)
+  }
   async function recuperar() {
     if (ejecutando.current || deshabilitado || !pendientes.length) return
     ejecutando.current = true; cancelada.current = false
@@ -38,6 +43,7 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
     <p>Incluye las cinco semanas de los filtros actuales. Completa campos vacíos al verificar local, SKU y calidad de lectura. Los casos dudosos quedan para revisión. Mantén la app abierta mientras termina.</p>
     {ocupado && <><p role="status">{progreso}</p><button type="button" onClick={() => { cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
     {resumen && <p role="status">{resumen}</p>}
+    {!ocupado && resultados.length > 0 && <button type="button" onClick={descargarDiagnostico}>Descargar diagnóstico de lectura</button>}
     {resultados.length > 0 && <details><summary>Ver resultados por visita ({resultados.length})</summary><ul>{resultados.map((r) => <li key={r.id}>{r.fecha} · {r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}
   </section>
 }
