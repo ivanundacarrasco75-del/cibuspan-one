@@ -21,6 +21,15 @@ try {
   revisado.lectura_almacenada.lectura_control.procesamiento_automatico.version='version-antigua'
   assert.equal(visitasSinProcesarCampo([revisado]).length,0)
  })
+ await test('Cantidad CD antigua no genera revisión; nuevas lecturas y cambios no la incluyen',async()=>{
+  const {CAMPOS_CANTIDADES_CAMPO}=await server.ssrLoadModule('/src/utils/lecturaCapturasCampo.ts')
+  const {interpretarReporteFavorita}=await server.ssrLoadModule('/src/utils/ocrFavorita.ts')
+  assert.equal(CAMPOS_CANTIDADES_CAMPO.some(([c])=>c==='stock_cd_cajas'),false)
+  assert.equal(pendientesRevisionCampo([{...r,lectura_guardada:{...r.lectura_guardada,stock_cd_cajas:999},verificacion_campos:{...r.verificacion_campos,stock_cd_cajas:{estado:'PENDIENTE',valor:999}}}]).some(p=>p.campo==='stock_cd_cajas'),false)
+  const lectura=interpretarReporteFavorita('Existencia en CD 13 cajas de 5\nExistencia en local 7',.9)
+  assert.equal(lectura.stock_cd_cajas,null);assert.equal(lectura.stock_local_unidades,7)
+  assert.throws(()=>prepararRevisionDatoCampo(r,'stock_cd_cajas',5))
+ })
  await test('Corregir cero o declarar ausencia no borra otro campo; rechaza formatos inválidos',()=>{
   assert.equal(prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',0).rotacion_diaria_unidades,0)
   assert.deepEqual(prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',null).campos_borrar,['rotacion_diaria_unidades'])

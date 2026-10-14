@@ -16,7 +16,7 @@ try {
   const c={...b,precio_comercio:222,stock_cd_cajas:0},d={...a,stock_cd_cajas:0}
   const v=verificarDosLecturasCampo(d,c)
   assert.equal(v.rotacion_diaria_unidades.estado,'DOBLE_LECTURA');assert.equal(v.rotacion_diaria_unidades.valor,1.13)
-  assert.equal(v.precio_comercio.estado,'PENDIENTE');assert.equal(v.stock_cd_cajas.estado,'DOBLE_LECTURA');assert.equal(v.stock_cd_cajas.valor,0)
+  assert.equal(v.precio_comercio.estado,'PENDIENTE');assert.equal(v.stock_cd_cajas,undefined)
  })
  await test('Ni dos lecturas iguales permiten rotación incoherente ni inventan un decimal',()=>{
   const v=verificarDosLecturasCampo({...a,rotacion_diaria_unidades:113},{...b,rotacion_diaria_unidades:113})

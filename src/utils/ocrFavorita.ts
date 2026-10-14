@@ -123,7 +123,7 @@ export function interpretarReporteFavorita(
     participacion_subclase: cantidad(/PARTICIPACION\s+(?:SUBCLASE|SCLA)\b\.?\s*(?:\(\s*%\s*\))?\s*[:=]?/, "participación subclase", texto, true),
     stock_local_unidades: cantidad(/EXISTENCIA\s+EN\s+LOCAL\s*[:=]?/, "stock local"),
     dias_inventario_local: cantidad(/DIAS\s+(?:DE\s+)?INVENTARIO\s+LOCAL\s*[:=]?/, "días de inventario local"),
-    stock_cd_cajas: cd.stock,
+    stock_cd_cajas: null,
     unidades_por_caja: cd.unidades,
     dias_inventario_cd: cantidad(/DIAS\s+(?:DE\s+)?INVENTARIO\s+CD\s*[:=]?/, "días de inventario CD"),
     fecha_ultimo_pedido: fechaDespues(texto, /FECHA\s+(?:ULT\.?|ULTIMO)\s+PEDIDO\s*[:.-]?/),
@@ -192,21 +192,10 @@ function porcentajeEnFila(fragmento: string) {
 }
 
 function existenciasCd(texto: string, advertencias: string[]) {
-  const registros = [...texto.matchAll(/EXISTENCIA\s+EN\s+CD\s*[:=]?/g)].map((m) => {
-    const fragmento = texto.slice(m.index! + m[0].length, m.index! + m[0].length + 250).split(/\n\s*(?:DIAS|FECHA|CANTIDAD|PRECIO|VENTA|PARTICIPACION)\b/)[0]
-    const cajas = [...fragmento.matchAll(/(?:^|\s)(\d+(?:[.,]\d+)?|O)\s+CAJAS?\s+DE\s+(\d+(?:[.,]\d+)?)/g)]
-    if (cajas.length !== [...fragmento.matchAll(/CAJAS?\s+DE\s+/g)].length) {
-      advertencias.push("No se reconocieron todas las presentaciones del CD; revisa ese campo.")
-      return { stock: null, unidades: null }
-    }
-    if (!cajas.length) return { stock: primerNumero(fragmento), unidades: null }
-    return { stock: cajas.reduce((s, c) => s + (c[1] === "O" ? 0 : Number(c[1].replace(",", "."))), 0), unidades: [...new Set(cajas.map((c) => Number(c[2].replace(",", "."))))] }
-  })
-  const stocks = [...new Set(registros.map((r) => r.stock).filter((v) => v !== null))]
-  const unidades = [...new Set(registros.flatMap((r) => r.unidades ?? []))]
-  if (stocks.length > 1) advertencias.push("Valores distintos para stock CD entre las capturas; revisa las imágenes.")
+  // Sólo se conserva la capacidad de las cajas; el stock del CD no aplica.
+  const unidades = [...new Set([...texto.matchAll(/CAJAS?\s+DE\s+(\d+(?:[.,]\d+)?)/g)].map((m) => Number(m[1].replace(",", "."))))]
   if (unidades.length > 1) advertencias.push(`El CD muestra cajas de distintas capacidades (${unidades.join(" y ")} unidades). No hay una única cantidad de unidades por caja.`)
-  return { stock: stocks.length === 1 ? stocks[0] : null, unidades: unidades.length === 1 ? unidades[0] : null }
+  return { unidades: unidades.length === 1 ? unidades[0] : null }
 }
 
 function codigoDespues(texto: string, etiqueta: RegExp) {

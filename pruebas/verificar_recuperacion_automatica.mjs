@@ -53,7 +53,7 @@ try {
  await test('CD con dos presentaciones suma cajas y no inventa una capacidad única ni duplica capturas repetidas',()=>{
   const cd='EXISTENCIA EN CD: 0 cajas de 7 unidades\n9 cajas de 5 unidades\nDÍAS INVENTARIO CD: 0.0 días'
   const r=interpretarReporteFavorita(cd+'\n'+cd,.9)
-  assert.equal(r.stock_cd_cajas,9);assert.equal(r.unidades_por_caja,null);assert.equal(r.dias_inventario_cd,0)
+  assert.equal(r.stock_cd_cajas,null);assert.equal(r.unidades_por_caja,null);assert.equal(r.dias_inventario_cd,0)
   assert.ok(r.advertencias.some(a=>a.includes('distintas capacidades')))
   assert.equal(r.advertencias.some(a=>a.startsWith('Valores distintos')),false)
  })
@@ -90,7 +90,7 @@ FECHA ULT. DESPACHO: 2026-09-21`,.9)
   assert.equal(r.rotacion_diaria_unidades,1.25);assert.equal(r.venta_diaria_valor,2.87)
   assert.equal(r.precio_comercio,2.3);assert.equal(r.precio_afiliado,2.2)
   assert.equal(r.prediccion_venta_unidades,15);assert.equal(r.participacion_clase,4.5);assert.equal(r.participacion_subclase,8.5)
-  assert.equal(r.stock_local_unidades,7);assert.equal(r.stock_cd_cajas,10);assert.equal(r.unidades_por_caja,12)
+  assert.equal(r.stock_local_unidades,7);assert.equal(r.stock_cd_cajas,null);assert.equal(r.unidades_por_caja,12)
  })
  await test('Campo vacío no toma precio, fecha o cantidad de otro campo; no convierte negativos en positivos',()=>{
   const r=interpretarReporteFavorita('Venta promedio diaria (Cant.):\nPrecio comercio: 2,30\nExistencia en local: -7\nPrecio afiliado: N/D\nCantidad pedido: 12',.9)

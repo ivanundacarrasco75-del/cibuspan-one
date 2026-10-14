@@ -6,7 +6,7 @@ const etiquetas: Record<string, RegExp> = {
   precio_comercio: /PRECIO.*COMERCIO/, precio_afiliado: /PRECIO.*AFILIADO/,
   prediccion_venta_unidades: /PREDICCION.*VENTA/, participacion_clase: /PARTICIPACION\s+(?:CLA\b|CLASE\b)/,
   participacion_subclase: /PARTICIPACION\s+(?:SCLA\b|SUBCLASE\b)/,
-  stock_cd_cajas: /EXISTENCIA.*\bCD\b/, unidades_por_caja: /EXISTENCIA.*\bCD\b/,
+  unidades_por_caja: /EXISTENCIA.*\bCD\b/,
   dias_inventario_cd: /DIAS.*INVENTARIO.*\bCD\b/,
   fecha_ultimo_pedido: /FECHA.*PEDIDO/, cantidad_ultimo_pedido: /CANTIDAD.*PEDIDO/,
   fecha_ultimo_despacho: /FECHA.*DESPACHO/, cantidad_ultimo_despacho: /CANTIDAD.*DESPACHO/,

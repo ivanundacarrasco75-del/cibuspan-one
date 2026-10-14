@@ -5,7 +5,7 @@ export const CAMPOS_CANTIDADES_CAMPO = [
   ["dias_inventario_local", "Días de inventario local"], ["precio_comercio", "Precio comercio"],
   ["precio_afiliado", "Precio afiliado"], ["venta_diaria_valor", "Venta diaria ($)"],
   ["prediccion_venta_unidades", "Predicción de venta"], ["participacion_clase", "Participación clase (%)"],
-  ["participacion_subclase", "Participación subclase (%)"], ["stock_cd_cajas", "Stock CD (cajas)"],
+  ["participacion_subclase", "Participación subclase (%)"],
   ["unidades_por_caja", "Unidades por caja"], ["dias_inventario_cd", "Días de inventario CD"],
   ["cantidad_ultimo_pedido", "Cantidad último pedido"], ["cantidad_ultimo_despacho", "Cantidad último despacho"],
 ] as const
