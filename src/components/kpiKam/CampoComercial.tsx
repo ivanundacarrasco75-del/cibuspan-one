@@ -1,3 +1,4 @@
+import { clienteCapturasFavoritaCampo } from "../../utils/validacionLecturasCampo"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   analizarCapturasFavorita,
@@ -260,6 +261,9 @@ export default function CampoComercial({
   }, [vistasCapturas])
 
   function seleccionarCapturas(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "")) {
+      event.target.value = ""; setError("Este botón es sólo para capturas de Favorita. Las fotos del local se cargan en Fotos de percha."); return
+    }
     if (leyendoCapturas.current || guardando) return
     setNombreLocalOcr(null)
     const nuevas = Array.from(event.target.files ?? [])
@@ -333,6 +337,7 @@ export default function CampoComercial({
   }
 
   async function analizar(archivos = capturas): Promise<LecturaFavorita | null> {
+    if (!clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "")) return null
     if (leyendoCapturas.current) return null
     if (!visitaActiva || !productoId || archivos.length === 0) {
       setError("Inicia la visita, selecciona el SKU y sube entre una y tres capturas de Favorita.")
@@ -500,12 +505,12 @@ export default function CampoComercial({
       return
     }
     let lecturaAGuardar = lectura
-    if (capturas.length > 0 && !capturasSoloRespaldo && !lecturaConfirmada) {
+    if (clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "") && capturas.length > 0 && !capturasSoloRespaldo && !lecturaConfirmada) {
       const resultado = await analizar()
       if (!resultado) return
       lecturaAGuardar = resultado
     }
-    if (capturas.length > 0 && !capturasSoloRespaldo && !tieneCantidadesCaptura(lecturaAGuardar)) {
+    if (clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "") && capturas.length > 0 && !capturasSoloRespaldo && !tieneCantidadesCaptura(lecturaAGuardar)) {
       setError("No hay cantidades para guardar de estas capturas. Completa los campos verificables o selecciona capturas solo como respaldo.")
       return
     }
@@ -537,7 +542,7 @@ export default function CampoComercial({
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
         confianza_ia: lecturaAGuardar.confianza || null,
-        datos_ia: { ...lecturaAGuardar, lector_estado: capturasSoloRespaldo ? "RESPALDO_MANUAL" : lecturaConfirmada || capturas.length > 0 ? "LEIDA_REVISADA" : "SIN_LECTOR",
+        datos_ia: { ...lecturaAGuardar, lector_estado: !clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "") || capturasSoloRespaldo ? "RESPALDO_MANUAL" : lecturaConfirmada || capturas.length > 0 ? "LEIDA_REVISADA" : "SIN_LECTOR",
           caras_percha: carasPercha, visita_sesion_id: visitaActiva.id, visita_iniciada_en: visitaActiva.iniciadoEn,
           georreferencia_visita: georreferenciaVisita && { ...georreferenciaVisita, nombre_local_captura: nombreLocalLeido, local_captura_coincide: localCapturaCoincide },
           nombre_local_ocr: nombreLocalLeido,
@@ -634,12 +639,12 @@ export default function CampoComercial({
             <small>Registra los productos que corresponden a este local y finaliza cuando termines.</small>
           </section>}
 
-          {visitaActiva && productoId && <section className="campo-paso">
+          {visitaActiva && productoId && clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "") && <section className="campo-paso">
             <header><b>3</b><div><span>LECTOR DE IMÁGENES · OPCIONAL</span><h3>Completar datos desde capturas de Favorita</h3></div></header>
-            <p>Sube de 1 a 3 capturas: se leen automáticamente y completan los campos vacíos. Revisa los valores y pulsa Guardar SKU una sola vez. También puedes ingresar los datos manualmente.</p>
+            <p>Este botón es exclusivamente para capturas de la app En Percha de Favorita. No subas fotos de estantes o productos aquí; usa Fotos de percha. Sube de 1 a 3 capturas: se leen automáticamente y completan los campos vacíos. Revisa los valores y pulsa Guardar SKU una sola vez. También puedes ingresar los datos manualmente.</p>
             <label className="campo-captura">
               <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarCapturas} disabled={procesando || guardando} />
-              <strong>{capturas.length ? `${capturas.length} de 3 imágenes listas · agregar más` : "Tomar fotos o elegir capturas"}</strong>
+              <strong>{capturas.length ? `${capturas.length} de 3 imágenes listas · agregar más` : "Cargar capturas de Favorita"}</strong>
               <small>Incluye la cabecera y la parte inferior si la información ocupa dos pantallas.</small>
             </label>
             {vistasCapturas.length > 0 && <><div className="campo-miniaturas">{vistasCapturas.map(({ archivo, url }) => <img key={`${archivo.name}-${archivo.lastModified}`} src={url} alt={archivo.name} />)}</div><button className="campo-limpiar" type="button" onClick={limpiarCapturas} disabled={guardando || procesando}>Quitar imágenes</button></>}
@@ -652,7 +657,7 @@ export default function CampoComercial({
 
           {visitaActiva && productoId && <section className="campo-paso campo-revision">
             <header><b>4</b><div><span>DATOS DEL SKU · INGRESO MANUAL O LECTOR</span><h3>{catalogo.productos.find((item) => item.id === productoId)?.nombre ?? "Revisa y corrige antes de guardar"}</h3></div></header>
-            <p>Todos los campos están disponibles sin usar el lector. Deja en blanco los datos que no tengas; escribe cero solo si lo verificaste.</p>
+            <p>Rosado y Santamaría: ingresa los datos manualmente y carga las fotos del local en Fotos de percha. Todos los campos están disponibles sin usar el lector. Deja en blanco los datos que no tengas; escribe cero solo si lo verificaste.</p>
             <fieldset className="campo-formulario-sku" disabled={guardando || procesando}>
             {lectura.advertencias.length > 0 && <div className="campo-advertencia">{lectura.advertencias.join(" · ")}</div>}
             <div className="campo-grid campo-grid-2">

@@ -30,7 +30,7 @@ export type RegistroDashboardCampo = {
   capturas_app?: string[]; lectura_guardada?: Partial<LecturaFavorita>; lector_estado?: string | null
   verificacion_campos?: VerificacionCamposCampo; version_validacion?: string
   lectura_almacenada?: LecturaFavorita
-  registrado_por?: string; puede_procesar?: boolean
+  cliente_nombre?: string; registrado_por?: string; puede_procesar?: boolean
   responsable_nombre?: string | null; visita_id?: string
   valores: Record<IndicadorCampo, number | null>
 }

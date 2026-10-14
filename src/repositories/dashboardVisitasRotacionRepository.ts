@@ -1,3 +1,4 @@
+import { clienteIngresoManualCampo } from "../utils/validacionLecturasCampo"
 import { supabase } from "../lib/supabase"
 import { leerCarasPercha } from "../utils/supervisionCampo"
 import type { ProductoDashboardCampo, RegistroDashboardCampo } from "../utils/dashboardVisitasRotacion"
@@ -23,7 +24,10 @@ export async function obtenerDashboardVisitasRotacion(clienteId: string, desde: 
   const administrador = datos.puede_administrar === true
   const usuarioId = administrador ? null : (await supabase.auth.getUser()).data.user?.id
   return { clientes: datos.clientes ?? [], locales: datos.locales ?? [], productos: datos.productos ?? [],
-    registros: registros.map((r) => ({ ...r, puede_procesar: administrador || !!usuarioId && r.registrado_por === usuarioId })) }
+    registros: registros.map((r) => {
+      const nombre = (datos.clientes ?? []).find((c: { id: string; nombre: string }) => c.id === r.cliente_id)?.nombre ?? ""
+      return { ...r, cliente_nombre: nombre, lector_estado: clienteIngresoManualCampo(nombre) ? "RESPALDO_MANUAL" : r.lector_estado, puede_procesar: administrador || !!usuarioId && r.registrado_por === usuarioId }
+    }) }
 }
 
 async function leerRegistros(clienteId: string, desde: string, hasta: string) {

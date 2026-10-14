@@ -42,6 +42,13 @@ try {
   assert.equal(pendientesRevisionCampo([r]).some(p=>p.campo==='rotacion_diaria_unidades'),true)
   assert.equal(valorIndicadorValidadoCampo(r,'rotacion'),null)
  })
+ await test('Fotos cargadas en capturas de Rosado/Santamaría no crean pendientes OCR',async()=>{
+  const {clienteCapturasFavoritaCampo}=await server.ssrLoadModule('/src/utils/validacionLecturasCampo.ts')
+  for(const cliente_nombre of ['CORPORACION EL ROSADO','MEGA SANTAMARÍA','SANTA MARIA']) assert.deepEqual(pendientesRevisionCampo([{...r,cliente_nombre}]),[])
+  assert.equal(clienteCapturasFavoritaCampo('CORPORACION FAVORITA'),true)
+  assert.equal(clienteCapturasFavoritaCampo('CORPORACION EL ROSADO'),false)
+  assert.equal(pendientesRevisionCampo([{...r,cliente_nombre:'CORPORACION FAVORITA'}]).some(p=>p.campo==='rotacion_diaria_unidades'),true)
+ })
  await test('Corregir cero o declarar ausencia no borra otro campo; rechaza formatos inválidos',()=>{
   assert.equal(prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',0).rotacion_diaria_unidades,0)
   assert.deepEqual(prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',null).campos_borrar,['rotacion_diaria_unidades'])
