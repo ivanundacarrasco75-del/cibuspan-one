@@ -4,6 +4,7 @@ import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacio
 import type { LocalCampo } from "../../utils/georreferenciaCampo"
 import { capturasPendientesCampo, recuperarCapturasPendientesCampo, type ResultadoRecuperacionCampo } from "../../utils/recuperacionCapturasCampo"
 import { claveProcesamientoCampo, excepcionesProcesamientoCampo, procesarVisitasAutomaticamenteCampo, visitasSinProcesarCampo } from "../../utils/procesamientoAutomaticoCampo"
+import { resumenDatosCampo, resumenResultadosDatosCampo } from "../../utils/estadoDatosCampo"
 
 export default function RecuperarCapturasPendientes({ registros, locales, deshabilitado, alCambiarEstado, alTerminar }: {
   registros: RegistroDashboardCampo[]; locales: LocalCampo[]; deshabilitado: boolean
@@ -17,7 +18,9 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
   const intentadas = useRef(new Set<string>()), pausada = useRef(false)
   useEffect(() => { vigente.current = true; return () => { vigente.current = false; cancelada.current = true } }, [])
   const pendientes = capturasPendientesCampo(registros)
-  const excepciones = [...new Map([...excepcionesProcesamientoCampo(registros), ...resultados.filter((r) => r.estado === "ERROR" || r.estado === "REVISAR" || r.mensaje.includes("Excepciones:"))].map((r) => [r.id, r])).values()]
+  const estadoDatos = resumenDatosCampo(registros)
+  const idsVisibles = new Set(registros.map((r) => r.id))
+  const excepciones = [...new Map([...excepcionesProcesamientoCampo(registros), ...resultados.filter((r) => idsVisibles.has(r.id) && (r.estado === "ERROR" || r.estado === "REVISAR" || r.mensaje.includes("Excepciones:")))].map((r) => [r.id, r])).values()]
   useEffect(() => {
     if (!deshabilitado && !ocupado && !pausada.current && visitasSinProcesarCampo(registros).some((r) => !intentadas.current.has(claveProcesamientoCampo(r)))) void recuperar(undefined, true)
   }, [registros, locales, deshabilitado, ocupado])
@@ -50,7 +53,8 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
       })
       if (!vigente.current) return
       for (const r of seleccionados) if (!respuesta.some((p) => p.id === r.id)) intentadas.current.delete(claveProcesamientoCampo(r))
-      setResumen(`${cancelada.current ? "Proceso detenido. " : "Procesamiento finalizado. "}${respuesta.filter((r) => r.estado === "COMPLETADA").length} visitas con datos guardados; ${respuesta.filter((r) => r.estado === "REVISAR" || r.mensaje.includes("Excepciones:")).length} visitas con excepciones; ${respuesta.filter((r) => r.estado === "ERROR").length} con error. ${seleccionados.length - respuesta.length} sin procesar.`)
+      const resumenDatos = resumenResultadosDatosCampo(respuesta)
+      setResumen(`${cancelada.current ? "Proceso detenido. " : "Último procesamiento terminado. "}${resumenDatos.completos} registros sin excepciones; ${resumenDatos.parciales} con datos guardados y campos pendientes; ${resumenDatos.bloqueados} con lectura bloqueada; ${resumenDatos.errores} con error; ${resumenDatos.sinCambios} sin cambios; ${seleccionados.length - respuesta.length} sin procesar.`)
       alTerminar()
     } catch (err) { if (vigente.current) setResumen(err instanceof Error ? err.message : "No se pudo completar la recuperación.") }
     finally { ejecutando.current = false; if (vigente.current) { setOcupado(false); alCambiarEstado(false); setProgreso("") } }
@@ -72,10 +76,17 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
     } catch (err) { setResumen(err instanceof Error ? err.message : "No se pudo abrir el diagnóstico.") }
   }
   return <section className="vr-recuperacion-conjunta">
-    <p>Los datos se procesan automáticamente. Se reutilizan las lecturas guardadas y se comprueban las capturas que lo necesitan; los datos comprobados se guardan y aparecen en el gráfico.</p>
+    <h3>Estado de las capturas y los datos</h3>
+    <div className="vr-cards" aria-label="Datos guardados en los filtros actuales">
+      <article><span>Registros de SKU guardados</span><strong>{estadoDatos.registros}</strong><small>Cada local puede tener varios SKU.</small></article>
+      <article><span>Capturas guardadas</span><strong>{estadoDatos.capturas}</strong><small>En {estadoDatos.registrosConCapturas} registros de SKU.</small></article>
+      <article><span>Rotaciones disponibles</span><strong>{estadoDatos.rotacionesDisponibles}</strong><small>Comprobadas o declaradas manualmente.</small></article>
+      <article><span>Rotaciones pendientes</span><strong>{estadoDatos.rotacionesPendientes}</strong><small>Se conserva la captura; el dato queda fuera del gráfico.</small></article>
+    </div>
+    <p>{estadoDatos.otrosPendientes} registros tienen otros campos pendientes. Una rotación comprobada sigue disponible aunque falte otro campo. Los datos se procesan automáticamente.</p>
     {ocupado && <><p role="status">{progreso}</p><p>{resultados.length} visitas procesadas · el gráfico se actualiza durante el proceso. Mantén esta pantalla abierta hasta terminar.</p><button type="button" onClick={() => { pausada.current = true; cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
     {!ocupado && pausada.current && <button type="button" onClick={() => { pausada.current = false; void recuperar(undefined, true) }}>Continuar procesamiento automático</button>}
-    {resumen && <p role="status">{resumen}</p>}
+    {resumen && resultados.every((r) => idsVisibles.has(r.id)) && <p role="status">{resumen}</p>}
     {excepciones.length > 0 && <details><summary>Ver excepciones ({excepciones.length})</summary><ul>{excepciones.map((r) => <li key={r.id}>{r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}
     <details><summary>Herramientas de recuperación</summary>
     <button className="vr-releer" type="button" disabled={ocupado || deshabilitado || !pendientes.length} onClick={() => void recuperar()}>Auditar y corregir capturas ({deshabilitado ? "…" : pendientes.length})</button>
@@ -83,7 +94,7 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
     <p>Selecciona el diagnóstico ya descargado para comprobar y corregir sus visitas sin repetir el OCR. Se conserva el respaldo y se respetan los filtros y los cambios manuales.</p>
     <p>Incluye las cinco semanas de los filtros actuales. Revisa también cantidades ya llenas. Corrige campos con dos lecturas coincidentes, conserva los manuales declarados y guarda un respaldo antes de cada cambio. Los campos dudosos quedan pendientes y fuera del gráfico validado. Mantén la app abierta mientras termina.</p>
     {!ocupado && resultados.length > 0 && <button type="button" onClick={descargarDiagnostico}>Descargar diagnóstico de lectura</button>}
-    {resultados.length > 0 && <details><summary>Ver resultados por visita ({resultados.length})</summary><ul>{resultados.map((r) => <li key={r.id}>{r.fecha} · {r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}
+    {resultados.length > 0 && <details><summary>Ver registros del último proceso ({resultados.length})</summary><ul>{resultados.map((r) => <li key={r.id}>{r.fecha} · {r.local} · {r.producto}: {r.mensaje}</li>)}</ul></details>}
     </details>
   </section>
 }

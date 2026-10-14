@@ -31,6 +31,7 @@ export type RegistroDashboardCampo = {
   verificacion_campos?: VerificacionCamposCampo; version_validacion?: string
   lectura_almacenada?: LecturaFavorita
   registrado_por?: string; puede_procesar?: boolean
+  responsable_nombre?: string | null; visita_id?: string
   valores: Record<IndicadorCampo, number | null>
 }
 export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador: IndicadorCampo) {

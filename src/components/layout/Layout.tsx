@@ -68,6 +68,7 @@ const modulos: Modulo[] = [
       { pantalla: "Comercial · Devoluciones", etiqueta: "Devoluciones" },
       { pantalla: "Comercial · Descuentos", etiqueta: "Descuentos" },
       { pantalla: "Comercial · Visitas y rotación", etiqueta: "Visitas y rotación" },
+      { pantalla: "Comercial · Visitas diarias", etiqueta: "Visitas diarias" },
       { pantalla: "Comercial · KPI KAM", etiqueta: "Gestión Comercial" },
     ],
   },
@@ -182,6 +183,7 @@ function moduloDePantalla(pantalla: string): Modulo["id"] {
     "KPI KAM",
     "Campo comercial",
     "Supervisión KAM",
+    "Visitas diarias",
   ].includes(pantalla)) return "Comercial"
   if (["Producción", "Preformulación", "Semielaborados", "Hoja de producción"].includes(pantalla)) {
     return "Producción"

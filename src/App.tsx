@@ -45,6 +45,7 @@ const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
 const KpiKam = lazy(() => import("./pages/KpiKam"))
 const VisitasRotacion = lazy(() => import("./pages/VisitasRotacion"))
+const VisitasDiarias = lazy(() => import("./pages/VisitasDiarias"))
 const SupervisionVisitas = lazy(() => import("./pages/SupervisionVisitas"))
 const CampoComercialMovil = lazy(() => import("./pages/CampoComercialMovil"))
 
@@ -361,6 +362,10 @@ function App() {
 
       case "Supervisión KAM":
         return <SupervisionVisitas />
+
+      case "Comercial · Visitas diarias":
+      case "Visitas diarias":
+        return <VisitasDiarias />
 
       case "Comercial · SKU":
         return <PantallaEnConstruccion titulo={pantalla} />

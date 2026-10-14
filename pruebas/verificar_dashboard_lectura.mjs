@@ -8,12 +8,12 @@ const solicitudes=[]
 let administrador=true
 const filas=Array.from({length:702},(_,i)=>({
  id:`d${String(i).padStart(4,'0')}`,producto_id:'p1',actualizado_en:'2026-10-12T12:00:00Z',
- datos_ia:{caras_percha:i===0?0:2,responsable_id:'u1',responsable_rol:'MERCADERISTA'},
+ datos_ia:{caras_percha:i===0?0:2,responsable_id:'u1',responsable_rol:'MERCADERISTA',responsable_nombre:'Ana'},
  stock_local_unidades:i===0?'0':'10',rotacion_diaria_unidades:i===0?null:'1.25',dias_inventario_local:'8',
  precio_comercio:'1.6',precio_afiliado:null,venta_diaria_valor:'2',prediccion_venta_unidades:null,
  stock_cd_cajas:'12',dias_inventario_cd:'4',codificado_app:true,presencia_percha:i===0?'NO_REVISADO':'PRESENTE',
  producto:{nombre:'INTEGRAL',codigo:'EAN'},
- visita:{fecha_visita:'2026-10-12',visitado_en:'2026-10-12T12:00:00Z',registrado_por:'u1',cliente_id:'c1',local_monitoreado_id:'l1',local:{nombre:'Local 1'}},
+ visita:{id:'visita'+i,fecha_visita:'2026-10-12',visitado_en:'2026-10-12T12:00:00Z',registrado_por:'u1',cliente_id:'c1',local_monitoreado_id:'l1',local:{nombre:'Local 1'}},
 }))
 filas[2].datos_ia.responsable_id='autor-distinto'
 filas[1].datos_ia.lectura_control={principal:{texto_ocr:'original',confianza:.9},control:{texto_ocr:'control',confianza:.9}}
@@ -43,6 +43,7 @@ try{
  assert.equal(r.registros[1].valores.rotacion,1.25);assert.equal(r.registros[1].responsable_rol,'MERCADERISTA')
  assert.equal(r.registros[1].lectura_almacenada.lectura_control.principal.texto_ocr,'original')
  assert.equal(r.registros[1].puede_procesar,true);assert.equal(r.registros[1].registrado_por,'u1')
+ assert.equal(r.registros[1].visita_id,'visita1');assert.equal(r.registros[1].responsable_nombre,'Ana');assert.equal(r.registros[2].responsable_nombre,null)
  assert.equal(r.registros[2].responsable_rol,null)
  console.log('Lectura verificada con 702 filas: paginación, cliente, visitas confirmadas, ceros, nulos y caras.')
  const {supabase}=await server.ssrLoadModule('/src/lib/supabase.ts'),getUser=supabase.auth.getUser

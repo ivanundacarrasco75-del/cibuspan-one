@@ -37,7 +37,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
       unidades_por_caja, cantidad_ultimo_pedido, cantidad_ultimo_despacho, fecha_ultimo_pedido, fecha_ultimo_despacho,
       producto:productos(nombre, codigo),
       producto_id,
-      visita:com_visitas_campo!inner(fecha_visita, visitado_en, cliente_id, registrado_por,
+      visita:com_visitas_campo!inner(id, fecha_visita, visitado_en, cliente_id, registrado_por,
         local_monitoreado_id, estado, local:com_locales_monitoreados(nombre))
     `).eq("visita.estado", "CONFIRMADA")
       .gte("visita.fecha_visita", desde).lte("visita.fecha_visita", hasta)
@@ -46,7 +46,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
     const { data, error } = await consulta
     if (error) throw new Error(`No se pudo cargar el histórico de visitas: ${error.message}`)
     for (const fila of data ?? []) {
-      const visita = fila.visita as unknown as { fecha_visita: string; visitado_en: string; cliente_id: string; registrado_por: string; local_monitoreado_id: string; local: { nombre: string } | null }
+      const visita = fila.visita as unknown as { id: string; fecha_visita: string; visitado_en: string; cliente_id: string; registrado_por: string; local_monitoreado_id: string; local: { nombre: string } | null }
       const producto = fila.producto as unknown as { nombre: string; codigo: string } | null
       const datos = (fila.datos_ia ?? {}) as Record<string, unknown>
       const stock = numero(fila.stock_local_unidades)
@@ -55,6 +55,8 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         id: fila.id, fecha: visita.fecha_visita, visitado_en: visita.visitado_en,
         actualizado_en: fila.actualizado_en, cliente_id: visita.cliente_id,
         registrado_por: visita.registrado_por,
+        visita_id: visita.id,
+        responsable_nombre: datos.responsable_id === visita.registrado_por && typeof datos.responsable_nombre === "string" ? datos.responsable_nombre : null,
         local_id: visita.local_monitoreado_id, local_nombre: visita.local?.nombre ?? "Local",
         producto_id: fila.producto_id, producto_codigo: producto?.codigo ?? "", producto_nombre: producto?.nombre ?? "SKU",
         responsable_rol: datos.responsable_id === visita.registrado_por && typeof datos.responsable_rol === "string" ? datos.responsable_rol : null,

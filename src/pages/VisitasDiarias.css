@@ -1,0 +1,6 @@
+.campo-comercial .vd-dashboard .vr-filtros{grid-template-columns:repeat(5,minmax(0,1fr)) auto}
+.campo-comercial .vd-dashboard table th,.campo-comercial .vd-dashboard table td{text-align:left}
+.campo-comercial .vd-dashboard table th:first-child{min-width:95px}
+.campo-comercial .vd-dashboard table tbody th{min-width:230px}
+@media(max-width:1100px){.campo-comercial .vd-dashboard .vr-filtros{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.campo-comercial .vd-dashboard .vr-filtros{grid-template-columns:repeat(2,minmax(0,1fr))}}
