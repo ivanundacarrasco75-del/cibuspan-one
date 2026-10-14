@@ -218,6 +218,19 @@ test('Recuperación de cantidades sobre tablas reales de campo, sin duplicar ni 
       const automatico=await actual()
       assert.equal(Number(automatico.rotacion_diaria_unidades),1.6)
       assert.equal(visitasSinProcesarCampo([{...completo,lectura_almacenada:automatico.datos_ia}]).length,0)
+      const {prepararRevisionDatoCampo,pendientesRevisionCampo}=await server.ssrLoadModule('/src/utils/revisionDatosCampo.ts')
+      const paraRevision={...completo,actualizado_en:automatico.token,lectura_almacenada:automatico.datos_ia,verificacion_campos:automatico.datos_ia.verificacion_campos}
+      const filasAntes=(await db.query('select count(*)::int as n from com_visitas_campo_sku')).rows[0].n
+      await auditar(prepararRevisionDatoCampo(paraRevision,'rotacion_diaria_unidades',1.6),paraRevision.actualizado_en)
+      const manual=await actual()
+      assert.equal(manual.datos_ia.verificacion_campos.rotacion_diaria_unidades.estado,'REVISION_MANUAL')
+      assert.equal(Number(manual.rotacion_diaria_unidades),1.6)
+      assert.deepEqual(manual.capturas_app,automatico.capturas_app)
+      const actualizado={...paraRevision,lectura_almacenada:manual.datos_ia,verificacion_campos:manual.datos_ia.verificacion_campos}
+      assert.equal(pendientesRevisionCampo([actualizado]).some(p=>p.campo==='rotacion_diaria_unidades'),false)
+      assert.equal(visitasSinProcesarCampo([actualizado]).length,0)
+      assert.equal((await db.query('select count(*)::int as n from com_visitas_campo_sku')).rows[0].n,filasAntes)
+
     } finally { await db.exec('rollback');await server.close() }
   })
 

@@ -67,7 +67,7 @@ export default function RecuperarLecturaVisita({ registro, locales, alCompletar,
     try {
       const datos = hayCambiosDatos ? prepararRecuperacionCaptura(valores, lectura, registro.lectura_guardada ?? {}, fechas, camposBorrar) : { confianza: lectura.confianza, texto_ocr: lectura.texto_ocr ?? "", advertencias: lectura.advertencias }
       const verificacion: VerificacionCamposCampo = Object.fromEntries(CAMPOS_LECTURA_VALIDABLES.filter(([c]) => c in datos || camposBorrar.includes(c) || confirmados.includes(c)).map(([c]) => [c, { estado: "REVISION_MANUAL", valor: c.startsWith("fecha_") ? fechas[c as CampoFechaCaptura] : valores[c as CampoCantidadCaptura] }]))
-      await completarLecturaVisitaCampo(registro.id, registro.actualizado_en, { ...datos, verificacion_campos: verificacion, version_validacion: VERSION_VALIDACION_CAMPO })
+      await completarLecturaVisitaCampo(registro.id, registro.actualizado_en, { ...datos, verificacion_campos: verificacion, version_validacion: VERSION_VALIDACION_CAMPO, lectura_control: registro.lectura_almacenada?.lectura_control ?? lectura.lectura_control ?? {} })
       alCompletar()
     } catch (err) { setError(err instanceof Error ? err.message : "No se guardaron las cantidades.") }
     finally { operacion.current = false; setOcupado(false); setProgreso("") }

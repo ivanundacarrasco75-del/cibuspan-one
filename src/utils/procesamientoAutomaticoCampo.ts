@@ -18,7 +18,7 @@ export function visitasSinProcesarCampo(registros: RegistroDashboardCampo[]) {
   return registros.filter((r) => {
     if (r.puede_procesar === false || !r.capturas_app?.length || ["RESPALDO_MANUAL", "SIN_LECTOR"].includes(r.lector_estado ?? "")) return false
     const marca = r.lectura_almacenada?.lectura_control?.procesamiento_automatico as ReturnType<typeof marcaProcesamientoCampo> | undefined
-    return marca?.version !== VERSION_PROCESAMIENTO_CAMPO || JSON.stringify(marca.capturas) !== JSON.stringify(r.capturas_app)
+    return !marca || JSON.stringify(marca.capturas) !== JSON.stringify(r.capturas_app)
   })
 }
 export function excepcionesProcesamientoCampo(registros: RegistroDashboardCampo[]): ResultadoRecuperacionCampo[] {

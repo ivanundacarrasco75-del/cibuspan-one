@@ -10,7 +10,7 @@ const grupos: Array<[string, string[]]> = [
   ["Documentos", ["Inventario y Despachos · Documentos"]],
   ["Devoluciones", ["Comercial · Devoluciones", "Reporte de devoluciones"]],
   ["Descuentos", ["Comercial · Descuentos", "Descuentos y promociones"]],
-  ["Campo comercial", ["Comercial · Visitas y rotación", "Supervisión KAM", "Comercial · Visitas diarias", "Visitas diarias"]],
+  ["Campo comercial", ["Comercial · Visitas y rotación", "Supervisión KAM", "Comercial · Visitas diarias", "Visitas diarias", "Comercial · Revisión de datos"]],
   ["KPI KAM", ["Comercial · KPI KAM"]],
   ["Materias primas", ["Compras · Materias Primas y Empaques", "Compras · Kardex"]],
   ["Reportes", ["Producción · Análisis", "Inventario y Despachos · Análisis", "Pagos y Finanzas · Análisis", "Pagos y Finanzas · Resultados", "Pagos y Finanzas · Rentabilidad", "Costos indirectos", "Rentabilidad por SKU", "Simulador", "Comercial · Ventas", "Ventas", "Ventas por cliente y SKU"]],

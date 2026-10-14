@@ -27,6 +27,7 @@ type Props = {
   cambiarPeriodo: (periodo: string) => void
   onActualizado: () => void
   soloCampo?: boolean
+  cambiarPantalla?: (pantalla: string) => void
 }
 
 const LECTURA_VACIA: LecturaFavorita = {
@@ -111,6 +112,7 @@ export default function CampoComercial({
   cambiarPeriodo,
   onActualizado,
   soloCampo = false,
+  cambiarPantalla,
 }: Props) {
   const semana = useMemo(() => semanaActual(), [])
   const [borradorInicial] = useState<BorradorCampo>(leerBorradorCampo)
@@ -593,7 +595,7 @@ export default function CampoComercial({
       ) : vista === "ADMIN" && !soloCampo ? (
         <>{catalogo.puede_administrar && <ConfigurarUbicacionLocales locales={catalogo.locales} actualizado={async () => { await cargar(); setMensaje("Ubicación del local registrada. Las próximas visitas se compararán con este punto."); onActualizado() }} />}<KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} /></>
       ) : vista === "DASHBOARD" ? (
-        <DashboardVisitasRotacion revision={catalogo} />
+        <DashboardVisitasRotacion revision={catalogo} cambiarPantalla={cambiarPantalla} />
       ) : (
         <div className="campo-flujo">
           {!visitaActiva ? <section className="campo-paso">

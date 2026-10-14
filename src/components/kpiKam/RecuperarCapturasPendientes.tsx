@@ -6,9 +6,10 @@ import { capturasPendientesCampo, recuperarCapturasPendientesCampo, type Resulta
 import { claveProcesamientoCampo, excepcionesProcesamientoCampo, procesarVisitasAutomaticamenteCampo, visitasSinProcesarCampo } from "../../utils/procesamientoAutomaticoCampo"
 import { resumenDatosCampo, resumenResultadosDatosCampo } from "../../utils/estadoDatosCampo"
 
-export default function RecuperarCapturasPendientes({ registros, locales, deshabilitado, alCambiarEstado, alTerminar }: {
+export default function RecuperarCapturasPendientes({ registros, locales, deshabilitado, alCambiarEstado, alTerminar, automatico = false }: {
   registros: RegistroDashboardCampo[]; locales: LocalCampo[]; deshabilitado: boolean
   alCambiarEstado: (ocupado: boolean) => void; alTerminar: () => void
+  automatico?: boolean
 }) {
   const [ocupado, setOcupado] = useState(false)
   const [progreso, setProgreso] = useState("")
@@ -22,8 +23,8 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
   const idsVisibles = new Set(registros.map((r) => r.id))
   const excepciones = [...new Map([...excepcionesProcesamientoCampo(registros), ...resultados.filter((r) => idsVisibles.has(r.id) && (r.estado === "ERROR" || r.estado === "REVISAR" || r.mensaje.includes("Excepciones:")))].map((r) => [r.id, r])).values()]
   useEffect(() => {
-    if (!deshabilitado && !ocupado && !pausada.current && visitasSinProcesarCampo(registros).some((r) => !intentadas.current.has(claveProcesamientoCampo(r)))) void recuperar(undefined, true)
-  }, [registros, locales, deshabilitado, ocupado])
+    if (automatico && !deshabilitado && !ocupado && !pausada.current && visitasSinProcesarCampo(registros).some((r) => !intentadas.current.has(claveProcesamientoCampo(r)))) void recuperar(undefined, true)
+  }, [registros, locales, deshabilitado, ocupado, automatico])
   function descargarDiagnostico() {
     const url = URL.createObjectURL(new Blob([JSON.stringify({ resumen, resultados }, null, 2)], { type: "application/json" }))
     const enlace = document.createElement("a")
@@ -81,9 +82,9 @@ export default function RecuperarCapturasPendientes({ registros, locales, deshab
       <article><span>Registros de SKU guardados</span><strong>{estadoDatos.registros}</strong><small>Cada local puede tener varios SKU.</small></article>
       <article><span>Capturas guardadas</span><strong>{estadoDatos.capturas}</strong><small>En {estadoDatos.registrosConCapturas} registros de SKU.</small></article>
       <article><span>Rotaciones disponibles</span><strong>{estadoDatos.rotacionesDisponibles}</strong><small>Comprobadas o declaradas manualmente.</small></article>
-      <article><span>Rotaciones pendientes</span><strong>{estadoDatos.rotacionesPendientes}</strong><small>Se conserva la captura; el dato queda fuera del gráfico.</small></article>
+      <article><span>Rotaciones pendientes</span><strong>{estadoDatos.rotacionesPendientes}</strong><small>Se conserva la captura; el valor disponible se muestra como provisional.</small></article>
     </div>
-    <p>{estadoDatos.otrosPendientes} registros tienen otros campos pendientes. Una rotación comprobada sigue disponible aunque falte otro campo. Los datos se procesan automáticamente.</p>
+    <p>{estadoDatos.otrosPendientes} registros tienen otros campos pendientes. Una rotación comprobada sigue disponible aunque falte otro campo. Los nuevos SKU se leen al cargarlos; los pendientes se resuelven en Revisión de datos.</p>
     {ocupado && <><p role="status">{progreso}</p><p>{resultados.length} visitas procesadas · el gráfico se actualiza durante el proceso. Mantén esta pantalla abierta hasta terminar.</p><button type="button" onClick={() => { pausada.current = true; cancelada.current = true; setProgreso("Deteniendo el proceso…") }}>Detener</button></>}
     {!ocupado && pausada.current && <button type="button" onClick={() => { pausada.current = false; void recuperar(undefined, true) }}>Continuar procesamiento automático</button>}
     {resumen && resultados.every((r) => idsVisibles.has(r.id)) && <p role="status">{resumen}</p>}

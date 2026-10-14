@@ -84,7 +84,7 @@ export function combinarLecturaValidadaCampo(actual: LecturaFavorita, resultado:
     const manual = actual.verificacion_campos?.[c]
     if (manual && ["REVISION_MANUAL", "MANUAL_DECLARADO"].includes(manual.estado) && manual.valor === actual[c]) {
       Object.assign(combinado, { [c]: actual[c] }); combinado.verificacion_campos[c] = manual
-    } else if (resultado.verificacion_campos?.[c]?.estado !== "DOBLE_LECTURA") Object.assign(combinado, { [c]: null })
+    } else if (resultado.verificacion_campos?.[c]?.estado === "SIN_DATO") Object.assign(combinado, { [c]: null })
   }
   return combinado
 }

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import CampoComercial from "../components/kpiKam/CampoComercial"
 
-export default function VisitasRotacion() {
+export default function VisitasRotacion({ cambiarPantalla }: { cambiarPantalla?: (pantalla: string) => void }) {
   const [periodo, setPeriodo] = useState(periodoActual())
   const [, setActualizacion] = useState(0)
 
@@ -10,6 +10,7 @@ export default function VisitasRotacion() {
       periodo={periodo}
       cambiarPeriodo={setPeriodo}
       onActualizado={() => setActualizacion((valor) => valor + 1)}
+      cambiarPantalla={cambiarPantalla}
     />
   )
 }

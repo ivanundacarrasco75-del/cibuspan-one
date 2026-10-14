@@ -31,11 +31,11 @@ try {
   assert.equal('stock_local_unidades' in prepararAuditoriaCapturaCampo(manual,lectura,[{id:'l',nombre:a.local_nombre}]),false)
   assert.equal(r.lectura_guardada.rotacion_diaria_unidades,115)
  })
- await test('Nuevo ingreso llena comprobados, conserva cero declarado y deja discrepancias vacías',()=>{
+ await test('Nuevo ingreso llena comprobados, conserva cero declarado y conserva discrepancias como provisionales',()=>{
   const entrada={...lectura,verificacion_campos:{...lectura.verificacion_campos,precio_comercio:{estado:'PENDIENTE',valor:2.22}}}
   const actual={...a,stock_local_unidades:0,verificacion_campos:{stock_local_unidades:{estado:'MANUAL_DECLARADO',valor:0}}}
   const c=combinarLecturaValidadaCampo(actual,entrada)
-  assert.equal(c.rotacion_diaria_unidades,1.13);assert.equal(c.precio_comercio,null);assert.equal(c.stock_local_unidades,0)
+  assert.equal(c.rotacion_diaria_unidades,1.13);assert.equal(c.precio_comercio,2.22);assert.equal(c.verificacion_campos.precio_comercio.estado,"PENDIENTE");assert.equal(c.stock_local_unidades,0)
  })
  await test('Última visita pendiente no arrastra dato validado anterior; caras manuales permanecen',()=>{
   const viejo={...r,id:'viejo',visitado_en:'2026-10-12T09:00:00',lectura_guardada:{rotacion_diaria_unidades:1.13},valores:{...r.valores,rotacion:1.13},verificacion_campos:{rotacion_diaria_unidades:{estado:'DOBLE_LECTURA',valor:1.13}}}

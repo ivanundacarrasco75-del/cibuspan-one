@@ -46,6 +46,7 @@ export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador
 }
 export type PuntoSemanaCampo = {
   valor: number | null; locales_con_dato: number; locales_revisados: number; ultima_fecha: string | null
+  pendientes?: Array<{ registroId: string; campo: string; fecha: string; clienteId: string }>
 }
 export type SerieSkuCampo = ProductoDashboardCampo & { semanas: PuntoSemanaCampo[] }
 
@@ -67,9 +68,10 @@ export function semanasDashboardCampo(referencia: string): SemanaCampo[] {
   }))
 }
 
-export function resumirSemanasCampo({ registros, productos, semanas, indicador, clienteId = "", localId = "", origen = "TODOS", soloValidados = false }: {
+export function resumirSemanasCampo({ registros, productos, semanas, indicador, clienteId = "", localId = "", origen = "TODOS", soloValidados = false, camposPendientes }: {
   registros: RegistroDashboardCampo[]; productos: ProductoDashboardCampo[]; semanas: SemanaCampo[]
   soloValidados?: boolean; indicador: IndicadorCampo; clienteId?: string; localId?: string; origen?: OrigenVisitaCampo
+  camposPendientes?: (r: RegistroDashboardCampo) => Array<{ campo: string }>
 }): SerieSkuCampo[] {
   const ultimos = new Map<string, RegistroDashboardCampo>()
   const visibles = registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
@@ -99,6 +101,7 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
         valor: !datos.length ? null : config.agregacion === "SUMA" ? suma : suma / datos.length,
         locales_con_dato: datos.length, locales_revisados: registrosSku.length,
         ultima_fecha: datos.length ? datos.map((r) => r.fecha).sort().at(-1)! : null,
+        ...(camposPendientes ? { pendientes: registrosSku.flatMap((r) => camposPendientes(r).map((c) => ({ registroId: r.id, campo: c.campo, fecha: r.fecha, clienteId: r.cliente_id }))) } : {}),
       }
     }),
   }))

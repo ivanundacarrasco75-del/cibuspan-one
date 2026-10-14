@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase"
 import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
 import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo } from "../utils/georreferenciaCampo"
 import { verificacionManualCampo, VERSION_VALIDACION_CAMPO, type VerificacionCamposCampo } from "../utils/validacionLecturasCampo"
-import { lecturaPrincipalComprobadaCampo, marcaLecturaProcesadaCampo } from "../utils/procesamientoAutomaticoCampo"
+import { marcaLecturaProcesadaCampo } from "../utils/procesamientoAutomaticoCampo"
 
 export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
 
@@ -263,7 +263,7 @@ export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
       ...datos,
       datos_ia: {
         ...datos.datos_ia,
-        ...((datos.datos_ia as LecturaFavorita).lectura_control && datos.capturas_app.length && lecturaPrincipalComprobadaCampo(datos.datos_ia as LecturaFavorita) ? {
+        ...((datos.datos_ia as LecturaFavorita).lectura_control && datos.capturas_app.length ? {
           lectura_control: { ...(datos.datos_ia as LecturaFavorita).lectura_control, procesamiento_automatico: marcaLecturaProcesadaCampo(datos.datos_ia as LecturaFavorita, datos.capturas_app) },
         } : {}),
         version_validacion: VERSION_VALIDACION_CAMPO,
