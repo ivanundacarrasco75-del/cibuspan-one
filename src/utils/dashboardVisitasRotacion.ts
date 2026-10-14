@@ -1,5 +1,5 @@
 import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
-import { datoVerificadoCampo, type VerificacionCamposCampo } from "./validacionLecturasCampo.ts"
+import { datoVerificadoCampo, esIngresoManualCampo, type VerificacionCamposCampo } from "./validacionLecturasCampo.ts"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 
 export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
@@ -37,7 +37,7 @@ export type RegistroDashboardCampo = {
 export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador: IndicadorCampo) {
   const campos: Partial<Record<IndicadorCampo, string>> = { rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local", precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor", prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd", quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades" }
   const campo = campos[indicador]
-  if (!campo) return r.valores[indicador]
+  if (!campo || esIngresoManualCampo(r)) return r.valores[indicador]
   const actual = r.lectura_guardada?.[campo as keyof LecturaFavorita]
   if (datoVerificadoCampo(campo, actual, r.verificacion_campos)) return r.valores[indicador]
   // La captura sólo de respaldo y el ingreso sin lector son declaraciones manuales.

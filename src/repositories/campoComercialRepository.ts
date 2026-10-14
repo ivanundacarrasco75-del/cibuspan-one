@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase"
 import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
 import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo } from "../utils/georreferenciaCampo"
-import { verificacionManualCampo, VERSION_VALIDACION_CAMPO, type VerificacionCamposCampo } from "../utils/validacionLecturasCampo"
+import { verificacionManualCampo, esIngresoManualCampo, VERSION_VALIDACION_CAMPO, type VerificacionCamposCampo } from "../utils/validacionLecturasCampo"
 import { marcaLecturaProcesadaCampo } from "../utils/procesamientoAutomaticoCampo"
 
 export type PresenciaPercha = "PRESENTE" | "AUSENTE" | "NO_REVISADO"
@@ -279,7 +279,7 @@ export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
           lectura_control: { ...(datos.datos_ia as LecturaFavorita).lectura_control, procesamiento_automatico: marcaLecturaProcesadaCampo(datos.datos_ia as LecturaFavorita, datos.capturas_app) },
         } : {}),
         version_validacion: VERSION_VALIDACION_CAMPO,
-        verificacion_campos: sinCantidadCd({ verificacion_campos: (datos.datos_ia as LecturaFavorita).verificacion_campos ?? (!datos.capturas_app?.length || (datos.datos_ia as Record<string, unknown>).lector_estado === "RESPALDO_MANUAL" ? verificacionManualCampo(datos, "MANUAL_DECLARADO") : {}) }).verificacion_campos,
+        verificacion_campos: sinCantidadCd({ verificacion_campos: esIngresoManualCampo({ capturas_app: datos.capturas_app, lector_estado: String((datos.datos_ia as Record<string, unknown>).lector_estado ?? ""), lectura_almacenada: datos.datos_ia as LecturaFavorita }) ? verificacionManualCampo(datos, "MANUAL_DECLARADO") : (datos.datos_ia as LecturaFavorita).verificacion_campos ?? {} }).verificacion_campos,
         responsable_id: sesion.user.id,
         responsable_rol: perfil.rol,
         responsable_nombre: perfil.nombre || sesion.user.email || "Sin nombre",

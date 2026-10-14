@@ -30,6 +30,18 @@ try {
   assert.equal(lectura.stock_cd_cajas,null);assert.equal(lectura.stock_local_unidades,7)
   assert.throws(()=>prepararRevisionDatoCampo(r,'stock_cd_cajas',5))
  })
+ await test('Rosado/Santamaría manual no pide imagen ni revisión; OCR Favorita conserva pendientes',async()=>{
+  const {valorIndicadorValidadoCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
+  for(const lector_estado of ['SIN_LECTOR','RESPALDO_MANUAL',null]) {
+   const manual={...r,capturas_app:[],lector_estado,lectura_almacenada:undefined}
+   assert.deepEqual(pendientesRevisionCampo([manual]),[])
+   assert.equal(valorIndicadorValidadoCampo(manual,'rotacion'),1.2)
+  }
+  const fotoManual={...r,lector_estado:'RESPALDO_MANUAL'}
+  assert.deepEqual(pendientesRevisionCampo([fotoManual]),[])
+  assert.equal(pendientesRevisionCampo([r]).some(p=>p.campo==='rotacion_diaria_unidades'),true)
+  assert.equal(valorIndicadorValidadoCampo(r,'rotacion'),null)
+ })
  await test('Corregir cero o declarar ausencia no borra otro campo; rechaza formatos inválidos',()=>{
   assert.equal(prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',0).rotacion_diaria_unidades,0)
   assert.deepEqual(prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',null).campos_borrar,['rotacion_diaria_unidades'])

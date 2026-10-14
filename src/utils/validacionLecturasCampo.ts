@@ -88,3 +88,9 @@ export function combinarLecturaValidadaCampo(actual: LecturaFavorita, resultado:
   }
   return combinado
 }
+
+export function esIngresoManualCampo(r: { lector_estado?: string | null; capturas_app?: string[]; lectura_almacenada?: Partial<LecturaFavorita> }) {
+  if (["SIN_LECTOR", "RESPALDO_MANUAL"].includes(r.lector_estado ?? "")) return true
+  const evidencia = r.lectura_almacenada
+  return !r.capturas_app?.length && !evidencia?.texto_ocr?.trim() && !evidencia?.lectura_control?.principal && !evidencia?.lectura_control?.control
+}

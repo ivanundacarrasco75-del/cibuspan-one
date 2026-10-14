@@ -1,6 +1,6 @@
 import type { RegistroDashboardCampo } from "./dashboardVisitasRotacion"
 import { valorIndicadorValidadoCampo } from "./dashboardVisitasRotacion"
-import { CAMPOS_LECTURA_VALIDABLES, datoVerificadoCampo } from "./validacionLecturasCampo"
+import { CAMPOS_LECTURA_VALIDABLES, datoVerificadoCampo, esIngresoManualCampo } from "./validacionLecturasCampo"
 import type { ResultadoRecuperacionCampo } from "./recuperacionCapturasCampo"
 
 export function resumenResultadosDatosCampo(resultados: ResultadoRecuperacionCampo[]) {
@@ -15,11 +15,11 @@ export function resumenResultadosDatosCampo(resultados: ResultadoRecuperacionCam
 }
 
 export function camposPendientesDatosCampo(r: RegistroDashboardCampo) {
-  const manual = ["SIN_LECTOR", "RESPALDO_MANUAL"].includes(r.lector_estado ?? "")
+  if (esIngresoManualCampo(r)) return []
   return CAMPOS_LECTURA_VALIDABLES.filter(([c]) => {
     const valor = r.lectura_guardada?.[c] ?? null, v = r.verificacion_campos?.[c]
     if (datoVerificadoCampo(c, valor, r.verificacion_campos) || v?.estado === "SIN_DATO" && valor === null) return false
-    if (!v && (manual || !r.capturas_app?.length && valor === null)) return false
+    if (!v && (!r.capturas_app?.length && valor === null)) return false
     return true
   }).map(([campo, nombre]) => ({ campo, nombre, motivo: r.verificacion_campos?.[campo]?.motivo ?? "Este campo no tiene una lectura comprobada." }))
 }

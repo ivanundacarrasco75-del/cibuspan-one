@@ -10,7 +10,7 @@ try {
  const {resumirSemanasCampo,semanasDashboardCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
  const texto='Local SUPERMAXI AMERICA\nCódigo de barras 7868304262189\nVenta promedio diaria (Cant): 1.13\nExistencia en local 10\nDías inventario local 8.85\nPrecio comercio 2.22\nPrecio afiliado 1.96\nCantidad pedido -'
  const a=interpretarReporteFavorita(texto,.9), b=interpretarReporteFavorita(texto,.92)
- const r={id:'r',fecha:'2026-10-12',local_id:'l',producto_id:'p',cliente_id:'c',producto_codigo:a.codigo_barras,producto_nombre:'pan',local_nombre:a.local_nombre,visitado_en:'2026-10-12T12:00:00',actualizado_en:'token',lectura_guardada:{rotacion_diaria_unidades:115,stock_local_unidades:14,cantidad_ultimo_pedido:2026},valores:{rotacion:115,stock:14,caras:2}}
+ const r={id:'r',capturas_app:['captura.png'],fecha:'2026-10-12',local_id:'l',producto_id:'p',cliente_id:'c',producto_codigo:a.codigo_barras,producto_nombre:'pan',local_nombre:a.local_nombre,visitado_en:'2026-10-12T12:00:00',actualizado_en:'token',lectura_guardada:{rotacion_diaria_unidades:115,stock_local_unidades:14,cantidad_ultimo_pedido:2026},valores:{rotacion:115,stock:14,caras:2}}
  const lectura={...a,verificacion_campos:verificarDosLecturasCampo(a,b),lectura_control:{principal:a,control:b},version_validacion:VERSION_VALIDACION_CAMPO}
  await test('Las coincidencias conservan decimales y cero; un desacuerdo afecta únicamente su campo',()=>{
   const c={...b,precio_comercio:222,stock_cd_cajas:0},d={...a,stock_cd_cajas:0}
