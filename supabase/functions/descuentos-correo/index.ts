@@ -15,9 +15,11 @@ Deno.serve(async(req)=>{
   if(permiso)return respuesta(403,{error:'Sin permiso para descuentos'})
   const {lote_id}=await req.json()
   if(typeof lote_id!=='string'||!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(lote_id))return respuesta(400,{error:'Lote inválido'})
-  const key=Deno.env.get('RESEND_API_KEY'), from=Deno.env.get('DESCUENTOS_EMAIL_FROM')
-  const smtpHost=Deno.env.get('SMTP_HOST'), smtpPort=Number(Deno.env.get('SMTP_PORT')??'465')
-  const smtpUser=Deno.env.get('SMTP_USER'), smtpPassword=Deno.env.get('SMTP_PASSWORD')
+  // Valores públicos confirmados por CIBUSPAN; sólo la contraseña es obligatoria en Secrets.
+  const smtpPassword=Deno.env.get('SMTP_PASSWORD')
+  const key=Deno.env.get('RESEND_API_KEY'), from=Deno.env.get('DESCUENTOS_EMAIL_FROM')??(smtpPassword?'papolo@cibuspan.com':undefined)
+  const smtpHost=Deno.env.get('SMTP_HOST')??(smtpPassword?'mail.cibuspan.com':undefined), smtpPort=Number(Deno.env.get('SMTP_PORT')??'465')
+  const smtpUser=Deno.env.get('SMTP_USER')??'papolo@cibuspan.com'
   const usaSmtp=!!smtpHost
   if(!from||(usaSmtp?(!smtpUser||!smtpPassword||smtpPort!==465):!key))return respuesta(503,{error:'Descuento guardado. Falta configurar el servicio de correo; los avisos siguen pendientes.'})
   const transport=usaSmtp?nodemailer.createTransport({host:smtpHost,port:465,secure:true,auth:{user:smtpUser,pass:smtpPassword},connectionTimeout:15000,greetingTimeout:15000,socketTimeout:20000,tls:{minVersion:'TLSv1.2'},logger:false,debug:false}):null

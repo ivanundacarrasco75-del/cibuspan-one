@@ -25,7 +25,7 @@ Mantener verificación de JWT de la función. También valida getUser y permiso 
 
 ## Configurar remitente
 
-Configuración elegida por Iván: SMTP del hosting, usando la cuenta que abre desde Outlook. No es Microsoft 365. En Supabase Dashboard → Edge Functions → Secrets configurar:
+Configuración elegida por Iván: SMTP del hosting, usando la cuenta que abre desde Outlook. No es Microsoft 365. Servidor, puerto, usuario y remitente ya están preconfigurados en GitHub. Sólo es obligatorio agregar SMTP_PASSWORD en Supabase Dashboard → Edge Functions → Secrets. Los demás secrets de la tabla son opcionales y permiten sobrescribir los valores públicos:
 
 | Secret | Valor |
 | --- | --- |
