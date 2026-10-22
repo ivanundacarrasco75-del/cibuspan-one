@@ -25,7 +25,19 @@ Mantener verificación de JWT de la función. También valida getUser y permiso 
 
 ## Configurar remitente
 
-Adaptador implementado: Resend. Definir remitente aprobado por la empresa, verificar dominio en el proveedor y generar clave de envío. En Supabase Dashboard → Edge Functions → Secrets configurar:
+Configuración elegida por Iván: SMTP del hosting, usando la cuenta que abre desde Outlook. No es Microsoft 365. En Supabase Dashboard → Edge Functions → Secrets configurar:
+
+| Secret | Valor |
+| --- | --- |
+| SMTP_HOST | mail.cibuspan.com |
+| SMTP_PORT | 465 |
+| SMTP_USER | papolo@cibuspan.com |
+| SMTP_PASSWORD | Contraseña real de esa cuenta, ingresada sólo en Supabase |
+| DESCUENTOS_EMAIL_FROM | papolo@cibuspan.com |
+
+TLS implícito (SSL/TLS) obligatorio, con certificado válido; no se desactiva su validación. Dependencia sólo en Edge Function: npm:nodemailer@9, siguiendo ejemplo oficial de Supabase. Se comprueba conexión/auth antes de reclamar avisos; esa comprobación no manda correo. SMTP_HOST selecciona SMTP y no se usa Resend como fallback. No requiere cuenta Resend ni cambios DNS para usar este servidor existente. Falta probar conexión y autenticación reales; host/puerto/cifrado fueron confirmados por Iván y su captura, no verificados desde producción.
+
+Si se decide usar Resend como alternativa explícita, retirar SMTP_HOST y configurar remitente/dominio verificado más:
 
 - RESEND_API_KEY: clave de envío del proveedor.
 - DESCUENTOS_EMAIL_FROM: dirección verificada, por ejemplo `CIBUSPAN <avisos@dominio-de-la-empresa>`.
@@ -54,10 +66,14 @@ Para probar, crear un descuento autorizado y seleccionar únicamente el destinat
 
 ## Reintentos y límites
 
-UUID por solicitud de guardado impide crear otra promoción/cola al repetir la misma solicitud sin cambios. Modificar los datos prepara otra solicitud; antes de crear otra promoción tras un fallo de red comprobar el historial. El servidor reclama cada aviso con comparación de estado/fecha y usa Idempotency-Key estable por aviso. Una segunda ejecución no reenvía ENVIADO. ENVIANDO reciente no se reclama otra vez; después de diez minutos puede recuperarse con la misma clave. La ventana de reintento automática en el servidor está limitada a 23 horas desde primer intento, dentro de las 24 horas de retención de claves del proveedor. Fuera de esa ventana se requiere revisar el proveedor antes de cualquier reenvío para evitar duplicados. No cambiar remitente ni contenido en medio de un reintento.
+UUID por solicitud de guardado impide crear otra promoción/cola al repetir la misma solicitud sin cambios. Modificar los datos prepara otra solicitud; antes de crear otra promoción tras un fallo de red comprobar el historial. El servidor reclama cada aviso con comparación de estado/fecha. Las reglas siguientes de Idempotency-Key y 23 horas son exclusivas del transporte Resend. SMTP no ofrece esa garantía: cualquier primer intento sin confirmación queda para revisión administrativa y nunca se reenvía automáticamente; se conserva el marcador SMTP:ENVIANDO o SMTP:messageId en proveedor_id. Un fallo de conexión/autenticación previo al claim conserva PENDIENTE y permite reintentar. Para un intento SMTP incierto, revisar el servidor antes de resetear el aviso. No cambiar de transporte para eludir este bloqueo.
+
+En Resend se usa Idempotency-Key estable por aviso. Una segunda ejecución no reenvía ENVIADO. ENVIANDO reciente no se reclama otra vez; después de diez minutos puede recuperarse con la misma clave. La ventana de reintento automática en el servidor está limitada a 23 horas desde primer intento, dentro de las 24 horas de retención de claves del proveedor. Fuera de esa ventana se requiere revisar el proveedor antes de cualquier reenvío para evitar duplicados. No cambiar remitente ni contenido en medio de un reintento.
 
 El guardado inicia el envío desde la app mediante Edge Function. Si se cierra la página antes de invocarla, queda PENDIENTE y se recupera con Reintentar; no hay cron ni garantía de envío autónomo con la app cerrada. No hay seguimiento de rebotes/entregas sin configurar webhooks del proveedor. El historial de pantalla muestra los últimos 200 avisos.
 
 ## Validación realizada
 
 Compilación frontend; SQL ejecutado en PostgreSQL local PGlite con el RPC original de promociones; atomicidad, destinatarios válidos/activos, rollback, permisos, duplicación de solicitud, otros datos/mismo ID y otro usuario/mismo ID. Pruebas del worker real transpilan TypeScript con cliente/proveedor simulados: no envía sin configuración/permiso, conserva errores, no repite ENVIADO, usa clave estable y respeta ventana/claim. Generación de mensaje probada con porcentaje y USD/unidad. No ejecución ni prueba de correo en producción.
+
+Pruebas SMTP adicionales: TLS en puerto 465, aceptación de destinatario, no repetición del confirmado, fallo auth sin reclamar ni enviar, corte tras intento queda ERROR y no se reenvía. Proveedor/SMTP se simulan: no se usó contraseña ni se mandaron correos reales.
