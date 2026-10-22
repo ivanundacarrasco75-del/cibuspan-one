@@ -10,6 +10,8 @@ import {
 } from "../services/catalogoService"
 import {
   cambiarEstadoPromocionDb,
+  obtenerDestinatariosDescuentosDb, obtenerCorreosDescuentosDb, enviarCorreosDescuentoDb,
+  type DestinatarioRecordatorioDb, type CorreoDescuentoDb,
   guardarPromocionDb,
   obtenerPromocionesDb,
   registrarNotaCreditoPromocionDb,
@@ -91,6 +93,28 @@ export default function DescuentosPromociones() {
   const [productosSeleccionados, setProductosSeleccionados] = useState<
     ProductoSeleccionado[]
   >([])
+
+  const [destinatarios, setDestinatarios] = useState<DestinatarioRecordatorioDb[]>([])
+  const [seleccionCorreos, setSeleccionCorreos] = useState<string[]>([])
+  const [correos, setCorreos] = useState<CorreoDescuentoDb[]>([])
+  const [avisoCorreo, setAvisoCorreo] = useState("")
+  const [solicitudId, setSolicitudId] = useState(() => crypto.randomUUID())
+  const [enviando, setEnviando] = useState(false)
+  useEffect(() => { setSolicitudId(crypto.randomUUID()) }, [nombre, clienteId, fechaInicio, fechaFin, observaciones, productosSeleccionados, seleccionCorreos])
+  useEffect(() => { void cargarCorreos() }, [])
+  async function cargarCorreos() {
+    try {
+      const [usuarios, avisos] = await Promise.all([obtenerDestinatariosDescuentosDb(), obtenerCorreosDescuentosDb()])
+      setDestinatarios(usuarios); setCorreos(avisos); setAvisoCorreo("")
+    } catch (e) { setAvisoCorreo(e instanceof Error ? e.message : "No se pudo cargar correo.") }
+  }
+  async function reintentarCorreo(loteId: string) {
+    if (enviando) return
+    setEnviando(true)
+    try { setMensaje(await enviarCorreosDescuentoDb(loteId)); await cargarCorreos() }
+    catch { setMensaje("No se confirmó el envío. El descuento sigue guardado; revisa el estado antes de reintentar.") }
+    finally { setEnviando(false) }
+  }
 
   // Notas de crédito
   const [promocionNotaId, setPromocionNotaId] = useState("")
@@ -229,6 +253,7 @@ export default function DescuentosPromociones() {
 
     try {
       await guardarPromocionDb({
+        solicitudId, destinatarios: seleccionCorreos,
         nombre: nombre.trim(),
         clienteId,
         fechaInicio,
@@ -252,6 +277,11 @@ export default function DescuentosPromociones() {
       setPromocionesCargadas(false)
 
       setMensaje("El descuento o promoción quedó registrado correctamente.")
+      if (seleccionCorreos.length) {
+        try { setMensaje(await enviarCorreosDescuentoDb(solicitudId)) }
+        catch { setMensaje("Descuento guardado. No se confirmó el correo; revisa los envíos pendientes.") }
+      }
+      await cargarCorreos()
     } catch (err) {
       setError(
         err instanceof Error
@@ -573,6 +603,18 @@ export default function DescuentosPromociones() {
                 />
               </label>
 
+              <fieldset disabled={guardando}>
+                <legend>Avisar por correo al guardar</legend>
+                <p>Selecciona las personas que recibirán cliente, vigencia, SKU, descuento y observaciones. Sin selección se guarda sin enviar correos.</p>
+                {avisoCorreo && <p role="alert">{avisoCorreo}</p>}
+                {destinatarios.map((u) => <label key={u.user_id} style={{display:"flex",alignItems:"center",gap:8}}><input style={{width:18}} type="checkbox" checked={seleccionCorreos.includes(u.user_id)} onChange={(e) => setSeleccionCorreos((a) => e.target.checked ? [...a,u.user_id] : a.filter((id) => id !== u.user_id))}/>{u.nombre || u.email} · {u.email} · {u.rol}</label>)}
+              </fieldset>
+              <details><summary>Registro de correos de descuentos</summary>
+                <button type="button" disabled={enviando || guardando} onClick={() => void cargarCorreos()}>Actualizar estados</button>
+                <p>Enviado significa aceptado por el proveedor, no leído. No vuelvas a guardar el descuento para reintentar un correo.</p>
+                {correos.map((c) => <article key={c.id}><p>{c.nombre} · {c.email} · {c.estado}</p>{c.error && <p>{c.error}</p>}{c.estado !== "ENVIADO" && <button type="button" disabled={enviando || guardando} onClick={() => void reintentarCorreo(c.lote_id)}>Reintentar envío</button>}</article>)}
+                {!correos.length && <p>Sin envíos registrados.</p>}
+              </details>
               <div className="actions">
                 <button
                   type="button"

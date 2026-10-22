@@ -86,6 +86,8 @@ export async function obtenerPromocionesDb() {
 }
 
 export async function guardarPromocionDb(datos: {
+  solicitudId: string
+  destinatarios: string[]
   nombre: string
   clienteId: string
   fechaInicio: string
@@ -97,7 +99,9 @@ export async function guardarPromocionDb(datos: {
     valor_descuento: number
   }>
 }) {
-  const { data, error } = await supabase.rpc("com_guardar_promocion", {
+  const { data, error } = await supabase.rpc("com_guardar_promocion_correo", {
+    p_solicitud_id: datos.solicitudId,
+    p_destinatarios: datos.destinatarios,
     p_nombre: datos.nombre,
     p_cliente_id: datos.clienteId,
     p_fecha_inicio: datos.fechaInicio,
@@ -106,7 +110,8 @@ export async function guardarPromocionDb(datos: {
     p_productos: datos.productos,
   })
   if (error) throw new Error(mensajeError("No se pudo guardar la promoción", error))
-  return data as string
+  if (typeof data !== "string" || !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(data)) throw new Error("La base no confirmó el guardado del descuento.")
+  return data
 }
 
 export async function registrarNotaCreditoPromocionDb(datos: {
@@ -190,4 +195,22 @@ export async function cambiarEstadoRecordatorioDb(recordatorioId: string, activo
     p_activo: activo,
   })
   if (error) throw new Error(mensajeError("No se pudo actualizar el recordatorio", error))
+}
+
+export type CorreoDescuentoDb = { id: string; lote_id: string; promocion_id: string; email: string; nombre: string; estado: string; error: string | null; creado_en: string }
+export async function obtenerDestinatariosDescuentosDb() {
+ const {data,error}=await supabase.rpc("com_destinatarios_descuentos")
+ if(error)throw new Error("No se pudieron cargar destinatarios. Revisa la instalación de correos de descuentos.")
+ return (data??[]) as DestinatarioRecordatorioDb[]
+}
+export async function obtenerCorreosDescuentosDb() {
+ const {data,error}=await supabase.rpc("com_estado_correos_descuentos")
+ if(error)throw new Error("No se pudo consultar el estado de los correos.")
+ return (data??[]) as CorreoDescuentoDb[]
+}
+export async function enviarCorreosDescuentoDb(loteId: string) {
+ const {data,error}=await supabase.functions.invoke("descuentos-correo",{body:{lote_id:loteId}})
+ if(error||data?.error||typeof data?.enviados !== "number"||typeof data?.pendientes !== "number")return "El descuento está guardado. Los correos siguen pendientes: revisa el servicio de correo y usa Reintentar envío."
+ if(Number(data?.pendientes)>0)return "El descuento está guardado. Hay correos sin confirmar; revisa el registro de envíos."
+ return "El proveedor confirmó el envío de los correos. Esto no confirma su lectura ni su llegada a la bandeja de entrada."
 }
