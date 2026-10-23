@@ -1,6 +1,6 @@
 # Registro de producción y recuperación de reintentos
 
-23/10/2026. OP-12 instalado y verificado según la terminal de Iván. OP-13: código preparado y probado localmente; SQL nuevo y frontend pendientes de instalación/publicación. Etapa 3 de reorganización continúa abierta.
+23/10/2026. OP-12 instalado y verificado. OP-13 instalado, verificado y publicado según Texto pegado(3).txt de Iván: build correcto, verificación superada, repair 202610230002 aplicado y despliegue Cloudflare 4e741568. Código desplegado: d12e18b. Pendiente validación operativa por usuarios; etapa 3 de reorganización continúa abierta.
 
 ## Comportamiento
 
@@ -30,6 +30,10 @@ El instalador compila primero, aplica sólo 202610230002_registro_produccion_seg
 
 Este cambio requiere SQL y frontend juntos. Tras aplicar SQL, las versiones antiguas de la app no pueden guardar por la firma anterior sin solicitud y reciben un mensaje para actualizar. Cerrar y volver a abrir la app tras publicar. Si SQL se instala pero falla verificación, repair o Cloudflare, copiar el error y terminar el paso pendiente: no quitar el control ni registrar otra fabricación para probar. El script completo se puede repetir y no suma existencias. No ejecutar los ensayos de fabricación contra datos reales.
 
+## Resultado de instalación recibido
+
+Texto pegado(3).txt confirma actualización de main 4aef964 → d12e18b, compilación correcta, verificación SQL aceptada por el instalador, repair 202610230002 aplicado, subida de 66 archivos y publicación en https://4e741568.cibuspan-one.pages.dev. Mensaje final: «Registro seguro de produccion instalado, verificado y publicado.» No repetir la instalación por los avisos de versión del CLI o tamaño de chunks. El aviso de cambios locales de Wrangler no bloqueó el despliegue; no se comprobó el contenido de esas diferencias y no se deben descartar automáticamente. Cerrar y volver a abrir la app para cargar el cliente nuevo. No reingresar una producción real como prueba.
+
 ## Contrato del servidor
 
 - Tabla privada pro_solicitudes_registro: solicitud, actor, datos, estado, transacción y producción resultante. RLS habilitado, sin acceso directo PUBLIC/anon/authenticated/service_role. No cambia filas previas.
@@ -46,6 +50,6 @@ pruebas/verificar_registro_produccion_seguro.mjs comprueba conservación previa 
 
 Con CIBUSPAN_PROBAR_REGISTRO=1, pruebas/verificar_flujo_servidor_exportado.mjs aplica OP-12 y OP-13 en PGlite sobre las funciones reales exportadas: repetición sin entrada adicional, dos fabricaciones legítimas, reintento después del despacho, rollback completo, cambio de payload, cierre que bloquea llegada atrasada, entrada antigua/GUC inválido, otra identidad, permisos y service_role. El diagnóstico funciona en READ ONLY, detecta grants alterados y ambas migraciones se pueden reinstalar con CRLF sin perder controles/comprobantes.
 
-El ensayo requiere CIBUSPAN_AUDIT_FILE con el JSON/TXT privado de Iván y CIBUSPAN_SQL_TEST_MODULE si PGlite está fuera del proyecto. El exportado no se publica. Son pruebas locales secuenciales con dependencias/defaults de ensayo: no certifican concurrencia real entre conexiones, HTTP, todos los RLS ni usuarios reales. Resultado conjunto con autorización, diagnóstico y Kardex: 69 pruebas pasan y npm run build correcto (sólo advertencia de tamaño de chunks). La compilación verifica la integración TypeScript; no sustituye una prueba visual ni la instalación real. scripts/Instalar-RegistroProduccionSeguro.ps1 queda pendiente de ejecución en Windows/Supabase/Cloudflare por Iván.
+El ensayo requiere CIBUSPAN_AUDIT_FILE con el JSON/TXT privado de Iván y CIBUSPAN_SQL_TEST_MODULE si PGlite está fuera del proyecto. El exportado no se publica. Son pruebas locales secuenciales con dependencias/defaults de ensayo: no certifican concurrencia real entre conexiones, HTTP, todos los RLS ni usuarios reales. Resultado conjunto con autorización, diagnóstico y Kardex: 69 pruebas pasan y npm run build correcto (sólo advertencia de tamaño de chunks). La compilación verifica la integración TypeScript; no sustituye una prueba visual ni la instalación real. La terminal de Iván confirma ejecución completa de scripts/Instalar-RegistroProduccionSeguro.ps1 en Windows/Supabase/Cloudflare, incluida la verificación previa al repair y publicación. No se hizo desde este entorno un recorrido autenticado de producción ni ensayo HTTP concurrente en vivo.
 
-La consulta supabase/diagnosticos/verificar_registro_produccion.sql sólo consulta catálogos y espera cinco controles correctos. No certifica datos reales ni crea una producción de prueba. Después de recibir el resultado de instalación, el siguiente trabajo es definir y completar consumo MP sin asumir que las recetas actuales reflejan los consumos históricos.
+La consulta supabase/diagnosticos/verificar_registro_produccion.sql sólo consulta catálogos y espera cinco controles correctos. No certifica datos reales ni crea una producción de prueba. Instalación confirmada; el siguiente trabajo es definir y completar consumo MP sin asumir que las recetas actuales reflejan los consumos históricos.

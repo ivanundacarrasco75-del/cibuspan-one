@@ -1,6 +1,6 @@
 # Autorización de operaciones: instalación específica
 
-23/10/2026. Estado: OP-12 instalado y verificado según la terminal enviada por Iván: doce funciones protegidas, consulta de verificación superada y migration repair 202610230001 aplicado. El aviso CLI 2.122.0 disponible no impidió la instalación. La prueba con usuarios reales sigue pendiente. Esta corrección no aplica consumos MP. El cambio separado OP-13 está preparado en docs/REGISTRO_PRODUCCION_SEGURO.md, pendiente de instalar/publicar.
+23/10/2026. Estado: OP-12 instalado y verificado según la terminal enviada por Iván: doce funciones protegidas, consulta de verificación superada y migration repair 202610230001 aplicado. El aviso CLI 2.122.0 disponible no impidió la instalación. La prueba con usuarios reales sigue pendiente. Esta corrección no aplica consumos MP. El cambio separado OP-13 también quedó instalado/verificado/publicado según Texto pegado(3).txt; ver docs/REGISTRO_PRODUCCION_SEGURO.md.
 
 ## Cambio y alcance
 
@@ -52,10 +52,10 @@ Pruebas locales:
 - Permisos por módulo, lectura Dashboard, service_role SQL real y mantenimiento con login administrativo temporal: conservados según contrato.
 - Firmas/OID/defaults/configuración/cuerpo anterior conservados, rollback si falta una función o hay variantes, reinstalación sin efectos y SQL CRLF de Windows.
 - Diagnóstico en BEGIN READ ONLY detecta acceso alterado y no lee filas de negocio.
-- Con CIBUSPAN_PROBAR_AUTORIZACION=1, el ensayo privado aplica la migración a los cuerpos reales exportados y mantiene producción/reserva/liberación/confirmación/planificación/Kardex. También demuestra que OP-13 y el consumo MP siguen pendientes, sin declararlos reparados.
+- Con CIBUSPAN_PROBAR_AUTORIZACION=1, el ensayo privado aplica la migración a los cuerpos reales exportados y mantiene producción/reserva/liberación/confirmación/planificación/Kardex. Ese ensayo OP-12 precede a OP-13: por sí solo no protege reintentos ni aplica consumos MP. El estado posterior de OP-13 se documenta aparte.
 
 El test con funciones reales usa CIBUSPAN_AUDIT_FILE apuntando al TXT/JSON privado de Iván y CIBUSPAN_SQL_TEST_MODULE si PGlite no está instalado localmente. No subir ese diagnóstico al repositorio público. Escenario aislado, defaults y dependencias auxiliares modelados; no certifica concurrencia, RLS completo ni datos reales. El resultado del instalador real en PowerShell/CLI remoto fue recibido y confirma OP-12; los usuarios reales no se probaron desde aquí.
 
 ## Próximo trabajo
 
-Instalación OP-12 confirmada por la terminal de Iván. OP-13 programado y probado localmente; falta instalar SQL/publicar frontend según docs/REGISTRO_PRODUCCION_SEGURO.md. Toda nueva firma o sustitución de esa función debe mantener esta autorización y actualizar sus verificaciones. No volver a implantar un cuerpo anterior sin el control. Etapa 3 de reorganización sigue abierta; no hay cambios de navegación en esta entrega.
+Instalación OP-12 confirmada por la terminal de Iván. OP-13 instalado/verificado/publicado según docs/REGISTRO_PRODUCCION_SEGURO.md y terminal Texto pegado(3).txt. Siguiente: completar consumo MP; validación operativa por usuarios pendiente. Toda nueva firma o sustitución de esa función debe mantener esta autorización y actualizar sus verificaciones. No volver a implantar un cuerpo anterior sin el control. Etapa 3 de reorganización sigue abierta; no hay cambios de navegación en esta entrega.
