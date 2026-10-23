@@ -17,7 +17,8 @@ Antes de programar, consulta la rama main actual y lee, en este orden:
 2. CONTINUIDAD_CIBUSPAN_ONE.md, especialmente las entradas más recientes.
 3. docs/AUDITORIA_ESTRUCTURA_CIBUSPAN_ONE.md.
 4. docs/AUDITORIA_FLUJO_OPERATIVO.md, con la revisión del circuito operativo realizada el 23/10/2026.
-5. Los archivos del proceso concreto que vayas a revisar o modificar.
+5. docs/RESULTADO_REVISION_OPERATIVA_20261023.md, con el diagnóstico del servidor ya recibido y ensayado.
+6. Los archivos del proceso concreto que vayas a revisar o modificar.
 
 No empieces otro sistema ni reconstruyas desde ZIP, capturas o recuerdos. Comprueba HEAD remoto, estado local y diferencias. Puede existir un checkout local cuyo HEAD sea anterior, pero que ya contenga archivos de commits enviados por el conector GitHub: no descartes esos cambios ni vuelvas a subir una versión antigua. Si hay diferencias, compáralas con main antes de actuar.
 
@@ -53,11 +54,11 @@ Faltan auditoría funcional con usuarios, revisión de fuentes/cálculos, depend
 
 ## 4. Tarea inmediata: empieza aquí
 
-El recorrido pedido → planificación → producción/consumo → inventario/Kardex → preparación/despacho ya tiene una revisión de código y matriz en docs/AUDITORIA_FLUJO_OPERATIVO.md. No repetir esa revisión desde cero. La etapa 3 sigue abierta: faltan las definiciones instaladas en Supabase y validación con usuarios.
+El recorrido pedido → planificación → producción/consumo → inventario/Kardex → preparación/despacho ya tiene una revisión de código y matriz en docs/AUDITORIA_FLUJO_OPERATIVO.md. El diagnóstico del servidor ya fue recibido como Texto pegado(2).txt y se analizó: leer primero docs/RESULTADO_REVISION_OPERATIVA_20261023.md. No repetir esa revisión desde cero ni pedir el mismo archivo. La etapa 3 sigue abierta: faltan correcciones, reglas de negocio y validación con usuarios.
 
-Se preparó scripts/Exportar-AuditoriaOperativa.ps1: consulta sólo catálogos mediante supabase/diagnosticos/auditoria_flujo_operativo.sql y genera auditoria_flujo_operativo_FECHA_HORA.json, fuera de Git. No es una migración, no requiere publicar y no cambia datos. Si Iván adjunta ese archivo, leer primero las funciones/vistas/triggers/restricciones reales y contrastarlas con los hallazgos OP-01 a OP-11. Si aún no lo ejecutó, indicarle el bloque exacto del informe; no pedir reimportar datos ni ejecutar db push.
+Se preparó scripts/Exportar-AuditoriaOperativa.ps1: consulta sólo catálogos mediante supabase/diagnosticos/auditoria_flujo_operativo.sql y genera auditoria_flujo_operativo_FECHA_HORA.json, fuera de Git. No es una migración. Se recibieron 30 funciones, 39 objetos y 181 políticas. Evidencia completa y prueba privada en CIBUSPAN_ONE_Revision_Operativa_Privada_20261023.zip de Iván; no publicar ese paquete/diagnóstico en GitHub público. Las pruebas públicas reciben el archivo privado con CIBUSPAN_AUDIT_FILE. Defaults y dependencias no exportadas se modelan expresamente, no equivalen a la base real; no certificar concurrencia, RLS completo ni saldos reales con ese ensayo. Leer sólo dependencias concretas adicionales si una adaptación lo requiere.
 
-Hallazgos clave: importador de OP históricas registra información analítica, no stock en su SQL versionado; guardado de pedido usa cabecera/detalles en solicitudes separadas; entrada manual de lote usa leer/sumar/escribir; UI de despacho parcial anuncia cierre del pedido. Son hallazgos de código, no prueba de duplicados o saldos erróneos reales. Faltan SQL centrales de producción/FEFO en el repositorio. Primera adaptación propuesta tras leer servidor: guardado transaccional de pedido con regla de numeración y reintentos, sin implementarlo a ciegas.
+Hallazgos confirmados en funciones instaladas exportadas/ensayo: producción crea PT pero no consume MP; repetir mismo payload vuelve a sumar PT; no hay unicidad de numero_pedido_cliente en la base; reservar/liberar no cambia físico; segundo confirmar de misma reserva se bloquea; parcial cierra pedido y sale de planificación; factura/conciliación previas permanecen si falla confirmar; stock_minimo se muestra pero no entra en fórmula. Histórico sólo analítico, sin triggers de stock en sus tablas. No se comprobaron duplicados reales ni se consultaron filas de negocio. También hay un pendiente prioritario de autorización detallado en el informe privado. El orden propuesto cambia por esta evidencia: cerrar autorización operativa, proteger reintentos de producción, completar consumo MP y luego pedido transaccional. No hay correcciones instaladas/publicadas ni cambio de permisos realizado todavía.
 
 Lee las páginas PedidosV2, ProduccionV2, InventarioV2, KardexInventario, DespachosV2, HistorialDespachos y sus repositorios pedidoRepository, produccionRepository, inventarioRepository, kardexRepository y despachoRepository; luego sigue sus RPC/migraciones y dependencias. No presupongas que los nombres reflejan toda la lógica.
 
@@ -97,4 +98,4 @@ Correos de descuentos: código y SQL preparados, pero instalación/activación r
 
 ## 7. Cómo arrancar tu respuesta
 
-Confirma en pocas líneas el estado realmente leído de main y el próximo entregable. Continúa la revisión desde las definiciones del servidor y los hallazgos ya documentados; no repitas desde cero la auditoría del código. No vuelvas a pedirme todo el contexto ni propongas empezar desde cero. Mantén un registro en archivos del proyecto para que otro chat continúe desde el mismo punto.
+Confirma en pocas líneas el estado realmente leído de main y el próximo entregable. Continúa con la adaptación delimitada de autorización operativa indicada en el resultado y su informe privado; luego reintentos de producción. Busca los archivos privados de Iván por su nombre si las herramientas permiten acceder a ellos. No repitas la auditoría ni solicites otra vez el mismo diagnóstico antes de consultar esas fuentes. No vuelvas a pedirme todo el contexto ni propongas empezar desde cero. Mantén un registro en archivos del proyecto para que otro chat continúe desde el mismo punto.

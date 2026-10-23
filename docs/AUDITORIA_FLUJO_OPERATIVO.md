@@ -1,6 +1,8 @@
 # Auditoría del recorrido pedido producción inventario despacho
 
-Fecha: 23/10/2026. Etapa 3 de la lista de control de Iván. Base: main 033d3326516ccf92dfb252165fab95e3eb5b31ea. Estado: recorrido del código diagnosticado; pendientes las definiciones del servidor y la prueba del proceso con usuarios. No se modificó la app ni se ejecutaron operaciones sobre datos reales.
+Fecha: 23/10/2026. Etapa 3 de la lista de control de Iván. Base inicial: main 033d3326516ccf92dfb252165fab95e3eb5b31ea. Actualización: recibido el diagnóstico del servidor y reproducidos los comportamientos principales en ensayo local; ver docs/RESULTADO_REVISION_OPERATIVA_20261023.md. Pendientes correcciones, reglas de negocio y prueba con usuarios. No se modificó la app ni se ejecutaron operaciones sobre datos reales.
+
+Las secciones siguientes conservan la revisión inicial anterior al diagnóstico. Sus pendientes sobre funciones base se actualizan en el informe de resultado; no volver a pedir la misma exportación. La evidencia completa se conserva en el paquete privado de Iván, no en este repositorio público.
 
 ## Resultado para Iván
 
