@@ -1,4 +1,7 @@
+import { copiarConsumoProduccion, type ConsumoProduccion } from "./consumoProduccion"
+
 export type DetalleRegistroProduccion = {
+  consumoMp?: ConsumoProduccion
   productoId: string
   tipoDestino: "PRODUCTO_TERMINADO" | "SEMIELABORADO"
   semielaboradoTipoId?: string | null
@@ -17,6 +20,9 @@ export type SolicitudProduccionPendiente = DatosRegistroProduccion & {
 export type ProduccionRegistrada = { produccionId: string; repetida: boolean }
 type Almacen = Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">
 type Resolucion = { estado: "CONFIRMADA" | "ANULADA"; produccionId: string | null }
+export class RegistroProduccionNoGuardadaError extends Error {
+  constructor(mensaje: string) { super(mensaje); this.name = "RegistroProduccionNoGuardadaError" }
+}
 export class RegistroProduccionPendienteError extends Error {
   constructor() {
     super("No se pudo confirmar el resultado. Conservamos el intento: usa Reintentar registro o Comprobar para corregir antes de registrar otra producción.")
@@ -36,7 +42,8 @@ function copiaDatos(datos: DatosRegistroProduccion): DatosRegistroProduccion {
       !Number.isSafeInteger(d.orden) || !/^\d{4}-\d{2}-\d{2}$/.test(d.fechaProduccion)) {
       throw new Error("Revisa las cantidades, fechas y productos antes de guardar.")
     }
-    return { productoId: d.productoId, tipoDestino: d.tipoDestino, semielaboradoTipoId: d.semielaboradoTipoId ?? null,
+    return { ...(d.consumoMp === undefined ? {} : { consumoMp: copiarConsumoProduccion(d.consumoMp) }),
+      productoId: d.productoId, tipoDestino: d.tipoDestino, semielaboradoTipoId: d.semielaboradoTipoId ?? null,
       numeroParadas: d.numeroParadas, tamanoParada: d.tamanoParada, unidades: d.unidades,
       fechaProduccion: d.fechaProduccion, lote: d.lote ?? null, fechaVencimiento: d.fechaVencimiento ?? null, orden: d.orden }
   })
@@ -44,7 +51,8 @@ function copiaDatos(datos: DatosRegistroProduccion): DatosRegistroProduccion {
 }
 
 export function detallesProduccionRpc(datos: DatosRegistroProduccion) {
-  return datos.detalles.map(d => ({ producto_id: d.productoId, tipo_destino: d.tipoDestino,
+  return datos.detalles.map(d => ({ ...(d.consumoMp === undefined ? {} : { consumo_mp: copiarConsumoProduccion(d.consumoMp) }),
+    producto_id: d.productoId, tipo_destino: d.tipoDestino,
     semielaborado_tipo_id: d.semielaboradoTipoId ?? null, numero_paradas: d.numeroParadas,
     tamano_parada: d.tamanoParada, unidades: d.unidades, fecha_produccion: d.fechaProduccion,
     lote: d.lote ?? null, fecha_vencimiento: d.fechaVencimiento ?? null, orden: d.orden }))
@@ -118,7 +126,7 @@ export function crearControlRegistroProduccion(op: {
         try { resultado = await resolver(id) }
         catch { throw new RegistroProduccionPendienteError() }
         if (resultado.estado === "CONFIRMADA" && resultado.produccionId) return { produccionId: resultado.produccionId, repetida: true }
-        throw new Error(error instanceof Error ? error.message : "La producción no se registró. Revisa los datos y confirma nuevamente.")
+        throw new RegistroProduccionNoGuardadaError(error instanceof Error ? error.message : "La producción no se registró. Revisa los datos y confirma nuevamente.")
       }
     }
     const promesa = ejecutar()

@@ -1,6 +1,8 @@
 import type { OrdenProduccionImportar } from "./ordenesProduccionExcel"
 
 export type ComponenteReferenciaOp = {
+  materiaPrimaId?: string
+  esEmpaque?: boolean
   codigo: string; nombre: string; unidad: string; cantidadPorUnidad: number; aliases?: string[]
 }
 export type ReferenciaRecetaOp = {

@@ -17,7 +17,7 @@ async function leer(tabla: string, orden: string[], filtro?: [string, string | b
 }
 const txt = (valor: unknown) => String(valor ?? "").trim()
 
-export async function obtenerReferenciasConsumoOp(ordenes: OrdenProduccionImportar[]): Promise<ReferenciaRecetaOp[]> {
+export async function obtenerReferenciasConsumoOp(ordenes: Pick<OrdenProduccionImportar, "producto_codigo" | "producto_nombre" | "tipo_orden">[]): Promise<ReferenciaRecetaOp[]> {
   const [productos, materias, relaciones, formulas, versiones, finales, micros, empaques] = await Promise.all([
     leer("productos", ["id"]), leer("materias_primas", ["id"]),
     leer("fm_formula_productos", ["formula_id", "producto_id"], ["activo", true]),
@@ -44,7 +44,7 @@ export async function obtenerReferenciasConsumoOp(ordenes: OrdenProduccionImport
         advertencias.push(`Unidad ${unidad} de ${txt(materia.nombre)} incompatible con los kilos calculados de la receta.`); return
       }
       if (!esCantidadCatalogo && unidad === "G") cantidad *= 1000
-      componentes.push({ codigo: txt(materia.codigo), nombre: txt(materia.nombre), unidad, cantidadPorUnidad: cantidad, aliases: codigos(materia) })
+      componentes.push({ materiaPrimaId: id, esEmpaque: materia.es_empaque === true, codigo: txt(materia.codigo), nombre: txt(materia.nombre), unidad, cantidadPorUnidad: cantidad, aliases: codigos(materia) })
     }
     if (op.tipo_orden === "SKU") {
       const productosCodigo = productos.filter((producto) => txt(producto.codigo) === codigo)

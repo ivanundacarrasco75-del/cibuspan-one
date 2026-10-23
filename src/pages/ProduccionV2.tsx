@@ -17,12 +17,16 @@ import {
 } from "../repositories/semielaboradoRepository"
 import ModalMensaje from "../components/ModalMensaje"
 import ImportacionOrdenesHistoricas from "../components/produccion/ImportacionOrdenesHistoricas"
-import { RegistroProduccionPendienteError, type SolicitudProduccionPendiente } from "../utils/registroProduccionSeguro"
+import { RegistroProduccionNoGuardadaError, RegistroProduccionPendienteError, type SolicitudProduccionPendiente } from "../utils/registroProduccionSeguro"
+import { copiarConsumoProduccion, type ConsumoProduccion } from "../utils/consumoProduccion"
+import ConsumosProduccion from "../components/produccion/ConsumosProduccion"
+import ResumenConsumosProduccion from "../components/produccion/ResumenConsumosProduccion"
 
 type SeleccionProduccion = Record<string, boolean>
 type LotesPlanificados = Record<string, number>
 
 type ProduccionConfirmada = {
+  consumoMp?: ConsumoProduccion
   producto: ProduccionSugeridaDb
   lotes: number
   unidades: number
@@ -292,12 +296,35 @@ export default function ProduccionV2({
     }
   }
 
+  function restaurarRegistroNoGuardado(s: SolicitudProduccionPendiente, catalogo: ProduccionSugeridaDb[]) {
+    const restauradas = s.detalles.map(d => {
+      const producto = catalogo.find(p => p.producto_id === d.productoId)
+      return producto ? { producto: { ...producto, tamano_lote: d.tamanoParada }, lotes: d.numeroParadas,
+        unidades: d.unidades, lote: d.lote ?? "", fechaProduccion: d.fechaProduccion,
+        fechaVencimiento: d.fechaVencimiento ?? "", consumoMp: d.consumoMp ? { ...d.consumoMp, confirmado: false } : undefined } : null
+    })
+    if (restauradas.every(r => r !== null)) {
+      setProduccionConfirmada(restauradas)
+      setFechaProduccionGeneral(s.fechaProduccionGeneral)
+      setSolicitudRegistro(crypto.randomUUID())
+      setMostrarConfirmacion(true)
+    }
+  }
+
   async function recuperarRegistro(s: SolicitudProduccionPendiente, reintentar: boolean) {
     if (accionRegistro.current) return
     accionRegistro.current = true
     setGuardando(true); setError(""); setMensaje("")
+    let catalogoRecuperacion = produccion
     try {
-      if (reintentar) {
+      // El acceso directo al historial puede abrirse sin cargar planificación.
+      // Obtén primero el catálogo: si falla, el intento aún no se cierra.
+      if (!s.detalles.every(d => catalogoRecuperacion.some(p => p.producto_id === d.productoId))) {
+        const [catalogo, tipos] = await Promise.all([obtenerProduccionSugeridaDb(), obtenerTiposSemielaboradoDb()])
+        catalogoRecuperacion = catalogo
+        setProduccion(catalogo); setTiposSemielaborado(tipos)
+      }
+      if (reintentar && s.detalles.every(d => d.consumoMp)) {
         const r = await registrarProduccionCompletaDb(s)
         setMensaje(r.repetida ? "Se recuperó la producción ya registrada, sin repetir la entrada de inventario." : "Producción registrada correctamente.")
         await actualizarTrasRegistro(r.produccionId)
@@ -309,22 +336,12 @@ export default function ProduccionV2({
           await actualizarTrasRegistro(r.produccionId)
         } else {
           setMensaje("El intento no se registró y quedó cerrado. Ya puedes corregir y confirmar nuevamente.")
-          const restauradas = s.detalles.map(d => {
-            const producto = produccion.find(p => p.producto_id === d.productoId)
-            return producto ? { producto: { ...producto, tamano_lote: d.tamanoParada }, lotes: d.numeroParadas,
-              unidades: d.unidades, lote: d.lote ?? "", fechaProduccion: d.fechaProduccion,
-              fechaVencimiento: d.fechaVencimiento ?? "" } : null
-          })
-          if (restauradas.every(r => r !== null)) {
-            setProduccionConfirmada(restauradas)
-            setFechaProduccionGeneral(s.fechaProduccionGeneral)
-            setSolicitudRegistro(crypto.randomUUID())
-            setMostrarConfirmacion(true)
-          }
+          restaurarRegistroNoGuardado(s, catalogoRecuperacion)
         }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo comprobar el intento. Se conserva para volver a intentar.")
+      if (err instanceof RegistroProduccionNoGuardadaError) restaurarRegistroNoGuardado(s, catalogoRecuperacion)
       await cargarRegistrosPendientes()
     } finally { accionRegistro.current = false; setGuardando(false) }
   }
@@ -896,6 +913,7 @@ export default function ProduccionV2({
         return {
           ...registro,
           fechaProduccion: nuevaFecha,
+          consumoMp: registro.consumoMp ? { ...registro.consumoMp, confirmado: false } : undefined,
           fechaVencimiento: semi ? "" : sumarDias(nuevaFecha, registro.producto.vida_util_dias),
           lote: semi ? "" : generarLote(nuevaFecha, registro.producto.codigo_lote),
         }
@@ -913,6 +931,7 @@ export default function ProduccionV2({
           ? {
               ...registro,
               ...cambios,
+              ...(cambios.consumoMp === undefined && registro.consumoMp ? { consumoMp: { ...registro.consumoMp, confirmado: false } } : {}),
             }
           : registro,
       ),
@@ -1620,6 +1639,13 @@ export default function ProduccionV2({
   async function ingresarProduccionCompleta() {
     if (accionRegistro.current || produccionConfirmada.length === 0 || !solicitudRegistro) return
 
+    try {
+      for (const r of produccionConfirmada) {
+        if (!r.consumoMp) throw new Error(`Revisa el consumo de ${r.producto.corto} antes de confirmar.`)
+        copiarConsumoProduccion(r.consumoMp)
+      }
+    } catch (e) { setError(e instanceof Error ? e.message : "Revisa los consumos reales."); return }
+
     const registroInvalido = produccionConfirmada.find((registro) => {
       const semi = esSemielaborado(registro.producto.producto_id)
       if (!registro.fechaProduccion || !Number.isInteger(registro.unidades) || registro.unidades <= 0) return true
@@ -1668,6 +1694,7 @@ export default function ProduccionV2({
             }
 
             return {
+              consumoMp: registro.consumoMp,
               productoId:
                 registro.producto
                   .producto_id,
@@ -2511,6 +2538,7 @@ export default function ProduccionV2({
                   </table>
                 </div>
 
+                <ResumenConsumosProduccion produccionId={produccionHistorialSeleccionada.id} origen={produccionHistorialSeleccionada.origen} detalles={detalleProduccionHistorial} />
                 <div className="prod-modal-actions" style={accionesModal}>
                   <button
                     type="button"
@@ -3050,6 +3078,7 @@ export default function ProduccionV2({
               </div>
             </div>
 
+            <ConsumosProduccion registros={produccionConfirmada} esSemi={esSemielaborado} cambiar={(id, consumoMp) => actualizarRegistro(id, { consumoMp })} />
             </fieldset>
             <div className="prod-modal-actions" style={accionesModal}>
               <button

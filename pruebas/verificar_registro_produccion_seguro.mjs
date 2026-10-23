@@ -1,10 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {readFile} from 'node:fs/promises'
-import ts from 'typescript'
-const fuente=await readFile(new URL('../src/utils/registroProduccionSeguro.ts',import.meta.url),'utf8')
-const js=ts.transpileModule(fuente,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
-const {crearControlRegistroProduccion,RegistroProduccionPendienteError,detallesProduccionRpc}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'))
+import {after} from 'node:test'
+import {createServer} from 'vite'
+import {fileURLToPath} from 'node:url'
+const server=await createServer({root:fileURLToPath(new URL('..',import.meta.url)),server:{middlewareMode:true},appType:'custom'})
+after(()=>server.close())
+const {crearControlRegistroProduccion,RegistroProduccionPendienteError,RegistroProduccionNoGuardadaError,detallesProduccionRpc}=await server.ssrLoadModule('/src/utils/registroProduccionSeguro.ts')
+const {copiarConsumoProduccion,sugerirConsumoProduccion}=await server.ssrLoadModule('/src/utils/consumoProduccion.ts')
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
 const datos=()=>({fechaProduccionGeneral:'2026-10-23',detalles:[{productoId:id(10),tipoDestino:'PRODUCTO_TERMINADO',numeroParadas:2,tamanoParada:50,unidades:100,fechaProduccion:'2026-10-23',orden:1}]})
 const ok=n=>({solicitud_id:id(n),produccion_id:id(100),repetida:false})
@@ -50,7 +52,7 @@ await test('No admite cambiar los datos de una solicitud incierta',async()=>{
 })
 await test('Cerrar ausencia en servidor permite corregir con una nueva clave',async()=>{
  const a=almacen();const c=control(a,async()=>{throw new Error('cantidad rechazada')},async n=>({estado:'ANULADA',solicitud_id:n,produccion_id:null}))
- await assert.rejects(c.registrar(id(7),datos()),/cantidad rechazada/);assert.equal(a.length,0)
+ await assert.rejects(c.registrar(id(7),datos()),e=>e instanceof RegistroProduccionNoGuardadaError && e.message==='cantidad rechazada');assert.equal(a.length,0)
  assert.equal((await control(a,async()=>ok(8)).registrar(id(8),datos())).produccionId,id(100))
 })
 await test('Comprobar resultado no reenvía y exige confirmación de cierre antes de retirar',async()=>{
@@ -97,4 +99,57 @@ await test('Validación local y mapeo RPC mantienen cantidades, destino, fechas 
  assert.deepEqual(detallesProduccionRpc(d),[{producto_id:id(10),tipo_destino:'SEMIELABORADO',semielaborado_tipo_id:id(20),numero_paradas:2,tamano_parada:50,unidades:100,fecha_produccion:'2026-10-23',lote:'261023',fecha_vencimiento:'2026-11-23',orden:1}])
  d.detalles[0].unidades=NaN;const a=almacen()
  await assert.rejects(control(a,()=>assert.fail()).registrar(id(17),d),/cantidades/);assert.equal(a.length,0)
+})
+const mp=[{id:id(11),codigo:'HAR',nombre:'Harina',unidad:'KG',saldo:100},
+ {id:id(12),codigo:'FUN',nombre:'Funda',unidad:'UNIDAD',saldo:200,esEmpaque:true}]
+const referencia={codigoProducto:'SKU',version:'Receta v2',advertencias:[],componentes:[
+ {materiaPrimaId:id(11),codigo:'HAR',nombre:'Harina',unidad:'KG',cantidadPorUnidad:0.2},
+ {materiaPrimaId:id(11),codigo:'HAR',nombre:'Harina',unidad:'KG',cantidadPorUnidad:0.1},
+ {materiaPrimaId:id(12),codigo:'FUN',nombre:'Funda',unidad:'UNIDAD',cantidadPorUnidad:1,esEmpaque:true}]}
+const consumo=()=>({version:1,confirmado:true,referenciaReceta:'Receta v2',observaciones:'Revisado en producción',lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:20}]})
+await test('Sugerencia suma fórmulas por material y escala sin afirmar consumo confirmado',()=>{
+ const s=sugerirConsumoProduccion(referencia,50,mp,false)
+ assert.deepEqual(s.consumo.lineas,[{materiaPrimaId:id(11),unidad:'KG',cantidad:15},{materiaPrimaId:id(12),unidad:'UNIDAD',cantidad:50}])
+ assert.equal(s.consumo.confirmado,false);assert.equal(s.consumo.referenciaReceta,'Receta v2')
+})
+await test('Semielaborado no propone empaque que sólo se utilizará al etiquetar',()=>{
+ const s=sugerirConsumoProduccion(referencia,50,mp,true)
+ assert.equal(s.consumo.lineas.length,1);assert.match(s.avisos.join(' '),/etiquetar/)
+})
+await test('Sin vínculo, receta o unidad inequívoca no inventa cantidades ni convierte litros a kilos',()=>{
+ const sin=sugerirConsumoProduccion(undefined,50,mp,false)
+ assert.deepEqual(sin.consumo.lineas,[]);assert.ok(sin.avisos.length>0)
+ const otra={...referencia,componentes:[{...referencia.componentes[0],unidad:'L'}]}
+ const s=sugerirConsumoProduccion(otra,50,mp,false)
+ assert.deepEqual(s.consumo.lineas,[]);assert.match(s.avisos[0],/unidad segura/)
+})
+await test('Gramos conservan su unidad y cantidades fraccionadas de empaque requieren corregirse',()=>{
+ const g={...referencia,componentes:[{...referencia.componentes[0],unidad:'G',cantidadPorUnidad:5},{...referencia.componentes[2],cantidadPorUnidad:0.5}]}
+ const s=sugerirConsumoProduccion(g,1,[{...mp[0],unidad:'G'},mp[1]],false)
+ assert.equal(s.consumo.lineas[0].cantidad,5);assert.equal(s.consumo.lineas[0].unidad,'G')
+ assert.match(s.avisos.join(' '),/fraccionados/)
+ assert.throws(()=>copiarConsumoProduccion({...s.consumo,confirmado:true}),/cantidades/)
+})
+await test('Declaración exige revisión, cantidades válidas y materiales sin repetirse',()=>{
+ assert.equal(copiarConsumoProduccion(consumo()).lineas[0].cantidad,20)
+ for(const c of [{...consumo(),confirmado:false},{...consumo(),lineas:[{...consumo().lineas[0],cantidad:0}]},
+  {...consumo(),lineas:[...consumo().lineas,...consumo().lineas]},
+  {...consumo(),lineas:[{...consumo().lineas[0],cantidad:0.0000001}]}]) {
+   assert.throws(()=>copiarConsumoProduccion(c))
+ }
+})
+await test('Ausencia de consumo necesita motivo explícito y copia no comparte referencias mutables',()=>{
+ assert.throws(()=>copiarConsumoProduccion({...consumo(),lineas:[],observaciones:''}))
+ assert.deepEqual(copiarConsumoProduccion({...consumo(),lineas:[],observaciones:'No hubo consumo de materiales inventariables'}).lineas,[])
+ const c=consumo(),copia=copiarConsumoProduccion(c);c.lineas[0].cantidad=999;assert.equal(copia.lineas[0].cantidad,20)
+})
+await test('Intento incierto conserva consumo y versión; otro consumo con misma clave queda bloqueado',async()=>{
+ const a=almacen(),d=datos();d.detalles[0].consumoMp=consumo()
+ const c=control(a,async()=>{throw new Error('sin conexión')})
+ await assert.rejects(c.registrar(id(21),d),RegistroProduccionPendienteError)
+ d.detalles[0].consumoMp.lineas[0].cantidad=25
+ assert.equal(c.listar()[0].detalles[0].consumoMp.lineas[0].cantidad,20)
+ await assert.rejects(c.registrar(id(21),d),RegistroProduccionPendienteError)
+ const recarga=control(a,async s=>{assert.equal(detallesProduccionRpc(s)[0].consumo_mp.lineas[0].cantidad,20);return ok(21)})
+ await recarga.registrar(id(21),c.listar()[0]);assert.equal(a.length,0)
 })

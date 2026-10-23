@@ -11,6 +11,7 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
+const probarConsumo = process.env.CIBUSPAN_PROBAR_CONSUMO === '1'
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const nombreSQL = nombre => '"' + nombre.replaceAll('"', '""') + '"'
 const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_primas',
@@ -18,7 +19,7 @@ const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_pr
   'semielaborado_tipos', 'semielaborado_destinos', 'inventario_semielaborados', 'conversiones_semielaborados',
   'pedidos', 'pedido_detalles', 'producciones', 'produccion_detalles', 'reservas_inventario', 'reserva_detalles']
 const nombresFunciones = ['app_validar_escritura_modulo', 'actualizar_timestamp', 'actualizar_timestamp_produccion',
-  'inv_inicio_proteger_lote', 'inv_inicio_proteger_fecha', 'inv_kardex_observar_pt',
+  'inv_inicio_proteger_lote', 'inv_inicio_proteger_fecha', 'inv_kardex_observar_pt', 'inv_kardex_validar_mp',
   'registrar_produccion_completa', 'reservar_pedido_fefo_parcial', 'confirmar_despacho_parcial_fefo',
   'liberar_reserva_fefo', 'activar_control_conciliacion_despacho', 'vincular_factura_despacho', 'obtener_produccion_sugerida',
   'editar_produccion_completa', 'ajustar_inventario_lote', 'convertir_inventario_empaque', 'convertir_semielaborado', 'registrar_devolucion_completa']
@@ -105,7 +106,7 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
       insert into materias_primas(id,codigo,nombre,unidad_base) values ('${id(11)}','MP-ENSAYO','Harina ensayo','KG');
       insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable)
         values ('MATERIA_PRIMA','${id(11)}',current_date,'SALDO_INICIAL',100,'Escenario aislado','Prueba');`)
-    if (probarAutorizacion || probarRegistro) {
+    if (probarAutorizacion || probarRegistro || probarConsumo) {
       const antes = (await db.query('select (select count(*) from inventario_lotes)::int lotes,(select count(*) from inv_kardex_movimientos)::int movimientos')).rows[0]
       await db.exec(await readFile(new URL('../supabase/migrations/202610230001_autorizacion_operativa.sql', import.meta.url), 'utf8'))
       assert.deepEqual((await db.query('select (select count(*) from inventario_lotes)::int lotes,(select count(*) from inv_kardex_movimientos)::int movimientos')).rows[0], antes)
@@ -133,7 +134,7 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
     const caso = (nombre, fn) => t.test(nombre, async () => {
       await db.exec('begin')
       try { await fn() }
-      finally { await db.exec('reset role; rollback') }
+      finally { await db.exec('rollback; reset role') }
     })
 
     await caso('Producción suma PT y Kardex PT; no genera consumo de MP', async () => {
@@ -229,7 +230,7 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         assert.equal(await cantidad(), 50); assert.equal(await movimientos(), 1)
       })
     }
-    if (probarRegistro) {
+    if (probarRegistro || probarConsumo) {
       const sqlSeguro = await readFile(new URL('../supabase/migrations/202610230002_registro_produccion_seguro.sql', import.meta.url), 'utf8')
       const diagnosticoSeguro = await readFile(new URL('../supabase/diagnosticos/verificar_registro_produccion.sql', import.meta.url), 'utf8')
       await db.exec(sqlSeguro)
@@ -331,6 +332,162 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         assert.equal((await db.query(diagnosticoSeguro)).rows[0].registro_produccion_seguro.correcto,true)
         const diagnosticoAutorizacion = await readFile(new URL('../supabase/diagnosticos/verificar_autorizacion_operativa.sql', import.meta.url), 'utf8')
         assert.equal((await db.query(diagnosticoAutorizacion)).rows[0].autorizacion_operativa.correcto,true)
+      })
+    }
+    if (probarConsumo) {
+      const sqlMp=await readFile(new URL('../supabase/migrations/202610230003_consumo_mp_produccion.sql',import.meta.url),'utf8')
+      const diagnosticoMp=await readFile(new URL('../supabase/diagnosticos/verificar_consumo_mp_produccion.sql',import.meta.url),'utf8')
+      const saldo=async material=>Number((await db.query("select coalesce(sum(cantidad),0) n from inv_kardex_movimientos where tipo='MATERIA_PRIMA' and articulo_id=$1",[material??id(11)])).rows[0].n)
+      const hoyMp=(await db.query("select (now() at time zone 'America/Guayaquil')::date::text f")).rows[0].f
+      const consumo=(cambios={})=>({version:1,confirmado:true,referenciaReceta:'Consumo declarado de ensayo',observaciones:'',lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:20}],...cambios})
+      const detalleMp=(cambios={})=>detalleProduccion({fecha_produccion:hoyMp,consumo_mp:consumo(),...cambios})
+      const seguroMp=(n,detalles=[detalleMp()],usuario=id(1))=>db.query('select registrar_produccion_segura($1,$2,$3::jsonb,$4) r',[id(n),hoyMp,JSON.stringify(detalles),usuario])
+      const casoMp=(nombre,fn)=>caso(nombre,async()=>{
+        await db.exec("update materias_primas set activo=true; update inv_kardex_movimientos set fecha=current_date-30 where tipo='MATERIA_PRIMA' and clase='SALDO_INICIAL'")
+        await fn()
+      })
+      const antesInstalar={pt:await cantidad(),mp:await saldo()}
+      await db.exec(sqlMp)
+      assert.deepEqual({pt:await cantidad(),mp:await saldo()},antesInstalar)
+      await casoMp('Consumo real y entrada de producción se confirman juntos y reintento no repite ninguno',async()=>{
+        const pt=await cantidad(),a=(await seguroMp(201)).rows[0].r
+        assert.equal(await cantidad(),pt+50);assert.equal(await saldo(),80)
+        assert.equal((await seguroMp(201)).rows[0].r.produccion_id,a.produccion_id)
+        assert.equal(await saldo(),80);assert.equal(await cantidad(),pt+50)
+        const c=(await db.query('select * from pro_consumos_detalle')).rows
+        assert.equal(c.length,1);assert.equal(c[0].fecha.toISOString?.().slice(0,10)??c[0].fecha,hoyMp)
+        assert.equal(c[0].movimientos[0].cantidad,20);assert.equal(c[0].movimientos[0].unidad,'KG')
+        const m=(await db.query('select cantidad,fecha,solicitud_datos from inv_kardex_movimientos where id=$1',[c[0].movimientos[0].id])).rows[0]
+        assert.equal(Number(m.cantidad),-20);assert.equal(m.solicitud_datos.produccion_id,a.produccion_id)
+      })
+      await casoMp('Stock MP insuficiente revierte PT, solicitud, detalle y todos los movimientos',async()=>{
+        const pt=await cantidad(),n=(await db.query('select count(*) n from producciones')).rows[0].n
+        await rechazaSinAbortar(()=>seguroMp(201,[detalleMp({consumo_mp:consumo({lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:101}]})})]),/negativo/)
+        assert.equal(await cantidad(),pt);assert.equal(await saldo(),100)
+        assert.equal((await db.query('select count(*) n from producciones')).rows[0].n,n)
+        assert.equal((await db.query('select count(*) n from pro_consumos_detalle')).rows[0].n,0)
+        assert.equal((await db.query('select count(*) n from pro_solicitudes_registro where solicitud_id=$1',[id(201)])).rows[0].n,0)
+      })
+      await casoMp('Dos SKU comparten material sin consumir dos veces por reintentar la solicitud',async()=>{
+        await seguroMp(201,[detalleMp(),detalleMp({orden:2})]);assert.equal(await saldo(),60)
+        await seguroMp(201,[detalleMp(),detalleMp({orden:2})]);assert.equal(await saldo(),60)
+        assert.equal((await db.query('select count(*) n from pro_consumos_detalle')).rows[0].n,2)
+        await seguroMp(202);assert.equal(await saldo(),40)
+      })
+      await casoMp('Fabricar semielaborado consume MP y no crea una entrada PT',async()=>{
+        const pt=await cantidad()
+        await db.exec(`insert into semielaborado_tipos(id,producto_base_id,nombre,activo) values('${id(50)}','${id(10)}','Semi ensayo',true)`)
+        await seguroMp(201,[detalleMp({tipo_destino:'SEMIELABORADO',semielaborado_tipo_id:id(50),lote:null,fecha_vencimiento:null})])
+        assert.equal(await cantidad(),pt);assert.equal(await saldo(),80)
+        assert.equal(Number((await db.query('select sum(cantidad_inicial) n from inventario_semielaborados')).rows[0].n),50)
+      })
+      await casoMp('Gramos y empaques se descuentan en su unidad de catálogo, sin convertir cantidades',async()=>{
+        await db.exec(`insert into materias_primas(id,codigo,nombre,unidad_base,activo) values('${id(12)}','GRAMOS','Material gramos','G',true),('${id(13)}','EMPAQUE','Empaque','UNIDAD',true);
+          insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) values
+          ('MATERIA_PRIMA','${id(12)}',current_date-30,'SALDO_INICIAL',1000,'Ensayo','Ensayo'),
+          ('MATERIA_PRIMA','${id(13)}',current_date-30,'SALDO_INICIAL',100,'Ensayo','Ensayo');`)
+        await seguroMp(201,[detalleMp({consumo_mp:consumo({lineas:[{materiaPrimaId:id(12),unidad:'G',cantidad:5.125},{materiaPrimaId:id(13),unidad:'UNIDAD',cantidad:50}]})})])
+        assert.equal(await saldo(id(12)),994.875);assert.equal(await saldo(id(13)),50);assert.equal(await saldo(),100)
+      })
+      await casoMp('Consumo incompleto, repetido, fraccionado en unidades o con unidad distinta se rechaza',async()=>{
+        const pt=await cantidad()
+        for(const c of [undefined,consumo({confirmado:false}),consumo({lineas:[]}),
+          consumo({lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:1},{materiaPrimaId:id(11),unidad:'KG',cantidad:1}]}),
+          consumo({lineas:[{materiaPrimaId:id(11),unidad:'UNIDAD',cantidad:1.5}]}),
+          consumo({lineas:[{materiaPrimaId:id(11),unidad:'G',cantidad:1000}]}),
+          consumo({lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:0.0000001}]})]) {
+          await rechazaSinAbortar(()=>seguroMp(201,[detalleMp({consumo_mp:c})]),/consum|unidad|material|inventariable/i)
+        }
+        assert.equal(await saldo(),100);assert.equal(await cantidad(),pt)
+      })
+      await casoMp('Artículo inactivo o sin saldo inicial no permite una fabricación parcial',async()=>{
+        const pt=await cantidad()
+        await db.exec(`insert into materias_primas(id,codigo,nombre,unidad_base,activo) values('${id(12)}','SIN-SALDO','Material sin saldo','KG',true)`)
+        await rechazaSinAbortar(()=>seguroMp(201,[detalleMp({consumo_mp:consumo({lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:1},{materiaPrimaId:id(12),unidad:'KG',cantidad:1}]})})]),/saldo inicial/)
+        await db.exec('update materias_primas set activo=false')
+        await rechazaSinAbortar(()=>seguroMp(201),/no disponible/)
+        assert.equal(await saldo(),100);assert.equal(await cantidad(),pt)
+      })
+      await casoMp('Producción sin consumo inventariable necesita motivo y queda identificada',async()=>{
+        await seguroMp(201,[detalleMp({consumo_mp:consumo({lineas:[],observaciones:'Prueba de registro sin materiales inventariables'})})])
+        assert.equal(await saldo(),100)
+        const c=(await db.query('select datos,movimientos from pro_consumos_detalle')).rows[0]
+        assert.deepEqual(c.movimientos,[]);assert.match(c.datos.observaciones,/sin materiales/)
+      })
+      await casoMp('No consume antes del cierre inicial ni en fecha futura',async()=>{
+        await db.exec("update inv_kardex_movimientos set fecha=current_date where tipo='MATERIA_PRIMA'")
+        await rechazaSinAbortar(()=>seguroMp(201),/saldo inicial/)
+        await rechazaSinAbortar(()=>seguroMp(201,[detalleMp({fecha_produccion:'2099-01-01'})]),/futura/)
+        assert.equal(await saldo(),100)
+      })
+      await casoMp('Consumo retroactivo tampoco puede dejar saldo negativo después de otra salida',async()=>{
+        await db.exec("insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) select 'MATERIA_PRIMA',articulo_id,current_date,'SALIDA',-90,'Salida de ensayo','Ensayo' from inv_kardex_movimientos where tipo='MATERIA_PRIMA'")
+        const pt=await cantidad()
+        const ayer=(await db.query('select (current_date-1)::text f')).rows[0].f
+        await rechazaSinAbortar(()=>seguroMp(201,[detalleMp({fecha_produccion:ayer})]),/negativo/)
+        assert.equal(await saldo(),10);assert.equal(await cantidad(),pt)
+      })
+      await casoMp('Permisos conservados y consumos sin escrituras directas desde roles API',async()=>{
+        await db.exec('set role authenticated')
+        await rechazaSinAbortar(()=>db.exec('delete from pro_consumos_detalle'),e=>e.code==='42501')
+        await rechazaSinAbortar(()=>db.exec('select pro_consumos_al_confirmar()'),e=>e.code==='42501')
+        await db.exec("select set_config('ensayo.permitido','no',true)")
+        await rechazaSinAbortar(()=>seguroMp(201),e=>e.code==='42501')
+        await db.exec('reset role');assert.equal(await saldo(),100)
+      })
+      await casoMp('Servicio autorizado conserva consumo y solicitud segura',async()=>{
+        await db.exec("select set_config('ensayo.usuario','',true); set role service_role")
+        const a=(await seguroMp(201,[detalleMp()],null)).rows[0].r
+        assert.equal((await seguroMp(201,[detalleMp()],null)).rows[0].r.produccion_id,a.produccion_id)
+        await db.exec('reset role');assert.equal(await saldo(),80)
+      })
+      await casoMp('Editar rendimiento PT no vuelve a calcular un consumo real ya declarado',async()=>{
+        const a=(await seguroMp(201)).rows[0].r
+        const d=(await db.query('select * from produccion_detalles where produccion_id=$1',[a.produccion_id])).rows[0]
+        // Auxiliares vacíos para este caso de cambio de cantidad, no de identidad.
+        await db.exec(`create table if not exists app_audit_log(actor_user_id uuid,accion text,detalle jsonb);
+          create table if not exists despacho_detalles(inventario_lote_id uuid);
+          create table if not exists movimientos_empaque(inventario_origen_id uuid,inventario_destino_id uuid);`)
+        await db.query('select editar_produccion_completa($1,$2,$3::jsonb)',[a.produccion_id,hoyMp,JSON.stringify([{detalle_id:d.id,numero_paradas:d.numero_paradas,unidades:45,fecha_produccion:hoyMp,lote:d.lote,fecha_vencimiento:'2099-12-31'}])])
+        assert.equal(await saldo(),80)
+        assert.equal((await db.query('select unidades_fabricadas from pro_consumos_detalle')).rows[0].unidades_fabricadas,50)
+      })
+      await casoMp('Lectura de consumos aplica RLS por sesión/perfil y módulo',async()=>{
+        await seguroMp(201)
+        // El exportador no incluye grants de tabla; modela lectura del perfil.
+        await db.exec('grant select on app_profiles to authenticated; set role authenticated')
+        assert.equal((await db.query('select count(*) n from pro_consumos_detalle')).rows[0].n,1)
+        await db.exec("select set_config('ensayo.permitido','no',true)")
+        assert.equal((await db.query('select count(*) n from pro_consumos_detalle')).rows[0].n,0)
+        await db.exec("select set_config('ensayo.permitido','si',true); reset role; update app_profiles set activo=false; set role authenticated")
+        assert.equal((await db.query('select count(*) n from pro_consumos_detalle')).rows[0].n,0)
+        await db.exec('reset role; set role anon')
+        await rechazaSinAbortar(()=>db.exec('select * from pro_consumos_detalle'),e=>e.code==='42501')
+      })
+      await t.test('Diagnóstico de consumo es READ ONLY y detecta trigger deshabilitado',async()=>{
+        await db.exec('begin read only')
+        try {
+          const r=(await db.query(diagnosticoMp)).rows[0].consumo_mp_produccion
+          assert.equal(r.correcto,true);assert.equal(r.controles_correctos,3);assert.deepEqual(r.pendientes,[])
+        } finally { await db.exec('rollback') }
+        await db.exec('begin; alter table pro_solicitudes_registro disable trigger pro_consumos_al_confirmar')
+        try {
+          const r=(await db.query(diagnosticoMp)).rows[0].consumo_mp_produccion
+          assert.equal(r.correcto,false);assert.deepEqual(r.pendientes,['trigger_confirmacion'])
+        } finally { await db.exec('rollback') }
+      })
+      await t.test('Reinstalar OP-12, OP-13 y consumo no borra el trigger ni aplica recetas a registros previos',async()=>{
+        const mp=await saldo(),pt=await cantidad()
+        const previo=(await db.query('select registrar_produccion_segura($1,$2,$3::jsonb,$4) r',[id(105),hoy,JSON.stringify([detalleProduccion()]),id(1)])).rows[0].r
+        assert.equal(previo.repetida,true);assert.equal(await saldo(),mp)
+        await db.exec(await readFile(new URL('../supabase/migrations/202610230001_autorizacion_operativa.sql',import.meta.url),'utf8'))
+        await db.exec(await readFile(new URL('../supabase/migrations/202610230002_registro_produccion_seguro.sql',import.meta.url),'utf8'))
+        await db.exec(sqlMp.replace(/\r?\n/g,'\r\n'))
+        assert.equal((await db.query(diagnosticoMp)).rows[0].consumo_mp_produccion.correcto,true)
+        assert.equal(await cantidad(),pt);assert.equal(await saldo(),mp)
+        assert.equal((await db.query("select count(*) n from pg_trigger where tgname='pro_consumos_al_confirmar' and tgenabled='O'")).rows[0].n,1)
+        await db.exec("update materias_primas set activo=true; update inv_kardex_movimientos set fecha=current_date-30 where tipo='MATERIA_PRIMA' and clase='SALDO_INICIAL'")
+        await seguroMp(203);assert.equal(await saldo(),mp-20)
       })
     }
   } finally { await db.close() }

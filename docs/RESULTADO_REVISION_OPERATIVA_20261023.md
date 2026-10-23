@@ -34,7 +34,7 @@ Pruebas: nueve escenarios operativos nuevos reproducen tanto protecciones existe
 - OP-01: recibidas y leídas las funciones base. Pendientes sólo dependencias específicas, no repetir la auditoría desde cero.
 - OP-03: confirmada ausencia de unicidad del número de pedido en la estructura exportada; regla global/por cliente pendiente.
 - OP-04: confirmado importador histórico analítico, sin alta/consumo físico en ese camino.
-- OP-07: confirmado consumo MP faltante en registrar/editar producción y sus triggers exportados.
+- OP-07: falta de consumo confirmada en exportado original. Para nuevas fabricaciones, consumo revisado y guardado atómico preparados/probados; pendiente instalar SQL 202610230003/publicar frontend. Históricos y empaque/micros pendientes; ver docs/CONSUMO_MP_PRODUCCION.md.
 - OP-08: separación de reserva/salida comprobada localmente con funciones reales; concurrencia y conciliación real pendientes.
 - OP-09: cierre del parcial confirmado en servidor; regla del faltante pendiente con Iván.
 - OP-10: efectos previos separados reproducidos; recuperación pendiente.
@@ -49,3 +49,8 @@ La etapa 3 sigue abierta. Faltan validación por usuarios, reglas de parcial/sto
 ## Avance posterior: autorización y reintentos instalados
 
 Iván autorizó continuar. OP-12 tiene SQL nuevo específico, instalador y comprobación de sólo lectura, documentados en docs/AUTORIZACION_OPERATIVA.md. Probado en escenario de contratos y aplicado localmente a las funciones reales exportadas, sin cambiar sus cuentas ni estados. Iván devolvió la terminal: SQL verificado, migration repair 202610230001 aplicado y mensaje final de protección en doce funciones. OP-12 instalado; prueba con usuarios pendiente. No requiere frontend. Texto pegado(3).txt confirma OP-13: main d12e18b, compilación correcta, verificación superada, repair 202610230002 aplicado y Cloudflare https://4e741568.cibuspan-one.pages.dev publicado. Falta validación operativa por usuarios; no equivale a ensayo concurrente HTTP en vivo. Ver docs/REGISTRO_PRODUCCION_SEGURO.md. El consumo MP permanece pendiente y la etapa 3 sigue abierta.
+
+
+## OP-07 de nuevas fabricaciones preparado
+
+Iván indica «listo, dale» al descuento MP al registrar producción. SQL 202610230003, interfaz de consumos por SKU, detalle en historial, diagnóstico e instalador específicos preparados. Confirmar cantidades reales propuestas por receta o ingresadas manualmente; la confirmación OP-13 dispara la salida MP en la misma transacción que PT/semielaborado. Reintentos no repiten el consumo. No reemplaza funciones protegidas, no cambia recetas ni crea asientos históricos. 102 pruebas y build correctos; ejecución en Windows/Supabase/Cloudflare y validación operativa pendientes. Ver docs/CONSUMO_MP_PRODUCCION.md para alcance, límites, comandos y evidencia. Etapa 3 abierta.
