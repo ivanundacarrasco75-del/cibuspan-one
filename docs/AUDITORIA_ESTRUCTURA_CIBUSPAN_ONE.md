@@ -102,7 +102,7 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ID | Entregable | Estado actual | Prioridad | Criterio de cierre |
 | --- | --- | --- | --- | --- |
 | ORG-01 | Inventario de menús, rutas y destinos | Diagnosticado | Alta | Apéndice contrastado con main; recorrido por roles pendiente. |
-| ORG-02 | Confirmar siete bloques, dueños y nombres con Iván | Propuesta | Alta | Mapa aceptado y registrado antes de mover navegación. |
+| ORG-02 | Confirmar siete bloques, dueños y nombres con Iván | Mapa base aceptado para comenzar; responsables por precisar | Alta | Mapa aceptado y registrado antes de mover navegación. |
 | ORG-03 | Entorno de prueba separado | Por preparar | Alta | URL de ensayo, base de ensayo, accesos y envíos aislados; app actual sigue operativa. |
 | ORG-04 | Recorrido real por rol | Por revisar | Alta | Iván, pedidos, producción, bodega, facturación, KAM y mercaderista completan sus tareas. |
 | ORG-05 | Catálogo de indicadores y fuentes | Por revisar | Alta | Cada KPI tiene fórmula y fuente únicas y resultados conciliados. |
@@ -153,9 +153,9 @@ flowchart TD
     PUB --> CTRL["Actualizar este seguimiento"]
 ```
 
-## Próxima decisión
+## Próxima tarea
 
-Acordar bloques y responsables. Después recorrer la app por bloque con su usuario real, empezando por pedido → producción → stock → despacho, y contrastar datos y tareas. No empezar por diseñar otra portada ni borrar pantallas: primero decidir el lugar y estado de cada proceso. La información de revisión se irá registrando con los IDs ORG, no sólo en mensajes de chat.
+Iván indicó «ok, empecemos» el 23/10/2026: usar los siete bloques como base de trabajo. Precisar responsables y límites durante la revisión. Recorrer la app por bloque con su usuario real, empezando por pedido → producción → stock → despacho, y contrastar datos y tareas. No empezar por diseñar otra portada ni borrar pantallas: primero decidir el lugar y estado de cada proceso. La información de revisión se irá registrando con los IDs ORG, no sólo en mensajes de chat.
 
 ## Apéndice: inventario de submenús actual
 
