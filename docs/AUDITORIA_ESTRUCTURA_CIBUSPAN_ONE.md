@@ -106,7 +106,7 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ORG-03 | Entorno de prueba separado | Por preparar | Alta | URL de ensayo, base de ensayo, accesos y envíos aislados; app actual sigue operativa. |
 | ORG-04 | Recorrido real por rol | Por revisar | Alta | Iván, pedidos, producción, bodega, facturación, KAM y mercaderista completan sus tareas. |
 | ORG-05 | Catálogo de indicadores y fuentes | Por revisar | Alta | Cada KPI tiene fórmula y fuente únicas y resultados conciliados. |
-| ORG-06 | Pedidos/planificación/producción | Servidor leído; reintento de producción y consumo MP pendientes | Alta | Pedido no se duplica y consumo/alta de PT ocurre una vez. |
+| ORG-06 | Pedidos/planificación/producción | Servidor leído; reintento preparado para instalar/publicar, consumo MP pendiente | Alta | Pedido no se duplica y consumo/alta de PT ocurre una vez. |
 | ORG-07 | Stock/Kardex/saldos iniciales/importación | Servidor y trazabilidad contrastados localmente; falta conciliación real | Alta | MP/PT concilian con movimientos y corte; ajustes trazables. |
 | ORG-08 | Preparación/despacho/documentos/devolución | Reserva/salida verificadas localmente; parcial y recuperación pendientes | Alta | Flujo completo sin doble descarga de stock y retorno controlado. |
 | ORG-09 | Ventas/descuentos/acuerdos/correos | Por revisar en vivo | Alta | Fuente comercial clara, correo de empresa activado y no duplica descuentos. |
@@ -116,7 +116,7 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ORG-13 | Compras/abastecimiento/proveedores | Destinos incompletos detectados | Media | Identificar lo existente y decidir qué proceso falta antes de crear otro. |
 | ORG-14 | CxC/cobros/conciliación/tesorería | Destinos incompletos detectados | Alta | Definir prioridades y capacidades reales; no suponer que son módulos terminados. |
 | ORG-15 | Semielaborados/empaques/etiquetado | Ambigüedad detectada | Media | Fabricación, consumo, inventario y etiqueta identificados por separado. |
-| ORG-16 | Maestros/configuración/auditoría/importaciones | Distribución diagnosticada; autorización operativa preparada, pendiente instalar | Media | Una fuente por entidad y permisos correctos; accesos en bloque dueño. |
+| ORG-16 | Maestros/configuración/auditoría/importaciones | Distribución diagnosticada; OP-12 instalado/verificado, usuarios reales pendientes | Media | Una fuente por entidad y permisos correctos; accesos en bloque dueño. |
 | ORG-17 | Código legado y dependencias | Por revisar | Baja | Grafo de importaciones, rutas y usos verificado antes de archivar. |
 | ORG-18 | Publicación por etapas y reversión | Por definir | Alta | Criterios de aceptación, punto de retorno y verificación tras cada publicación. |
 
@@ -223,4 +223,4 @@ Avance 23/10/2026: ver docs/AUDITORIA_FLUJO_OPERATIVO.md. Se rastrearon páginas
 
 Actualización posterior del mismo día: diagnóstico recibido, funciones base leídas y pruebas locales realizadas; ver docs/RESULTADO_REVISION_OPERATIVA_20261023.md. No repetir la exportación completa ni marcar la etapa 3 terminada. El informe privado conserva los detalles de autorización y el diagnóstico completo fuera del repositorio público.
 
-Adaptación OP-12 preparada: ver docs/AUTORIZACION_OPERATIVA.md. Hay migración específica e instalador con verificación previa a repair. Pendiente aplicar en Supabase; no cambiar menús ni avanzar a reimportaciones. Siguiente corrección operativa: OP-13, manteniendo esta autorización.
+Avance OP-12: instalado/verificado según terminal de Iván; ver docs/AUTORIZACION_OPERATIVA.md. OP-13 preparado con solicitud estable y recuperación, SQL/frontend pendientes de instalación/publicación; ver docs/REGISTRO_PRODUCCION_SEGURO.md. No cambiar menús ni reimportar existencias. Después de confirmar OP-13, completar consumo MP. Etapa 3 abierta.

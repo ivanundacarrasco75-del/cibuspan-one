@@ -10,6 +10,7 @@ const documento = JSON.parse((await readFile(process.env.CIBUSPAN_AUDIT_FILE, 'u
 const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_operativo : documento
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
+const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const nombreSQL = nombre => '"' + nombre.replaceAll('"', '""') + '"'
 const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_primas',
@@ -104,7 +105,7 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
       insert into materias_primas(id,codigo,nombre,unidad_base) values ('${id(11)}','MP-ENSAYO','Harina ensayo','KG');
       insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable)
         values ('MATERIA_PRIMA','${id(11)}',current_date,'SALDO_INICIAL',100,'Escenario aislado','Prueba');`)
-    if (probarAutorizacion) {
+    if (probarAutorizacion || probarRegistro) {
       const antes = (await db.query('select (select count(*) from inventario_lotes)::int lotes,(select count(*) from inv_kardex_movimientos)::int movimientos')).rows[0]
       await db.exec(await readFile(new URL('../supabase/migrations/202610230001_autorizacion_operativa.sql', import.meta.url), 'utf8'))
       assert.deepEqual((await db.query('select (select count(*) from inventario_lotes)::int lotes,(select count(*) from inv_kardex_movimientos)::int movimientos')).rows[0], antes)
@@ -226,6 +227,110 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         assert.equal(plan.rows[0].inventario_disponible, 50)
         await db.exec('reset role')
         assert.equal(await cantidad(), 50); assert.equal(await movimientos(), 1)
+      })
+    }
+    if (probarRegistro) {
+      const sqlSeguro = await readFile(new URL('../supabase/migrations/202610230002_registro_produccion_seguro.sql', import.meta.url), 'utf8')
+      const diagnosticoSeguro = await readFile(new URL('../supabase/diagnosticos/verificar_registro_produccion.sql', import.meta.url), 'utf8')
+      await db.exec(sqlSeguro)
+      const seguro = (solicitud, detalles = [detalleProduccion()], esperado = id(1)) => db.query(
+        'select registrar_produccion_segura($1,$2,$3::jsonb,$4) r', [solicitud, hoy, JSON.stringify(detalles), esperado])
+      const resolver = (solicitud, esperado = id(1)) => db.query('select resolver_registro_produccion($1,$2) r', [solicitud, esperado])
+      await caso('Solicitud repetida recupera el mismo registro sin segunda entrada PT/Kardex', async () => {
+        const a = (await seguro(id(101))).rows[0].r
+        assert.equal(a.repetida, false)
+        const b = (await seguro(id(101))).rows[0].r
+        assert.equal(b.repetida, true); assert.equal(a.produccion_id, b.produccion_id)
+        assert.equal(await cantidad(), 50); assert.equal(await movimientos(), 1)
+        assert.equal(Number((await db.query('select count(*) n from producciones')).rows[0].n), 1)
+        assert.equal((await resolver(id(101))).rows[0].r.produccion_id, a.produccion_id)
+      })
+      await caso('Dos fabricaciones legítimas iguales con claves distintas permanecen permitidas', async () => {
+        const a = (await seguro(id(101))).rows[0].r, b = (await seguro(id(102))).rows[0].r
+        assert.notEqual(a.produccion_id, b.produccion_id)
+        assert.equal(await cantidad(), 100); assert.equal(await movimientos(), 2)
+      })
+      await caso('Reintentar tras una salida no repone las unidades ya despachadas', async () => {
+        const a = (await seguro(id(101))).rows[0].r
+        await crearPedido(); const reserva = await preparar(); await confirmar(reserva)
+        assert.equal(await cantidad(), 30)
+        assert.equal((await seguro(id(101))).rows[0].r.produccion_id, a.produccion_id)
+        assert.equal(await cantidad(), 30); assert.equal(await movimientos(), 2)
+      })
+      await caso('Un error revierte solicitud, producción, lote y Kardex; no reserva la clave', async () => {
+        await rechazaSinAbortar(() => seguro(id(101), [detalleProduccion(), detalleProduccion({ unidades: 0 })]), /unidades/)
+        assert.equal(await cantidad(), 0); assert.equal(await movimientos(), 0)
+        assert.equal(Number((await db.query('select count(*) n from pro_solicitudes_registro')).rows[0].n), 0)
+        assert.equal((await seguro(id(101))).rows[0].r.repetida, false)
+      })
+      await caso('La misma clave con otros datos no crea otra fabricación', async () => {
+        await seguro(id(101))
+        await rechazaSinAbortar(() => seguro(id(101), [detalleProduccion({ unidades: 60 })]), /otros datos/)
+        assert.equal(await cantidad(), 50)
+      })
+      await caso('Cerrar un intento ausente impide que un envío atrasado lo registre', async () => {
+        assert.equal((await resolver(id(101))).rows[0].r.estado, 'ANULADA')
+        await rechazaSinAbortar(() => seguro(id(101)), /cerrada sin registro/)
+        assert.equal((await resolver(id(101))).rows[0].r.estado, 'ANULADA')
+        assert.equal(await cantidad(), 0)
+        assert.equal((await seguro(id(102))).rows[0].r.repetida, false)
+      })
+      await caso('La entrada antigua sin solicitud y un contexto falsificado quedan bloqueados', async () => {
+        await rechazaSinAbortar(() => producir(), /Actualiza la aplicación/)
+        await db.query("select set_config('cibuspan.produccion_request',$1,true)", [id(101)])
+        await rechazaSinAbortar(() => producir(), /no puede volver/)
+        assert.equal(await cantidad(), 0)
+      })
+      await caso('Cambio de usuario o intento ajeno no permite registrar, leer ni cerrar otra solicitud', async () => {
+        await seguro(id(101))
+        await db.exec(`insert into auth.users values('${id(2)}');
+          insert into app_profiles(user_id,email,nombre,rol,activo) values('${id(2)}','otro@example.com','Otro','ADMINISTRADOR',true)`)
+        await db.query("select set_config('ensayo.usuario',$1,true)", [id(2)])
+        await rechazaSinAbortar(() => seguro(id(102)), e => e.code === '42501')
+        await rechazaSinAbortar(() => seguro(id(101), [detalleProduccion()], id(2)), e => e.code === '42501')
+        await rechazaSinAbortar(() => resolver(id(101), id(2)), e => e.code === '42501')
+        assert.equal(await cantidad(), 50)
+      })
+      await caso('Tabla privada y auxiliares no aceptan acceso directo; APIs mantienen autorización', async () => {
+        await db.exec('set role authenticated')
+        await rechazaSinAbortar(() => db.exec('select * from pro_solicitudes_registro'), e => e.code === '42501')
+        await rechazaSinAbortar(() => db.exec('delete from pro_solicitudes_registro'), e => e.code === '42501')
+        await rechazaSinAbortar(() => db.exec('select pro_actor_registro()'), e => e.code === '42501')
+        await db.exec("select set_config('ensayo.permitido','no',true)")
+        await rechazaSinAbortar(() => seguro(id(101)), e => e.code === '42501')
+        await rechazaSinAbortar(() => resolver(id(101)), e => e.code === '42501')
+        await db.exec('reset role; set role anon')
+        await rechazaSinAbortar(() => seguro(id(101)), e => e.code === '42501')
+      })
+      await caso('Proceso service_role conserva registro seguro y reintento con su identidad SQL', async () => {
+        await db.exec("select set_config('ensayo.usuario','',true); set role service_role")
+        const a = (await seguro(id(101), [detalleProduccion()], null)).rows[0].r
+        assert.equal((await seguro(id(101), [detalleProduccion()], null)).rows[0].r.produccion_id, a.produccion_id)
+        await db.exec('reset role'); assert.equal(await cantidad(), 50)
+      })
+      await t.test('Verificador sólo lee metadatos y detecta permisos alterados', async () => {
+        await db.exec('begin read only')
+        try {
+          const r = (await db.query(diagnosticoSeguro)).rows[0].registro_produccion_seguro
+          assert.equal(r.correcto,true); assert.equal(r.controles_correctos,5); assert.deepEqual(r.pendientes,[])
+        } finally { await db.exec('rollback') }
+        await db.exec('begin; grant select on pro_solicitudes_registro to authenticated')
+        try {
+          const r = (await db.query(diagnosticoSeguro)).rows[0].registro_produccion_seguro
+          assert.equal(r.correcto,false); assert.deepEqual(r.pendientes,['tabla_privada'])
+        } finally { await db.exec('rollback') }
+      })
+      await t.test('Reinstalar ambas correcciones conserva registro y control de acceso', async () => {
+        const a = (await seguro(id(105))).rows[0].r
+        const src = (await db.query("select prosrc from pg_proc where oid='registrar_produccion_completa(date,jsonb)'::regprocedure")).rows[0].prosrc
+        await db.exec(await readFile(new URL('../supabase/migrations/202610230001_autorizacion_operativa.sql', import.meta.url), 'utf8'))
+        await db.exec(sqlSeguro.replace(/\r?\n/g, '\r\n'))
+        assert.equal((await db.query("select prosrc from pg_proc where oid='registrar_produccion_completa(date,jsonb)'::regprocedure")).rows[0].prosrc, src)
+        assert.equal((await seguro(id(105))).rows[0].r.produccion_id, a.produccion_id)
+        assert.equal(await cantidad(), 50); assert.equal(await movimientos(), 1)
+        assert.equal((await db.query(diagnosticoSeguro)).rows[0].registro_produccion_seguro.correcto,true)
+        const diagnosticoAutorizacion = await readFile(new URL('../supabase/diagnosticos/verificar_autorizacion_operativa.sql', import.meta.url), 'utf8')
+        assert.equal((await db.query(diagnosticoAutorizacion)).rows[0].autorizacion_operativa.correcto,true)
       })
     }
   } finally { await db.close() }

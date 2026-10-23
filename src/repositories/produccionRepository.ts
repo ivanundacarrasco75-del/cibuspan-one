@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase"
+import { crearControlRegistroProduccion, detallesProduccionRpc, type DatosRegistroProduccion, type DetalleRegistroProduccion } from "../utils/registroProduccionSeguro"
 import type { OrdenProduccionImportar } from "../utils/ordenesProduccionExcel"
 
 export type ProduccionSugeridaDb = {
@@ -165,20 +166,7 @@ export type RespuestaLoteOrdenesProduccionDb = {
   finalizada: boolean
 }
 
-export type DetalleNuevaProduccionDb = {
-  productoId: string
-  tipoDestino:
-    | "PRODUCTO_TERMINADO"
-    | "SEMIELABORADO"
-  semielaboradoTipoId?: string | null
-  numeroParadas: number
-  tamanoParada: number
-  unidades: number
-  fechaProduccion: string
-  lote?: string | null
-  fechaVencimiento?: string | null
-  orden: number
-}
+export type DetalleNuevaProduccionDb = DetalleRegistroProduccion
 
 export type DetalleEditarProduccionDb = {
   detalleId: string
@@ -189,62 +177,43 @@ export type DetalleEditarProduccionDb = {
   fechaVencimiento?: string | null
 }
 
-export async function registrarProduccionCompletaDb(datos: {
-  fechaProduccionGeneral: string
-  detalles: DetalleNuevaProduccionDb[]
-}) {
-  if (!datos.fechaProduccionGeneral) {
-    throw new Error(
-      "La fecha general de producción es obligatoria.",
-    )
-  }
-
-  if (datos.detalles.length === 0) {
-    throw new Error(
-      "La producción no contiene productos.",
-    )
-  }
-
-  const detallesRpc = datos.detalles.map(
-    (detalle) => ({
-      producto_id: detalle.productoId,
-      tipo_destino: detalle.tipoDestino,
-      semielaborado_tipo_id:
-        detalle.semielaboradoTipoId ?? null,
-      numero_paradas:
-        detalle.numeroParadas,
-      tamano_parada:
-        detalle.tamanoParada,
-      unidades:
-        detalle.unidades,
-      fecha_produccion:
-        detalle.fechaProduccion,
-      lote:
-        detalle.lote ?? null,
-      fecha_vencimiento:
-        detalle.fechaVencimiento ?? null,
-      orden:
-        detalle.orden,
-    }),
-  )
-
-  const { data, error } = await supabase.rpc(
-    "registrar_produccion_completa",
-    {
-      p_fecha_produccion_general:
-        datos.fechaProduccionGeneral,
-      p_detalles:
-        detallesRpc,
+async function controlRegistroProduccionDb(usuarioEsperado?: string) {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) throw new Error("No existe una sesión válida.")
+  if (usuarioEsperado && user.id !== usuarioEsperado) throw new Error("La sesión cambió. Vuelve a ingresar con el usuario del intento pendiente.")
+  let almacen: Storage
+  try { almacen = window.localStorage }
+  catch { throw new Error("Habilita el almacenamiento del navegador antes de registrar producción.") }
+  return crearControlRegistroProduccion({
+    almacen, proyecto: import.meta.env.VITE_SUPABASE_URL, usuarioId: user.id,
+    registrar: async s => {
+      const { data, error } = await supabase.rpc("registrar_produccion_segura", {
+        p_solicitud_id: s.solicitudId, p_fecha_produccion_general: s.fechaProduccionGeneral,
+        p_detalles: detallesProduccionRpc(s), p_usuario_esperado: user.id,
+      })
+      if (error) throw new Error(error.message)
+      return data
     },
-  )
+    resolver: async solicitudId => {
+      const { data, error } = await supabase.rpc("resolver_registro_produccion", {
+        p_solicitud_id: solicitudId, p_usuario_esperado: user.id,
+      })
+      if (error) throw new Error(error.message)
+      return data
+    },
+  })
+}
 
-  if (error) {
-    throw new Error(
-      `No se pudo registrar la producción: ${error.message}`,
-    )
-  }
+export async function obtenerRegistrosProduccionPendientesDb() {
+  return (await controlRegistroProduccionDb()).listar()
+}
 
-  return data as string
+export async function resolverRegistroProduccionDb(solicitudId: string, usuarioEsperado?: string) {
+  return (await controlRegistroProduccionDb(usuarioEsperado)).resolver(solicitudId)
+}
+
+export async function registrarProduccionCompletaDb(datos: DatosRegistroProduccion & { solicitudId: string; usuarioId?: string }) {
+  return (await controlRegistroProduccionDb(datos.usuarioId)).registrar(datos.solicitudId, datos)
 }
 
 export async function editarProduccionCompletaDb(datos: {

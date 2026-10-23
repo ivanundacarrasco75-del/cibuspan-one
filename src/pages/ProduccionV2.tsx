@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   editarProduccionCompletaDb,
   obtenerDetalleProduccionDb,
   obtenerHistorialProduccionesDb,
   obtenerProduccionSugeridaDb,
   registrarProduccionCompletaDb,
+  obtenerRegistrosProduccionPendientesDb,
+  resolverRegistroProduccionDb,
   type ProduccionDetalleHistorialDb,
   type ProduccionResumenHistorialDb,
   type ProduccionSugeridaDb,
@@ -15,6 +17,7 @@ import {
 } from "../repositories/semielaboradoRepository"
 import ModalMensaje from "../components/ModalMensaje"
 import ImportacionOrdenesHistoricas from "../components/produccion/ImportacionOrdenesHistoricas"
+import { RegistroProduccionPendienteError, type SolicitudProduccionPendiente } from "../utils/registroProduccionSeguro"
 
 type SeleccionProduccion = Record<string, boolean>
 type LotesPlanificados = Record<string, number>
@@ -250,10 +253,14 @@ export default function ProduccionV2({
 
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const accionRegistro = useRef(false)
+  const [solicitudRegistro, setSolicitudRegistro] = useState("")
+  const [registrosPendientes, setRegistrosPendientes] = useState<SolicitudProduccionPendiente[]>([])
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
+    void cargarRegistrosPendientes()
     setVista(vistaInicial)
     if (vistaInicial === "INGRESADA") {
       void cargarProduccionesIngresadas()
@@ -261,6 +268,66 @@ export default function ProduccionV2({
       void cargarProduccion()
     }
   }, [vistaInicial])
+
+  async function cargarRegistrosPendientes() {
+    try { setRegistrosPendientes(await obtenerRegistrosProduccionPendientesDb()) }
+    catch (err) { setError(err instanceof Error ? err.message : "No se pudieron consultar los registros pendientes.") }
+  }
+
+  async function actualizarTrasRegistro(produccionId: string) {
+    setMostrarConfirmacion(false)
+    setProduccionConfirmada([])
+    setSolicitudRegistro("")
+    setSeleccionados({})
+    setLotesPlanificados({})
+    await cargarRegistrosPendientes()
+    try {
+      await Promise.all([cargarProduccion(), cargarProduccionesIngresadas()])
+      setVista("INGRESADA")
+      const actualizadas = await obtenerHistorialProduccionesDb()
+      const nueva = actualizadas.find(r => r.id === produccionId)
+      if (nueva) await abrirDetalleProduccionHistorial(nueva)
+    } catch {
+      setError("La producción ya quedó guardada. No se pudo actualizar el historial; recarga la pantalla para consultarlo.")
+    }
+  }
+
+  async function recuperarRegistro(s: SolicitudProduccionPendiente, reintentar: boolean) {
+    if (accionRegistro.current) return
+    accionRegistro.current = true
+    setGuardando(true); setError(""); setMensaje("")
+    try {
+      if (reintentar) {
+        const r = await registrarProduccionCompletaDb(s)
+        setMensaje(r.repetida ? "Se recuperó la producción ya registrada, sin repetir la entrada de inventario." : "Producción registrada correctamente.")
+        await actualizarTrasRegistro(r.produccionId)
+      } else {
+        const r = await resolverRegistroProduccionDb(s.solicitudId, s.usuarioId)
+        await cargarRegistrosPendientes()
+        if (r.estado === "CONFIRMADA" && r.produccionId) {
+          setMensaje("Se recuperó la producción ya registrada, sin repetir la entrada de inventario.")
+          await actualizarTrasRegistro(r.produccionId)
+        } else {
+          setMensaje("El intento no se registró y quedó cerrado. Ya puedes corregir y confirmar nuevamente.")
+          const restauradas = s.detalles.map(d => {
+            const producto = produccion.find(p => p.producto_id === d.productoId)
+            return producto ? { producto: { ...producto, tamano_lote: d.tamanoParada }, lotes: d.numeroParadas,
+              unidades: d.unidades, lote: d.lote ?? "", fechaProduccion: d.fechaProduccion,
+              fechaVencimiento: d.fechaVencimiento ?? "" } : null
+          })
+          if (restauradas.every(r => r !== null)) {
+            setProduccionConfirmada(restauradas)
+            setFechaProduccionGeneral(s.fechaProduccionGeneral)
+            setSolicitudRegistro(crypto.randomUUID())
+            setMostrarConfirmacion(true)
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo comprobar el intento. Se conserva para volver a intentar.")
+      await cargarRegistrosPendientes()
+    } finally { accionRegistro.current = false; setGuardando(false) }
+  }
 
   async function cargarProduccion() {
     setCargando(true)
@@ -757,7 +824,8 @@ export default function ProduccionV2({
       : "INVENTARIO TERMINADO"
   }
 
-  function abrirConfirmacion() {
+  async function abrirConfirmacion() {
+    if (accionRegistro.current) return
     setMensaje("")
     setError("")
 
@@ -785,24 +853,38 @@ export default function ProduccionV2({
 
     const fecha = fechaProduccionGeneral || fechaHoy()
 
-    setProduccionConfirmada(
-      productosIncluidos.map((producto) => {
-        const lotes =
-          lotesPlanificados[producto.producto_id] ?? 0
+    accionRegistro.current = true
+    setGuardando(true)
+    try {
+      const pendientes = await obtenerRegistrosProduccionPendientesDb()
+      setRegistrosPendientes(pendientes)
+      if (pendientes.length) {
+        setError("Resuelve el registro pendiente antes de confirmar otra producción.")
+        return
+      }
 
-        const semi = esSemielaborado(producto.producto_id)
-        return {
-          producto,
-          lotes,
-          unidades: lotes * producto.tamano_lote,
-          lote: semi ? "" : generarLote(fecha, producto.codigo_lote),
-          fechaProduccion: fecha,
-          fechaVencimiento: semi ? "" : sumarDias(fecha, producto.vida_util_dias),
-        }
-      }),
-    )
+      setProduccionConfirmada(
+        productosIncluidos.map((producto) => {
+          const lotes =
+            lotesPlanificados[producto.producto_id] ?? 0
 
-    setMostrarConfirmacion(true)
+          const semi = esSemielaborado(producto.producto_id)
+          return {
+            producto,
+            lotes,
+            unidades: lotes * producto.tamano_lote,
+            lote: semi ? "" : generarLote(fecha, producto.codigo_lote),
+            fechaProduccion: fecha,
+            fechaVencimiento: semi ? "" : sumarDias(fecha, producto.vida_util_dias),
+          }
+        }),
+      )
+
+      setMostrarConfirmacion(true)
+      setSolicitudRegistro(crypto.randomUUID())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo preparar la confirmación.")
+    } finally { accionRegistro.current = false; setGuardando(false) }
   }
 
   function cambiarFechaGeneral(nuevaFecha: string) {
@@ -1536,7 +1618,7 @@ export default function ProduccionV2({
   }
 
   async function ingresarProduccionCompleta() {
-    if (produccionConfirmada.length === 0) return
+    if (accionRegistro.current || produccionConfirmada.length === 0 || !solicitudRegistro) return
 
     const registroInvalido = produccionConfirmada.find((registro) => {
       const semi = esSemielaborado(registro.producto.producto_id)
@@ -1552,6 +1634,7 @@ export default function ProduccionV2({
       return
     }
 
+    accionRegistro.current = true
     setGuardando(true)
     setMensaje("")
     setError("")
@@ -1624,8 +1707,9 @@ export default function ProduccionV2({
           },
         )
 
-      const produccionId =
+      const resultado =
         await registrarProduccionCompletaDb({
+          solicitudId: solicitudRegistro,
           fechaProduccionGeneral:
             fechaProduccionGeneral,
           detalles,
@@ -1646,43 +1730,24 @@ export default function ProduccionV2({
       }
 
       setMensaje(
-        `Producción ingresada correctamente: ${resumenDestinos.join(
+        resultado.repetida ? "Se recuperó la producción ya registrada, sin repetir la entrada de inventario." : `Producción ingresada correctamente: ${resumenDestinos.join(
           "; ",
         )}.`,
       )
 
-      setMostrarConfirmacion(false)
-      setProduccionConfirmada([])
       setFechaProduccionGeneral(fechaHoy())
-
-      await Promise.all([
-        cargarProduccion(),
-        cargarProduccionesIngresadas(),
-      ])
-
-      setVista("INGRESADA")
-
-      const historialActualizado =
-        await obtenerHistorialProduccionesDb()
-
-      const produccionNueva =
-        historialActualizado.find(
-          (registro) =>
-            registro.id === produccionId,
-        )
-
-      if (produccionNueva) {
-        await abrirDetalleProduccionHistorial(
-          produccionNueva,
-        )
-      }
+      await actualizarTrasRegistro(resultado.produccionId)
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "No se pudo ingresar la producción completa.",
       )
+      if (err instanceof RegistroProduccionPendienteError) setMostrarConfirmacion(false)
+      else setSolicitudRegistro(crypto.randomUUID())
+      await cargarRegistrosPendientes()
     } finally {
+      accionRegistro.current = false
       setGuardando(false)
     }
   }
@@ -1724,6 +1789,18 @@ export default function ProduccionV2({
               : "Actualizar cálculo"}
         </button>
       </header>
+
+      {registrosPendientes.length > 0 && <section style={{ background: "#fff7e6", border: "1px solid #e4bc70", borderRadius: 10, padding: 16, marginBottom: 18 }} aria-label="Registros de producción pendientes">
+        <h2 style={{ marginTop: 0, fontSize: 18 }}>Hay registros por confirmar</h2>
+        <p>Se conservaron las cantidades del intento. Reintentar recupera o registra esa misma producción; comprobar el resultado permite corregir si no llegó a guardarse.</p>
+        {registrosPendientes.map(s => <div key={s.solicitudId} style={{ borderTop: "1px solid #e4bc70", paddingTop: 10, marginTop: 10 }}>
+          <p>{formatearFechaDocumento(s.fechaProduccionGeneral)} · {s.detalles.length} SKU · {s.detalles.reduce((n, d) => n + d.unidades, 0)} Unid.</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button type="button" disabled={guardando} style={botonSecundario} onClick={() => recuperarRegistro(s, true)}>Reintentar registro</button>
+            <button type="button" disabled={guardando} style={botonSecundario} onClick={() => recuperarRegistro(s, false)}>Comprobar para corregir</button>
+          </div>
+        </div>)}
+      </section>}
 
       <ModalMensaje
         abierto={mensaje !== ""}
@@ -2772,6 +2849,7 @@ export default function ProduccionV2({
               </button>
             </header>
 
+            <fieldset disabled={guardando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             <div style={fechaGeneral}>
               <div>
                 <label style={label}>
@@ -2972,6 +3050,7 @@ export default function ProduccionV2({
               </div>
             </div>
 
+            </fieldset>
             <div className="prod-modal-actions" style={accionesModal}>
               <button
                 type="button"

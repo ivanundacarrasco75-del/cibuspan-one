@@ -38,14 +38,14 @@ Pruebas: nueve escenarios operativos nuevos reproducen tanto protecciones existe
 - OP-08: separación de reserva/salida comprobada localmente con funciones reales; concurrencia y conciliación real pendientes.
 - OP-09: cierre del parcial confirmado en servidor; regla del faltante pendiente con Iván.
 - OP-10: efectos previos separados reproducidos; recuperación pendiente.
-- OP-12: autorización de operaciones, prioridad de corrección antes de ampliar el circuito; detalle en informe privado.
-- OP-13: reintento de producción sin protección, reproducido; siguiente adaptación operativa después de cerrar autorización.
+- OP-12: autorización instalada y verificada según terminal posterior de Iván; ver docs/AUTORIZACION_OPERATIVA.md. Usuarios reales pendientes.
+- OP-13: defecto reproducido antes del cambio; solicitud estable/recuperación preparadas y probadas localmente. Pendiente instalar SQL y publicar frontend; ver docs/REGISTRO_PRODUCCION_SEGURO.md.
 - OP-14: stock mínimo informativo pero fuera de la fórmula; regla de reposición pendiente.
 
-Conservar el circuito y corregir por partes. Primero cerrar autorización de operaciones; después proteger reintentos de producción; luego completar consumo MP con criterio explícito y guardado transaccional de pedidos. No reordenar menús ni crear otra aplicación mientras se cierran estas conexiones. No reiniciar octubre ni reimportar existencias.
+Conservar el circuito y corregir por partes. Autorización instalada; siguiente paso instalar/publicar protección de reintentos ya preparada. Luego completar consumo MP con criterio explícito y guardado transaccional de pedidos. No reordenar menús ni crear otra aplicación mientras se cierran estas conexiones. No reiniciar octubre ni reimportar existencias.
 
 La etapa 3 sigue abierta. Faltan validación por usuarios, reglas de parcial/stock de seguridad, ensayo aislado y conciliación de cantidades reales. El PDF CIBUSPAN_ONE_Avance_Revision_Operativa_20261023 resume este avance para Iván. El paquete CIBUSPAN_ONE_Revision_Operativa_Privada_20261023 conserva la evidencia y el relevo técnico en privado.
 
-## Avance posterior: corrección de autorización preparada
+## Avance posterior: autorización instalada y reintentos preparados
 
-Iván autorizó continuar. OP-12 tiene SQL nuevo específico, instalador y comprobación de sólo lectura, documentados en docs/AUTORIZACION_OPERATIVA.md. Probado en escenario de contratos y aplicado localmente a las funciones reales exportadas, sin cambiar sus cuentas ni estados. Instalación en Supabase y verificación con usuarios siguen pendientes. OP-13 (reintento de producción) y consumo MP no están corregidos; serán cambios separados. No es necesario publicar frontend para instalar este control.
+Iván autorizó continuar. OP-12 tiene SQL nuevo específico, instalador y comprobación de sólo lectura, documentados en docs/AUTORIZACION_OPERATIVA.md. Probado en escenario de contratos y aplicado localmente a las funciones reales exportadas, sin cambiar sus cuentas ni estados. Iván devolvió la terminal: SQL verificado, migration repair 202610230001 aplicado y mensaje final de protección en doce funciones. OP-12 instalado; prueba con usuarios pendiente. No requiere frontend. OP-13 tiene solicitud estable, recuperación y guardado atómico preparados y probados localmente; falta instalar 202610230002 y publicar la app. Ver docs/REGISTRO_PRODUCCION_SEGURO.md. El consumo MP permanece pendiente y la etapa 3 sigue abierta.

@@ -1,6 +1,6 @@
 # Autorización de operaciones: instalación específica
 
-23/10/2026. Estado: código preparado y probado localmente; instalación en Supabase pendiente. Corresponde a OP-12. No resuelve todavía los reintentos que duplican producción ni aplica consumos MP.
+23/10/2026. Estado: OP-12 instalado y verificado según la terminal enviada por Iván: doce funciones protegidas, consulta de verificación superada y migration repair 202610230001 aplicado. El aviso CLI 2.122.0 disponible no impidió la instalación. La prueba con usuarios reales sigue pendiente. Esta corrección no aplica consumos MP. El cambio separado OP-13 está preparado en docs/REGISTRO_PRODUCCION_SEGURO.md, pendiente de instalar/publicar.
 
 ## Cambio y alcance
 
@@ -54,8 +54,8 @@ Pruebas locales:
 - Diagnóstico en BEGIN READ ONLY detecta acceso alterado y no lee filas de negocio.
 - Con CIBUSPAN_PROBAR_AUTORIZACION=1, el ensayo privado aplica la migración a los cuerpos reales exportados y mantiene producción/reserva/liberación/confirmación/planificación/Kardex. También demuestra que OP-13 y el consumo MP siguen pendientes, sin declararlos reparados.
 
-El test con funciones reales usa CIBUSPAN_AUDIT_FILE apuntando al TXT/JSON privado de Iván y CIBUSPAN_SQL_TEST_MODULE si PGlite no está instalado localmente. No subir ese diagnóstico al repositorio público. Escenario aislado, defaults y dependencias auxiliares modelados; no certifica concurrencia, RLS completo ni datos reales. PowerShell/CLI remoto y usuarios reales pendientes de verificación.
+El test con funciones reales usa CIBUSPAN_AUDIT_FILE apuntando al TXT/JSON privado de Iván y CIBUSPAN_SQL_TEST_MODULE si PGlite no está instalado localmente. No subir ese diagnóstico al repositorio público. Escenario aislado, defaults y dependencias auxiliares modelados; no certifica concurrencia, RLS completo ni datos reales. El resultado del instalador real en PowerShell/CLI remoto fue recibido y confirma OP-12; los usuarios reales no se probaron desde aquí.
 
 ## Próximo trabajo
 
-Confirmar instalación por su resultado; después OP-13: proteger reintentos de producción. Toda nueva firma o sustitución de esa función debe mantener esta autorización y actualizar sus verificaciones. No volver a implantar un cuerpo anterior sin el control. Etapa 3 de reorganización sigue abierta; no hay cambios de navegación en esta entrega.
+Instalación OP-12 confirmada por la terminal de Iván. OP-13 programado y probado localmente; falta instalar SQL/publicar frontend según docs/REGISTRO_PRODUCCION_SEGURO.md. Toda nueva firma o sustitución de esa función debe mantener esta autorización y actualizar sus verificaciones. No volver a implantar un cuerpo anterior sin el control. Etapa 3 de reorganización sigue abierta; no hay cambios de navegación en esta entrega.
