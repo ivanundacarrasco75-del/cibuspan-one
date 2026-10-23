@@ -116,7 +116,7 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ORG-13 | Compras/abastecimiento/proveedores | Destinos incompletos detectados | Media | Identificar lo existente y decidir qué proceso falta antes de crear otro. |
 | ORG-14 | CxC/cobros/conciliación/tesorería | Destinos incompletos detectados | Alta | Definir prioridades y capacidades reales; no suponer que son módulos terminados. |
 | ORG-15 | Semielaborados/empaques/etiquetado | Ambigüedad detectada | Media | Fabricación, consumo, inventario y etiqueta identificados por separado. |
-| ORG-16 | Maestros/configuración/auditoría/importaciones | Distribución diagnosticada | Media | Una fuente por entidad y permisos correctos; accesos en bloque dueño. |
+| ORG-16 | Maestros/configuración/auditoría/importaciones | Distribución diagnosticada; autorización operativa preparada, pendiente instalar | Media | Una fuente por entidad y permisos correctos; accesos en bloque dueño. |
 | ORG-17 | Código legado y dependencias | Por revisar | Baja | Grafo de importaciones, rutas y usos verificado antes de archivar. |
 | ORG-18 | Publicación por etapas y reversión | Por definir | Alta | Criterios de aceptación, punto de retorno y verificación tras cada publicación. |
 
@@ -222,3 +222,5 @@ Inicio abre DashboardV2 y no está incluido entre las 53 opciones de submenú.
 Avance 23/10/2026: ver docs/AUDITORIA_FLUJO_OPERATIVO.md. Se rastrearon páginas/repositorios/SQL disponibles; faltan definiciones reales de funciones base. Preparada consulta de sólo lectura y exportador. Etapa 3 sigue abierta; no se alteró la app.
 
 Actualización posterior del mismo día: diagnóstico recibido, funciones base leídas y pruebas locales realizadas; ver docs/RESULTADO_REVISION_OPERATIVA_20261023.md. No repetir la exportación completa ni marcar la etapa 3 terminada. El informe privado conserva los detalles de autorización y el diagnóstico completo fuera del repositorio público.
+
+Adaptación OP-12 preparada: ver docs/AUTORIZACION_OPERATIVA.md. Hay migración específica e instalador con verificación previa a repair. Pendiente aplicar en Supabase; no cambiar menús ni avanzar a reimportaciones. Siguiente corrección operativa: OP-13, manteniendo esta autorización.

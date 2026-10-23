@@ -9,6 +9,7 @@ if (!process.env.CIBUSPAN_AUDIT_FILE) throw new Error('Define CIBUSPAN_AUDIT_FIL
 const documento = JSON.parse((await readFile(process.env.CIBUSPAN_AUDIT_FILE, 'utf8')).replace(/^\uFEFF/, ''))
 const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_operativo : documento
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
+const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const nombreSQL = nombre => '"' + nombre.replaceAll('"', '""') + '"'
 const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_primas',
@@ -18,7 +19,8 @@ const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_pr
 const nombresFunciones = ['app_validar_escritura_modulo', 'actualizar_timestamp', 'actualizar_timestamp_produccion',
   'inv_inicio_proteger_lote', 'inv_inicio_proteger_fecha', 'inv_kardex_observar_pt',
   'registrar_produccion_completa', 'reservar_pedido_fefo_parcial', 'confirmar_despacho_parcial_fefo',
-  'liberar_reserva_fefo', 'activar_control_conciliacion_despacho', 'vincular_factura_despacho', 'obtener_produccion_sugerida']
+  'liberar_reserva_fefo', 'activar_control_conciliacion_despacho', 'vincular_factura_despacho', 'obtener_produccion_sugerida',
+  'editar_produccion_completa', 'ajustar_inventario_lote', 'convertir_inventario_empaque', 'convertir_semielaborado', 'registrar_devolucion_completa']
 
 // El exportador v1 no incluía defaults ni todos los objetos dependientes.
 // Estos defaults y auxiliares son del escenario de ensayo, NO una reconstrucción
@@ -39,14 +41,14 @@ function columnaEnsayo(c) {
 test('Caracterización local de las funciones instaladas exportadas el 23/10/2026', async t => {
   const db = new PGlite()
   try {
-    await db.exec(`create schema auth; create role anon; create role authenticated;
+    await db.exec(`create schema auth; create role anon; create role authenticated; create role service_role;
       create table auth.users(id uuid primary key);
       create function auth.uid() returns uuid language sql stable as $$
         select nullif(current_setting('ensayo.usuario',true),'')::uuid $$;
       create function app_puede_alguna(text[]) returns boolean language sql stable as $$
         select current_setting('ensayo.permitido',true)='si' $$;
       create table inv_respaldos_inicio(id uuid primary key,datos jsonb default '{}');
-      grant usage on schema public,auth to anon,authenticated;`)
+      grant usage on schema public,auth to anon,authenticated,service_role;`)
     const objetos = tablas.map(nombre => {
       const objeto = referencia.objetos.find(o => o.nombre === nombre)
       assert.ok(objeto, `Falta definición exportada de ${nombre}`)
@@ -93,6 +95,8 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
     }
     await db.query("select set_config('ensayo.usuario',$1,false),set_config('ensayo.permitido','si',false)", [id(1)])
     await db.exec(`insert into auth.users values ('${id(1)}');
+      insert into app_profiles(user_id,email,nombre,rol,activo)
+        values ('${id(1)}','ensayo@example.com','Usuario de ensayo','ADMINISTRADOR',true);
       insert into clientes(id) values ('${id(2)}');
       insert into bodegas(id,cliente_id) values ('${id(3)}','${id(2)}');
       insert into productos(id,codigo,nombre,corto,activo,tamano_lote,stock_minimo,vida_util_dias)
@@ -100,6 +104,11 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
       insert into materias_primas(id,codigo,nombre,unidad_base) values ('${id(11)}','MP-ENSAYO','Harina ensayo','KG');
       insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable)
         values ('MATERIA_PRIMA','${id(11)}',current_date,'SALDO_INICIAL',100,'Escenario aislado','Prueba');`)
+    if (probarAutorizacion) {
+      const antes = (await db.query('select (select count(*) from inventario_lotes)::int lotes,(select count(*) from inv_kardex_movimientos)::int movimientos')).rows[0]
+      await db.exec(await readFile(new URL('../supabase/migrations/202610230001_autorizacion_operativa.sql', import.meta.url), 'utf8'))
+      assert.deepEqual((await db.query('select (select count(*) from inventario_lotes)::int lotes,(select count(*) from inv_kardex_movimientos)::int movimientos')).rows[0], antes)
+    }
     const hoy = (await db.query('select current_date::text hoy')).rows[0].hoy
     const detalleProduccion = cambios => ({producto_id: id(10), tipo_destino: 'PRODUCTO_TERMINADO',
       numero_paradas: 5, tamano_parada: 10, unidades: 50, fecha_produccion: hoy,
@@ -194,11 +203,30 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         values ('PED-OTRO','${id(2)}','${id(3)}',current_date,'INGRESADO',30,'${id(1)}','NUM-ENSAYO');`)
       assert.equal(Number((await db.query("select count(*) n from pedidos where numero_pedido_cliente='NUM-ENSAYO'")).rows[0].n), 2)
     })
-    await caso('Usuario autenticado sin permiso queda bloqueado por el trigger', async () => {
+    await caso('Usuario autenticado sin permiso queda bloqueado por el control del servidor', async () => {
       await db.exec("select set_config('ensayo.permitido','no',false); set role authenticated")
       await rechazaSinAbortar(() => producir(), /permiso/)
       await db.exec('reset role')
       assert.equal(await cantidad(), 0)
     })
+    if (probarAutorizacion) {
+      await caso('La corrección aplicada al exportado bloquea acceso sin sesión y mantiene PT intacto', async () => {
+        await db.exec("select set_config('ensayo.usuario','',false); set role anon")
+        await rechazaSinAbortar(() => producir(), e => e.code === '42501')
+        await db.exec('reset role; set role authenticated')
+        await rechazaSinAbortar(() => producir(), e => e.code === '42501')
+        await db.exec('reset role')
+        assert.equal(await cantidad(), 0); assert.equal(await movimientos(), 0)
+      })
+      await caso('Un proceso service_role conserva registro válido y consulta de planificación', async () => {
+        await db.exec("select set_config('ensayo.usuario','',false); set role service_role")
+        await producir()
+        const plan = await db.query('select * from obtener_produccion_sugerida()')
+        assert.equal(plan.rows.length, 1)
+        assert.equal(plan.rows[0].inventario_disponible, 50)
+        await db.exec('reset role')
+        assert.equal(await cantidad(), 50); assert.equal(await movimientos(), 1)
+      })
+    }
   } finally { await db.close() }
 })

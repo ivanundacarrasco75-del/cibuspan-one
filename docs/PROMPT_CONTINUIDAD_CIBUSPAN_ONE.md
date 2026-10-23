@@ -18,7 +18,8 @@ Antes de programar, consulta la rama main actual y lee, en este orden:
 3. docs/AUDITORIA_ESTRUCTURA_CIBUSPAN_ONE.md.
 4. docs/AUDITORIA_FLUJO_OPERATIVO.md, con la revisión del circuito operativo realizada el 23/10/2026.
 5. docs/RESULTADO_REVISION_OPERATIVA_20261023.md, con el diagnóstico del servidor ya recibido y ensayado.
-6. Los archivos del proceso concreto que vayas a revisar o modificar.
+6. docs/AUTORIZACION_OPERATIVA.md, con la corrección OP-12 preparada, probada y pendiente de instalación.
+7. Los archivos del proceso concreto que vayas a revisar o modificar.
 
 No empieces otro sistema ni reconstruyas desde ZIP, capturas o recuerdos. Comprueba HEAD remoto, estado local y diferencias. Puede existir un checkout local cuyo HEAD sea anterior, pero que ya contenga archivos de commits enviados por el conector GitHub: no descartes esos cambios ni vuelvas a subir una versión antigua. Si hay diferencias, compáralas con main antes de actuar.
 
@@ -60,6 +61,10 @@ Se preparó scripts/Exportar-AuditoriaOperativa.ps1: consulta sólo catálogos m
 
 Hallazgos confirmados en funciones instaladas exportadas/ensayo: producción crea PT pero no consume MP; repetir mismo payload vuelve a sumar PT; no hay unicidad de numero_pedido_cliente en la base; reservar/liberar no cambia físico; segundo confirmar de misma reserva se bloquea; parcial cierra pedido y sale de planificación; factura/conciliación previas permanecen si falla confirmar; stock_minimo se muestra pero no entra en fórmula. Histórico sólo analítico, sin triggers de stock en sus tablas. No se comprobaron duplicados reales ni se consultaron filas de negocio. También hay un pendiente prioritario de autorización detallado en el informe privado. El orden propuesto cambia por esta evidencia: cerrar autorización operativa, proteger reintentos de producción, completar consumo MP y luego pedido transaccional. No hay correcciones instaladas/publicadas ni cambio de permisos realizado todavía.
 
+OP-12 ya está programado: migración 202610230001_autorizacion_operativa.sql, scripts/Instalar-AutorizacionOperativa.ps1 y supabase/diagnosticos/verificar_autorizacion_operativa.sql. Instalación real pendiente. Si Iván trae la terminal del instalador, revisar su resultado y distinguir aplicación, verificación y repair; no volver a programar desde cero esta corrección. El script aplica sólo este SQL, verifica doce firmas y registra la migración tras correcto=true. No requiere publicar frontend. La autorización usa sesión/perfil activo/módulos y rol SQL real para procesos internos; conserva cuerpos/contratos de negocio. La consulta de planificación preserva acceso Dashboard. Tests nuevos y modo CIBUSPAN_PROBAR_AUTORIZACION=1 verifican contratos y el exportado real en local; no prueba HTTP ni todos los usuarios.
+
+Después de confirmar instalación, continuar OP-13, reintento de producción con solicitud estable y recuperación de respuesta perdida. No deduplicar por SKU/fecha, ya que pueden existir varias fabricaciones legítimas. Mantener la autorización en cualquier nueva firma o reemplazo de registrar_produccion_completa y actualizar verificación si cambia su contrato. El consumo MP, el pedido transaccional y reglas de parcial/numeración/stock mínimo siguen pendientes.
+
 Lee las páginas PedidosV2, ProduccionV2, InventarioV2, KardexInventario, DespachosV2, HistorialDespachos y sus repositorios pedidoRepository, produccionRepository, inventarioRepository, kardexRepository y despachoRepository; luego sigue sus RPC/migraciones y dependencias. No presupongas que los nombres reflejan toda la lógica.
 
 Completa la matriz existente con:
@@ -98,4 +103,4 @@ Correos de descuentos: código y SQL preparados, pero instalación/activación r
 
 ## 7. Cómo arrancar tu respuesta
 
-Confirma en pocas líneas el estado realmente leído de main y el próximo entregable. Continúa con la adaptación delimitada de autorización operativa indicada en el resultado y su informe privado; luego reintentos de producción. Busca los archivos privados de Iván por su nombre si las herramientas permiten acceder a ellos. No repitas la auditoría ni solicites otra vez el mismo diagnóstico antes de consultar esas fuentes. No vuelvas a pedirme todo el contexto ni propongas empezar desde cero. Mantén un registro en archivos del proyecto para que otro chat continúe desde el mismo punto.
+Confirma en pocas líneas el estado realmente leído de main y el próximo entregable. Comprueba el resultado del instalador de autorización si Iván lo adjunta; esa corrección ya está programada. Continúa después con reintentos de producción, conservando las protecciones. Busca los archivos privados de Iván por su nombre si las herramientas permiten acceder a ellos. No repitas la auditoría ni solicites otra vez el mismo diagnóstico antes de consultar esas fuentes. No vuelvas a pedirme todo el contexto ni propongas empezar desde cero. Mantén un registro en archivos del proyecto para que otro chat continúe desde el mismo punto.
