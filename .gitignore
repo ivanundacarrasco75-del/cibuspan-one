@@ -29,3 +29,6 @@ dist/
 !.env.example
 src/pages/DashboardV2_RESPALDO_*.tsx
 supabase/.temp/
+
+# Diagnósticos privados generados para la revisión operativa
+auditoria_flujo_operativo_*.json

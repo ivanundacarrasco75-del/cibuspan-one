@@ -106,9 +106,9 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ORG-03 | Entorno de prueba separado | Por preparar | Alta | URL de ensayo, base de ensayo, accesos y envíos aislados; app actual sigue operativa. |
 | ORG-04 | Recorrido real por rol | Por revisar | Alta | Iván, pedidos, producción, bodega, facturación, KAM y mercaderista completan sus tareas. |
 | ORG-05 | Catálogo de indicadores y fuentes | Por revisar | Alta | Cada KPI tiene fórmula y fuente únicas y resultados conciliados. |
-| ORG-06 | Pedidos/planificación/producción | Accesos diagnosticados | Alta | Pedido no se duplica y consumo/alta de PT ocurre una vez. |
-| ORG-07 | Stock/Kardex/saldos iniciales/importación | Accesos diagnosticados | Alta | MP/PT concilian con movimientos y corte; ajustes trazables. |
-| ORG-08 | Preparación/despacho/documentos/devolución | Accesos diagnosticados | Alta | Flujo completo sin doble descarga de stock y retorno controlado. |
+| ORG-06 | Pedidos/planificación/producción | Recorrido de código diagnosticado; pendiente servidor y usuarios | Alta | Pedido no se duplica y consumo/alta de PT ocurre una vez. |
+| ORG-07 | Stock/Kardex/saldos iniciales/importación | Recorrido de código diagnosticado; pendiente conciliación real | Alta | MP/PT concilian con movimientos y corte; ajustes trazables. |
+| ORG-08 | Preparación/despacho/documentos/devolución | Recorrido de código diagnosticado; pendiente servidor y regla de parcial | Alta | Flujo completo sin doble descarga de stock y retorno controlado. |
 | ORG-09 | Ventas/descuentos/acuerdos/correos | Por revisar en vivo | Alta | Fuente comercial clara, correo de empresa activado y no duplica descuentos. |
 | ORG-10 | Visitas/rotación/revisión/supervisión/KAM | Estructura diagnosticada | Alta | Separar registrar, revisar y analizar; conservar registros diarios y datos manuales. |
 | ORG-11 | Facturas/CxP/pagos/historial | Accesos diagnosticados | Alta | Mismo documento, vistas diferenciadas y saldo conciliado. |
@@ -155,7 +155,7 @@ flowchart TD
 
 ## Próxima tarea
 
-Iván indicó «ok, empecemos» el 23/10/2026: usar los siete bloques como base de trabajo. Precisar responsables y límites durante la revisión. Recorrer la app por bloque con su usuario real, empezando por pedido → producción → stock → despacho, y contrastar datos y tareas. No empezar por diseñar otra portada ni borrar pantallas: primero decidir el lugar y estado de cada proceso. La información de revisión se irá registrando con los IDs ORG, no sólo en mensajes de chat.
+Iván indicó «ok, empecemos» el 23/10/2026: usar los siete bloques como base de trabajo. Ya se recorrió el código de pedido → producción → stock → despacho; ver docs/AUDITORIA_FLUJO_OPERATIVO.md. Próximo paso: obtener el diagnóstico de sólo lectura del servidor con scripts/Exportar-AuditoriaOperativa.ps1, contrastar sus funciones con los hallazgos OP y validar el proceso con usuarios. Precisar responsables y regla de entrega parcial. No empezar por diseñar otra portada ni borrar pantallas: primero cerrar estas conexiones. La información de revisión se registra con los IDs ORG y OP, no sólo en mensajes de chat.
 
 ## Apéndice: inventario de submenús actual
 
@@ -218,3 +218,5 @@ Iván indicó «ok, empecemos» el 23/10/2026: usar los siete bloques como base 
 | Administración · Sistema | Sistema | `PantallaEnConstruccion titulo={pantalla}` | En construcción |
 
 Inicio abre DashboardV2 y no está incluido entre las 53 opciones de submenú.
+
+Avance 23/10/2026: ver docs/AUDITORIA_FLUJO_OPERATIVO.md. Se rastrearon páginas/repositorios/SQL disponibles; faltan definiciones reales de funciones base. Preparada consulta de sólo lectura y exportador. Etapa 3 sigue abierta; no se alteró la app.

@@ -16,7 +16,8 @@ Antes de programar, consulta la rama main actual y lee, en este orden:
 1. AGENTS.md.
 2. CONTINUIDAD_CIBUSPAN_ONE.md, especialmente las entradas más recientes.
 3. docs/AUDITORIA_ESTRUCTURA_CIBUSPAN_ONE.md.
-4. Los archivos del proceso concreto que vayas a revisar o modificar.
+4. docs/AUDITORIA_FLUJO_OPERATIVO.md, con la revisión del circuito operativo realizada el 23/10/2026.
+5. Los archivos del proceso concreto que vayas a revisar o modificar.
 
 No empieces otro sistema ni reconstruyas desde ZIP, capturas o recuerdos. Comprueba HEAD remoto, estado local y diferencias. Puede existir un checkout local cuyo HEAD sea anterior, pero que ya contenga archivos de commits enviados por el conector GitHub: no descartes esos cambios ni vuelvas a subir una versión antigua. Si hay diferencias, compáralas con main antes de actuar.
 
@@ -52,11 +53,15 @@ Faltan auditoría funcional con usuarios, revisión de fuentes/cálculos, depend
 
 ## 4. Tarea inmediata: empieza aquí
 
-Revisa el recorrido pedido → planificación → producción/consumo → inventario/Kardex → preparación/despacho, antes de cambiar pantallas.
+El recorrido pedido → planificación → producción/consumo → inventario/Kardex → preparación/despacho ya tiene una revisión de código y matriz en docs/AUDITORIA_FLUJO_OPERATIVO.md. No repetir esa revisión desde cero. La etapa 3 sigue abierta: faltan las definiciones instaladas en Supabase y validación con usuarios.
+
+Se preparó scripts/Exportar-AuditoriaOperativa.ps1: consulta sólo catálogos mediante supabase/diagnosticos/auditoria_flujo_operativo.sql y genera auditoria_flujo_operativo_FECHA_HORA.json, fuera de Git. No es una migración, no requiere publicar y no cambia datos. Si Iván adjunta ese archivo, leer primero las funciones/vistas/triggers/restricciones reales y contrastarlas con los hallazgos OP-01 a OP-11. Si aún no lo ejecutó, indicarle el bloque exacto del informe; no pedir reimportar datos ni ejecutar db push.
+
+Hallazgos clave: importador de OP históricas registra información analítica, no stock en su SQL versionado; guardado de pedido usa cabecera/detalles en solicitudes separadas; entrada manual de lote usa leer/sumar/escribir; UI de despacho parcial anuncia cierre del pedido. Son hallazgos de código, no prueba de duplicados o saldos erróneos reales. Faltan SQL centrales de producción/FEFO en el repositorio. Primera adaptación propuesta tras leer servidor: guardado transaccional de pedido con regla de numeración y reintentos, sin implementarlo a ciegas.
 
 Lee las páginas PedidosV2, ProduccionV2, InventarioV2, KardexInventario, DespachosV2, HistorialDespachos y sus repositorios pedidoRepository, produccionRepository, inventarioRepository, kardexRepository y despachoRepository; luego sigue sus RPC/migraciones y dependencias. No presupongas que los nombres reflejan toda la lógica.
 
-Entrega una matriz concreta con:
+Completa la matriz existente con:
 
 - Paso del proceso y usuario responsable.
 - Pantalla, origen del dato y tablas/RPC realmente utilizados.
@@ -92,4 +97,4 @@ Correos de descuentos: código y SQL preparados, pero instalación/activación r
 
 ## 7. Cómo arrancar tu respuesta
 
-Confirma en pocas líneas el estado realmente leído de main y el próximo entregable. Empieza la revisión del recorrido operativo indicado. No vuelvas a pedirme todo el contexto ni propongas empezar desde cero. Mantén un registro en archivos del proyecto para que otro chat continúe desde el mismo punto.
+Confirma en pocas líneas el estado realmente leído de main y el próximo entregable. Continúa la revisión desde las definiciones del servidor y los hallazgos ya documentados; no repitas desde cero la auditoría del código. No vuelvas a pedirme todo el contexto ni propongas empezar desde cero. Mantén un registro en archivos del proyecto para que otro chat continúe desde el mismo punto.
