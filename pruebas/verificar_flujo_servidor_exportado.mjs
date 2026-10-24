@@ -11,7 +11,8 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
-const probarConsumo = process.env.CIBUSPAN_PROBAR_CONSUMO === '1'
+const probarArranque = process.env.CIBUSPAN_PROBAR_ARRANQUE === '1'
+const probarConsumo = process.env.CIBUSPAN_PROBAR_CONSUMO === '1' || probarArranque
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const nombreSQL = nombre => '"' + nombre.replaceAll('"', '""') + '"'
 const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_primas',
@@ -488,6 +489,202 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         assert.equal((await db.query("select count(*) n from pg_trigger where tgname='pro_consumos_al_confirmar' and tgenabled='O'")).rows[0].n,1)
         await db.exec("update materias_primas set activo=true; update inv_kardex_movimientos set fecha=current_date-30 where tipo='MATERIA_PRIMA' and clase='SALDO_INICIAL'")
         await seguroMp(203);assert.equal(await saldo(),mp-20)
+      })
+    }
+    if (probarArranque) {
+      const sql=await readFile(new URL('../supabase/migrations/202610240001_arranque_operativo.sql',import.meta.url),'utf8')
+      const antes={pt:await cantidad(),mp:Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='MATERIA_PRIMA'")).rows[0].n)}
+      await db.exec(sql)
+      assert.deepEqual({pt:await cantidad(),mp:Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='MATERIA_PRIMA'")).rows[0].n)},antes)
+      const hoyC=(await db.query("select (now() at time zone 'America/Guayaquil')::date::text f")).rows[0].f
+      const ayerC=(await db.query("select ((now() at time zone 'America/Guayaquil')::date-1)::text f")).rows[0].f
+      const catalogo=async()=>(await db.query('select inv_arranque_catalogo() r')).rows[0].r
+      const datosCorte=async()=>{
+        const b=await catalogo()
+        return {version:1,nota:'Conteo físico de ensayo revisado por administrador',
+          mp:b.mp.map(a=>({id:a.id,unidad:a.unidad,cantidad:50})),
+          pt:b.pt.map(a=>({id:a.id,total:30,lotes:[{id:b.lotes_pt.find(l=>l.producto_id===a.id).id,lote:b.lotes_pt.find(l=>l.producto_id===a.id).lote,fecha_produccion:ayerC,fecha_vencimiento:'2099-12-31',cantidad:30}]})),
+          semi:b.semi.map(a=>({id:a.id,total:0,lotes:[]}))}
+      }
+      const prever=async(d,fecha=hoyC)=>(await db.query('select inv_arranque_prever($1,$2::jsonb) r',[fecha,JSON.stringify(d)])).rows[0].r
+      const aplicar=async(d,v,n=301,fecha=hoyC,usuario=id(1))=>(await db.query('select inv_arranque_confirmar($1,$2,$3::jsonb,$4,true,true,$5) r',[id(n),fecha,JSON.stringify(d),v.token,usuario])).rows[0].r
+      const resolverC=async n=>(await db.query('select inv_arranque_resolver($1,$2) r',[id(n),id(1)])).rows[0].r
+      const saldoMP=async()=>Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='MATERIA_PRIMA' and articulo_id=$1",[id(11)])).rows[0].n)
+      const casoC=(nombre,fn)=>caso(nombre,async()=>{
+        // Datos antiguos aislados para probar apertura hoy; no son operaciones reales.
+        await db.query('update inventario_lotes set fecha_produccion=$1,fecha_ingreso_bodega=$1',[ayerC])
+        await db.query('update producciones set fecha_produccion_general=$1',[ayerC])
+        await db.query('update produccion_detalles set fecha_produccion=$1',[ayerC])
+        await db.query("update inv_kardex_movimientos set fecha=case when clase='SALDO_INICIAL' then date '2026-09-30' else $1::date end",[ayerC])
+        await db.exec(`insert into inv_respaldos_inicio(id) values('${id(800)}');
+          insert into inv_cargas_iniciales(id,archivo,archivo_hash,seleccion_hash,fecha_corte,lineas,datos,creado_por)
+          values('${id(801)}','Anterior.xlsx','hash','seleccion','2026-09-30',1,'[]','${id(1)}');
+          insert into inv_inicio_octubre(unico,fecha_corte,respaldo_id,carga_id) values(true,'2026-09-30','${id(800)}','${id(801)}');`)
+        await fn()
+      })
+      await casoC('Vista previa es READ ONLY y no altera existencias ni el inicio anterior',async()=>{
+        const d=await datosCorte(),pt=await cantidad(),mp=await saldoMP()
+        await db.exec('set transaction read only')
+        const v=await prever(d);assert.equal(v.puede_aplicar,true);assert.equal(v.lineas.length,2)
+        assert.equal(await cantidad(),pt);assert.equal(await saldoMP(),mp)
+      })
+      await casoC('Aplicar cuadra físico/Kardex sin borrar historia ni pedidos; misma solicitud recupera resultado',async()=>{
+        await crearPedido();const d=await datosCorte(),v=await prever(d)
+        const ids=(await db.query('select id from inv_kardex_movimientos order by id')).rows.map(x=>x.id)
+        const a=await aplicar(d,v);assert.equal(a.estado,'APLICADO');assert.equal(await cantidad(),30);assert.equal(await saldoMP(),50)
+        assert.equal(Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='PRODUCTO_TERMINADO'")).rows[0].n),30)
+        assert.deepEqual((await db.query('select id from inv_kardex_movimientos where id=any($1::bigint[]) order by id',[ids])).rows.map(x=>x.id),ids)
+        assert.equal((await db.query("select estado from pedidos where id='PED-ENSAYO'")).rows[0].estado,'INGRESADO')
+        assert.equal((await aplicar(d,v)).repetido,true);assert.equal(await cantidad(),30);assert.equal(await saldoMP(),50)
+        assert.equal((await resolverC(301)).estado,'APLICADO')
+        await rechazaSinAbortar(()=>aplicar(d,v,302),/Ya existe/)
+      })
+      await casoC('Cambios de stock o pedidos invalidan la vista previa sin aplicar nada',async()=>{
+        const d=await datosCorte(),v=await prever(d),pt=await cantidad()
+        await crearPedido()
+        await rechazaSinAbortar(()=>aplicar(d,v),/cambiaron/);assert.equal(await cantidad(),pt)
+        const v2=await prever(d)
+        await db.exec('update inventario_lotes set cantidad=cantidad+1')
+        await rechazaSinAbortar(()=>aplicar(d,v2),/cambiaron/)
+        assert.equal((await db.query('select count(*) n from inv_arranque_cortes')).rows[0].n,0)
+      })
+      await casoC('Reservas activas bloquean el corte y no se liberan silenciosamente',async()=>{
+        await crearPedido();await preparar();const d=await datosCorte(),v=await prever(d)
+        assert.equal(v.puede_aplicar,false);assert.ok(v.bloqueos.length)
+        await rechazaSinAbortar(()=>aplicar(d,v),/reservas activas/)
+        assert.equal((await db.query("select count(*) n from reservas_inventario where estado='ACTIVA'")).rows[0].n,1)
+      })
+      await casoC('No contado no es cero; cobertura, unidades, fechas y suma de lotes son obligatorias',async()=>{
+        const d=await datosCorte()
+        for(const mala of [{...d,mp:[]},{...d,mp:[{...d.mp[0],cantidad:null}]},{...d,mp:[{...d.mp[0],unidad:'L'}]},
+          {...d,pt:[{...d.pt[0],total:31}]},{...d,pt:[{...d.pt[0],lotes:[{...d.pt[0].lotes[0],fecha_produccion:hoyC}]}]}]) {
+          await rechazaSinAbortar(()=>prever(mala),()=>true)
+        }
+        await rechazaSinAbortar(()=>prever(d,'2099-01-01'),/hoy o mañana/)
+      })
+      await casoC('Conteo cero explícito deja cero sin eliminar lotes ni fabricar',async()=>{
+        const d=await datosCorte();d.mp[0].cantidad=0;d.pt[0].total=0;d.pt[0].lotes=[]
+        const n=(await db.query('select count(*) n from producciones')).rows[0].n
+        await aplicar(d,await prever(d));assert.equal(await cantidad(),0);assert.equal(await saldoMP(),0)
+        assert.ok((await db.query('select count(*) n from inventario_lotes')).rows[0].n>0)
+        assert.equal((await db.query('select count(*) n from producciones')).rows[0].n,n)
+      })
+      await casoC('Frontera rechaza consumo/edición retroactiva y GUC inventado; permite fabricación nueva',async()=>{
+        const d=await datosCorte();await aplicar(d,await prever(d))
+        await rechazaSinAbortar(()=>db.exec("select set_config('cibuspan.inicio_octubre','falso',true); insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) select 'MATERIA_PRIMA',id,date '2026-10-01','SALIDA',-1,'Viejo','Ensayo' from materias_primas"),/cerrado/)
+        await rechazaSinAbortar(()=>db.exec("update produccion_detalles set unidades=unidades+1"),/cerrado/)
+        assert.equal(await cantidad(),30);assert.equal(await saldoMP(),50)
+        const consumo={version:1,confirmado:true,referenciaReceta:'Real ensayo',observaciones:'',lineas:[{materiaPrimaId:id(11),unidad:'KG',cantidad:10}]}
+        await db.query('select registrar_produccion_segura($1,$2,$3::jsonb,$4)',[id(399),hoyC,JSON.stringify([detalleProduccion({fecha_produccion:hoyC,consumo_mp:consumo})]),id(1)])
+        assert.equal(await cantidad(),80);assert.equal(await saldoMP(),40)
+      })
+      await casoC('Resolver ausencia sella el intento y bloquea su llegada atrasada',async()=>{
+        const d=await datosCorte(),v=await prever(d),pt=await cantidad()
+        assert.equal((await resolverC(301)).estado,'ANULADO')
+        await rechazaSinAbortar(()=>aplicar(d,v),/cerrado sin aplicar/);assert.equal(await cantidad(),pt)
+        await aplicar(d,v,302);assert.equal(await cantidad(),30)
+      })
+      await casoC('Sólo administrador activo aplica; solicitudes privadas no aceptan acceso directo',async()=>{
+        const d=await datosCorte(),v=await prever(d)
+        await db.exec("update app_profiles set rol='BODEGUERO'; set role authenticated")
+        await rechazaSinAbortar(()=>aplicar(d,v),e=>e.code==='42501')
+        await rechazaSinAbortar(()=>db.exec('select * from inv_arranque_cortes'),e=>e.code==='42501')
+        await rechazaSinAbortar(()=>db.exec('select inv_arranque_base()'),e=>e.code==='42501')
+        await db.exec('reset role; set role anon')
+        await rechazaSinAbortar(()=>prever(d),e=>e.code==='42501')
+      })
+      await casoC('Confirmación humana, sesión esperada, perfil activo y UID real son obligatorios',async()=>{
+        const d=await datosCorte(),v=await prever(d),pt=await cantidad()
+        await rechazaSinAbortar(()=>db.query('select inv_arranque_confirmar($1,$2,$3::jsonb,$4,false,true,$5)',[id(301),hoyC,JSON.stringify(d),v.token,id(1)]),/Confirma/)
+        await rechazaSinAbortar(()=>aplicar(d,v,301,hoyC,id(2)),e=>e.code==='42501')
+        await db.exec('update app_profiles set activo=false;set role authenticated')
+        await rechazaSinAbortar(()=>aplicar(d,v),e=>e.code==='42501')
+        await db.exec("reset role;update app_profiles set activo=true;select set_config('ensayo.usuario','',true);set role service_role")
+        await rechazaSinAbortar(()=>aplicar(d,v,301,hoyC,null),e=>e.code==='42501')
+        await db.exec('reset role');assert.equal(await cantidad(),pt)
+      })
+      await casoC('MP nueva recibe base cero sin romper el cierre fijo anterior de septiembre',async()=>{
+        const d=await datosCorte();await aplicar(d,await prever(d))
+        await db.exec(`insert into materias_primas(id,codigo,nombre,unidad_base,activo) values('${id(999)}','NUEVA','Nueva MP','KG',true)`)
+        const m=(await db.query('select fecha,cantidad,clase from inv_kardex_movimientos where articulo_id=$1',[id(999)])).rows[0]
+        assert.equal(m.clase,'SALDO_INICIAL');assert.equal(Number(m.cantidad),0)
+      })
+      await casoC('Apertura mañana bloquea stock hoy y permite continuar con pedidos',async()=>{
+        const manana=(await db.query("select ((now() at time zone 'America/Guayaquil')::date+1)::text f")).rows[0].f
+        const d=await datosCorte();await aplicar(d,await prever(d,manana),301,manana)
+        await rechazaSinAbortar(()=>db.exec('update inventario_lotes set cantidad=cantidad+1'),/inicia/)
+        await crearPedido();assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,1)
+        await rechazaSinAbortar(()=>db.exec('truncate producciones cascade'),/No se vacían/)
+      })
+      await casoC('MP antigua no conciliada no contamina la validación del período nuevo',async()=>{
+        await db.query("insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) values('MATERIA_PRIMA',$1,'2026-10-01','SALIDA',-150,'Histórico incompleto','Ensayo')",[id(11)])
+        const d=await datosCorte();await aplicar(d,await prever(d));assert.equal(await saldoMP(),50)
+        await db.query("insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) values('MATERIA_PRIMA',$1,$2,'SALIDA',-10,'Consumo nuevo','Ensayo')",[id(11),hoyC])
+        await db.query('select inv_kardex_validar_mp($1)',[id(11)]);assert.equal(await saldoMP(),40)
+        await rechazaSinAbortar(async()=>{
+          await db.query("insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) values('MATERIA_PRIMA',$1,$2,'SALIDA',-41,'Exceso nuevo','Ensayo')",[id(11),hoyC])
+          await db.query('select inv_kardex_validar_mp($1)',[id(11)])
+        },/negativo/);assert.equal(await saldoMP(),40)
+      })
+      await casoC('Descuadre previo PT se concilia una sola vez sin duplicar físico',async()=>{
+        await db.exec("insert into inv_kardex_movimientos(tipo,articulo_id,fecha,clase,cantidad,motivo,responsable) select 'PRODUCTO_TERMINADO',id,date '2026-10-01','SISTEMA',7,'Descuadre ensayo','Ensayo' from productos")
+        const d=await datosCorte();await aplicar(d,await prever(d))
+        assert.equal(await cantidad(),30)
+        assert.equal(Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='PRODUCTO_TERMINADO'")).rows[0].n),30)
+        assert.equal(Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where motivo='Conciliación de Kardex previo con el físico de arranque'")).rows[0].n),-7)
+      })
+      await casoC('Semielaborados conservan conversiones; lote nuevo del conteo también queda protegido',async()=>{
+        await db.exec(`insert into semielaborado_tipos(id,producto_base_id,nombre,activo) values('${id(50)}','${id(10)}','Semi ensayo',true)`)
+        await db.query('insert into inventario_semielaborados(id,semielaborado_tipo_id,fecha_produccion,lote_interno,cantidad_inicial,creado_por) values($1,$2,$3,$4,20,$5)',[id(51),id(50),ayerC,'SEM-REAL',id(1)])
+        const lp=(await db.query('select id from inventario_lotes limit 1')).rows[0].id
+        await db.query('insert into conversiones_semielaborados(id,inventario_semielaborado_id,producto_final_id,cantidad,fecha_elaboracion_etiqueta,lote_final,fecha_vencimiento,inventario_lote_id,creado_por) values($1,$2,$3,5,$4,$5,$6,$7,$8)',[id(52),id(51),id(10),ayerC,'ENSAYO','2099-12-31',lp,id(1)])
+        const d=await datosCorte();d.semi[0]={id:id(50),total:10,lotes:[{id:id(51),cantidad:7,fecha_produccion:ayerC,lote_interno:'SEM-REAL'},{id:id(53),cantidad:3,fecha_produccion:ayerC,lote_interno:'OTRO-REAL'}]}
+        d.pt[0].lotes=[{...d.pt[0].lotes[0],id:id(54),lote:'LOTE-NUEVO'}]
+        await aplicar(d,await prever(d))
+        assert.equal((await db.query('select cantidad_inicial from inventario_semielaborados where id=$1',[id(51)])).rows[0].cantidad_inicial,12)
+        assert.equal((await db.query('select cantidad from conversiones_semielaborados where id=$1',[id(52)])).rows[0].cantidad,5)
+        assert.equal(Number((await db.query('select sum(cantidad_disponible) n from stock_semielaborados')).rows[0].n),10)
+        await rechazaSinAbortar(()=>db.query("update inventario_semielaborados set lote_interno='CAMBIO' where id=$1",[id(53)]),/identidad/)
+        await rechazaSinAbortar(()=>db.query("update inventario_lotes set lote='CAMBIO' where id=$1",[id(54)]),/identidad/)
+      })
+      await casoC('Lote archivado contado puede reabrirse sólo durante el corte privado',async()=>{
+        // Sólo prepara el estado anterior aislado; la protección vuelve antes del corte.
+        const trig=(await db.query("select tgname from pg_trigger where tgrelid='inventario_lotes'::regclass and tgfoid='inv_inicio_proteger_lote()'::regprocedure")).rows[0].tgname
+        await db.exec(`alter table inventario_lotes disable trigger ${nombreSQL(trig)}`)
+        await db.query('update inventario_lotes set inv_archivo_id=$1',[id(800)])
+        await db.exec(`alter table inventario_lotes enable trigger ${nombreSQL(trig)}`)
+        const d=await datosCorte();await aplicar(d,await prever(d));assert.equal(await cantidad(),30)
+        assert.equal((await db.query('select inv_archivo_id from inventario_lotes limit 1')).rows[0].inv_archivo_id,null)
+        await rechazaSinAbortar(()=>db.exec("select set_config('cibuspan.arranque.operativo','si',true);update inventario_lotes set fecha_vencimiento='2099-12-30'"),/identidad/)
+      })
+      await casoC('Error al final revierte todo el corte, ajustes MP incluidos',async()=>{
+        const d=await datosCorte(),v=await prever(d),mp=await saldoMP(),pt=await cantidad()
+        await db.exec("create function ensayo_fallo_corte() returns trigger language plpgsql as $$begin raise exception 'Fallo tardío de ensayo';end$$;create trigger zz_ensayo_fallo before update on inventario_lotes for each row execute function ensayo_fallo_corte()")
+        await rechazaSinAbortar(()=>aplicar(d,v),/Fallo tardío/)
+        assert.equal(await saldoMP(),mp);assert.equal(await cantidad(),pt)
+        assert.equal((await db.query('select count(*) n from inv_arranque_cortes')).rows[0].n,0)
+        assert.equal((await db.query('select count(*) n from inv_arranque_solicitudes')).rows[0].n,0)
+      })
+      await casoC('Instalaciones repetidas conservan corte, saldos y controles; diagnóstico sólo lee metadatos',async()=>{
+        const d=await datosCorte();await aplicar(d,await prever(d))
+        const antes=(await db.query('select inv_arranque_reporte() r')).rows[0].r
+        // Mantiene el aislamiento del caso; BEGIN/COMMIT externos pertenecen al instalador.
+        const dentro=s=>s.replace(/^begin;\r?$/mi,'').replace(/^commit;\r?$/mi,'')
+        await db.exec(dentro(sql.replaceAll('\n','\r\n')))
+        for(const nombre of ['202610230001_autorizacion_operativa.sql','202610230002_registro_produccion_seguro.sql','202610230003_consumo_mp_produccion.sql'])await db.exec(dentro(await readFile(new URL('../supabase/migrations/'+nombre,import.meta.url),'utf8')))
+        assert.deepEqual((await db.query('select inv_arranque_reporte() r')).rows[0].r,antes)
+        assert.equal(await cantidad(),30);assert.equal(await saldoMP(),50)
+        const diag=await readFile(new URL('../supabase/diagnosticos/verificar_arranque_operativo.sql',import.meta.url),'utf8')
+        await db.exec('set transaction read only')
+        const r=(await db.query(diag)).rows[0].arranque_operativo
+        assert.deepEqual(r.pendientes,[]);assert.equal(r.correcto,true)
+      })
+      await casoC('Diagnóstico detecta guardia deshabilitada y permiso anónimo',async()=>{
+        const diag=await readFile(new URL('../supabase/diagnosticos/verificar_arranque_operativo.sql',import.meta.url),'utf8')
+        await db.exec('alter table inventario_lotes disable trigger inv_arranque_periodo;grant execute on function inv_arranque_confirmar(uuid,date,jsonb,text,boolean,boolean,uuid) to anon')
+        const r=(await db.query(diag)).rows[0].arranque_operativo
+        assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('periodo:inventario_lotes'))
+        assert.ok(r.pendientes.includes('public.inv_arranque_confirmar(uuid,date,jsonb,text,boolean,boolean,uuid)'))
       })
     }
   } finally { await db.close() }

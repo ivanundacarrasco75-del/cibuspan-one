@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import CrearArticuloInventario from "../components/inventario/CrearArticuloInventario"
+import ArranqueOperativo from "../components/inventario/ArranqueOperativo"
+import { consultarArranqueOperativo } from "../repositories/arranqueOperativoRepository"
+import type { EstadoArranque } from "../utils/arranqueOperativo"
 import { catalogoKardex, consultarKardex, registrarMovimientoKardex, cargarInventarioInicial,
   consultarInicioOctubre, iniciarOctubre, descargarRespaldoInicio,
   type InicioOctubre, type ConsultaKardex, type LoteKardex, type LineaCargaInicial } from "../repositories/kardexRepository"
@@ -18,7 +21,9 @@ export default function KardexInventario() {
   const [tipo, setTipo] = useState<TipoInventario>("MATERIA_PRIMA")
   const [busqueda, setBusqueda] = useState("")
   const [seleccion, setSeleccion] = useState("")
-  const [vista, setVista] = useState<"KARDEX" | "INICIAL">("KARDEX")
+  const [vista, setVista] = useState<"KARDEX" | "INICIAL" | "ARRANQUE">("KARDEX")
+  const [arranque, setArranque] = useState<EstadoArranque | null>(null)
+  const corteMostrado = useRef("")
   const [desde, setDesde] = useState("2026-10-01")
   const [hasta, setHasta] = useState(hoy())
   const [consulta, setConsulta] = useState<ConsultaKardex | null>(null)
@@ -67,11 +72,20 @@ export default function KardexInventario() {
   const errorCarga = errorInicio || incluidos.some((r) => !!problema(r)) || new Set(incluidos.map((r) => r.articulo && clave(r.articulo))).size !== incluidos.length
 
   async function cargarCatalogo() {
-    const [datos, estado] = await Promise.all([catalogoKardex(), consultarInicioOctubre()])
+    const [datos, estado, corteNuevo] = await Promise.all([catalogoKardex(), consultarInicioOctubre(), consultarArranqueOperativo()])
     setArticulos(datos.articulos); setLotes(datos.lotes)
     setInicio(estado)
+    mostrarArranque(corteNuevo)
     if (estado.activo) { setReiniciar(false); setCorte("2026-09-30") }
     return datos
+  }
+  function mostrarArranque(e: EstadoArranque) {
+    setArranque(e)
+    if (e.aplicado && e.fecha_inicio && corteMostrado.current !== e.fecha_inicio) {
+      corteMostrado.current = e.fecha_inicio; setDesde(e.fecha_inicio)
+      setHasta(h => h < e.fecha_inicio! ? e.fecha_inicio! : h)
+      setVista(v => v === "INICIAL" ? "KARDEX" : v)
+    }
   }
   useEffect(() => { setCargando(true); void cargarCatalogo().catch((e) => setError(e.message)).finally(() => setCargando(false)) }, [])
   useEffect(() => {
@@ -163,6 +177,7 @@ export default function KardexInventario() {
     setAltaFila(null); setConfirmarCarga(false); setMensaje("Artículo disponible y vinculado. El stock se guardará al confirmar la carga.")
   }
   async function cargarInicial() {
+    if (arranque?.aplicado) { setError("El arranque físico ya está confirmado. Usa movimientos del período vigente en el Kardex."); return }
     if (guardando || errorCarga || !unidadConfirmada || !incluidos.length || !confirmarCarga) return
     setGuardando(true); setError(""); setMensaje("")
     try {
@@ -183,11 +198,14 @@ export default function KardexInventario() {
     <style>{css}</style><header><div><small>INVENTARIO Y BODEGA</small><h1>Kardex</h1><p>Saldo inicial, entradas, salidas y ajustes por artículo.</p></div>
       <button disabled={guardando || cargando} onClick={() => void actualizar()}>Actualizar</button></header>
     <nav><button disabled={guardando} className={vista === "KARDEX" ? "activo" : ""} onClick={() => setVista("KARDEX")}>Revisar artículos</button>
-      <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Cargar saldo inicial</button></nav>
+      {!arranque?.aplicado && <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Saldo histórico de septiembre</button>}
+      <button disabled={guardando} className={vista === "ARRANQUE" ? "activo" : ""} onClick={() => setVista("ARRANQUE")}>Preparar arranque</button></nav>
     {error && <p role="alert" className="error">{error}</p>}{mensaje && <p role="status" className="exito">{mensaje}</p>}
-    {inicio?.activo && <section><p>Inicio operativo: 01/10/2026 · Saldo inicial: 30/09/2026. Inventario en reconstrucción: el saldo será provisional mientras completas los movimientos de octubre.</p>
+    {arranque?.aplicado && <section><p>Inicio operativo: {arranque.fecha_inicio} · Conteo al cierre: {arranque.fecha_cierre}. El historial anterior se conserva como período no conciliado.</p>
+      {vista === "KARDEX" && desde && desde < arranque.fecha_inicio! && <p className="pendiente">El rango incluye movimientos previos al arranque; esos datos históricos no están conciliados.</p>}</section>}
+    {!arranque?.aplicado && inicio?.activo && <section><p>Inventario histórico desde el 01/10/2026, aún provisional. Prepara el conteo físico en Preparar arranque para iniciar el control con existencias verificadas.</p>
       {inicio.puede_descargar && <button disabled={guardando} onClick={() => void descargarRespaldoInicio(inicio.respaldo_id!).catch((e) => setError(e.message))}>Descargar respaldo anterior</button>}</section>}
-    {vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
+    {vista === "ARRANQUE" ? <ArranqueOperativo onEstado={e => { const recargar = e.aplicado && !arranque?.aplicado; mostrarArranque(e); if (recargar) void actualizar() }} /> : vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
       <p>Los artículos se vinculan automáticamente por código. Revisa las filas pendientes, las sucursales y las unidades.</p>
       <p>Para producto terminado se genera un lote de referencia y se usa el cierre como fecha de producción estimada. El vencimiento se calcula con la vida útil del SKU en el catálogo. Puedes corregir las fechas y dividir la cantidad entre lotes.</p>
       <p>La carga habitual añade saldos y bloquea artículos con movimientos. La opción de inicio de octubre respalda y sustituye el inventario anterior. La carga no sustituye la importación de costos de Compras.</p>
