@@ -1,6 +1,6 @@
 # Consumo de materias primas al registrar producción
 
-23/10/2026. OP-07, primer alcance: código preparado y probado; pendiente instalar SQL 202610230003 y publicar frontend. OP-12 y OP-13 ya instalados/verificados; frontend OP-13 publicado según terminal de Iván. Etapa 3 abierta.
+Estado actualizado con resultado recibido el 24/10/2026. OP-07, primer alcance de nuevas producciones: instalado, verificado y publicado según Texto pegado(5).txt. Descargó main f11fe8a, compiló, superó los tres verificadores, registró 202610230003 y publicó Cloudflare 7faeb857. OP-12 y OP-13 conservados. Validación operativa por usuarios y regularización histórica pendientes; etapa 3 abierta.
 
 ## Uso diario
 
@@ -44,7 +44,13 @@ No reemplaza cuerpos del servidor exportados ni modifica las firmas o controles 
 
 El instalador compila primero, aplica sólo 202610230003, consulta los diagnósticos de autorización, registro seguro y consumo, exige JSON/versión/correcto=true de cada uno, registra sólo la versión nueva y publica Cloudflare cibuspan-one/main. No npm ci ni db push del historial; no ejecuta operaciones de prueba. Requiere el proyecto Supabase ya vinculado y SQL/frontend juntos. Mientras se publica, un cliente antiguo que intente crear una producción sin consumos recibe error y no modifica inventario. Cerrar y abrir la app al terminar.
 
-Si SQL se aplica y falla verificación, repair o Cloudflare, copiar el error y terminar el paso pendiente; no retirar las protecciones ni repetir producciones reales. No volver a ejecutar el inicio de octubre. La ejecución real en Windows/Supabase/Cloudflare queda pendiente de terminal de Iván.
+Si SQL se aplica y falla verificación, repair o Cloudflare, copiar el error y terminar el paso pendiente; no retirar las protecciones ni repetir producciones reales. No volver a ejecutar el inicio de octubre. La terminal Texto pegado(5).txt recibida confirma ejecución completa en Windows/Supabase/Cloudflare; no repetir el instalador por los avisos de versión o tamaño de chunks.
+
+## Instalación confirmada por terminal
+
+Resultado recibido el 24/10/2026: Texto pegado(5).txt ejecuta Instalar-ConsumoMpProduccion.ps1, actualiza d12e18b → f11fe8a, compila 281 módulos, supera los verificadores de autorización/registro/consumo, registra migration repair 202610230003 y publica 67 archivos (21 existentes) en https://7faeb857.cibuspan-one.pages.dev. Mensaje final: «Consumo MP instalado, verificado y publicado; autorizacion y reintentos conservados.» No faltan comandos de instalación/publicación de este alcance. Cerrar y abrir la app antes de la próxima fabricación nueva; no reingresar producciones anteriores como prueba.
+
+El aviso de Wrangler sobre cambios locales no bloqueó la publicación. No se inspeccionaron esas diferencias; no descartarlas automáticamente ni suponer un checkout limpio. Los avisos de CLI y chunks no fueron errores de instalación.
 
 ## Evidencia
 
@@ -52,6 +58,6 @@ Si SQL se aplica y falla verificación, repair o Cloudflare, copiar el error y t
 
 La utilidad prueba propuestas, consolidación, falta de referencia/unidad, gramos, empaques fraccionados, exclusión de empaque en semielaborados, validación manual y conservación del consumo/versiones tras pérdida de respuesta. El comprobante previo sin consumo se recupera sin reescribir el pasado.
 
-Ensayo: CIBUSPAN_PROBAR_CONSUMO=1, CIBUSPAN_AUDIT_FILE con el TXT/JSON privado y CIBUSPAN_SQL_TEST_MODULE si PGlite está fuera del proyecto. No se publica ese archivo. El escenario sigue modelando defaults, permisos y dependencias auxiliares no completas; para el cambio de rendimiento se modelan tablas vacías de auditoría/despacho/empaque. No certifica concurrencia HTTP, todos los RLS, saldos reales, recorridos visuales o aceptación del usuario. No se probó contra producción real ni se anuncia instalación/publicación hasta recibir el resultado del instalador.
+Ensayo: CIBUSPAN_PROBAR_CONSUMO=1, CIBUSPAN_AUDIT_FILE con el TXT/JSON privado y CIBUSPAN_SQL_TEST_MODULE si PGlite está fuera del proyecto. No se publica ese archivo. El escenario sigue modelando defaults, permisos y dependencias auxiliares no completas; para el cambio de rendimiento se modelan tablas vacías de auditoría/despacho/empaque. No certifica concurrencia HTTP, todos los RLS, saldos reales, recorridos visuales o aceptación del usuario. Las pruebas de fabricación descritas se ejecutaron localmente. Texto pegado(5).txt confirma ahora instalación, verificación y publicación reales por Iván; no equivale a aceptación de una fabricación real ni a ensayo concurrente en vivo.
 
-Siguiente paso: instalar/publicar y comprobar terminal; después regularizar consumos históricos con evidencia real y precisar automatización de empaque/micros. Pedido transaccional y reglas de parcial/numeración/stock mínimo continúan pendientes. La reorganización de menús sigue en pausa durante estas conexiones.
+Siguiente paso: validar el circuito cuando ocurra una nueva producción real y preparar la regularización de consumos históricos con evidencia real, sin repetir fabricación ni aplicar movimientos todavía en esa preparación; precisar automatización de empaque/micros. Pedido transaccional y reglas de parcial/numeración/stock mínimo continúan pendientes. La reorganización de menús sigue en pausa durante estas conexiones.
