@@ -5,7 +5,6 @@ import {
   obtenerRegistrosPedidoPendientesDb,
   reintentarRegistroPedidoDb,
   resolverRegistroPedidoDb,
-  eliminarPedidoIngresadoDb,
   obtenerBodegasClienteDb,
   obtenerClientesPedidoDb,
   obtenerDetallePedidoDb,
@@ -18,6 +17,9 @@ import {
   type ProductoPedidoDb,
 } from "../repositories/pedidoRepository"
 import ModalMensaje from "../components/ModalMensaje"
+import { useLogisticaSegura } from "../hooks/useLogisticaSegura"
+import IntentosLogistica from "../components/logistica/IntentosLogistica"
+import { preverLogisticaDb } from "../repositories/logisticaSeguraRepository"
 import { RegistroPedidoNoGuardadoError, RegistroPedidoPendienteError, type PedidoRegistrado, type SolicitudPedidoPendiente } from "../utils/registroPedidoSeguro"
 import { extraerPedidosSantamariaCsv } from "../utils/pedidosSantamariaCsv"
 import { esListadoFavorita, interpretarListadoFavorita, leerPedidosFavoritaZip } from "../utils/pedidosFavoritaZip"
@@ -178,6 +180,7 @@ function encontrarBodegaImportacion(
 }
 
 export default function PedidosV2() {
+  const logistica = useLogisticaSegura()
   const archivoFavoritaRef =
     useRef<HTMLInputElement | null>(null)
   const archivoSantamariaRef =
@@ -237,7 +240,7 @@ export default function PedidosV2() {
   const [pedidoParaRestaurar, setPedidoParaRestaurar] = useState<SolicitudPedidoPendiente | null>(null)
   const accionPedido = useRef(false)
   const lecturaPendientes = useRef(0)
-  const bloqueoRegistro = !confirmacionLista || registrosPendientes.length > 0 || guardando || cargandoArchivo
+  const bloqueoRegistro = !confirmacionLista || registrosPendientes.length > 0 || guardando || cargandoArchivo || logistica.bloqueado
 
   const [pedidoVisualizado, setPedidoVisualizado] =
     useState<PedidoListadoDb | null>(null)
@@ -1236,57 +1239,19 @@ export default function PedidosV2() {
     }
   }
 
-  async function eliminarPedido(
-    pedido: PedidoListadoDb,
-  ) {
+  async function eliminarPedido(pedido: PedidoListadoDb) {
     if (accionPedido.current || bloqueoRegistro) return
-    if (pedido.estado !== "INGRESADO") {
-      setError(
-        `El pedido ${pedido.numero_pedido_cliente} está en estado ${pedido.estado} y no puede eliminarse.`,
-      )
-      return
-    }
-
-    const confirmacion = window.confirm(
-      `¿Eliminar definitivamente el pedido ${pedido.numero_pedido_cliente}?\n\nEsta acción eliminará también todos sus productos y no se puede deshacer.`,
-    )
-
-    if (!confirmacion) return
-
-    accionPedido.current = true
-    setMensaje("")
-    setError("")
-    setGuardando(true)
-
+    accionPedido.current = true; setGuardando(true); setMensaje(""); setError("")
     try {
-      const resultado =
-        await eliminarPedidoIngresadoDb(
-          pedido.id,
-        )
-
-      if (pedidoVisualizado?.id === pedido.id) {
-        cerrarDetallePedido()
-      }
-
-      setPedidos((actuales) =>
-        actuales.filter(
-          (item) => item.id !== pedido.id,
-        ),
-      )
-
-      setMensaje(
-        `Pedido ${resultado.numeroPedidoCliente} eliminado correctamente.`,
-      )
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "No se pudo eliminar el pedido.",
-      )
-    } finally {
-      accionPedido.current = false
-      setGuardando(false)
-    }
+      const datos = { pedidoId: pedido.id }, revision = await preverLogisticaDb("ELIMINAR", datos)
+      if (!revision.puede_ejecutar) throw new Error(revision.bloqueos.join(" "))
+      if (!window.confirm(`¿Eliminar definitivamente el pedido ${revision.numero_pedido_cliente || pedido.id}?\n\n${revision.unidades} unidades en ${revision.skus} SKU. Se eliminará el pedido completo con sus productos. Esta acción no se puede deshacer.`)) return
+      const r = await logistica.ejecutar("ELIMINAR", datos, revision)
+      if (pedidoVisualizado?.id === r.pedido_id) cerrarDetallePedido()
+      setPedidos(actuales => actuales.filter(p => p.id !== r.pedido_id))
+      setMensaje(`Eliminación del pedido ${r.resumen.numero_pedido_cliente || r.pedido_id} confirmada${r.repetida ? " sin repetirla" : ""}.`)
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo confirmar la eliminación.") }
+    finally { accionPedido.current = false; setGuardando(false) }
   }
 
   async function verPedido(
@@ -1387,6 +1352,8 @@ export default function PedidosV2() {
         mensaje={error}
         cerrar={() => setError("")}
       />
+
+      <IntentosLogistica control={logistica} ocupado={guardando || cargandoArchivo} onResuelta={() => cargarPantalla()} />
 
       {errorPendientes && <section role="alert" style={{ ...panel, background: "#fff3df" }}><p>{errorPendientes}</p><button type="button" disabled={guardando || cargandoArchivo} onClick={() => void cargarPantalla()}>Volver a comprobar</button></section>}
       {registrosPendientes.length > 0 && <section style={{ ...panel, background: "#fff3df" }} aria-label="Pedidos pendientes de confirmación">

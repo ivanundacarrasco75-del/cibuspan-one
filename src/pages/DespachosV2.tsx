@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
-  activarControlConciliacionDespachoDb,
-  confirmarDespachoDb,
   guardarNumeroFacturaDespachoDb,
   liberarReservaDespachoDb,
   obtenerDetallePedidoDespachoDb,
@@ -17,6 +15,10 @@ import {
   type CantidadDespachoSkuDb,
 } from "../repositories/despachoRepository"
 
+import { useLogisticaSegura } from "../hooks/useLogisticaSegura"
+import IntentosLogistica from "../components/logistica/IntentosLogistica"
+import { preverLogisticaDb } from "../repositories/logisticaSeguraRepository"
+
 type VistaDespachos = "OPERACION" | "HISTORIAL"
 
 function fechaAyer() {
@@ -31,6 +33,8 @@ function fechaAyer() {
 }
 
 export default function DespachosV2() {
+  const logistica = useLogisticaSegura()
+  const accionLogistica = useRef(false), lecturaDetalle = useRef(0), lecturaPedidos = useRef(0)
   const [pedidos, setPedidos] = useState<
     PedidoDespachoDb[]
   >([])
@@ -68,6 +72,7 @@ export default function DespachosV2() {
     useState(false)
   const [procesando, setProcesando] = useState(false)
 
+  const bloqueoOperacion = procesando || logistica.bloqueado || cargando || cargandoDetalle
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
   const [alertaFefo, setAlertaFefo] = useState("")
@@ -79,6 +84,7 @@ export default function DespachosV2() {
   async function cargarPedidos(
     mantenerSeleccion = true,
   ) {
+    const lectura = ++lecturaPedidos.current
     setCargando(true)
     setError("")
 
@@ -86,6 +92,7 @@ export default function DespachosV2() {
       const pedidosDb =
         await obtenerPedidosDespachoDb()
 
+      if (lectura !== lecturaPedidos.current) return
       setPedidos(pedidosDb)
 
       if (
@@ -108,19 +115,23 @@ export default function DespachosV2() {
         }
       }
     } catch (err) {
+      if (lectura !== lecturaPedidos.current) return
       setError(
         err instanceof Error
           ? err.message
           : "No se pudieron cargar los pedidos.",
       )
     } finally {
-      setCargando(false)
+      if (lectura === lecturaPedidos.current) setCargando(false)
     }
   }
 
   async function cargarDetallePedido(
     pedidoId: string,
+    duranteOperacion = false,
   ) {
+    if (!duranteOperacion && (accionLogistica.current || logistica.ocupado)) return
+    const lectura = ++lecturaDetalle.current
     setPedidoSeleccionadoId(pedidoId)
     setCargandoDetalle(true)
     setMensaje("")
@@ -179,6 +190,7 @@ export default function DespachosV2() {
           return acumulado
         }, {})
 
+      if (lectura !== lecturaDetalle.current) return
       setDetallePedido(detallesDb)
       setReservaActiva(reservaDb)
       setNumeroFactura(reservaDb?.numero_factura ?? "")
@@ -187,19 +199,23 @@ export default function DespachosV2() {
         cantidadesIniciales,
       )
     } catch (err) {
+      if (lectura !== lecturaDetalle.current) return
       setError(
         err instanceof Error
           ? err.message
           : "No se pudo cargar el detalle.",
       )
     } finally {
-      setCargandoDetalle(false)
+      if (lectura === lecturaDetalle.current) setCargandoDetalle(false)
     }
   }
 
   async function cargarDetallePedidoHistorial(
     pedidoId: string,
+    duranteOperacion = false,
   ) {
+    if (!duranteOperacion && (accionLogistica.current || logistica.ocupado)) return
+    const lectura = ++lecturaDetalle.current
     setPedidoSeleccionadoId(pedidoId)
     setCargandoDetalle(true)
     setMensaje("")
@@ -221,6 +237,7 @@ export default function DespachosV2() {
           ),
         ])
 
+      if (lectura !== lecturaDetalle.current) return
       setDetallePedido(detallesDb)
       setReservaActiva(reservaDb)
       setNumeroFactura(reservaDb?.numero_factura ?? "")
@@ -231,23 +248,25 @@ export default function DespachosV2() {
             reservaDb.id,
           )
 
+        if (lectura !== lecturaDetalle.current) return
         setDetalleReserva(detallesReservaDb)
       }
     } catch (err) {
+      if (lectura !== lecturaDetalle.current) return
       setError(
         err instanceof Error
           ? err.message
           : "No se pudo cargar el detalle del despacho.",
       )
     } finally {
-      setCargandoDetalle(false)
+      if (lectura === lecturaDetalle.current) setCargandoDetalle(false)
     }
   }
 
   function cambiarVistaDespachos(
     nuevaVista: VistaDespachos,
   ) {
-    if (nuevaVista === vistaDespachos) return
+    if (nuevaVista === vistaDespachos || accionLogistica.current || logistica.ocupado) return
 
     setVistaDespachos(nuevaVista)
     limpiarSeleccion()
@@ -257,6 +276,8 @@ export default function DespachosV2() {
   }
 
   function limpiarSeleccion() {
+    lecturaDetalle.current++
+    setCargandoDetalle(false)
     setPedidoSeleccionadoId("")
     setDetallePedido([])
     setReservaActiva(null)
@@ -563,6 +584,7 @@ export default function DespachosV2() {
   }
 
   async function prepararPedido() {
+    if (accionLogistica.current || bloqueoOperacion) return
     if (!pedidoSeleccionado) return
 
     let cantidades: CantidadDespachoSkuDb[]
@@ -588,6 +610,7 @@ export default function DespachosV2() {
 
     if (!confirmacion) return
 
+    accionLogistica.current = true
     setProcesando(true)
     setMensaje("")
     setError("")
@@ -607,7 +630,7 @@ export default function DespachosV2() {
 
       await cargarPedidos(false)
       await cargarDetallePedido(
-        pedidoSeleccionado.id,
+        pedidoSeleccionado.id, true,
       )
     } catch (err) {
       const mensajeErrorFefo =
@@ -617,11 +640,13 @@ export default function DespachosV2() {
 
       setAlertaFefo(mensajeErrorFefo)
     } finally {
+      accionLogistica.current = false
       setProcesando(false)
     }
   }
 
   async function liberarReserva() {
+    if (accionLogistica.current || bloqueoOperacion) return
     if (
       !pedidoSeleccionado ||
       !reservaActiva
@@ -635,6 +660,7 @@ export default function DespachosV2() {
 
     if (!confirmacion) return
 
+    accionLogistica.current = true
     setProcesando(true)
     setMensaje("")
     setError("")
@@ -650,7 +676,7 @@ export default function DespachosV2() {
 
       await cargarPedidos(false)
       await cargarDetallePedido(
-        pedidoSeleccionado.id,
+        pedidoSeleccionado.id, true,
       )
     } catch (err) {
       setError(
@@ -659,13 +685,14 @@ export default function DespachosV2() {
           : "No se pudo liberar la reserva.",
       )
     } finally {
+      accionLogistica.current = false
       setProcesando(false)
     }
   }
 
   async function guardarNumeroFactura() {
-    if (!reservaActiva) return
-
+    if (!reservaActiva || reservaActiva.estado !== "DESPACHADA" || accionLogistica.current || bloqueoOperacion) return
+    accionLogistica.current = true
     setProcesando(true)
     setMensaje("")
     setError("")
@@ -699,85 +726,28 @@ export default function DespachosV2() {
           : "No se pudo guardar el número de factura.",
       )
     } finally {
+      accionLogistica.current = false
       setProcesando(false)
     }
   }
 
   async function confirmarDespacho() {
-    if (
-      !pedidoSeleccionado ||
-      !reservaActiva
-    ) {
-      return
-    }
-
-    let cantidades: CantidadDespachoSkuDb[]
-
+    if (!pedidoSeleccionado || !reservaActiva || accionLogistica.current || bloqueoOperacion) return
+    if (reservaActiva.pedido_id !== pedidoSeleccionado.id) { setError("Actualiza el pedido y su reserva antes de confirmar."); return }
+    accionLogistica.current = true; setProcesando(true); setMensaje(""); setError("")
     try {
-      cantidades = crearPayloadDespacho()
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Revisa las cantidades a despachar.",
-      )
-      return
-    }
-
-    const facturaLimpia = numeroFactura.trim()
-
-    const confirmacion = window.confirm(
-      `¿Confirmas el despacho del pedido ${pedidoSeleccionado.id}?\n\nSolicitado: ${totalUnidadesSolicitadas} unidades\nA despachar: ${totalUnidadesADespachar} unidades\nFill Rate: ${fillRateProvisional}%\nFactura: ${
-        facturaLimpia || "SIN NÚMERO · quedará pendiente de vincular"
-      }${
-        despachoParcial
-          ? "\n\nEl pedido quedará cerrado como DESPACHADO aunque sea parcial."
-          : ""
-      }\n\nEsta acción descontará el inventario.`,
-    )
-
-    if (!confirmacion) return
-
-    setProcesando(true)
-    setMensaje("")
-    setError("")
-
-    try {
-      // Solo los despachos confirmados desde esta versión
-      // entran al control automático.
-      await activarControlConciliacionDespachoDb(
-        reservaActiva.id,
-      )
-
-      await guardarNumeroFacturaDespachoDb(
-        reservaActiva.id,
-        facturaLimpia,
-      )
-
-      await confirmarDespachoDb(
-        reservaActiva.id,
-        cantidades,
-      )
-
-      setMensaje(
-        despachoParcial
-          ? `Pedido ${pedidoSeleccionado.id} despachado parcialmente: ${totalUnidadesADespachar} de ${totalUnidadesSolicitadas} unidades · Fill Rate ${fillRateProvisional}%.`
-          : `Pedido ${pedidoSeleccionado.id} despachado correctamente.`,
-      )
-
+      const datos = { reservaId: reservaActiva.id, numeroFactura: numeroFactura.trim(), cantidades: crearPayloadDespacho() }
+      const revision = await preverLogisticaDb("DESPACHAR", datos)
+      if (!revision.puede_ejecutar) throw new Error(revision.bloqueos.join(" "))
+      const fillRate = revision.total_pedido ? (revision.unidades / revision.total_pedido * 100).toFixed(1) : "0.0"
+      const confirmacion = window.confirm(`¿Confirmas el despacho del pedido ${revision.numero_pedido_cliente || revision.pedido_id}?\n\nSolicitado: ${revision.total_pedido} unidades\nA despachar: ${revision.unidades} unidades\nFill Rate: ${fillRate}%\nFactura: ${datos.numeroFactura || "SIN NÚMERO · quedará pendiente de vincular"}${revision.parcial ? "\n\nEl pedido quedará cerrado como DESPACHADO aunque sea parcial." : ""}\n\nLa factura, el control de conciliación y la salida de inventario se confirmarán juntos.`)
+      if (!confirmacion) return
+      const r = await logistica.ejecutar("DESPACHAR", datos, revision)
+      limpiarSeleccion()
       await cargarPedidos(false)
-      await cargarDetallePedido(
-        pedidoSeleccionado.id,
-      )
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "No se pudo confirmar el despacho.",
-      )
-    } finally {
-      setProcesando(false)
-    }
+      setMensaje(`Despacho del pedido ${r.resumen.numero_pedido_cliente || r.pedido_id} confirmado: ${r.resumen.unidades} de ${r.resumen.total_pedido} unidades${r.repetida ? " · recuperado sin descontar otra vez" : ""}.`)
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo confirmar el resultado del despacho.") }
+    finally { accionLogistica.current = false; setProcesando(false) }
   }
 
   function renderDetallePedido() {
@@ -927,21 +897,19 @@ export default function DespachosV2() {
                         setNumeroFactura(evento.target.value)
                       }
                       placeholder="002-001-000016732"
-                      disabled={procesando}
+                      disabled={bloqueoOperacion}
                       autoComplete="off"
                     />
 
-                    <button
+                    {pedidoSeleccionado.estado === "DESPACHADO" ? <button
                       type="button"
                       onClick={guardarNumeroFactura}
-                      disabled={procesando}
+                      disabled={bloqueoOperacion}
                     >
                       {procesando
                         ? "Guardando..."
-                        : pedidoSeleccionado.estado === "DESPACHADO"
-                          ? "Guardar / corregir"
-                          : "Guardar vínculo"}
-                    </button>
+                        : "Guardar / corregir"}
+                    </button> : <small>La factura se guardará junto con la confirmación del despacho.</small>}
                   </div>
                 </section>
               )}
@@ -1030,7 +998,7 @@ export default function DespachosV2() {
                                                   step={1}
                                                   inputMode="numeric"
                                                   value={cantidadManejo}
-                                                  disabled={procesando}
+                                                  disabled={bloqueoOperacion}
                                                   onChange={(evento) => {
                                                     const valor =
                                                       evento.target.value
@@ -1453,7 +1421,7 @@ export default function DespachosV2() {
                   <button
                     type="button"
                     onClick={prepararPedido}
-                    disabled={procesando}
+                    disabled={bloqueoOperacion}
                     style={
                       botonPreparar
                     }
@@ -1474,7 +1442,7 @@ export default function DespachosV2() {
                           liberarReserva
                         }
                         disabled={
-                          procesando
+                          bloqueoOperacion
                         }
                         style={
                           botonLiberar
@@ -1489,7 +1457,7 @@ export default function DespachosV2() {
                           confirmarDespacho
                         }
                         disabled={
-                          procesando
+                          bloqueoOperacion
                         }
                         style={
                           botonDespachar
@@ -1545,7 +1513,7 @@ export default function DespachosV2() {
         <button
           type="button"
           onClick={() => cargarPedidos()}
-          disabled={cargando || procesando}
+          disabled={cargando || procesando || logistica.ocupado}
           style={botonActualizar}
         >
           {cargando
@@ -1553,6 +1521,8 @@ export default function DespachosV2() {
             : "Actualizar"}
         </button>
       </header>
+
+      <IntentosLogistica control={logistica} ocupado={procesando} onResuelta={async () => { limpiarSeleccion(); await cargarPedidos(false) }} />
 
       {mensaje && (
         <div style={mensajeExito}>

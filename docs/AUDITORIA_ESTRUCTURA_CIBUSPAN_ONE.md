@@ -110,7 +110,7 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ORG-05 | Catálogo de indicadores y fuentes | Por revisar | Alta | Cada KPI tiene fórmula y fuente únicas y resultados conciliados. |
 | ORG-06 | Pedidos/planificación/producción | OP-13/consumo MP instalados; alta transaccional de pedidos OP-02 instalada/verificada/publicada (terminal 27/10, fbafd456), validar uso real; conteo/histórico en pausa | Alta | Pedido no se duplica y consumo/alta de PT ocurre una vez. |
 | ORG-07 | Stock/Kardex/saldos iniciales/importación | Módulo instalado/verificado/publicado (10e6b372); conteo real/corte EN PAUSA por Iván el 27/10 | Alta | MP/PT concilian con movimientos y corte; ajustes trazables. |
-| ORG-08 | Preparación/despacho/documentos/devolución | Reserva/salida verificadas localmente; parcial y recuperación pendientes | Alta | Flujo completo sin doble descarga de stock y retorno controlado. |
+| ORG-08 | Preparación/despacho/documentos/devolución | Confirmación con factura/conciliación/stock y recuperación preparada en 202610270002; instalar/publicar y validar; parcial por definir | Alta | Flujo completo sin doble descarga de stock y retorno controlado. |
 | ORG-09 | Ventas/descuentos/acuerdos/correos | Por revisar en vivo | Alta | Fuente comercial clara, correo de empresa activado y no duplica descuentos. |
 | ORG-10 | Visitas/rotación/revisión/supervisión/KAM | Estructura diagnosticada | Alta | Separar registrar, revisar y analizar; conservar registros diarios y datos manuales. |
 | ORG-11 | Facturas/CxP/pagos/historial | Accesos diagnosticados | Alta | Mismo documento, vistas diferenciadas y saldo conciliado. |
@@ -229,3 +229,6 @@ Avance OP-12: instalado/verificado según terminal de Iván; ver docs/AUTORIZACI
 
 
 Actualización del 27/10/2026 posterior a la pausa del arranque: Iván autoriza continuar con el siguiente paso. OP-02 (alta de pedido completa y recuperable) instalado/verificado/publicado según terminal del 27/10/2026: Cloudflare fbafd456 y mensaje final de scripts/Instalar-RegistroPedidosSeguro.ps1. No repetir instalación ni pedir nuevamente ese resultado. Ver docs/REGISTRO_PEDIDOS_SEGURO.md. No reactivar ORG-07 por esta instalación. No modificar stock, estados de despachos, reglas de parcial o numeración por cliente. Validación operativa, eliminación transaccional y demás conexiones siguen abiertas.
+
+
+Avance posterior del 27/10/2026: OP-10 y eliminación segura preparados y probados; SQL 202610270002 y scripts/Instalar-OperacionesLogistica.ps1 pendientes de instalar/verificar/publicar. Ver docs/OPERACIONES_LOGISTICA_SEGURAS.md. Pedidos OP-02 ya instalados/verificados/publicados (fbafd456), sin reinstalar. La regla de parcial no cambia. Preparar/liberar reserva conservan funciones actuales y no reciben comprobante nuevo en esta entrega. No se ejecutaron eliminaciones/despachos ni se reanudó ORG-07; validación real y etapa 3 abiertas.

@@ -11,7 +11,8 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
-const probarPedido = process.env.CIBUSPAN_PROBAR_PEDIDO === '1'
+const probarLogistica = process.env.CIBUSPAN_PROBAR_LOGISTICA === '1'
+const probarPedido = process.env.CIBUSPAN_PROBAR_PEDIDO === '1' || probarLogistica
 const probarArranque = process.env.CIBUSPAN_PROBAR_ARRANQUE === '1' || probarPedido
 const probarConsumo = process.env.CIBUSPAN_PROBAR_CONSUMO === '1' || probarArranque
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
@@ -808,6 +809,148 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         const diag=await readFile(new URL('../supabase/diagnosticos/verificar_registro_pedidos.sql',import.meta.url),'utf8')
         const r=(await db.query(diag)).rows[0].registro_pedidos_seguro
         assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:pedido_detalles'))
+      })
+    }
+    if (probarLogistica) {
+      const sqlL=await readFile(new URL('../supabase/migrations/202610270002_operaciones_logistica_seguras.sql',import.meta.url),'utf8')
+      const antes=await cantidad();await db.exec(sqlL);assert.equal(await cantidad(),antes)
+      const casoL=(nombre,fn)=>caso(nombre,async()=>{
+        await db.exec(`update clientes set activo=true;update bodegas set activo=true;insert into cliente_productos(cliente_id,producto_id,unidad_manejo,activo) values('${id(2)}','${id(10)}',10,true)`)
+        await fn()
+      })
+      const pedidoL=async()=>{
+        const d={numeroPedidoCliente:'LOG-ENSAYO',clienteId:id(2),bodegaId:id(3),fechaEntrega:hoy,horaEntrega:'',prioridad:'NORMAL',tipoEmpaque:'',detalles:[{productoId:id(10),totalUnidades:30,unidadManejo:10}]}
+        const r=(await db.query('select registrar_pedido_seguro($1,$2::jsonb,$3) r',[id(2100),JSON.stringify(d),id(1)])).rows[0].r
+        const det=(await db.query('select id from pedido_detalles where pedido_id=$1',[r.pedido_id])).rows[0].id
+        return {id:r.pedido_id,detalle:det}
+      }
+      const reservarL=async p=>(await db.query('select reservar_pedido_fefo_parcial($1,$2::jsonb) id',[p.id,JSON.stringify([{pedido_detalle_id:p.detalle,unidades:20}])])).rows[0].id
+      const datosL=(p,reserva)=>({reservaId:reserva,numeroFactura:'FAC-LOG',cantidades:[{pedidoDetalleId:p.detalle,unidades:20}]})
+      const preverL=async(tipo,d)=>(await db.query('select prever_operacion_logistica($1,$2::jsonb) r',[tipo,JSON.stringify(d)])).rows[0].r
+      const ejecutarL=async(tipo,d,v,n=2200,usuario=id(1))=>(await db.query('select ejecutar_operacion_logistica($1,$2,$3::jsonb,$4,$5) r',[id(n),tipo,JSON.stringify(d),v.token,usuario])).rows[0].r
+      const resolverL=async(tipo,n=2200)=>(await db.query('select resolver_operacion_logistica($1,$2,$3) r',[id(n),tipo,id(1)])).rows[0].r
+      await casoL('Previa de eliminación es READ ONLY y la eliminación completa conserva su comprobante',async()=>{
+        const p=await pedidoL(),d={pedidoId:p.id},pt=await cantidad(),v=await preverL('ELIMINAR',d)
+        assert.equal(v.skus,1);assert.equal(v.puede_ejecutar,true)
+        await db.exec('savepoint lectura;set transaction read only');assert.equal((await preverL('ELIMINAR',d)).token,v.token);await db.exec('rollback to lectura;release lectura')
+        const r=await ejecutarL('ELIMINAR',d,v);assert.equal(r.estado,'CONFIRMADA')
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,0);assert.equal((await db.query('select count(*) n from pedido_detalles')).rows[0].n,0)
+        assert.equal((await ejecutarL('ELIMINAR',d,v)).repetida,true);assert.equal((await resolverL('ELIMINAR')).estado,'CONFIRMADA');assert.equal(await cantidad(),pt)
+        assert.equal((await db.query('select count(*) n from ped_solicitudes_registro')).rows[0].n,1)
+      })
+      await casoL('Cambio de pedido desde la previa impide borrar una versión distinta',async()=>{
+        const p=await pedidoL(),d={pedidoId:p.id},v=await preverL('ELIMINAR',d)
+        await db.query("update pedidos set prioridad='ALTA' where id=$1",[p.id])
+        await rechazaSinAbortar(()=>ejecutarL('ELIMINAR',d,v),/cambió/)
+        assert.equal((await db.query('select count(*) n from pedido_detalles')).rows[0].n,1)
+        const v2=await preverL('ELIMINAR',d);await reservarL(p)
+        await rechazaSinAbortar(()=>ejecutarL('ELIMINAR',d,v2),/cambió/)
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,1)
+      })
+      await casoL('Fallo tardío al borrar un producto revierte también la cabecera y el comprobante',async()=>{
+        const p=await pedidoL()
+        await db.exec("create function ensayo_fallo_eliminar() returns trigger language plpgsql as $$begin raise exception 'Fallo tardío al borrar';end$$;create trigger zz_ensayo_fallo_eliminar after delete on pedido_detalles for each row execute function ensayo_fallo_eliminar()")
+        const d={pedidoId:p.id},v=await preverL('ELIMINAR',d)
+        await rechazaSinAbortar(()=>ejecutarL('ELIMINAR',d,v),/Fallo tardío/)
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,1);assert.equal((await db.query('select count(*) n from pedido_detalles')).rows[0].n,1)
+        assert.equal((await db.query('select count(*) n from log_solicitudes_operacion')).rows[0].n,0)
+      })
+      await casoL('Reserva preparada o liberada bloquea eliminación y conserva su historia',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p)
+        assert.equal((await preverL('ELIMINAR',{pedidoId:p.id})).puede_ejecutar,false)
+        await db.query('select liberar_reserva_fefo($1)',[reserva])
+        const v=await preverL('ELIMINAR',{pedidoId:p.id});assert.equal(v.puede_ejecutar,false)
+        await rechazaSinAbortar(()=>ejecutarL('ELIMINAR',{pedidoId:p.id},v),/reservas/)
+      })
+      await casoL('Factura, conciliación y salida se confirman juntas; reintento no vuelve a descontar',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),d=datosL(p,reserva),v=await preverL('DESPACHAR',d),pt=await cantidad()
+        const r=await ejecutarL('DESPACHAR',d,v);assert.equal(r.resumen.unidades,20);assert.equal(await cantidad(),pt-20)
+        const rr=(await db.query('select estado,numero_factura,conciliacion_aplica from reservas_inventario where id=$1',[reserva])).rows[0]
+        assert.deepEqual(rr,{estado:'DESPACHADA',numero_factura:'FAC-LOG',conciliacion_aplica:true})
+        assert.equal((await ejecutarL('DESPACHAR',d,v)).repetida,true);assert.equal(await cantidad(),pt-20)
+        assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'DESPACHADO')
+      })
+      await casoL('Fallo tardío de stock revierte factura, conciliación, solicitud y salida',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),d=datosL(p,reserva),v=await preverL('DESPACHAR',d),pt=await cantidad()
+        await db.exec("create function ensayo_fallo_salida() returns trigger language plpgsql as $$begin raise exception 'Fallo tardío salida';end$$;create trigger zz_ensayo_fallo_salida before update on inventario_lotes for each row execute function ensayo_fallo_salida()")
+        await rechazaSinAbortar(()=>ejecutarL('DESPACHAR',d,v),/Fallo tardío/);assert.equal(await cantidad(),pt)
+        const rr=(await db.query('select estado,numero_factura,conciliacion_aplica from reservas_inventario where id=$1',[reserva])).rows[0]
+        assert.equal(rr.estado,'ACTIVA');assert.equal(rr.conciliacion_aplica,false);assert.equal(rr.numero_factura,null)
+        assert.equal((await db.query('select count(*) n from log_solicitudes_operacion')).rows[0].n,0)
+        assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'PREPARADO')
+      })
+      await casoL('Stock cambiado desde previa invalida confirmación sin guardar metadatos nuevos',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),d=datosL(p,reserva),v=await preverL('DESPACHAR',d)
+        await db.exec('update inventario_lotes set cantidad=cantidad+1')
+        await rechazaSinAbortar(()=>ejecutarL('DESPACHAR',d,v),/cambió/)
+        assert.equal((await db.query('select numero_factura from reservas_inventario where id=$1',[reserva])).rows[0].numero_factura,null)
+      })
+      await casoL('Cobertura completa, IDs propios, unidades enteras y manejo válido son obligatorios',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),d=datosL(p,reserva)
+        for(const malo of [{...d,cantidades:[]},{...d,cantidades:[...d.cantidades,...d.cantidades]},{...d,cantidades:[{pedidoDetalleId:id(1),unidades:10}]},{...d,cantidades:[{pedidoDetalleId:p.detalle,unidades:1}]},{...d,cantidades:[{pedidoDetalleId:p.detalle,unidades:30}]},{...d,cantidades:[{pedidoDetalleId:p.detalle,unidades:0.5}]}])await rechazaSinAbortar(()=>preverL('DESPACHAR',malo),()=>true)
+        await db.query('update pedidos set total_unidades=40 where id=$1',[p.id])
+        await rechazaSinAbortar(()=>preverL('DESPACHAR',d),/no coinciden/)
+      })
+      await casoL('Cliente anterior y GUC falso no borran líneas ni confirman salida/metadatos',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),pt=await cantidad()
+        await db.query("select set_config('cibuspan.logistica_request',$1,true)",[id(2200)])
+        await rechazaSinAbortar(()=>db.query('delete from pedido_detalles where pedido_id=$1',[p.id]),/Actualiza/)
+        await rechazaSinAbortar(()=>db.query('select activar_control_conciliacion_despacho($1)',[reserva]),/Actualiza/)
+        await rechazaSinAbortar(()=>db.query('select vincular_factura_despacho($1,$2)',[reserva,'ANTERIOR']),/Actualiza/)
+        await rechazaSinAbortar(()=>db.query('select confirmar_despacho_parcial_fefo($1,$2::jsonb)',[reserva,JSON.stringify([{pedido_detalle_id:p.detalle,unidades:20}])]),/Actualiza/)
+        await rechazaSinAbortar(()=>db.query("update reservas_inventario set numero_factura='DIRECTA' where id=$1",[reserva]),/Actualiza/)
+        await rechazaSinAbortar(()=>db.query("update reservas_inventario set estado='DESPACHADA' where id=$1",[reserva]),/Actualiza/)
+        assert.equal(await cantidad(),pt)
+      })
+      await casoL('Comprobar ausencia sella solicitud y bloquea ejecución atrasada de ambos tipos',async()=>{
+        const p=await pedidoL(),d={pedidoId:p.id},v=await preverL('ELIMINAR',d)
+        assert.equal((await resolverL('ELIMINAR')).estado,'ANULADA')
+        await rechazaSinAbortar(()=>ejecutarL('ELIMINAR',d,v),/cerrado/)
+        const reserva=await reservarL(p),dd=datosL(p,reserva),vv=await preverL('DESPACHAR',dd)
+        await resolverL('DESPACHAR',2201);await rechazaSinAbortar(()=>ejecutarL('DESPACHAR',dd,vv,2201),/cerrado/)
+      })
+      await casoL('Corregir factura de despacho ya confirmado conserva salida y comprobante original',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),d=datosL(p,reserva),v=await preverL('DESPACHAR',d)
+        await ejecutarL('DESPACHAR',d,v);const pt=await cantidad()
+        await db.query('select vincular_factura_despacho($1,$2)',[reserva,'FAC-CORREGIDA'])
+        await ejecutarL('DESPACHAR',d,v);assert.equal(await cantidad(),pt)
+        assert.equal((await db.query('select numero_factura from reservas_inventario where id=$1',[reserva])).rows[0].numero_factura,'FAC-CORREGIDA')
+      })
+      await casoL('Las operaciones exigen sesión/permisos y privados no aceptan acceso API',async()=>{
+        const p=await pedidoL(),d={pedidoId:p.id},v=await preverL('ELIMINAR',d)
+        await rechazaSinAbortar(()=>ejecutarL('ELIMINAR',d,v,2200,id(99)),e=>e.code==='42501')
+        await db.exec('set role authenticated')
+        await rechazaSinAbortar(()=>db.exec('select * from log_solicitudes_operacion'),e=>e.code==='42501')
+        await rechazaSinAbortar(()=>db.query('select log_base($1,$2::jsonb)',['ELIMINAR',JSON.stringify(d)]),e=>e.code==='42501')
+        await db.exec("reset role;select set_config('ensayo.permitido','no',true)")
+        await rechazaSinAbortar(()=>preverL('ELIMINAR',d),e=>e.code==='42501')
+      })
+      await casoL('Mismo UUID con otros datos o actor no puede volver a efectuar el despacho',async()=>{
+        const p=await pedidoL(),reserva=await reservarL(p),d=datosL(p,reserva),v=await preverL('DESPACHAR',d)
+        await ejecutarL('DESPACHAR',d,v);const pt=await cantidad()
+        await rechazaSinAbortar(()=>ejecutarL('DESPACHAR',{...d,numeroFactura:'OTRA'},v),/otra operación o datos/)
+        await db.exec(`insert into auth.users values('${id(99)}');insert into app_profiles(user_id,email,nombre,rol,activo) values('${id(99)}','otro@example.com','Otro','ADMINISTRADOR',true)`)
+        await db.query("select set_config('ensayo.usuario',$1,true)",[id(99)])
+        await rechazaSinAbortar(()=>ejecutarL('DESPACHAR',d,v,2200,id(99)),e=>e.code==='42501')
+        await rechazaSinAbortar(()=>db.query('select resolver_operacion_logistica($1,$2,$3)',[id(2200),'DESPACHAR',id(99)]),e=>e.code==='42501')
+        assert.equal(await cantidad(),pt)
+      })
+      await casoL('Reinstalar conserva comprobantes y contratos operativos anteriores',async()=>{
+        const p=await pedidoL(),d={pedidoId:p.id},v=await preverL('ELIMINAR',d);await ejecutarL('ELIMINAR',d,v)
+        await db.exec(sqlL.replace(/^begin;$/mi,'').replace(/^commit;$/mi,'').replace(/\r?\n/g,'\r\n'))
+        for(const nombre of ['202610230001_autorizacion_operativa.sql','202610230002_registro_produccion_seguro.sql','202610230003_consumo_mp_produccion.sql','202610240001_arranque_operativo.sql','202610270001_registro_pedidos_seguro.sql']){
+          const anterior=await readFile(new URL('../supabase/migrations/'+nombre,import.meta.url),'utf8');await db.exec(anterior.replace(/^begin;$/mi,'').replace(/^commit;$/mi,''))
+        }
+        assert.equal((await ejecutarL('ELIMINAR',d,v)).repetida,true)
+        await db.exec('set transaction read only')
+        for(const nombre of ['autorizacion_operativa','registro_produccion','consumo_mp_produccion','arranque_operativo','registro_pedidos','operaciones_logistica']){
+          const diag=await readFile(new URL('../supabase/diagnosticos/verificar_'+nombre+'.sql',import.meta.url),'utf8');const r=Object.values((await db.query(diag)).rows[0])[0];assert.equal(r.correcto,true,JSON.stringify(r))
+        }
+      })
+      await casoL('Diagnóstico detecta borrado desprotegido y API concedida a anónimo',async()=>{
+        await db.exec('alter table pedido_detalles disable trigger log_eliminacion_segura;grant execute on function ejecutar_operacion_logistica(uuid,text,jsonb,text,uuid) to anon')
+        const diag=await readFile(new URL('../supabase/diagnosticos/verificar_operaciones_logistica.sql',import.meta.url),'utf8');const r=(await db.query(diag)).rows[0].operaciones_logistica
+        assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:pedido_detalles'));assert.ok(r.pendientes.includes('public.ejecutar_operacion_logistica(uuid,text,jsonb,text,uuid)'))
       })
     }
   } finally { await db.close() }

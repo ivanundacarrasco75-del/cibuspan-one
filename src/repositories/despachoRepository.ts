@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase"
+import { ejecutarLogisticaDb } from "./logisticaSeguraRepository"
+import type { VistaLogistica } from "../utils/operacionLogisticaSegura"
 
 export type EstadoPedidoDespacho =
   | "INGRESADO"
@@ -324,7 +326,8 @@ export async function guardarNumeroFacturaDespachoDb(
     )
   }
 
-  return String(data ?? "")
+  if (typeof data !== "string" || data !== numeroFactura.trim()) throw new Error("No se confirmó el vínculo de factura. Actualiza el despacho para comprobarlo.")
+  return data
 }
 
 export async function activarControlConciliacionDespachoDb(
@@ -529,7 +532,8 @@ export async function prepararPedidoDespachoDb(
     )
   }
 
-  return data as string
+  if (typeof data !== "string" || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data)) throw new Error("No se confirmó el ID de la reserva. Pulsa Actualizar antes de volver a preparar.")
+  return data
 }
 
 export async function liberarReservaDespachoDb(reservaId: string) {
@@ -542,40 +546,8 @@ export async function liberarReservaDespachoDb(reservaId: string) {
   if (error) throw new Error(error.message || "No se pudo liberar la reserva.")
 }
 
-export async function confirmarDespachoDb(
-  reservaId: string,
-  cantidades: CantidadDespachoSkuDb[],
-) {
-  if (!reservaId) {
-    throw new Error("No se encontró la reserva.")
-  }
-
-  if (!cantidades.length) {
-    throw new Error(
-      "No existen cantidades para confirmar el despacho.",
-    )
-  }
-
-  const { data, error } = await supabase.rpc(
-    "confirmar_despacho_parcial_fefo",
-    {
-      p_reserva_id: reservaId,
-      p_cantidades: cantidades.map(
-        (cantidad) => ({
-          pedido_detalle_id:
-            cantidad.pedidoDetalleId,
-          unidades: cantidad.unidades,
-        }),
-      ),
-    },
-  )
-
-  if (error) {
-    throw new Error(
-      error.message ||
-        "No se pudo confirmar el despacho.",
-    )
-  }
-
-  return data as string
+export async function confirmarDespachoDb(reservaId: string, cantidades: CantidadDespachoSkuDb[], numeroFactura = "", revision?: VistaLogistica) {
+  if (!revision) throw new Error("Actualiza la pantalla y revisa el despacho antes de confirmar.")
+  const r = await ejecutarLogisticaDb("DESPACHAR", { reservaId, numeroFactura, cantidades }, revision)
+  return r.pedido_id
 }

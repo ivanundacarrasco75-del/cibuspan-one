@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase"
+import { ejecutarLogisticaDb } from "./logisticaSeguraRepository"
+import type { VistaLogistica } from "../utils/operacionLogisticaSegura"
 import { crearControlRegistroPedido, type NuevoPedidoDb, type SolicitudPedidoPendiente } from "../utils/registroPedidoSeguro"
 export type { NuevoPedidoDb, DetalleNuevoPedido } from "../utils/registroPedidoSeguro"
 
@@ -362,143 +364,10 @@ export async function crearPedidoDb(datos: NuevoPedidoDb, solicitudId = crypto.r
   return (await controlRegistroPedidoDb()).registrar(solicitudId, datos, origen)
 }
 
-export async function eliminarPedidoIngresadoDb(
-  pedidoId: string,
-) {
-  if (!pedidoId) {
-    throw new Error("No se encontró el pedido.")
-  }
-
-  const {
-    data: pedido,
-    error: errorConsulta,
-  } = await supabase
-    .from("pedidos")
-    .select(`
-      id,
-      numero_pedido_cliente,
-      estado
-    `)
-    .eq("id", pedidoId)
-    .maybeSingle()
-
-  if (errorConsulta) {
-    throw new Error(
-      `No se pudo consultar el pedido: ${errorConsulta.message}`,
-    )
-  }
-
-  if (!pedido) {
-    throw new Error(
-      "El pedido ya no existe o no está disponible.",
-    )
-  }
-
-  if (pedido.estado !== "INGRESADO") {
-    throw new Error(
-      `El pedido ${pedido.numero_pedido_cliente} está en estado ${pedido.estado} y no puede eliminarse. Solo se pueden eliminar pedidos INGRESADOS.`,
-    )
-  }
-
-  const {
-    data: detalles,
-    error: errorDetallesConsulta,
-  } = await supabase
-    .from("pedido_detalles")
-    .select("id")
-    .eq("pedido_id", pedidoId)
-
-  if (errorDetallesConsulta) {
-    throw new Error(
-      `No se pudieron verificar los productos del pedido: ${errorDetallesConsulta.message}`,
-    )
-  }
-
-  const idsDetalles =
-    (detalles ?? []).map((detalle) => detalle.id)
-
-  if (idsDetalles.length > 0) {
-    const {
-      data: reservas,
-      error: errorReservas,
-    } = await supabase
-      .from("reserva_detalles")
-      .select("id")
-      .in(
-        "pedido_detalle_id",
-        idsDetalles,
-      )
-      .limit(1)
-
-    if (errorReservas) {
-      throw new Error(
-        `No se pudo verificar si el pedido tiene reservas: ${errorReservas.message}`,
-      )
-    }
-
-    if ((reservas ?? []).length > 0) {
-      throw new Error(
-        "El pedido tiene reservas asociadas y no puede eliminarse. Libera primero la reserva desde Despachos.",
-      )
-    }
-  }
-
-  const {
-    data: detallesEliminados,
-    error: errorEliminarDetalles,
-  } = await supabase
-    .from("pedido_detalles")
-    .delete()
-    .eq("pedido_id", pedidoId)
-    .select("id")
-
-  if (errorEliminarDetalles) {
-    throw new Error(
-      `No se pudieron eliminar los productos del pedido: ${errorEliminarDetalles.message}`,
-    )
-  }
-
-  if (
-    idsDetalles.length > 0 &&
-    (detallesEliminados ?? []).length !==
-      idsDetalles.length
-  ) {
-    throw new Error(
-      "No fue posible eliminar todos los productos del pedido. Revisa las políticas de seguridad de Supabase.",
-    )
-  }
-
-  const {
-    data: pedidoEliminado,
-    error: errorEliminarPedido,
-  } = await supabase
-    .from("pedidos")
-    .delete()
-    .eq("id", pedidoId)
-    .eq("estado", "INGRESADO")
-    .select(`
-      id,
-      numero_pedido_cliente
-    `)
-    .maybeSingle()
-
-  if (errorEliminarPedido) {
-    throw new Error(
-      `No se pudo eliminar el pedido: ${errorEliminarPedido.message}`,
-    )
-  }
-
-  if (!pedidoEliminado) {
-    throw new Error(
-      "Supabase no permitió eliminar el pedido. Revisa las políticas de seguridad.",
-    )
-  }
-
-  return {
-    id: pedidoEliminado.id,
-    numeroPedidoCliente:
-      pedidoEliminado.numero_pedido_cliente,
-  }
+export async function eliminarPedidoIngresadoDb(pedidoId: string, revision?: VistaLogistica) {
+  if (!revision || revision.pedido_id !== pedidoId) throw new Error("Actualiza la pantalla y revisa la eliminación antes de confirmar.")
+  const r = await ejecutarLogisticaDb("ELIMINAR", { pedidoId }, revision)
+  return { id: r.pedido_id, numeroPedidoCliente: r.resumen.numero_pedido_cliente ?? r.pedido_id }
 }
 
 export async function obtenerDetallePedidoDb(
