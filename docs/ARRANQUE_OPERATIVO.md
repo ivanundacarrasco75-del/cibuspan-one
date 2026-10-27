@@ -8,7 +8,7 @@ Decisión registrada el 24/10/2026 a partir de la indicación de Iván. Priorida
 - Inventarios: los saldos anteriores no están conciliados con la operación física actual. No tratarlos como disponibilidad verificada para prometer entregas o decidir fabricación.
 - Producción/bodega: preparar fecha y hora de inicio, responsables y conteo. La fecha de publicación del sitio no establece por sí sola el arranque físico.
 - Consumo MP y protecciones OP-12/OP-13: instalados y conservados. No desinstalar ni quitar validaciones por este cambio de plan.
-- Estado de esta entrega (24/10/2026): módulo implementado y probado localmente. SQL 202610240001 y frontend pendientes de instalar/publicar mediante el nuevo instalador. No se aplicó un corte ni un saldo real. Iván indica que la fecha se elegirá cuando el módulo esté listo; no volver a pedirla como requisito para programar.
+- Estado actualizado el 27/10/2026: módulo instalado, verificado y publicado según la terminal de Iván, despliegue Cloudflare 10e6b372. SQL 202610240001 y frontend confirmados por el mensaje final del instalador; el corte físico no se aplicó. Fecha y conteo real siguen pendientes; no volver a pedir fecha como requisito para programar ni reinstalar lo ya confirmado.
 
 La instrucción de trabajar por ahora con pedidos corresponde a la preparación de producción y bodega; no desactiva visitas ni otros módulos que ya usan las personas.
 
@@ -48,7 +48,7 @@ El ajuste usa unidades del catálogo, no revaloriza costos. Lotes vencidos se cu
 
 Desde PowerShell en D:\CIBUSPAN_ONE, actualizar main y ejecutar scripts/Instalar-ArranqueOperativo.ps1. Compila primero, aplica únicamente 202610240001_arranque_operativo.sql, exige cuatro diagnósticos de metadatos (autorización, registro seguro, consumo MP y arranque), registra sólo esa versión y publica en Cloudflare. No ejecuta db push, migraciones antiguas, importaciones ni el corte físico. Si algún paso falla, copiar el error y completar sólo lo pendiente; no retirar controles ni repetir fabricaciones.
 
-SQL y frontend preparados en esta entrega; instalación/publicación no confirmadas hasta recibir la terminal. Fecha y conteo siguen pendientes por decisión del usuario. Siguiente paso: instalar módulo, preparar conteo real, revisar previa y confirmar el arranque cuando esté listo. Etapa 3 abierta; pedido transaccional y automatizaciones empaque/micros continúan pendientes.
+Iván confirma el 27/10/2026 la terminal final del instalador: publicación https://10e6b372.cibuspan-one.pages.dev y mensaje «Modulo de arranque instalado, verificado y publicado. No se aplico ningun conteo». El instalador sólo llega a ese mensaje después de compilar, aplicar el SQL nuevo, superar las cuatro verificaciones, registrar la versión y publicar. No hace falta repetir instalación ni solicitar otra vez la terminal. Esto confirma instalación/despliegue, no aceptación operativa, conteos físicos o pruebas concurrentes en vivo. Siguiente paso: cerrar/abrir la app, entrar como administrador a Kardex > Preparar arranque y preparar el conteo real; elegir fecha, revisar previa y confirmar sólo cuando esté completo. Etapa 3 abierta; pedido transaccional y automatizaciones empaque/micros siguen pendientes.
 
 ## Verificación y límites de evidencia
 
