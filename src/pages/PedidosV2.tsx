@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   buscarPedidosActivosBodegaFechaDb,
   crearPedidoDb,
+  obtenerRegistrosPedidoPendientesDb,
+  reintentarRegistroPedidoDb,
+  resolverRegistroPedidoDb,
   eliminarPedidoIngresadoDb,
   obtenerBodegasClienteDb,
   obtenerClientesPedidoDb,
@@ -15,6 +18,7 @@ import {
   type ProductoPedidoDb,
 } from "../repositories/pedidoRepository"
 import ModalMensaje from "../components/ModalMensaje"
+import { RegistroPedidoNoGuardadoError, RegistroPedidoPendienteError, type PedidoRegistrado, type SolicitudPedidoPendiente } from "../utils/registroPedidoSeguro"
 import { extraerPedidosSantamariaCsv } from "../utils/pedidosSantamariaCsv"
 import { esListadoFavorita, interpretarListadoFavorita, leerPedidosFavoritaZip } from "../utils/pedidosFavoritaZip"
 import {
@@ -227,6 +231,13 @@ export default function PedidosV2() {
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
+  const [registrosPendientes, setRegistrosPendientes] = useState<SolicitudPedidoPendiente[]>([])
+  const [confirmacionLista, setConfirmacionLista] = useState(false)
+  const [errorPendientes, setErrorPendientes] = useState("")
+  const [pedidoParaRestaurar, setPedidoParaRestaurar] = useState<SolicitudPedidoPendiente | null>(null)
+  const accionPedido = useRef(false)
+  const lecturaPendientes = useRef(0)
+  const bloqueoRegistro = !confirmacionLista || registrosPendientes.length > 0 || guardando || cargandoArchivo
 
   const [pedidoVisualizado, setPedidoVisualizado] =
     useState<PedidoListadoDb | null>(null)
@@ -242,27 +253,81 @@ export default function PedidosV2() {
   }, [])
 
   async function cargarPantalla() {
+    if (accionPedido.current) return
+    const lectura = ++lecturaPendientes.current
     setCargando(true)
+    setConfirmacionLista(false)
     setError("")
 
     try {
-      const [clientesDb, pedidosDb] =
+      const [clientesDb, pedidosDb, pendientes] =
         await Promise.all([
           obtenerClientesPedidoDb(),
           obtenerPedidosDb(),
+          obtenerRegistrosPedidoPendientesDb(),
         ])
 
+      if (lectura !== lecturaPendientes.current) return
       setClientes(clientesDb)
       setPedidos(pedidosDb)
+      setRegistrosPendientes(pendientes); setConfirmacionLista(true); setErrorPendientes("")
     } catch (err) {
+      if (lectura !== lecturaPendientes.current) return
+      setErrorPendientes("No se pudo comprobar si hay pedidos pendientes de confirmación. Pulsa Actualizar antes de registrar otros.")
       setError(
         err instanceof Error
           ? err.message
           : "No se pudo cargar la pantalla.",
       )
     } finally {
-      setCargando(false)
+      if (lectura === lecturaPendientes.current) setCargando(false)
     }
+  }
+
+  async function refrescarPendientes() {
+    const lectura = ++lecturaPendientes.current
+    try { const p = await obtenerRegistrosPedidoPendientesDb(); if (lectura !== lecturaPendientes.current) return; setRegistrosPendientes(p); setConfirmacionLista(true); setErrorPendientes("") }
+    catch { if (lectura === lecturaPendientes.current) { setConfirmacionLista(false); setErrorPendientes("No se pudo leer el estado del intento. Conserva este navegador y pulsa Actualizar para comprobarlo.") } }
+  }
+  function descargarIntento(s: SolicitudPedidoPendiente) {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(s, null, 2)], { type: "application/json" }))
+    const a = document.createElement("a"); a.href = url; a.download = `Intento-pedido-${s.solicitudId}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  function mensajeRegistro(r: PedidoRegistrado) {
+    return !r.vigente ? `El pedido ${r.numeroPedidoCliente} fue registrado anteriormente y después eliminado. Este intento no lo volvió a crear.` :
+      `Pedido ${r.numeroPedidoCliente} ${r.repetida ? "recuperado sin duplicarlo" : "creado correctamente"} con ${r.totalUnidades} unidades.`
+  }
+  async function actualizarTrasRegistro() {
+    try { setPedidos(await obtenerPedidosDb()) }
+    catch { setError("El pedido sí quedó confirmado. No se pudo actualizar la lista; pulsa Actualizar. No lo ingreses de nuevo.") }
+  }
+  async function recuperarPedido(s: SolicitudPedidoPendiente, reintentar: boolean) {
+    if (accionPedido.current) return
+    accionPedido.current = true; setGuardando(true); setError(""); setMensaje("")
+    try {
+      const r = reintentar ? { estado: "CONFIRMADA" as const, resultado: await reintentarRegistroPedidoDb(s) } : await resolverRegistroPedidoDb(s)
+      if (r.estado === "CONFIRMADA") {
+        setMensaje(mensajeRegistro(r.resultado)); setPedidoParaRestaurar(null)
+        setImportacionPedidos(actual => !actual || actual.cliente.id !== s.datos.clienteId ? actual : { ...actual, ordenes: actual.ordenes.map(o => o.numeroPedido === s.datos.numeroPedidoCliente ? { ...o, registrada: true, seleccionada: false, errores: [] } : o) })
+        if (s.origen === "MANUAL") limpiarFormulario()
+        await actualizarTrasRegistro()
+      } else { setPedidoParaRestaurar(s); setMensaje("El intento quedó cerrado sin guardar. Puedes restaurar sus cantidades para corregirlas o descargar la copia.") }
+    } catch (err) { if (err instanceof RegistroPedidoNoGuardadoError) setPedidoParaRestaurar(s); setError(err instanceof Error ? err.message : "No se pudo comprobar el pedido.") }
+    finally { await refrescarPendientes(); accionPedido.current = false; setGuardando(false) }
+  }
+  async function restaurarPedido(s: SolicitudPedidoPendiente) {
+    if (accionPedido.current || bloqueoRegistro) return
+    if (!window.confirm("¿Restaurar este pedido no guardado? Se reemplazará el formulario manual actual.")) return
+    accionPedido.current = true; setGuardando(true)
+    try {
+      const [b, p] = await Promise.all([obtenerBodegasClienteDb(s.datos.clienteId), obtenerProductosClienteDb(s.datos.clienteId)])
+      if (!clientes.some(c => c.id === s.datos.clienteId) || !b.some(x => x.id === s.datos.bodegaId && x.tipo_empaque === s.datos.tipoEmpaque) ||
+        s.datos.detalles.some(l => !p.some(x => x.id === l.productoId && x.unidad_manejo === l.unidadManejo))) throw new Error("Cambió el catálogo, bodega o unidad de manejo. No se restauró parcialmente el formulario; descarga el intento y revisa sus líneas.")
+      setBodegas(b); setProductos(p); setClienteId(s.datos.clienteId); setBodegaId(s.datos.bodegaId); setNumeroPedidoCliente(s.datos.numeroPedidoCliente)
+      setFechaEntrega(s.datos.fechaEntrega); setHoraEntrega(s.datos.horaEntrega); setPrioridad(s.datos.prioridad)
+      setCantidadesManejo(Object.fromEntries(s.datos.detalles.map(l => [l.productoId, String(l.totalUnidades / l.unidadManejo)])))
+      setPedidoParaRestaurar(null); setMensaje("Cantidades restauradas. Revisa los datos antes de guardar con una solicitud nueva.")
+    } catch (err) { setError((err as Error).message) } finally { accionPedido.current = false; setGuardando(false) }
   }
 
   async function cargarArchivoFavorita(
@@ -814,7 +879,7 @@ export default function PedidosV2() {
   }
 
   async function registrarPedidosImportados() {
-    if (!importacionPedidos) return
+    if (!importacionPedidos || accionPedido.current || bloqueoRegistro) return
 
     const pendientes = importacionPedidos.ordenes.filter(
       (orden) =>
@@ -828,6 +893,7 @@ export default function PedidosV2() {
       return
     }
 
+    accionPedido.current = true
     setCargandoArchivo(true)
     setProgresoImportacion("Registrando órdenes…")
     setMensaje("")
@@ -835,7 +901,7 @@ export default function PedidosV2() {
 
     const resultados = new Map<
       string,
-      { registrada: boolean; error?: string }
+      { registrada: boolean; error?: string; vigente?: boolean }
     >()
 
     for (const orden of pendientes) {
@@ -844,7 +910,7 @@ export default function PedidosV2() {
           throw new Error("La orden no tiene una bodega válida.")
         }
 
-        await crearPedidoDb({
+        const registrado = await crearPedidoDb({
           numeroPedidoCliente: orden.numeroPedido,
           clienteId: importacionPedidos.cliente.id,
           bodegaId: orden.bodega.id,
@@ -857,9 +923,9 @@ export default function PedidosV2() {
             totalUnidades: linea.totalUnidades,
             unidadManejo: linea.producto?.unidad_manejo ?? 0,
           })),
-        })
+        }, crypto.randomUUID(), `${importacionPedidos.fuente} · ${importacionPedidos.archivo}`)
 
-        resultados.set(orden.numeroPedido, { registrada: true })
+        resultados.set(orden.numeroPedido, { registrada: true, vigente: registrado.vigente })
       } catch (err) {
         resultados.set(orden.numeroPedido, {
           registrada: false,
@@ -868,6 +934,7 @@ export default function PedidosV2() {
               ? err.message
               : "No se pudo registrar la orden.",
         })
+        if (err instanceof RegistroPedidoPendienteError) break
       }
     }
 
@@ -875,6 +942,7 @@ export default function PedidosV2() {
       (resultado) => resultado.registrada,
     ).length
     const fallidas = resultados.size - registradas
+    const eliminadas = Array.from(resultados.values()).filter(r => r.registrada && r.vigente === false).length
 
     setImportacionPedidos((actual) => {
       if (!actual) return actual
@@ -911,7 +979,7 @@ export default function PedidosV2() {
 
     if (registradas > 0) {
       setMensaje(
-        `${registradas} orden${registradas === 1 ? "" : "es"} de ${importacionPedidos.fuente} registrada${registradas === 1 ? "" : "s"} correctamente.`,
+        `${registradas} orden${registradas === 1 ? "" : "es"} de ${importacionPedidos.fuente} confirmada${registradas === 1 ? "" : "s"}.${eliminadas ? ` Incluye ${eliminadas} pedido(s) registrado(s) anteriormente y eliminado(s); no se volvieron a crear.` : ""}`,
       )
     }
 
@@ -921,6 +989,8 @@ export default function PedidosV2() {
       )
     }
 
+    await refrescarPendientes()
+    accionPedido.current = false
     setCargandoArchivo(false)
     setProgresoImportacion("")
   }
@@ -1045,6 +1115,7 @@ export default function PedidosV2() {
   }
 
   async function guardarPedido() {
+    if (accionPedido.current || bloqueoRegistro) return
     setMensaje("")
     setError("")
 
@@ -1079,6 +1150,8 @@ export default function PedidosV2() {
       return
     }
 
+    accionPedido.current = true
+    setGuardando(true)
     try {
       const pedidosExistentes =
         await buscarPedidosActivosBodegaFechaDb(
@@ -1122,8 +1195,6 @@ export default function PedidosV2() {
         }
       }
 
-      setGuardando(true)
-
       const resultado = await crearPedidoDb({
         numeroPedidoCliente:
           numeroPedidoCliente.trim(),
@@ -1147,16 +1218,11 @@ export default function PedidosV2() {
         ),
       })
 
-      setMensaje(
-        `Pedido ${resultado.numeroPedidoCliente} creado correctamente con ${resultado.totalUnidades} unidades.`,
-      )
+      setMensaje(mensajeRegistro(resultado)); setPedidoParaRestaurar(null)
 
       limpiarFormulario()
 
-      const pedidosActualizados =
-        await obtenerPedidosDb()
-
-      setPedidos(pedidosActualizados)
+      await actualizarTrasRegistro()
     } catch (err) {
       setError(
         err instanceof Error
@@ -1164,6 +1230,8 @@ export default function PedidosV2() {
           : "No se pudo guardar el pedido.",
       )
     } finally {
+      await refrescarPendientes()
+      accionPedido.current = false
       setGuardando(false)
     }
   }
@@ -1171,6 +1239,7 @@ export default function PedidosV2() {
   async function eliminarPedido(
     pedido: PedidoListadoDb,
   ) {
+    if (accionPedido.current || bloqueoRegistro) return
     if (pedido.estado !== "INGRESADO") {
       setError(
         `El pedido ${pedido.numero_pedido_cliente} está en estado ${pedido.estado} y no puede eliminarse.`,
@@ -1184,6 +1253,7 @@ export default function PedidosV2() {
 
     if (!confirmacion) return
 
+    accionPedido.current = true
     setMensaje("")
     setError("")
     setGuardando(true)
@@ -1214,6 +1284,7 @@ export default function PedidosV2() {
           : "No se pudo eliminar el pedido.",
       )
     } finally {
+      accionPedido.current = false
       setGuardando(false)
     }
   }
@@ -1295,6 +1366,7 @@ export default function PedidosV2() {
         <button
           type="button"
           onClick={cargarPantalla}
+          disabled={guardando || cargandoArchivo}
           style={botonSecundario}
         >
           Actualizar
@@ -1316,6 +1388,20 @@ export default function PedidosV2() {
         cerrar={() => setError("")}
       />
 
+      {errorPendientes && <section role="alert" style={{ ...panel, background: "#fff3df" }}><p>{errorPendientes}</p><button type="button" disabled={guardando || cargandoArchivo} onClick={() => void cargarPantalla()}>Volver a comprobar</button></section>}
+      {registrosPendientes.length > 0 && <section style={{ ...panel, background: "#fff3df" }} aria-label="Pedidos pendientes de confirmación">
+        <h2>Hay un pedido por confirmar</h2><p>Puede haberse guardado aunque la respuesta no llegara. Comprueba este intento antes de registrar otro. Conserva este navegador; no borres sus datos ni repitas el pedido en otro dispositivo.</p>
+        {registrosPendientes.map(s => <div key={s.solicitudId}><p>Pedido {s.datos.numeroPedidoCliente} · Entrega {s.datos.fechaEntrega} · {s.datos.detalles.reduce((n, l) => n + l.totalUnidades, 0)} unidades · {s.origen}</p>
+          <button type="button" disabled={guardando || cargandoArchivo} style={botonSecundario} onClick={() => void recuperarPedido(s, true)}>Reintentar el mismo pedido</button>{" "}
+          <button type="button" disabled={guardando || cargandoArchivo} style={botonSecundario} onClick={() => void recuperarPedido(s, false)}>Comprobar para corregir</button>{" "}
+          <button type="button" style={botonSecundario} onClick={() => descargarIntento(s)}>Descargar copia del intento</button>
+        </div>)}
+      </section>}
+      {pedidoParaRestaurar && <section style={panel}><p>El intento de {pedidoParaRestaurar.datos.numeroPedidoCliente} está cerrado sin guardar.</p>
+        <button type="button" disabled={bloqueoRegistro} style={botonSecundario} onClick={() => void restaurarPedido(pedidoParaRestaurar)}>Restaurar cantidades en formulario</button>{" "}
+        <button type="button" style={botonSecundario} onClick={() => descargarIntento(pedidoParaRestaurar)}>Descargar copia para revisar</button>
+      </section>}
+      <fieldset disabled={bloqueoRegistro} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <section className="orders-import" style={panelImportacion}>
         <div>
           <span style={etiqueta}>
@@ -2030,6 +2116,7 @@ export default function PedidosV2() {
         </button>
       </section>
 
+      </fieldset>
       <section className="orders-panel orders-registered" style={panel}>
         <div className="orders-panel-title" style={tituloPanel}>
           <div>
@@ -2172,7 +2259,7 @@ export default function PedidosV2() {
                               onClick={() =>
                                 eliminarPedido(pedido)
                               }
-                              disabled={guardando}
+                              disabled={bloqueoRegistro}
                               style={{
                                 ...botonEliminarPedido,
                                 opacity: guardando

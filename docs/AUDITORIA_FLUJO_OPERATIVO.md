@@ -128,3 +128,10 @@ Las pruebas operativas anteriores están pendientes; no se presentan como ya sup
 ORG-06, ORG-07 y ORG-08 pasan de accesos diagnosticados a recorrido de código diagnosticado, pendiente servidor/validación. ORG-04 (usuarios) y ORG-03 (entorno de prueba) siguen pendientes. La casilla de etapa 3 de la guía humana permanece sin marcar: este informe es un avance, no cierre de toda la etapa.
 
 Verificación realizada: consulta de diagnóstico probada dentro de una transacción PostgreSQL local de sólo lectura; comprueba detección de funciones/vistas/triggers/índices/RLS y ausencia de datos de negocio. Pruebas locales del Kardex versionado ejecutadas con su escenario simulado. No prueban reglas FEFO/producción del servidor real. Compilación de control y revisión de diff; no hay cambios en el comportamiento de la app.
+
+
+## Actualización OP-02 del 27/10/2026: alta de pedido completa y recuperable
+
+Implementación preparada y probada: SQL 202610270001, scripts/Instalar-RegistroPedidosSeguro.ps1, cliente manual/importaciones con comprobante persistido. Ver docs/REGISTRO_PEDIDOS_SEGURO.md. Cabecera, productos y comprobante se guardan en la misma transacción; error de detalle revierte todo, repetición recupera el pedido original y ausencia cerrada impide llegada tardía. Los INSERT de cliente antiguo sin solicitud privada se rechazan; no hay vuelta al guardado separado. No se importan pedidos, tocan saldos ni reanudan conteos. Instalación/publicación pendientes de terminal.
+
+Se conserva la prevención global por número que ya usa la interfaz, ahora con bloqueo y comparación literal normalizada; no se añade índice ni se deduplican históricos. Cambiar el alcance a por cliente sigue siendo decisión OP-03 pendiente. La eliminación existente no se presenta como transaccional: queda pendiente su revisión propia. Arranque físico ORG-07 permanece EN PAUSA por Iván. Después de instalar este alcance, validar uso real y continuar los pendientes de despacho/recuperación sin cambiar parcial o stock mínimo sin su definición. Etapa 3 abierta.

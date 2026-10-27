@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase"
+import { crearControlRegistroPedido, type NuevoPedidoDb, type SolicitudPedidoPendiente } from "../utils/registroPedidoSeguro"
+export type { NuevoPedidoDb, DetalleNuevoPedido } from "../utils/registroPedidoSeguro"
 
 export type ClientePedidoDb = {
   id: string
@@ -19,23 +21,6 @@ export type ProductoPedidoDb = {
   corto: string
   unidad_manejo: number
   precio: number | null
-}
-
-export type DetalleNuevoPedido = {
-  productoId: string
-  totalUnidades: number
-  unidadManejo: number
-}
-
-export type NuevoPedidoDb = {
-  numeroPedidoCliente: string
-  clienteId: string
-  bodegaId: string
-  fechaEntrega: string
-  horaEntrega: string
-  prioridad: "NORMAL" | "ALTA" | "URGENTE"
-  tipoEmpaque: string
-  detalles: DetalleNuevoPedido[]
 }
 
 export type PedidoListadoDb = {
@@ -81,32 +66,6 @@ export type DetallePedidoConsultaDb = {
     nombre: string
     corto: string
   } | null
-}
-
-function generarIdPedido() {
-  const fecha = new Date()
-
-  const anio = fecha.getFullYear()
-  const mes = String(
-    fecha.getMonth() + 1,
-  ).padStart(2, "0")
-  const dia = String(
-    fecha.getDate(),
-  ).padStart(2, "0")
-  const hora = String(
-    fecha.getHours(),
-  ).padStart(2, "0")
-  const minuto = String(
-    fecha.getMinutes(),
-  ).padStart(2, "0")
-  const segundo = String(
-    fecha.getSeconds(),
-  ).padStart(2, "0")
-  const milisegundo = String(
-    fecha.getMilliseconds(),
-  ).padStart(3, "0")
-
-  return `PED-${anio}${mes}${dia}-${hora}${minuto}${segundo}${milisegundo}`
 }
 
 export async function obtenerClientesPedidoDb() {
@@ -378,185 +337,30 @@ export async function buscarPedidosActivosBodegaFechaDb(
   return (data ?? []) as PedidoActivoMismaFechaDb[]
 }
 
-export async function crearPedidoDb(
-  datos: NuevoPedidoDb,
-) {
-  const numeroPedido =
-    datos.numeroPedidoCliente
-      .trim()
-      .toUpperCase()
-
-  if (!numeroPedido) {
-    throw new Error(
-      "Ingresa el número del pedido.",
-    )
-  }
-
-  if (!datos.clienteId) {
-    throw new Error(
-      "Selecciona un cliente.",
-    )
-  }
-
-  if (!datos.bodegaId) {
-    throw new Error(
-      "Selecciona una bodega.",
-    )
-  }
-
-  if (!datos.fechaEntrega) {
-    throw new Error(
-      "Selecciona la fecha de entrega.",
-    )
-  }
-
-  if (datos.detalles.length === 0) {
-    throw new Error(
-      "Agrega al menos un producto.",
-    )
-  }
-
-  datos.detalles.forEach((detalle) => {
-    if (detalle.totalUnidades <= 0) {
-      throw new Error(
-        "Todas las cantidades deben ser mayores que cero.",
-      )
-    }
-
-    if (
-      detalle.totalUnidades %
-        detalle.unidadManejo !==
-      0
-    ) {
-      throw new Error(
-        "Las cantidades deben respetar la unidad de manejo.",
-      )
-    }
+async function controlRegistroPedidoDb(usuarioEsperado?: string) {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user || usuarioEsperado && user.id !== usuarioEsperado) throw new Error("Ingresa con el usuario que preparó el pedido.")
+  let almacen: Storage
+  try { almacen = window.localStorage } catch { throw new Error("Habilita el almacenamiento del navegador para conservar el intento.") }
+  return crearControlRegistroPedido({ almacen, proyecto: import.meta.env.VITE_SUPABASE_URL, usuarioId: user.id,
+    registrar: async s => {
+      const { data, error } = await supabase.rpc("registrar_pedido_seguro", { p_solicitud_id: s.solicitudId, p_datos: s.datos, p_usuario_esperado: user.id })
+      if (error) throw new Error(error.code === "PGRST202" || error.code === "42883" ? "Falta instalar el registro seguro de pedidos. No se usó el guardado anterior." : error.message)
+      return data
+    },
+    resolver: async id => {
+      const { data, error } = await supabase.rpc("resolver_registro_pedido", { p_solicitud_id: id, p_usuario_esperado: user.id })
+      if (error) throw new Error(error.message)
+      return data
+    },
   })
-
-  const {
-    data: pedidoMismoNumero,
-    error: errorNumero,
-  } = await supabase
-    .from("pedidos")
-    .select(`
-      id,
-      numero_pedido_cliente,
-      fecha_entrega,
-      estado
-    `)
-    .ilike(
-      "numero_pedido_cliente",
-      numeroPedido,
-    )
-    .maybeSingle()
-
-  if (errorNumero) {
-    throw new Error(
-      `No se pudo validar el número del pedido: ${errorNumero.message}`,
-    )
-  }
-
-  if (pedidoMismoNumero) {
-    throw new Error(
-      `El pedido ${numeroPedido} ya fue registrado como ${pedidoMismoNumero.id}.`,
-    )
-  }
-
-  const totalUnidades =
-    datos.detalles.reduce(
-      (total, detalle) =>
-        total + detalle.totalUnidades,
-      0,
-    )
-
-  const {
-    data: { user },
-    error: errorUsuario,
-  } = await supabase.auth.getUser()
-
-  if (errorUsuario || !user) {
-    throw new Error(
-      "No existe una sesión válida.",
-    )
-  }
-
-  const pedidoId = generarIdPedido()
-
-  const { error: errorPedido } =
-    await supabase.from("pedidos").insert({
-      id: pedidoId,
-      numero_pedido_cliente:
-        numeroPedido,
-      cliente_id: datos.clienteId,
-      bodega_id: datos.bodegaId,
-      fecha_entrega:
-        datos.fechaEntrega,
-      hora_entrega:
-        datos.horaEntrega || null,
-      prioridad: datos.prioridad,
-      tipo_empaque:
-        datos.tipoEmpaque,
-      estado: "INGRESADO",
-      total_unidades:
-        totalUnidades,
-      creado_por: user.id,
-    })
-
-  if (errorPedido) {
-    if (
-      errorPedido.code === "23505"
-    ) {
-      throw new Error(
-        `El número de pedido ${numeroPedido} ya está registrado.`,
-      )
-    }
-
-    throw new Error(
-      `No se pudo crear el pedido: ${errorPedido.message}`,
-    )
-  }
-
-  const detallesInsertar =
-    datos.detalles.map(
-      (detalle, indice) => ({
-        pedido_id: pedidoId,
-        producto_id:
-          detalle.productoId,
-        total_unidades:
-          detalle.totalUnidades,
-        unidades_manejo:
-          detalle.unidadManejo,
-        unidades_despachadas: 0,
-        estado: "PENDIENTE",
-        orden: indice + 1,
-      }),
-    )
-
-  const { error: errorDetalles } =
-    await supabase
-      .from("pedido_detalles")
-      .insert(detallesInsertar)
-
-  if (errorDetalles) {
-    await supabase
-      .from("pedidos")
-      .delete()
-      .eq("id", pedidoId)
-
-    throw new Error(
-      `No se pudieron guardar los productos: ${errorDetalles.message}`,
-    )
-  }
-
-  return {
-    id: pedidoId,
-    numeroPedidoCliente:
-      numeroPedido,
-    totalUnidades,
-  }
 }
-
+export async function obtenerRegistrosPedidoPendientesDb() { return (await controlRegistroPedidoDb()).listar() }
+export async function resolverRegistroPedidoDb(s: SolicitudPedidoPendiente) { return (await controlRegistroPedidoDb(s.usuarioId)).resolver(s.solicitudId) }
+export async function reintentarRegistroPedidoDb(s: SolicitudPedidoPendiente) { return (await controlRegistroPedidoDb(s.usuarioId)).registrar(s.solicitudId, s.datos, s.origen) }
+export async function crearPedidoDb(datos: NuevoPedidoDb, solicitudId = crypto.randomUUID(), origen = "MANUAL") {
+  return (await controlRegistroPedidoDb()).registrar(solicitudId, datos, origen)
+}
 
 export async function eliminarPedidoIngresadoDb(
   pedidoId: string,

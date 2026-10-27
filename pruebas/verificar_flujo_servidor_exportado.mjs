@@ -11,11 +11,12 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
-const probarArranque = process.env.CIBUSPAN_PROBAR_ARRANQUE === '1'
+const probarPedido = process.env.CIBUSPAN_PROBAR_PEDIDO === '1'
+const probarArranque = process.env.CIBUSPAN_PROBAR_ARRANQUE === '1' || probarPedido
 const probarConsumo = process.env.CIBUSPAN_PROBAR_CONSUMO === '1' || probarArranque
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`
 const nombreSQL = nombre => '"' + nombre.replaceAll('"', '""') + '"'
-const tablas = ['clientes', 'bodegas', 'productos', 'app_profiles', 'materias_primas',
+const tablas = ['clientes', 'bodegas', 'productos', 'cliente_productos', 'app_profiles', 'materias_primas',
   'inv_cargas_iniciales', 'inv_inicio_octubre', 'inv_kardex_movimientos', 'inventario_lotes',
   'semielaborado_tipos', 'semielaborado_destinos', 'inventario_semielaborados', 'conversiones_semielaborados',
   'pedidos', 'pedido_detalles', 'producciones', 'produccion_detalles', 'reservas_inventario', 'reserva_detalles']
@@ -685,6 +686,128 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         const r=(await db.query(diag)).rows[0].arranque_operativo
         assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('periodo:inventario_lotes'))
         assert.ok(r.pendientes.includes('public.inv_arranque_confirmar(uuid,date,jsonb,text,boolean,boolean,uuid)'))
+      })
+    }
+    if (probarPedido) {
+      const sqlP=await readFile(new URL('../supabase/migrations/202610270001_registro_pedidos_seguro.sql',import.meta.url),'utf8')
+      const pedidosAntes=(await db.query('select count(*) n from pedidos')).rows[0].n
+      await db.exec(sqlP)
+      assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,pedidosAntes)
+      const datosP=(extra={})=>({numeroPedidoCliente:'OC-ENSAYO',clienteId:id(2),bodegaId:id(3),fechaEntrega:hoy,horaEntrega:'08:30',prioridad:'NORMAL',tipoEmpaque:'',detalles:[{productoId:id(10),totalUnidades:30,unidadManejo:10}],...extra})
+      const registrarP=async(n=1001,d=datosP(),usuario=id(1))=>(await db.query('select registrar_pedido_seguro($1,$2::jsonb,$3) r',[id(n),JSON.stringify(d),usuario])).rows[0].r
+      const resolverP=async n=>(await db.query('select resolver_registro_pedido($1,$2) r',[id(n),id(1)])).rows[0].r
+      const casoP=(nombre,fn)=>caso(nombre,async()=>{
+        await db.exec(`update clientes set activo=true;update bodegas set activo=true;insert into cliente_productos(cliente_id,producto_id,unidad_manejo,activo) values('${id(2)}','${id(10)}',10,true)`)
+        await fn()
+      })
+      await casoP('Pedido completo se guarda junto; respuesta repetida no duplica cabecera ni productos',async()=>{
+        const a=await registrarP();assert.equal(a.total_unidades,30);assert.equal(a.repetida,false)
+        assert.equal((await db.query('select count(*) n from pedido_detalles where pedido_id=$1',[a.pedido_id])).rows[0].n,1)
+        const b=await registrarP();assert.equal(b.pedido_id,a.pedido_id);assert.equal(b.repetida,true)
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,1)
+        assert.equal((await resolverP(1001)).estado,'CONFIRMADA')
+      })
+      await casoP('Dos claves con igual número mantienen prevención global vigente y no usan patrones ILIKE',async()=>{
+        await registrarP()
+        await rechazaSinAbortar(()=>registrarP(1002,datosP({numeroPedidoCliente:' oc-ensayo '})),/ya fue registrado/)
+        await db.exec(`insert into clientes(id,nombre,activo) values('${id(92)}','Otro cliente',true);insert into bodegas(id,cliente_id,nombre,activo) values('${id(93)}','${id(92)}','Otra bodega',true);insert into cliente_productos(cliente_id,producto_id,unidad_manejo,activo) values('${id(92)}','${id(10)}',10,true)`)
+        await rechazaSinAbortar(()=>registrarP(1002,datosP({clienteId:id(92),bodegaId:id(93)})),/ya fue registrado/)
+        await registrarP(1003,datosP({numeroPedidoCliente:'OC_%'}))
+        await registrarP(1004,datosP({numeroPedidoCliente:'OC-OTRA'}))
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,3)
+      })
+      await casoP('Detalle tardío fallido revierte cabecera, líneas y comprobante',async()=>{
+        await db.exec(`insert into productos(id,codigo,nombre,corto,activo,tamano_lote,stock_minimo,vida_util_dias) values('${id(15)}','OTRO','Otro','Otro',true,10,0,30);insert into cliente_productos(cliente_id,producto_id,unidad_manejo,activo) values('${id(2)}','${id(15)}',10,true);
+          create function ensayo_fallo_pedido() returns trigger language plpgsql as $$begin if NEW.orden=2 then raise exception 'Fallo tardío pedido';end if;return NEW;end$$;
+          create trigger zz_ensayo_fallo_pedido before insert on pedido_detalles for each row execute function ensayo_fallo_pedido()`)
+        await rechazaSinAbortar(()=>registrarP(1001,datosP({detalles:[...datosP().detalles,{productoId:id(15),totalUnidades:10,unidadManejo:10}]})),/Fallo tardío/)
+        for(const tabla of ['pedidos','pedido_detalles','ped_solicitudes_registro'])assert.equal((await db.query(`select count(*) n from ${tabla}`)).rows[0].n,0)
+      })
+      await casoP('Valida catálogo/unidad vigente, fecha, bodega, productos repetidos y números enteros',async()=>{
+        for(const d of [datosP({detalles:[]}),datosP({detalles:[{...datosP().detalles[0],totalUnidades:0}]}),datosP({detalles:[{...datosP().detalles[0],totalUnidades:11}]}),datosP({detalles:[{...datosP().detalles[0],totalUnidades:10.5}]}),datosP({detalles:[{...datosP().detalles[0],unidadManejo:5}]}),datosP({detalles:[...datosP().detalles,...datosP().detalles]}),datosP({horaEntrega:'25:01'}),datosP({fechaEntrega:'2026-02-30'}),datosP({bodegaId:id(2)})])await rechazaSinAbortar(()=>registrarP(1001,d),()=>true)
+        await db.exec('update cliente_productos set activo=false')
+        await rechazaSinAbortar(()=>registrarP(),/no está habilitado/)
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,0)
+      })
+      await casoP('Reintento usa comprobante aun si cambió catálogo o el pedido ya fue despachado',async()=>{
+        const a=await registrarP();await db.exec("update cliente_productos set activo=false;update pedidos set estado='DESPACHADO'")
+        assert.equal((await registrarP()).pedido_id,a.pedido_id)
+        await rechazaSinAbortar(()=>registrarP(1001,datosP({horaEntrega:'09:00'})),/otros datos/)
+        assert.equal((await db.query('select estado from pedidos')).rows[0].estado,'DESPACHADO')
+      })
+      await casoP('Cerrar ausencia sella llegada atrasada; otra solicitud válida puede corregirse',async()=>{
+        assert.equal((await resolverP(1001)).estado,'ANULADA')
+        await rechazaSinAbortar(()=>registrarP(),/cerrado sin guardar/)
+        assert.equal((await registrarP(1002)).vigente,true)
+      })
+      await casoP('Eliminación permitida conserva comprobante y un reintento no recrea el pedido',async()=>{
+        const a=await registrarP();await db.query('delete from pedidos where id=$1',[a.pedido_id])
+        assert.equal((await registrarP()).vigente,false);assert.equal((await resolverP(1001)).vigente,false)
+        assert.equal((await db.query('select count(*) n from pedidos')).rows[0].n,0)
+      })
+      await casoP('Sin permiso, perfil activo o misma sesión no registra ni consulta intentos ajenos',async()=>{
+        await registrarP()
+        await rechazaSinAbortar(()=>registrarP(1001,datosP(),id(2)),e=>e.code==='42501')
+        await db.exec(`insert into auth.users values('${id(99)}');insert into app_profiles(user_id,email,nombre,rol,activo) values('${id(99)}','otro@example.com','Otro','ADMINISTRADOR',true)`)
+        await db.query("select set_config('ensayo.usuario',$1,true)",[id(99)])
+        await rechazaSinAbortar(()=>db.query('select resolver_registro_pedido($1,$2)',[id(1001),id(99)]),e=>e.code==='42501')
+        await db.query("select set_config('ensayo.usuario',$1,true)",[id(1)])
+        await db.exec("select set_config('ensayo.permitido','no',true)")
+        await rechazaSinAbortar(()=>registrarP(1002,datosP({numeroPedidoCliente:'OTRO'})),e=>e.code==='42501')
+        await db.exec("select set_config('ensayo.permitido','si',true);update app_profiles set activo=false")
+        await rechazaSinAbortar(()=>registrarP(1002,datosP({numeroPedidoCliente:'OTRO'})),e=>e.code==='42501')
+        await db.exec("update app_profiles set activo=true;select set_config('ensayo.usuario','',true);set role service_role")
+        await rechazaSinAbortar(()=>registrarP(1002,datosP({numeroPedidoCliente:'OTRO'}),null),e=>e.code==='42501')
+      })
+      await casoP('Entrada antigua y contexto falso no pueden dejar cabeceras ni líneas incompletas',async()=>{
+        await db.exec('grant insert,select on pedidos,pedido_detalles to authenticated;set role authenticated')
+        await rechazaSinAbortar(()=>crearPedido(),/Actualiza/)
+        await db.query("select set_config('cibuspan.pedido_request',$1,true)",[id(1001)])
+        await rechazaSinAbortar(()=>crearPedido(),/Actualiza/)
+        await rechazaSinAbortar(()=>db.exec('select * from ped_solicitudes_registro'),e=>e.code==='42501')
+        await rechazaSinAbortar(()=>db.query('select ped_datos_registro($1::jsonb)',[JSON.stringify(datosP())]),e=>e.code==='42501')
+        await db.exec('reset role;set role anon')
+        await rechazaSinAbortar(()=>registrarP(),e=>e.code==='42501')
+      })
+      await casoP('Registrar pedidos conserva stock MP/PT, reservas y comprobantes operativos',async()=>{
+        const pt=await cantidad(),mp=Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='MATERIA_PRIMA'")).rows[0].n)
+        await registrarP();assert.equal(await cantidad(),pt)
+        assert.equal(Number((await db.query("select sum(cantidad) n from inv_kardex_movimientos where tipo='MATERIA_PRIMA'")).rows[0].n),mp)
+        assert.equal((await db.query('select count(*) n from reservas_inventario')).rows[0].n,0)
+      })
+      await casoP('Pedido creado por nueva API conserva reserva y despacho FEFO posteriores',async()=>{
+        const pt=await cantidad(),a=await registrarP()
+        const detalle=(await db.query('select id from pedido_detalles where pedido_id=$1',[a.pedido_id])).rows[0].id
+        const d=JSON.stringify([{pedido_detalle_id:detalle,unidades:20}])
+        const reserva=(await db.query('select reservar_pedido_fefo_parcial($1,$2::jsonb) id',[a.pedido_id,d])).rows[0].id
+        assert.equal(await cantidad(),pt)
+        await db.query('select confirmar_despacho_parcial_fefo($1,$2::jsonb)',[reserva,d]);assert.equal(await cantidad(),pt-20)
+        assert.equal((await db.query('select unidades_despachadas n from pedido_detalles where id=$1',[detalle])).rows[0].n,20)
+        assert.equal((await registrarP()).pedido_id,a.pedido_id);assert.equal(await cantidad(),pt-20)
+      })
+      await casoP('Reinstalación conserva pedidos y comprobantes, con diagnóstico READ ONLY',async()=>{
+        const a=await registrarP();await db.exec(sqlP.replace(/^begin;$/mi,'').replace(/^commit;$/mi,'').replace(/\r?\n/g,'\r\n'))
+        assert.equal((await registrarP()).pedido_id,a.pedido_id)
+        const diag=await readFile(new URL('../supabase/diagnosticos/verificar_registro_pedidos.sql',import.meta.url),'utf8')
+        await db.exec('set transaction read only');const r=(await db.query(diag)).rows[0].registro_pedidos_seguro
+        assert.deepEqual(r.pendientes,[]);assert.equal(r.correcto,true)
+      })
+      await casoP('Pedido nuevo funciona con corte físico confirmado para mañana sin alterar su inventario',async()=>{
+        const b=(await db.query('select inv_arranque_catalogo() r')).rows[0].r
+        const inicio=(await db.query("select ((now() at time zone 'America/Guayaquil')::date+1)::text f")).rows[0].f
+        const d={version:1,nota:'Conteo aislado para integración de pedido',mp:b.mp.map(a=>({id:a.id,cantidad:a.saldo,unidad:a.unidad})),pt:b.pt.map(a=>({id:a.id,total:0,lotes:[]})),semi:b.semi.map(a=>({id:a.id,total:0,lotes:[]}))}
+        const v=(await db.query('select inv_arranque_prever($1,$2::jsonb) r',[inicio,JSON.stringify(d)])).rows[0].r
+        await db.query('select inv_arranque_confirmar($1,$2,$3::jsonb,$4,true,true,$5)',[id(1900),inicio,JSON.stringify(d),v.token,id(1)])
+        await registrarP();assert.equal(await cantidad(),0)
+        assert.equal((await db.query("select estado from inv_arranque_cortes")).rows[0].estado,'APLICADO')
+      })
+      await casoP('Verificadores de los cinco controles siguen correctos y detectan guardia de pedido deshabilitada',async()=>{
+        const nombres=['autorizacion_operativa','registro_produccion','consumo_mp_produccion','arranque_operativo','registro_pedidos']
+        for(const nombre of nombres){const d=await readFile(new URL('../supabase/diagnosticos/verificar_'+nombre+'.sql',import.meta.url),'utf8');const r=Object.values((await db.query(d)).rows[0])[0];assert.equal(r.correcto,true,JSON.stringify(r))}
+        await db.exec('alter table pedido_detalles disable trigger ped_exigir_registro_seguro')
+        const diag=await readFile(new URL('../supabase/diagnosticos/verificar_registro_pedidos.sql',import.meta.url),'utf8')
+        const r=(await db.query(diag)).rows[0].registro_pedidos_seguro
+        assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:pedido_detalles'))
       })
     }
   } finally { await db.close() }
