@@ -4,7 +4,7 @@ Entrega del 27/10/2026, seguimiento OP-02 / ORG-06. Iván autoriza continuar con
 
 ## Estado
 
-Código y SQL 202610270001_registro_pedidos_seguro.sql preparados y probados localmente. Instalación/verificación/publicación pendientes de terminal de Iván. OP-12, OP-13, consumo MP y módulo de arranque ya instalados se conservan. El arranque físico sigue en pausa, sin conteos aplicados.
+Terminal recibida de Iván el 27/10/2026: https://fbafd456.cibuspan-one.pages.dev y mensaje «Registro seguro de pedidos instalado, verificado y publicado. No se importaron pedidos ni se cambio stock». El mensaje final del instalador confirma que terminaron compilación, instalación del SQL 202610270001, las cinco verificaciones de metadatos, registro de la nueva versión y publicación. No repetir instalación ni pedir la misma terminal. OP-12/OP-13, consumo MP y módulo de arranque conservados según los verificadores. Esto no certifica aceptación por empleados, alta de un pedido real ni concurrencia HTTP en vivo. Siguiente: cerrar/abrir la app y continuar con el próximo pedido real. Arranque físico en pausa, sin conteos aplicados.
 
 ## Problema y comportamiento resultante
 
