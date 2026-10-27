@@ -569,3 +569,10 @@ Iván confirma el 27/10/2026 la terminal final del instalador: publicación http
 No se aplicó conteo ni se acordó fecha de inicio. Siguiente paso: cerrar/abrir la app, administrador en Kardex > Preparar arranque, preparar conteo real MP/empaques/micros/PT/semielaborados y conservar borrador descargado; elegir fecha cuando esté listo, resolver reservas/pedidos, revisar la previa y confirmar una sola vez. No inventar cifras/fechas, repetir importación inicial de septiembre o regularizar producciones antiguas sobre el stock nuevo. Pedidos continúan al día. Histórico en pausa. Después seguir pedido transaccional y pendientes de empaque/micros; etapa 3 abierta.
 
 Esta entrega actualiza sólo documentación y seguimiento. No hay SQL/frontend nuevos ni otra publicación requerida por estas notas.
+
+
+### Tema marcado para más adelante: arranque de inventarios, 27/10/2026
+
+En pausa por indicación de Iván (27/10/2026): arranque de inventarios, seguimiento ORG-07. El módulo ya está instalado, verificado y publicado (Cloudflare 10e6b372). Quedan pendientes conteo físico real, fecha de inicio, revisión de pedidos/reservas, vista previa y confirmación del corte. No se aplicó ningún conteo. Retomar sólo cuando Iván lo indique; frase de referencia: «Retomemos el arranque de inventarios». Sin fecha ni recordatorio programado. No reinstalar ni volver a pedir la terminal confirmada. Los pedidos continúan al día.
+
+Esta indicación posterior suspende el siguiente paso de conteo/aplicación descrito arriba; no reanudarlo automáticamente por ver el módulo instalado. Mantener el estado en el prompt y seguimiento estructural. No modifica SQL, interfaz, saldos ni controles; no requiere comandos del usuario ni otra publicación.

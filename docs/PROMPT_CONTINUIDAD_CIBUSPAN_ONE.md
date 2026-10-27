@@ -1,5 +1,7 @@
 # Prompt para continuar CIBUSPAN ONE en otro chat
 
+> En pausa por indicación de Iván (27/10/2026): arranque de inventarios, seguimiento ORG-07. El módulo ya está instalado, verificado y publicado (Cloudflare 10e6b372). Quedan pendientes conteo físico real, fecha de inicio, revisión de pedidos/reservas, vista previa y confirmación del corte. No se aplicó ningún conteo. Retomar sólo cuando Iván lo indique; frase de referencia: «Retomemos el arranque de inventarios». Sin fecha ni recordatorio programado. No reinstalar ni volver a pedir la terminal confirmada. Los pedidos continúan al día.
+
 Copia desde «Soy Iván» hasta el final, o adjunta este archivo al nuevo chat y pide que lo lea completo. Sirve tanto para cambiar de chat ahora como cuando este se agote. Versión: 23 de octubre de 2026. El estado vigente de GitHub y los documentos del proyecto tienen prioridad sobre este resumen si hay avances posteriores.
 
 ---

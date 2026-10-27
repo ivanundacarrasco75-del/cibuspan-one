@@ -1,5 +1,7 @@
 # CIBUSPAN ONE: auditoría de estructura y plan de reorganización
 
+> En pausa por indicación de Iván (27/10/2026): arranque de inventarios, seguimiento ORG-07. El módulo ya está instalado, verificado y publicado (Cloudflare 10e6b372). Quedan pendientes conteo físico real, fecha de inicio, revisión de pedidos/reservas, vista previa y confirmación del corte. No se aplicó ningún conteo. Retomar sólo cuando Iván lo indique; frase de referencia: «Retomemos el arranque de inventarios». Sin fecha ni recordatorio programado. No reinstalar ni volver a pedir la terminal confirmada. Los pedidos continúan al día.
+
 Fecha: 23 de octubre de 2026, Ecuador. Estado: primera revisión de navegación y arquitectura; propuesta para revisión con Iván. Base oficial: main dac28b1f68c5908ccc361266f50b222831433699. No se cambió ninguna pantalla, menú, permiso, base de datos o despliegue.
 
 ## Decisión recomendada
@@ -107,7 +109,7 @@ Estados de seguimiento: Por revisar → Diagnosticado → Decidido → En adapta
 | ORG-04 | Recorrido real por rol | Por revisar | Alta | Iván, pedidos, producción, bodega, facturación, KAM y mercaderista completan sus tareas. |
 | ORG-05 | Catálogo de indicadores y fuentes | Por revisar | Alta | Cada KPI tiene fórmula y fuente únicas y resultados conciliados. |
 | ORG-06 | Pedidos/planificación/producción | OP-13 y consumo MP diario instalados; pedidos al día y corte físico de arranque prioritarios; histórico en pausa | Alta | Pedido no se duplica y consumo/alta de PT ocurre una vez. |
-| ORG-07 | Stock/Kardex/saldos iniciales/importación | Módulo de corte instalado/verificado/publicado (terminal 27/10, Cloudflare 10e6b372); conteo real/corte pendientes | Alta | MP/PT concilian con movimientos y corte; ajustes trazables. |
+| ORG-07 | Stock/Kardex/saldos iniciales/importación | Módulo instalado/verificado/publicado (10e6b372); conteo real/corte EN PAUSA por Iván el 27/10 | Alta | MP/PT concilian con movimientos y corte; ajustes trazables. |
 | ORG-08 | Preparación/despacho/documentos/devolución | Reserva/salida verificadas localmente; parcial y recuperación pendientes | Alta | Flujo completo sin doble descarga de stock y retorno controlado. |
 | ORG-09 | Ventas/descuentos/acuerdos/correos | Por revisar en vivo | Alta | Fuente comercial clara, correo de empresa activado y no duplica descuentos. |
 | ORG-10 | Visitas/rotación/revisión/supervisión/KAM | Estructura diagnosticada | Alta | Separar registrar, revisar y analizar; conservar registros diarios y datos manuales. |

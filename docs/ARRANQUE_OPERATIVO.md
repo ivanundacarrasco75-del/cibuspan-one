@@ -1,5 +1,7 @@
 # Arranque operativo con inventario físico
 
+> En pausa por indicación de Iván (27/10/2026): arranque de inventarios, seguimiento ORG-07. El módulo ya está instalado, verificado y publicado (Cloudflare 10e6b372). Quedan pendientes conteo físico real, fecha de inicio, revisión de pedidos/reservas, vista previa y confirmación del corte. No se aplicó ningún conteo. Retomar sólo cuando Iván lo indique; frase de referencia: «Retomemos el arranque de inventarios». Sin fecha ni recordatorio programado. No reinstalar ni volver a pedir la terminal confirmada. Los pedidos continúan al día.
+
 Decisión registrada el 24/10/2026 a partir de la indicación de Iván. Prioridad actual: conservar los pedidos al día y preparar un corte real de inventario para el arranque diario de producción y bodega. La reconstrucción de consumos desde el 1 de octubre queda en pausa; no es requisito para arrancar con un saldo físico confiable.
 
 ## Estado y alcance
