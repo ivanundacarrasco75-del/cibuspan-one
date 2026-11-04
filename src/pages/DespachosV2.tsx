@@ -14,6 +14,7 @@ import {
 } from "../repositories/despachoRepository"
 
 import { useLogisticaSegura } from "../hooks/useLogisticaSegura"
+import EditarDespacho from "../components/logistica/EditarDespacho"
 import IntentosLogistica from "../components/logistica/IntentosLogistica"
 import { preverLogisticaDb } from "../repositories/logisticaSeguraRepository"
 
@@ -719,7 +720,7 @@ export default function DespachosV2() {
       const revision = await preverLogisticaDb("DESPACHAR", datos)
       if (!revision.puede_ejecutar) throw new Error(revision.bloqueos.join(" "))
       const fillRate = revision.total_pedido ? (revision.unidades / revision.total_pedido * 100).toFixed(1) : "0.0"
-      const confirmacion = window.confirm(`¿Confirmas el despacho del pedido ${revision.numero_pedido_cliente || revision.pedido_id}?\n\nSolicitado: ${revision.total_pedido} unidades\nA despachar: ${revision.unidades} unidades\nFill Rate: ${fillRate}%\nFactura: ${datos.numeroFactura || "SIN NÚMERO · quedará pendiente de vincular"}${revision.parcial ? "\n\nEl pedido quedará cerrado como DESPACHADO aunque sea parcial." : ""}\n\nLa factura, el control de conciliación y la salida de inventario se confirmarán juntos.`)
+      const confirmacion = window.confirm(`¿Confirmas el despacho del pedido ${revision.numero_pedido_cliente || revision.pedido_id}?\n\nSolicitado: ${revision.total_pedido} unidades\nA despachar: ${revision.unidades} unidades\nFill Rate: ${fillRate}%\nFactura: ${datos.numeroFactura || "SIN NÚMERO · quedará pendiente de vincular"}${revision.parcial ? "\n\nEl pedido quedará cerrado con estas cantidades, sin saldo pendiente." : ""}\n\nLa factura, el control de conciliación y la salida de inventario se confirmarán juntos.`)
       if (!confirmacion) return
       const r = await logistica.ejecutar("DESPACHAR", datos, revision)
       limpiarSeleccion()
@@ -903,7 +904,7 @@ export default function DespachosV2() {
                                         Cantidades del despacho
                                       </h3>
                                       <p style={{ ...descripcion, margin: "4px 0 0" }}>
-                                        El pedido original no se modifica. Ajusta únicamente lo que realmente se enviará.
+                                        Ajusta lo que realmente se enviará. Guarda la preparación para conservar estas cantidades; el stock físico se descuenta al confirmar el despacho.
                                       </p>
                                     </div>
 
@@ -1045,7 +1046,7 @@ export default function DespachosV2() {
 
                                   {despachoParcial && (
                                     <div className="dispatch-partial-warning">
-                                      Despacho parcial: el pedido conservará sus cantidades originales para medir correctamente el Fill Rate.
+                                      El pedido se cerrará con las unidades enviadas, sin saldo pendiente. Se conserva lo solicitado para medir el Fill Rate.
                                     </div>
                                   )}
                                 </section>
@@ -1407,7 +1408,7 @@ export default function DespachosV2() {
                   >
                     {procesando
                       ? "Preparando..."
-                      : "Preparar por FEFO"}
+                      : "Guardar preparación"}
                   </button>
                 )}
 
@@ -1456,13 +1457,22 @@ export default function DespachosV2() {
                       mensajeDespachado
                     }
                   >
-                    Pedido despachado. El inventario ya fue descontado.
+                    Pedido cerrado con las unidades enviadas, sin saldo pendiente. El inventario ya fue descontado.
                     {numeroFactura.trim()
                       ? ` · Factura ${numeroFactura.trim()}`
                       : " · Pendiente de vincular factura."}
                   </div>
                 )}
               </section>
+              {pedidoSeleccionado.estado === "DESPACHADO" && reservaActiva?.estado === "DESPACHADA" && <EditarDespacho
+                key={reservaActiva.id} reservaId={reservaActiva.id} pedidoId={pedidoSeleccionado.id} control={logistica} bloqueado={bloqueoOperacion}
+                onOcupado={b => { accionLogistica.current = b; setProcesando(b) }}
+                onGuardado={async r => {
+                  await cargarPedidos(false)
+                  await cargarDetallePedidoHistorial(r.pedido_id, true)
+                  setMensaje(`Despacho corregido: ${r.resumen.unidades} unidades. El inventario se ajustó sólo por la diferencia; el pedido sigue cerrado.`)
+                }}
+              />}
             </>
           )}
       </>

@@ -1,6 +1,8 @@
-export type TipoLogistica = "ELIMINAR" | "DESPACHAR" | "PREPARAR" | "LIBERAR"
-export type DatosLogistica = { pedidoId: string } | { pedidoId: string; cantidades: { pedidoDetalleId: string; unidades: number }[] } | { reservaId: string } | { reservaId: string; numeroFactura: string; cantidades: { pedidoDetalleId: string; unidades: number }[] }
-export type VistaLogistica = { token: string; puede_ejecutar: boolean; bloqueos: string[]; pedido_id: string; numero_pedido_cliente: string | null; unidades: number; skus?: number; total_pedido?: number; parcial?: boolean; numero_factura?: string; reserva_id?: string | null }
+export type TipoLogistica = "ELIMINAR" | "DESPACHAR" | "PREPARAR" | "LIBERAR" | "CORREGIR"
+export type LineaCorreccionDespacho = { pedidoDetalleId: string; inventarioLoteId: string; unidades: number }
+export type DatosCorreccionDespacho = { reservaId: string; motivo: string; lineas: LineaCorreccionDespacho[] }
+export type DatosLogistica = DatosCorreccionDespacho | { pedidoId: string } | { pedidoId: string; cantidades: { pedidoDetalleId: string; unidades: number }[] } | { reservaId: string } | { reservaId: string; numeroFactura: string; cantidades: { pedidoDetalleId: string; unidades: number }[] }
+export type VistaLogistica = { token: string; puede_ejecutar: boolean; bloqueos: string[]; pedido_id: string; numero_pedido_cliente: string | null; unidades: number; skus?: number; total_pedido?: number; parcial?: boolean; numero_factura?: string; reserva_id?: string | null; unidades_anteriores?: number; entrada_stock?: number; salida_stock?: number; motivo?: string }
 export type IntentoLogistica = { version: 1; id: string; usuarioId: string; tipo: TipoLogistica; datos: DatosLogistica; token: string; pedidoId: string; creadoEn: string }
 export type ResultadoLogistica = { estado: "CONFIRMADA"; solicitud_id: string; tipo: TipoLogistica; objeto_id: string; pedido_id: string; reserva_id?: string; resumen: Omit<VistaLogistica, "token">; repetida: boolean }
 export type ResolucionLogistica = ResultadoLogistica | { estado: "ANULADA"; solicitud_id: string; tipo: TipoLogistica }
@@ -11,6 +13,18 @@ export class LogisticaPendienteError extends Error { constructor() { super("Falt
 export class LogisticaNoEjecutadaError extends Error { constructor(m: string) { super(m); this.name = "LogisticaNoEjecutadaError" } }
 export function copiarDatosLogistica(tipo: TipoLogistica, valor: DatosLogistica): DatosLogistica {
   if (!valor || typeof valor !== "object") throw new Error("Operación incompleta.")
+  if (tipo === "CORREGIR") {
+    if (!("reservaId" in valor) || !uuid(valor.reservaId) || !("motivo" in valor) || typeof valor.motivo !== "string" || valor.motivo.trim().length < 8 || valor.motivo.trim().length > 1000 || !Array.isArray(valor.lineas) || !valor.lineas.length || valor.lineas.length > 3000) throw new Error("Selecciona el despacho y explica el motivo de corrección (8 a 1000 caracteres).")
+    const claves = new Set<string>(); let total = 0
+    const lineas = valor.lineas.map(l => {
+      if (!l || !uuid(l.pedidoDetalleId) || !uuid(l.inventarioLoteId) || !Number.isSafeInteger(l.unidades) || l.unidades < 0 || l.unidades > 2147483647) throw new Error("Revisa lotes y cantidades enteras de la corrección.")
+      const pedidoDetalleId = l.pedidoDetalleId.toLowerCase(), inventarioLoteId = l.inventarioLoteId.toLowerCase(), clave = `${pedidoDetalleId}:${inventarioLoteId}`
+      if (claves.has(clave)) throw new Error("No repitas el mismo SKU y lote.")
+      claves.add(clave); total += l.unidades; return { pedidoDetalleId, inventarioLoteId, unidades: l.unidades }
+    }).sort((a, b) => a.pedidoDetalleId.localeCompare(b.pedidoDetalleId) || a.inventarioLoteId.localeCompare(b.inventarioLoteId))
+    if (total <= 0 || total > 2147483647) throw new Error("La corrección debe conservar unidades; no es una anulación de despacho.")
+    return { reservaId: valor.reservaId.toLowerCase(), motivo: valor.motivo.trim(), lineas }
+  }
   if (tipo === "ELIMINAR") {
     if (!("pedidoId" in valor) || !idPedido(valor.pedidoId)) throw new Error("Selecciona un pedido.")
     return { pedidoId: valor.pedidoId.trim() }
@@ -68,6 +82,9 @@ export function crearControlLogistica(op: {
       if (!uuid(v.reserva_id) || v.resumen.reserva_id !== v.reserva_id) throw new LogisticaPendienteError()
       if (s.tipo === "PREPARAR" && "cantidades" in s.datos && v.resumen.unidades !== s.datos.cantidades.reduce((n, c) => n + c.unidades, 0)) throw new LogisticaPendienteError()
       if (s.tipo === "LIBERAR" && "reservaId" in s.datos && v.reserva_id !== s.datos.reservaId) throw new LogisticaPendienteError()
+    }
+    if (s.tipo === "CORREGIR" && "lineas" in s.datos) {
+      if (v.reserva_id !== s.datos.reservaId || v.resumen.reserva_id !== s.datos.reservaId || v.resumen.unidades !== s.datos.lineas.reduce((n, l) => n + l.unidades, 0) || v.resumen.motivo !== s.datos.motivo || !Number.isSafeInteger(v.resumen.unidades_anteriores) || (v.resumen.unidades_anteriores ?? -1) < 0 || !Number.isSafeInteger(v.resumen.entrada_stock) || (v.resumen.entrada_stock ?? -1) < 0 || !Number.isSafeInteger(v.resumen.salida_stock) || (v.resumen.salida_stock ?? -1) < 0 || v.resumen.unidades_anteriores! - v.resumen.unidades !== v.resumen.entrada_stock! - v.resumen.salida_stock!) throw new LogisticaPendienteError()
     }
     return v
   }

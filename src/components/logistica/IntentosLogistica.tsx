@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { useLogisticaSegura } from "../../hooks/useLogisticaSegura"
 import { LogisticaNoEjecutadaError, type IntentoLogistica } from "../../utils/operacionLogisticaSegura"
-const nombres = { ELIMINAR: "Eliminar pedido", DESPACHAR: "Confirmar despacho", PREPARAR: "Preparar pedido", LIBERAR: "Liberar reserva" }
+const nombres = { ELIMINAR: "Eliminar pedido", DESPACHAR: "Confirmar despacho", PREPARAR: "Preparar pedido", LIBERAR: "Liberar reserva", CORREGIR: "Corregir despacho" }
 export default function IntentosLogistica({ control, ocupado, onResuelta }: { control: ReturnType<typeof useLogisticaSegura>; ocupado: boolean; onResuelta: () => Promise<void> }) {
   const [mensaje, setMensaje] = useState(""), [error, setError] = useState(""), [cerrado, setCerrado] = useState<IntentoLogistica | null>(null)
   function descargar(s: IntentoLogistica) { const url = URL.createObjectURL(new Blob([JSON.stringify(s, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = `Intento-logistica-${s.id}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) }
@@ -11,7 +11,7 @@ export default function IntentosLogistica({ control, ocupado, onResuelta }: { co
       const r = await control.recuperar(s, reintentar)
       setError("")
       if (r.estado === "ANULADA") { setCerrado(s); setMensaje("El intento quedó cerrado sin ejecutar. Actualiza el pedido y revisa otra vez antes de confirmar.") }
-      else { setCerrado(null); setMensaje(r.tipo === "ELIMINAR" ? `Eliminación del pedido ${r.pedido_id} confirmada; no se repitió.` : r.tipo === "DESPACHAR" ? `Despacho del pedido ${r.pedido_id} confirmado; no se volvió a descontar stock.` : r.tipo === "PREPARAR" ? `Preparación del pedido ${r.pedido_id} confirmada. Reserva: ${r.reserva_id}. No se volvió a preparar.` : `Liberación del pedido ${r.pedido_id} confirmada. No se repitió la operación.`) }
+      else { setCerrado(null); setMensaje(r.tipo === "ELIMINAR" ? `Eliminación del pedido ${r.pedido_id} confirmada; no se repitió.` : r.tipo === "DESPACHAR" ? `Despacho del pedido ${r.pedido_id} confirmado; no se volvió a descontar stock.` : r.tipo === "PREPARAR" ? `Preparación del pedido ${r.pedido_id} confirmada. Reserva: ${r.reserva_id}. No se volvió a preparar.` : r.tipo === "LIBERAR" ? `Liberación del pedido ${r.pedido_id} confirmada. No se repitió la operación.` : `Corrección del despacho ${r.pedido_id} confirmada. El ajuste de inventario no se repitió.`) }
       await onResuelta()
     } catch (e) { if (e instanceof LogisticaNoEjecutadaError) setCerrado(s); setError((e as Error).message) }
   }

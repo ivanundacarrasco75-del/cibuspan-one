@@ -6,8 +6,8 @@ const server=await createServer({root:fileURLToPath(new URL('..',import.meta.url
 after(()=>server.close())
 const {crearControlLogistica,copiarDatosLogistica,LogisticaPendienteError,LogisticaNoEjecutadaError}=await server.ssrLoadModule('/src/utils/operacionLogisticaSegura.ts')
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
-const intento=(n,tipo='DESPACHAR')=>({version:1,id:id(n),usuarioId:id(1),tipo,pedidoId:'PED-ENSAYO',token:'a'.repeat(32),creadoEn:'2026-10-27T12:00:00Z',datos:tipo==='ELIMINAR'?{pedidoId:'PED-ENSAYO'}:tipo==='PREPARAR'?{pedidoId:'PED-ENSAYO',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}:tipo==='LIBERAR'?{reservaId:id(10)}:{reservaId:id(10),numeroFactura:'FAC-01',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}})
-const ok=(n,tipo='DESPACHAR')=>({estado:'CONFIRMADA',solicitud_id:id(n),tipo,objeto_id:['ELIMINAR','PREPARAR'].includes(tipo)?'PED-ENSAYO':id(10),reserva_id:id(10),pedido_id:'PED-ENSAYO',resumen:{pedido_id:'PED-ENSAYO',reserva_id:id(10),numero_pedido_cliente:'OC-ENSAYO',unidades:20,numero_factura:'FAC-01',bloqueos:[],puede_ejecutar:true},repetida:false})
+const intento=(n,tipo='DESPACHAR')=>({version:1,id:id(n),usuarioId:id(1),tipo,pedidoId:'PED-ENSAYO',token:'a'.repeat(32),creadoEn:'2026-10-27T12:00:00Z',datos:tipo==='CORREGIR'?{reservaId:id(10),motivo:'Cantidad digitada por error',lineas:[{pedidoDetalleId:id(20),inventarioLoteId:id(30),unidades:20}]}:tipo==='ELIMINAR'?{pedidoId:'PED-ENSAYO'}:tipo==='PREPARAR'?{pedidoId:'PED-ENSAYO',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}:tipo==='LIBERAR'?{reservaId:id(10)}:{reservaId:id(10),numeroFactura:'FAC-01',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}})
+const ok=(n,tipo='DESPACHAR')=>({estado:'CONFIRMADA',solicitud_id:id(n),tipo,objeto_id:['ELIMINAR','PREPARAR'].includes(tipo)?'PED-ENSAYO':id(10),reserva_id:id(10),pedido_id:'PED-ENSAYO',resumen:{pedido_id:'PED-ENSAYO',reserva_id:id(10),unidades_anteriores:30,entrada_stock:10,salida_stock:0,motivo:'Cantidad digitada por error',numero_pedido_cliente:'OC-ENSAYO',unidades:20,numero_factura:'FAC-01',bloqueos:[],puede_ejecutar:true},repetida:false})
 function almacen(){const m=new Map();return {m,get length(){return m.size},key:i=>[...m.keys()][i]??null,getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}}
 const control=(a,ejecutar,resolver=async()=>{throw Error('sin conexión')},extra={})=>crearControlLogistica({almacen:a,proyecto:'ensayo',usuarioId:id(1),ejecutar,resolver,...extra})
 test('Copia cantidades y normaliza orden/UUID/factura sin compartir referencias',()=>{
@@ -21,7 +21,7 @@ test('Bloquea líneas repetidas/ajenas, decimales, negativos, cero total y valor
  assert.throws(()=>copiarDatosLogistica('ELIMINAR',{pedidoId:''}))
 })
 test('Persiste revisión y copia de datos antes de enviar cualquiera de las operaciones',async()=>{
- for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR']){
+ for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR','CORREGIR']){
   const a=almacen(),s=intento(101,tipo),c=control(a,async recibido=>{assert.equal(a.length,1);assert.notEqual(recibido,s);assert.equal(recibido.token,s.token);return ok(101,tipo)})
   assert.equal((await c.ejecutar(s)).estado,'CONFIRMADA');assert.equal(a.length,0)
  }
@@ -33,7 +33,7 @@ test('Dos clics comparten una petición y no aceptan datos diferentes con el mis
  terminar(ok(102));assert.deepEqual(await uno,await dos)
 })
 test('Respuesta perdida recupera confirmación sin repetir eliminación o salida',async()=>{
- for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR']){
+ for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR','CORREGIR']){
   const a=almacen();let envios=0;const c=control(a,async()=>{envios++;throw Error('respuesta perdida')},async()=>ok(103,tipo))
   assert.equal((await c.ejecutar(intento(103,tipo))).repetida,true);assert.equal(envios,1);assert.equal(a.length,0)
  }
@@ -97,7 +97,7 @@ test('Preparación o liberación incierta bloquea las cuatro clases hasta compro
   const a=almacen();await assert.rejects(control(a,async()=>{throw Error()}).ejecutar(intento(121,tipo)),LogisticaPendienteError)
   const c=control(a,()=>assert.fail('No se reenvía'),async()=>ok(121,tipo))
   assert.equal(c.listar()[0].tipo,tipo)
-  for(const otro of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR'])await assert.rejects(c.ejecutar(intento(122,otro)),LogisticaPendienteError)
+  for(const otro of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR','CORREGIR'])await assert.rejects(c.ejecutar(intento(122,otro)),LogisticaPendienteError)
   assert.equal((await c.resolver(c.listar()[0])).estado,'CONFIRMADA');assert.equal(a.length,0)
  }
 })
@@ -122,4 +122,35 @@ test('Reservas: ausencia sellada retira copia y conserva error sin anunciar éxi
   const a=almacen(),c=control(a,async()=>{throw Error('La reserva cambió')},async s=>({estado:'ANULADA',solicitud_id:s.id,tipo:s.tipo}))
   await assert.rejects(c.ejecutar(intento(125,tipo)),LogisticaNoEjecutadaError);assert.equal(a.length,0)
  }
+})
+
+test('Corrección normaliza copia, lotes y motivo; duplicados y cantidades inválidas no se envían',()=>{
+ const d=intento(130,'CORREGIR').datos;d.motivo=' Cantidad digitada por error '
+ const c=copiarDatosLogistica('CORREGIR',d);d.lineas[0].unidades=999
+ assert.equal(c.lineas[0].unidades,20);assert.equal(c.motivo,'Cantidad digitada por error')
+ for(const malo of [{...c,motivo:'x'},{...c,lineas:[]},{...c,lineas:[...c.lineas,...c.lineas]},{...c,lineas:[{...c.lineas[0],unidades:0}]},{...c,lineas:[{...c.lineas[0],unidades:0.5}]},{...c,lineas:[{...c.lineas[0],inventarioLoteId:'OTRO'}]}])assert.throws(()=>copiarDatosLogistica('CORREGIR',malo))
+})
+test('Corrección incierta bloquea otras operaciones y se recupera tras recargar sin nuevo ajuste',async()=>{
+ const a=almacen();let envios=0
+ await assert.rejects(control(a,async()=>{envios++;throw Error()}).ejecutar(intento(131,'CORREGIR')),LogisticaPendienteError)
+ const recarga=control(a,()=>assert.fail('Comprobar no ejecuta'),async()=>ok(131,'CORREGIR'))
+ assert.equal(recarga.listar()[0].datos.lineas[0].unidades,20)
+ for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR','CORREGIR'])await assert.rejects(recarga.ejecutar(intento(132,tipo)),LogisticaPendienteError)
+ assert.equal((await recarga.resolver(recarga.listar()[0])).estado,'CONFIRMADA');assert.equal(envios,1);assert.equal(a.length,0)
+})
+test('Corrección valida comprobante: reserva, unidades, motivo y balance del ajuste',async()=>{
+ const bueno=ok(133,'CORREGIR')
+ for(const cambio of [{reserva_id:id(99)},{resumen:{...bueno.resumen,motivo:'Otro motivo'}},{resumen:{...bueno.resumen,unidades:10}},{resumen:{...bueno.resumen,entrada_stock:0}},{resumen:{...bueno.resumen,salida_stock:-1}},{resumen:{...bueno.resumen,unidades_anteriores:undefined}}]){
+  const a=almacen(),malo={...bueno,...cambio};await assert.rejects(control(a,async()=>malo,async()=>malo).ejecutar(intento(133,'CORREGIR')),LogisticaPendienteError);assert.equal(a.length,1)
+ }
+})
+test('Corrección con doble clic usa una petición y rechaza motivo o lote distinto con la misma clave',async()=>{
+ let terminar,envios=0;const a=almacen(),c=control(a,()=>{envios++;return new Promise(r=>terminar=r)}),s=intento(134,'CORREGIR')
+ const uno=c.ejecutar(s),dos=c.ejecutar(s);assert.equal(envios,1)
+ for(const cambiar of [x=>x.datos.motivo='Motivo diferente',x=>x.datos.lineas[0].inventarioLoteId=id(99)]){const otro=intento(134,'CORREGIR');cambiar(otro);await assert.rejects(c.ejecutar(otro),LogisticaPendienteError)}
+ terminar(ok(134,'CORREGIR'));assert.deepEqual(await uno,await dos)
+})
+test('Corrección con ausencia sellada queda cerrada sin anunciar éxito ni perder incertidumbre',async()=>{
+ const a=almacen(),c=control(a,async()=>{throw Error('La revisión cambió')},async s=>({estado:'ANULADA',solicitud_id:s.id,tipo:s.tipo}))
+ await assert.rejects(c.ejecutar(intento(135,'CORREGIR')),LogisticaNoEjecutadaError);assert.equal(a.length,0)
 })

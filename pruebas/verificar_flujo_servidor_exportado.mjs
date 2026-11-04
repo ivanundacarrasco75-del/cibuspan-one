@@ -11,7 +11,8 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
-const probarReserva = process.env.CIBUSPAN_PROBAR_RESERVA === '1'
+const probarEdicion = process.env.CIBUSPAN_PROBAR_EDICION === '1'
+const probarReserva = process.env.CIBUSPAN_PROBAR_RESERVA === '1' || probarEdicion
 const probarLogistica = process.env.CIBUSPAN_PROBAR_LOGISTICA === '1' || probarReserva
 const probarPedido = process.env.CIBUSPAN_PROBAR_PEDIDO === '1' || probarLogistica
 const probarArranque = process.env.CIBUSPAN_PROBAR_ARRANQUE === '1' || probarPedido
@@ -1121,6 +1122,169 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
           const r=(await db.query(diagnosticoR)).rows[0].reservas_recuperables
           assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:reservas_inventario'));assert.ok(r.pendientes.includes('public.ejecutar_operacion_reserva(uuid,text,jsonb,text,uuid)'))
         })
+        if (probarEdicion) {
+          const sqlE=await readFile(new URL('../supabase/migrations/202611040002_edicion_despachos.sql',import.meta.url),'utf8')
+          const diagE=await readFile(new URL('../supabase/diagnosticos/verificar_edicion_despachos.sql',import.meta.url),'utf8')
+          const ptAntes=await cantidad(),movAntes=await movimientos();await db.exec(sqlE);assert.equal(await cantidad(),ptAntes);assert.equal(await movimientos(),movAntes)
+          const prepararE=async()=>{
+            const p=await pedidoL(),rp=await prepararR(p),d=datosL(p,rp.reserva_id),v=await preverL('DESPACHAR',d);await ejecutarL('DESPACHAR',d,v)
+            const rd=(await db.query('select id,inventario_lote_id from reserva_detalles where reserva_id=$1',[rp.reserva_id])).rows[0]
+            return {...p,reserva:rp.reserva_id,lote:rd.inventario_lote_id,rd:rd.id,despacho:d,vDespacho:v}
+          }
+          const datosE=(p,n=10)=>({reservaId:p.reserva,motivo:'Cantidad digitada por error',lineas:[{pedidoDetalleId:p.detalle,inventarioLoteId:p.lote,unidades:n}]})
+          const preverE=async d=>(await db.query('select prever_edicion_despacho($1,$2::jsonb) r',['CORREGIR',JSON.stringify(d)])).rows[0].r
+          const ejecutarE=async(d,v,n=5000,usuario=id(1))=>(await db.query('select ejecutar_edicion_despacho($1,$2,$3::jsonb,$4,$5) r',[id(n),'CORREGIR',JSON.stringify(d),v.token,usuario])).rows[0].r
+          const resolverE=async(n=5000,usuario=id(1))=>(await db.query('select resolver_edicion_despacho($1,$2,$3) r',[id(n),'CORREGIR',usuario])).rows[0].r
+          const editorE=async p=>(await db.query('select obtener_edicion_despacho($1) r',[p.reserva])).rows[0].r
+          await casoL('Corrección: editor y revisión READ ONLY conservan existencias y documentos',async()=>{
+            const p=await prepararE(),d=datosE(p),pt=await cantidad(),mov=await movimientos()
+            await db.exec('savepoint lectura;set transaction read only')
+            const e=await editorE(p),v=await preverE(d);assert.equal(e.pedido_id,p.id);assert.equal(e.asignaciones[0].unidades,20);assert.equal(v.unidades_anteriores,20);assert.equal(v.entrada_stock,10);assert.equal(v.salida_stock,0)
+            await db.exec('rollback to lectura;release lectura');assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov)
+            assert.equal((await db.query('select count(*) n from ed_solicitudes_despacho')).rows[0].n,0)
+          })
+          await casoL('Corregir a menos restituye sólo diferencia, conserva cierre/pedido/factura y permite recuperar',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d),pt=await cantidad(),mov=await movimientos(),r=await ejecutarE(d,v)
+            assert.equal(r.resumen.unidades,10);assert.equal(await cantidad(),pt+10);assert.equal(await movimientos(),mov+1)
+            assert.equal((await db.query('select total_unidades,unidades_despachadas from pedido_detalles where id=$1',[p.detalle])).rows[0].total_unidades,30)
+            assert.equal((await db.query('select unidades_despachadas from pedido_detalles where id=$1',[p.detalle])).rows[0].unidades_despachadas,10)
+            assert.equal((await db.query('select id from reserva_detalles where reserva_id=$1',[p.reserva])).rows[0].id,p.rd)
+            assert.equal((await db.query('select estado,numero_factura,conciliacion_aplica from reservas_inventario where id=$1',[p.reserva])).rows[0].numero_factura,'FAC-LOG')
+            assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'DESPACHADO')
+            assert.equal((await ejecutarE(d,v)).repetida,true);assert.equal((await resolverE()).estado,'CONFIRMADA');assert.equal(await cantidad(),pt+10);assert.equal(await movimientos(),mov+1)
+            const e=await editorE(p);assert.equal(e.historial[0].motivo,d.motivo);assert.equal(e.historial[0].antes,20);assert.equal(e.historial[0].despues,10)
+            const k=(await db.query("select clase,cantidad,solicitud_datos from inv_kardex_movimientos where motivo like 'Corrección de despacho:%'")).rows[0];assert.equal(k.clase,'ENTRADA');assert.equal(Number(k.cantidad),10);assert.equal(k.solicitud_datos.solicitud_correccion,id(5000))
+          })
+          await casoL('Corregir a más descuenta sólo diferencia; reintentar confirmación original no deshace corrección',async()=>{
+            const p=await prepararE(),d=datosE(p,30),pt=await cantidad(),v=await preverE(d)
+            assert.equal(v.salida_stock,10);await ejecutarE(d,v);assert.equal(await cantidad(),pt-10)
+            await ejecutarL('DESPACHAR',p.despacho,p.vDespacho);assert.equal(await cantidad(),pt-10)
+            assert.equal((await db.query('select unidades_despachadas from pedido_detalles where id=$1',[p.detalle])).rows[0].unidades_despachadas,30)
+          })
+          await casoL('Cambio explícito de lote aplica dos diferencias y Kardex por lote sin duplicar solicitud',async()=>{
+            const p=await prepararE()
+            await db.query("insert into inventario_lotes(id,producto_id,lote,fecha_produccion,fecha_vencimiento,cantidad) values($1,$2,'LOTE-CORRECTO',current_date,current_date+20,50)",[id(5100),id(10)])
+            const d=datosE(p);d.lineas.push({pedidoDetalleId:p.detalle,inventarioLoteId:id(5100),unidades:10});const pt=await cantidad(),mov=await movimientos(),v=await preverE(d)
+            assert.equal(v.entrada_stock,10);assert.equal(v.salida_stock,10);await ejecutarE(d,v);assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov+2)
+            assert.equal((await db.query('select cantidad from inventario_lotes where id=$1',[id(5100)])).rows[0].cantidad,40)
+            const ks=(await db.query("select solicitud_id,solicitud_datos from inv_kardex_movimientos where motivo like 'Corrección de despacho:%'")).rows;assert.equal(new Set(ks.map(k=>k.solicitud_id)).size,2);assert.ok(ks.every(k=>k.solicitud_datos.solicitud_correccion===id(5000)))
+          })
+          await casoL('Corrección: cantidad mayor respeta stock reservado para otro pedido',async()=>{
+            const p=await prepararE();await db.query('update inventario_lotes set cantidad=0 where id<>$1',[p.lote]);await db.query('update inventario_lotes set cantidad=20 where id=$1',[p.lote])
+            const otro={numeroPedidoCliente:'OTRO-CORRECCION',clienteId:id(2),bodegaId:id(3),fechaEntrega:hoy,horaEntrega:'',prioridad:'NORMAL',tipoEmpaque:'',detalles:[{productoId:id(10),totalUnidades:20,unidadManejo:10}]}
+            const pp=(await db.query('select registrar_pedido_seguro($1,$2::jsonb,$3) r',[id(2101),JSON.stringify(otro),id(1)])).rows[0].r,det=(await db.query('select id from pedido_detalles where pedido_id=$1',[pp.pedido_id])).rows[0].id
+            const dp={pedidoId:pp.pedido_id,cantidades:[{pedidoDetalleId:det,unidades:20}]};await ejecutarR('PREPARAR',dp,await preverR('PREPARAR',dp),3001)
+            const d=datosE(p,30),v=await preverE(d);assert.equal(v.puede_ejecutar,false);await rechazaSinAbortar(()=>ejecutarE(d,v),/Stock/)
+          })
+          await casoL('Corrección: huella obsoleta por stock o factura impide guardar sobre otra versión',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d)
+            await db.query('update inventario_lotes set cantidad=cantidad+1 where id=$1',[p.lote]);await rechazaSinAbortar(()=>ejecutarE(d,v),/cambió/)
+            const v2=await preverE(d);await db.query('select vincular_factura_despacho($1,$2)',[p.reserva,'FACTURA-CORREGIDA']);await rechazaSinAbortar(()=>ejecutarE(d,v2),/cambió/)
+            assert.equal((await db.query('select count(*) n from ed_solicitudes_despacho')).rows[0].n,0)
+          })
+          await casoL('Corrección: faltan originales, lote ajeno, duplicados, enteros, manejo, motivo y rango se rechazan',async()=>{
+            const p=await prepararE(),d=datosE(p)
+            for(const malo of [{...d,motivo:'x'},{...d,lineas:[]},{...d,lineas:[...d.lineas,...d.lineas]},{...d,lineas:[{...d.lineas[0],unidades:0}]},{...d,lineas:[{...d.lineas[0],unidades:0.5}]},{...d,lineas:[{...d.lineas[0],unidades:-1}]},{...d,lineas:[{...d.lineas[0],unidades:1}]},{...d,lineas:[{...d.lineas[0],unidades:40}]},{...d,lineas:[{...d.lineas[0],pedidoDetalleId:id(99)}]},{...d,lineas:[{...d.lineas[0],inventarioLoteId:id(99)}]}]) await rechazaSinAbortar(()=>preverE(malo),()=>true)
+            const igual=datosE(p,20);assert.equal((await preverE(igual)).puede_ejecutar,false)
+          })
+          await casoL('Corrección: retorno a lote original es válido, aumento vencido/archivado queda rechazado',async()=>{
+            const p=await prepararE();await db.query('update inventario_lotes set fecha_vencimiento=current_date-1 where id=$1',[p.lote])
+            await rechazaSinAbortar(()=>preverE(datosE(p,30)),/vencido/)
+            assert.equal((await preverE(datosE(p))).puede_ejecutar,true)
+            const trig=(await db.query("select tgname from pg_trigger where tgrelid='inventario_lotes'::regclass and tgfoid='inv_inicio_proteger_lote()'::regprocedure")).rows[0].tgname
+            await db.exec(`alter table inventario_lotes disable trigger ${nombreSQL(trig)};insert into inv_respaldos_inicio(id) values('${id(800)}')`);await db.query('update inventario_lotes set inv_archivo_id=$1 where id=$2',[id(800),p.lote]);await db.exec(`alter table inventario_lotes enable trigger ${nombreSQL(trig)}`)
+            await rechazaSinAbortar(()=>preverE(datosE(p)),/archivado/)
+          })
+          await casoL('Fallo tardío al corregir revierte stock, Kardex, asignaciones, unidades y comprobante',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d),pt=await cantidad(),mov=await movimientos()
+            await db.exec("create function ensayo_fallo_corregir() returns trigger language plpgsql as $$begin raise exception 'Fallo tardío corrección';end$$;create trigger zz_ensayo_corregir after update on pedido_detalles for each row execute function ensayo_fallo_corregir()")
+            await rechazaSinAbortar(()=>ejecutarE(d,v),/Fallo tardío/);assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov)
+            assert.equal((await db.query('select unidades from reserva_detalles where id=$1',[p.rd])).rows[0].unidades,20)
+            assert.equal((await db.query('select unidades_despachadas from pedido_detalles where id=$1',[p.detalle])).rows[0].unidades_despachadas,20)
+            assert.equal((await db.query('select count(*) n from ed_solicitudes_despacho')).rows[0].n,0)
+          })
+          await casoL('Corrección: ausencia sellada bloquea una llegada tardía sin escribir stock',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d),pt=await cantidad()
+            assert.equal((await resolverE()).estado,'ANULADA');await rechazaSinAbortar(()=>ejecutarE(d,v),/cerrado/);assert.equal(await cantidad(),pt)
+          })
+          await casoL('Corregir de nuevo conserva historial; reintento viejo no deshace la nueva corrección',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d);await ejecutarE(d,v)
+            const d2=datosE(p,30);d2.motivo='Segunda revisión del documento';await ejecutarE(d2,await preverE(d2),5001);const pt=await cantidad()
+            assert.equal((await ejecutarE(d,v)).resumen.unidades,10);assert.equal(await cantidad(),pt)
+            assert.equal((await db.query('select unidades_despachadas from pedido_detalles where id=$1',[p.detalle])).rows[0].unidades_despachadas,30)
+            assert.equal((await editorE(p)).historial.length,2)
+          })
+          await casoL('Edición directa, GUC falso y reapertura de un despacho confirmado quedan bloqueadas',async()=>{
+            const p=await prepararE();await db.query("select set_config('cibuspan.edicion_despacho',$1,true)",[id(5000)])
+            await rechazaSinAbortar(()=>db.query('update reserva_detalles set unidades=10 where id=$1',[p.rd]),/Editar despacho/)
+            await rechazaSinAbortar(()=>db.query('delete from reserva_detalles where id=$1',[p.rd]),/Editar despacho/)
+            await rechazaSinAbortar(()=>db.query('update pedido_detalles set unidades_despachadas=10 where id=$1',[p.detalle]),/Editar despacho/)
+            await rechazaSinAbortar(()=>db.query("update reservas_inventario set estado='ACTIVA' where id=$1",[p.reserva]),/Editar despacho/)
+          })
+          await casoL('Corrección anterior al corte físico no cambia el inventario contado',async()=>{
+            const p=await prepararE(),d=datosE(p)
+            // Sólo modela el metadato del corte aislado; no certifica aplicar conteos.
+            await db.query("insert into inv_arranque_solicitudes(id,actor,estado) values($1,$2,'APLICADO')",[id(5300),id(1)])
+            await db.query("insert into inv_arranque_cortes(solicitud_id,actor,fecha_inicio,fecha_cierre,estado,datos,base,resumen,aplicado_en) values($1,$2,current_date,current_date-1,'APLICADO','{}','{}','{}',now()+interval '1 minute')",[id(5300),id(1)])
+            const v=await preverE(d);assert.equal(v.puede_ejecutar,false);await rechazaSinAbortar(()=>ejecutarE(d,v),/anterior al conteo/)
+          })
+          await casoL('Edición exige UID real, actor esperado y permiso; tabla/ayudantes no son API',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d)
+            await rechazaSinAbortar(()=>ejecutarE(d,v,5000,id(99)),e=>e.code==='42501');await ejecutarE(d,v)
+            await db.exec('set role authenticated');await rechazaSinAbortar(()=>db.exec('select * from ed_solicitudes_despacho'),e=>e.code==='42501');await rechazaSinAbortar(()=>db.query('select ed_base($1::jsonb)',[JSON.stringify(d)]),e=>e.code==='42501');await db.exec('reset role')
+            await rechazaSinAbortar(()=>ejecutarE({...d,motivo:'Motivo diferente'},v),/otros datos/)
+            await db.exec(`insert into auth.users values('${id(99)}');insert into app_profiles(user_id,email,nombre,rol,activo) values('${id(99)}','otro@example.com','Otro','ADMINISTRADOR',true)`);await db.query("select set_config('ensayo.usuario',$1,true)",[id(99)])
+            await rechazaSinAbortar(()=>resolverE(5000,id(99)),e=>e.code==='42501');await rechazaSinAbortar(()=>ejecutarE(d,v,5000,id(99)),e=>e.code==='42501')
+            await db.query("select set_config('ensayo.usuario','',true)");await rechazaSinAbortar(()=>resolverE(),e=>e.code==='42501');await rechazaSinAbortar(()=>ejecutarE(d,v),e=>e.code==='42501')
+          })
+          await casoL('Corrección de SKU antes omitido y cantidad cero conserva pedido, lotes y diferencia real',async()=>{
+            await db.exec(`insert into productos(id,codigo,nombre,corto,activo,tamano_lote,stock_minimo,vida_util_dias) values('${id(5400)}','OTRO-SKU','Otro producto','Otro',true,10,0,30);insert into cliente_productos(cliente_id,producto_id,unidad_manejo,activo) values('${id(2)}','${id(5400)}',10,true)`)
+            await db.query("insert into inventario_lotes(id,producto_id,lote,fecha_produccion,fecha_vencimiento,cantidad) values($1,$2,'OTRO-LOTE',current_date,current_date+20,50)",[id(5401),id(5400)])
+            const orden={numeroPedidoCliente:'ED-DOS-SKU',clienteId:id(2),bodegaId:id(3),fechaEntrega:hoy,horaEntrega:'',prioridad:'NORMAL',tipoEmpaque:'',detalles:[{productoId:id(10),totalUnidades:30,unidadManejo:10},{productoId:id(5400),totalUnidades:10,unidadManejo:10}]}
+            const p=(await db.query('select registrar_pedido_seguro($1,$2::jsonb,$3) r',[id(2100),JSON.stringify(orden),id(1)])).rows[0].r,det=(await db.query('select id,producto_id from pedido_detalles where pedido_id=$1',[p.pedido_id])).rows
+            const lineas=det.map(x=>({pedidoDetalleId:x.id,unidades:x.producto_id===id(10)?20:0})),dp={pedidoId:p.pedido_id,cantidades:lineas},r=await ejecutarR('PREPARAR',dp,await preverR('PREPARAR',dp))
+            const dd={reservaId:r.reserva_id,numeroFactura:'FAC-DOS',cantidades:lineas};await ejecutarL('DESPACHAR',dd,await preverL('DESPACHAR',dd))
+            const rd=(await db.query('select pedido_detalle_id,inventario_lote_id from reserva_detalles where reserva_id=$1',[r.reserva_id])).rows[0],segundo=det.find(x=>x.producto_id===id(5400))
+            const d={reservaId:r.reserva_id,motivo:'SKU equivocado al registrar despacho',lineas:[{pedidoDetalleId:rd.pedido_detalle_id,inventarioLoteId:rd.inventario_lote_id,unidades:0},{pedidoDetalleId:segundo.id,inventarioLoteId:id(5401),unidades:10}]},pt=await cantidad()
+            await ejecutarE(d,await preverE(d));assert.equal(await cantidad(),pt+10)
+            assert.equal((await db.query('select count(*) n from reserva_detalles where reserva_id=$1',[r.reserva_id])).rows[0].n,1)
+            assert.deepEqual((await db.query('select unidades_despachadas from pedido_detalles where id=$1',[rd.pedido_detalle_id])).rows[0],{unidades_despachadas:0})
+            const mal={...d,lineas:[...d.lineas,{pedidoDetalleId:rd.pedido_detalle_id,inventarioLoteId:id(5401),unidades:10}]};await rechazaSinAbortar(()=>preverE(mal),/otro SKU/)
+          })
+          await casoL('Corrección posterior al corte conserva el período y stock contabilizado',async()=>{
+            const p=await prepararE(),d=datosE(p),pt=await cantidad()
+            await db.query("insert into inv_arranque_solicitudes(id,actor,estado) values($1,$2,'APLICADO')",[id(5300),id(1)])
+            await db.query("insert into inv_arranque_cortes(solicitud_id,actor,fecha_inicio,fecha_cierre,estado,datos,base,resumen,aplicado_en) values($1,$2,current_date,current_date-1,'APLICADO','{}','{}','{}',now()-interval '1 minute')",[id(5300),id(1)])
+            await ejecutarE(d,await preverE(d));assert.equal(await cantidad(),pt+10)
+            assert.equal((await db.query("select fecha from inv_kardex_movimientos where solicitud_datos->>'solicitud_correccion'=$1",[id(5000)])).rows.length,1)
+          })
+          await casoL('Corrección detecta despacho inconsistente sin inventar datos ni reparar historial',async()=>{
+            const p=await prepararE(),d=datosE(p)
+            await db.exec('alter table pedido_detalles disable trigger ed_correccion_segura');await db.query('update pedido_detalles set unidades_despachadas=10 where id=$1',[p.detalle]);await db.exec('alter table pedido_detalles enable trigger ed_correccion_segura')
+            await rechazaSinAbortar(()=>preverE(d),/no coinciden/)
+          })
+          await casoL('Una escritura omitida por trigger no anuncia éxito y revierte ajuste y comprobante',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d),pt=await cantidad(),mov=await movimientos()
+            await db.exec("create function ensayo_omitir_correccion() returns trigger language plpgsql as $$begin return old;end$$;create trigger zz_ensayo_omitir before update on reserva_detalles for each row execute function ensayo_omitir_correccion()")
+            await rechazaSinAbortar(()=>ejecutarE(d,v),/corrección completa/);assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov)
+            assert.equal((await db.query('select count(*) n from ed_solicitudes_despacho')).rows[0].n,0)
+          })
+          await casoL('Reinstalar edición CRLF y paquetes anteriores conserva ocho diagnósticos y comprobante',async()=>{
+            const p=await prepararE(),d=datosE(p),v=await preverE(d);await ejecutarE(d,v);const pt=await cantidad()
+            await db.exec(sqlE.replace(/^begin;$/mi,'').replace(/^commit;$/mi,'').replace(/\r?\n/g,'\r\n'))
+            for(const nombre of ['202610230001_autorizacion_operativa.sql','202610230002_registro_produccion_seguro.sql','202610230003_consumo_mp_produccion.sql','202610240001_arranque_operativo.sql','202610270001_registro_pedidos_seguro.sql','202610270002_operaciones_logistica_seguras.sql','202611040001_reservas_recuperables.sql']){
+              const sql=await readFile(new URL('../supabase/migrations/'+nombre,import.meta.url),'utf8');await db.exec(sql.replace(/^begin;$/mi,'').replace(/^commit;$/mi,''))
+            }
+            await ejecutarE(d,v);assert.equal(await cantidad(),pt);await db.exec('set transaction read only')
+            for(const n of ['autorizacion_operativa','registro_produccion','consumo_mp_produccion','arranque_operativo','registro_pedidos','operaciones_logistica','reservas_recuperables','edicion_despachos']){
+              const sql=await readFile(new URL('../supabase/diagnosticos/verificar_'+n+'.sql',import.meta.url),'utf8'),r=Object.values((await db.query(sql)).rows[0])[0];assert.equal(r.correcto,true,JSON.stringify(r))
+            }
+          })
+          await casoL('Diagnóstico de edición detecta guardia deshabilitada y acceso anónimo',async()=>{
+            await db.exec('alter table reserva_detalles disable trigger ed_correccion_segura;grant execute on function ejecutar_edicion_despacho(uuid,text,jsonb,text,uuid) to anon')
+            const r=(await db.query(diagE)).rows[0].edicion_despachos;assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:reserva_detalles'));assert.ok(r.pendientes.includes('public.ejecutar_edicion_despacho(uuid,text,jsonb,text,uuid)'))
+          })
+        }
       }
     }
   } finally { await db.close() }

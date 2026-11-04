@@ -1,9 +1,10 @@
 import { supabase } from "../lib/supabase"
 import { copiarDatosLogistica, crearControlLogistica, type DatosLogistica, type TipoLogistica, type IntentoLogistica, type VistaLogistica } from "../utils/operacionLogisticaSegura"
+const api = (tipo: TipoLogistica, accion: "prever" | "ejecutar" | "resolver") => tipo === "CORREGIR" ? `${accion}_edicion_despacho` : `${accion}_operacion_${esReserva(tipo) ? "reserva" : "logistica"}`
 const esReserva = (tipo: TipoLogistica) => tipo === "PREPARAR" || tipo === "LIBERAR"
 export async function preverLogisticaDb(tipo: TipoLogistica, datos: DatosLogistica) {
-  const { data, error } = await supabase.rpc(esReserva(tipo) ? "prever_operacion_reserva" : "prever_operacion_logistica", { p_tipo: tipo, p_datos: copiarDatosLogistica(tipo, datos) })
-  if (error) throw new Error(error.code === "PGRST202" || error.code === "42883" ? (esReserva(tipo) ? "Falta instalar la actualización de reservas recuperables." : "Falta instalar la actualización de operaciones logísticas.") : error.message)
+  const { data, error } = await supabase.rpc(api(tipo, "prever"), { p_tipo: tipo, p_datos: copiarDatosLogistica(tipo, datos) })
+  if (error) throw new Error(error.code === "PGRST202" || error.code === "42883" ? (tipo === "CORREGIR" ? "Falta instalar la actualización de edición de despachos." : esReserva(tipo) ? "Falta instalar la actualización de reservas recuperables." : "Falta instalar la actualización de operaciones logísticas.") : error.message)
   if (!data || typeof data.token !== "string" || !/^[a-f0-9]{32}$/.test(data.token) || !Array.isArray(data.bloqueos) || typeof data.puede_ejecutar !== "boolean" || typeof data.pedido_id !== "string") throw new Error("No se confirmó la revisión previa. No se envió la operación.")
   return data as VistaLogistica
 }
@@ -14,11 +15,11 @@ async function control(usuarioEsperado?: string) {
   try { almacen = window.localStorage } catch { throw new Error("Habilita el almacenamiento del navegador para conservar el intento.") }
   return { usuarioId: user.id, control: crearControlLogistica({ almacen, proyecto: import.meta.env.VITE_SUPABASE_URL, usuarioId: user.id,
     ejecutar: async s => {
-      const { data, error } = await supabase.rpc(esReserva(s.tipo) ? "ejecutar_operacion_reserva" : "ejecutar_operacion_logistica", { p_solicitud_id: s.id, p_tipo: s.tipo, p_datos: s.datos, p_token: s.token, p_usuario_esperado: user.id })
+      const { data, error } = await supabase.rpc(api(s.tipo, "ejecutar"), { p_solicitud_id: s.id, p_tipo: s.tipo, p_datos: s.datos, p_token: s.token, p_usuario_esperado: user.id })
       if (error) throw new Error(error.message); return data
     },
     resolver: async s => {
-      const { data, error } = await supabase.rpc(esReserva(s.tipo) ? "resolver_operacion_reserva" : "resolver_operacion_logistica", { p_solicitud_id: s.id, p_tipo: s.tipo, p_usuario_esperado: user.id })
+      const { data, error } = await supabase.rpc(api(s.tipo, "resolver"), { p_solicitud_id: s.id, p_tipo: s.tipo, p_usuario_esperado: user.id })
       if (error) throw new Error(error.message); return data
     },
   }) }
