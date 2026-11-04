@@ -1,0 +1,21 @@
+# Producción sugerida por fechas de entrega
+
+Preparado el 04/11/2026 para el objetivo de arranque del lunes 09/11. SQL 202611040003, frontend, verificador e instalador probados; instalación/verificación/publicación pendientes de terminal. No se ejecuta producción, despacho o corte al instalar.
+
+La planificación anterior suma todos los pedidos INGRESADOS, sin rango de fecha_entrega. Se agrega obtener_produccion_sugerida_periodo(date,date), manteniendo intacto obtener_produccion_sugerida() para otros consumidores y recuperación del catálogo. Sin sobrecargar la función antigua ni romper el verificador OP-12.
+
+Producción sugerida incorpora Entregas desde/hasta y Aplicar fechas y calcular. Inicial: hoy y mañana de Ecuador. Incluye extremos, sólo INGRESADO. PREPARADO/DESPACHADO quedan fuera como antes; no se crean saldos pendientes de despachos parciales. Otras fechas se excluyen explícitamente; revisar los pedidos atrasados antes del arranque. La fecha de fabricación se sigue eligiendo al registrar y no se deduce de la entrega.
+
+La sugerencia agrupa SKU comerciales por producto físico, resta PT libre de reservas ajenas y semielaborados disponibles, y redondea la necesidad neta por parada. PT debe seguir vigente al último día de entrega seleccionado (mayor entre hoy SQL y hasta). Es conservador para ventanas de varios días: puede excluir de toda la ventana un lote útil para sus primeros días. Elegir jornadas cortas para planificar; no representa una simulación de futuras compras, fabricaciones, vencimientos o ventas. Semielaborados conservan el saldo de la vista instalada, sin fecha de vencimiento expuesta: su aptitud requiere revisión operativa. No inventar caducidad ni declarar validada toda la política de vida útil.
+
+Stock mínimo sigue informativo, sin incorporarlo a la fórmula ni cambiar su regla pendiente. Un producto con demanda y tamaño de parada inválido produce error claro en cliente, sin tomarlo como sugerencia cero. No se cambia catálogo o receta para quitar avisos.
+
+Cambiar el período reinicia selección y paradas según la nueva sugerencia. Refrescar el mismo período conserva ajustes manuales como antes. No se puede preparar confirmación con fechas sin aplicar, lectura pendiente o consulta fallida. Una respuesta atrasada no sustituye un plan más reciente; al volver a Sugerida se actualiza la consulta. La recuperación OP-13 conserva catálogo por la función antigua y sus comprobantes existentes.
+
+La pantalla consulta inv_arranque_estado: mientras no haya corte aplicado, identifica la sugerencia como referencial; si la apertura es futura, muestra esa fecha. Esto no aplica conteos ni acredita existencias. Los controles del corte permanecen. Los permisos de lectura Producción/Reportes/Dashboard y perfil activo se conservan; API nueva sin EXECUTE anónimo, SECURITY DEFINER, STABLE y search_path cerrado. Verificación READ ONLY y sin filas reales.
+
+Instalar: scripts/Instalar-PlanificacionPeriodo.ps1, sólo SQL 202611040003, nueve diagnósticos, repair sólo esa versión y publicación del proyecto existente. Sin dependencias nuevas/db push/reinstalaciones antiguas, conteo u operaciones de negocio. La fecha objetivo 09/11 es un plan de puesta en marcha, no un corte aplicado. Ver docs/PUESTA_EN_MARCHA_20261109.md.
+
+216 pruebas locales superadas: 134 del escenario SQL privado y 82 cliente/regresiones. El escenario incorpora extremos/atrasados/futuros, período vacío, PT/fecha límite de vencimiento, reservas/preparados, alias físicos, semielaborados, paradas, permisos/fechas, READ ONLY, reinstalación CRLF y nueve contratos. Se conserva cuerpo anterior y no cambia físico/Kardex por las consultas. Cliente valida fechas reales/rango/copia y cambio de día Ecuador, con las regresiones de producción/pedidos/logística/arranque.
+
+Ensayo con CIBUSPAN_PROBAR_PLANIFICACION=1, CIBUSPAN_AUDIT_FILE al diagnóstico privado y CIBUSPAN_SQL_TEST_MODULE a PGlite; node --test pruebas/verificar_flujo_servidor_exportado.mjs. Cliente: verificar_periodo_produccion y regresiones previas. npm run build. El dump privado no se publica. No certifica navegador/HTTP concurrente ni PostgreSQL multiconexión o aceptación del equipo. No se consultaron filas de negocio de la base real desde aquí. La instalación debe confirmarse con terminal; el inventario debe partir de un conteo real.

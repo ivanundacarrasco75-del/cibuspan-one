@@ -11,7 +11,8 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
-const probarEdicion = process.env.CIBUSPAN_PROBAR_EDICION === '1'
+const probarPlanificacion = process.env.CIBUSPAN_PROBAR_PLANIFICACION === '1'
+const probarEdicion = process.env.CIBUSPAN_PROBAR_EDICION === '1' || probarPlanificacion
 const probarReserva = process.env.CIBUSPAN_PROBAR_RESERVA === '1' || probarEdicion
 const probarLogistica = process.env.CIBUSPAN_PROBAR_LOGISTICA === '1' || probarReserva
 const probarPedido = process.env.CIBUSPAN_PROBAR_PEDIDO === '1' || probarLogistica
@@ -1284,6 +1285,72 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
             await db.exec('alter table reserva_detalles disable trigger ed_correccion_segura;grant execute on function ejecutar_edicion_despacho(uuid,text,jsonb,text,uuid) to anon')
             const r=(await db.query(diagE)).rows[0].edicion_despachos;assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:reserva_detalles'));assert.ok(r.pendientes.includes('public.ejecutar_edicion_despacho(uuid,text,jsonb,text,uuid)'))
           })
+          if (probarPlanificacion) {
+            const sqlPlan=await readFile(new URL('../supabase/migrations/202611040003_planificacion_periodo.sql',import.meta.url),'utf8'),diagPlan=await readFile(new URL('../supabase/diagnosticos/verificar_planificacion_periodo.sql',import.meta.url),'utf8')
+            const viejo=(await db.query("select prosrc from pg_proc where oid='obtener_produccion_sugerida()'::regprocedure")).rows[0].prosrc
+            await db.exec(sqlPlan)
+            assert.equal((await db.query("select prosrc from pg_proc where oid='obtener_produccion_sugerida()'::regprocedure")).rows[0].prosrc,viejo)
+            const calcular=async(desde=hoy,hasta=desde)=>(await db.query('select * from obtener_produccion_sugerida_periodo($1,$2)',[desde,hasta])).rows
+            const fecha=async n=>(await db.query('select (current_date+$1::integer)::text f',[n])).rows[0].f
+            const ordenPlan=async(n,f,cant=30,producto=id(10))=>{
+              const d={numeroPedidoCliente:'PLAN-'+n,clienteId:id(2),bodegaId:id(3),fechaEntrega:f,horaEntrega:'',prioridad:'NORMAL',tipoEmpaque:'',detalles:[{productoId:producto,totalUnidades:cant,unidadManejo:10}]}
+              const p=(await db.query('select registrar_pedido_seguro($1,$2::jsonb,$3) r',[id(n),JSON.stringify(d),id(1)])).rows[0].r
+              return {id:p.pedido_id,detalle:(await db.query('select id from pedido_detalles where pedido_id=$1',[p.pedido_id])).rows[0].id}
+            }
+            await casoL('Plan por fechas incluye extremos, excluye atrasados/futuros y no altera cálculo antiguo',async()=>{
+              await ordenPlan(6000,await fecha(-1));await ordenPlan(6001,hoy,20);await ordenPlan(6002,await fecha(1),10);await ordenPlan(6003,await fecha(2),40)
+              const pt=await cantidad(),mov=await movimientos();await db.exec('savepoint lectura;set transaction read only')
+              const p=(await calcular(hoy,await fecha(1)))[0];assert.equal(p.pedidos_pendientes,30)
+              assert.equal((await db.query('select pedidos_pendientes from obtener_produccion_sugerida()')).rows[0].pedidos_pendientes,100)
+              await db.exec('rollback to lectura;release lectura');assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov)
+            })
+            await casoL('Plan sin entregas en el período conserva catálogo sin fabricar por stock mínimo',async()=>{
+              await ordenPlan(6000,await fecha(2));const p=(await calcular())[0]
+              assert.equal(p.pedidos_pendientes,0);assert.equal(p.necesidad_neta,0);assert.equal(p.unidades_sugeridas,0);assert.equal(p.stock_minimo,100)
+            })
+            await casoL('Plan resta stock válido y redondea paradas; lotes vencidos no cubren entregas',async()=>{
+              const lote=(await db.query('select id from inventario_lotes limit 1')).rows[0].id
+              await db.exec('update inventario_lotes set cantidad=0');await db.query('update inventario_lotes set cantidad=10 where id=$1',[lote]);await ordenPlan(6000,hoy,30)
+              const p=(await calcular())[0];assert.equal(p.inventario_disponible,10);assert.equal(p.necesidad_neta,20);assert.equal(p.lotes_sugeridos,2);assert.equal(p.unidades_sugeridas,20)
+              await db.query('update inventario_lotes set fecha_vencimiento=current_date-1 where id=$1',[lote]);assert.equal((await calcular())[0].necesidad_neta,30)
+            })
+            await casoL('Plan futuro no usa PT que vencerá antes del último día de entrega',async()=>{
+              const lote=(await db.query('select id from inventario_lotes limit 1')).rows[0].id
+              await db.exec('update inventario_lotes set cantidad=0');await db.query('update inventario_lotes set cantidad=50,fecha_vencimiento=current_date+1 where id=$1',[lote]);await ordenPlan(6000,await fecha(2),30)
+              const p=(await calcular(await fecha(2)))[0];assert.equal(p.inventario_disponible,0);assert.equal(p.unidades_sugeridas,30)
+            })
+            await casoL('Plan no suma preparados y respeta sus reservas aunque sean para otra fecha',async()=>{
+              const lote=(await db.query('select id from inventario_lotes limit 1')).rows[0].id
+              await db.exec('update inventario_lotes set cantidad=0');await db.query('update inventario_lotes set cantidad=50 where id=$1',[lote])
+              await ordenPlan(6000,hoy);const otro=await ordenPlan(6001,await fecha(1));await prepararR(otro)
+              assert.equal((await calcular())[0].pedidos_pendientes,30);assert.equal((await calcular())[0].inventario_disponible,30)
+              assert.equal((await calcular(await fecha(1)))[0].pedidos_pendientes,0)
+            })
+            await casoL('Plan conserva agrupación de SKU comerciales hacia producto físico',async()=>{
+              await db.exec(`insert into productos(id,codigo,nombre,corto,activo,tamano_lote,stock_minimo,vida_util_dias,producto_produccion_id) values('${id(6100)}','PLAN-ALIAS','Presentación comercial','Alias',true,10,0,30,'${id(10)}');insert into cliente_productos(cliente_id,producto_id,unidad_manejo,activo) values('${id(2)}','${id(6100)}',10,true)`)
+              await ordenPlan(6000,hoy,20,id(6100));const p=await calcular();assert.equal(p.length,1);assert.equal(p[0].producto_id,id(10));assert.equal(p[0].pedidos_pendientes,20)
+            })
+            await casoL('Plan conserva semielaborado disponible y paradas como el contrato anterior',async()=>{
+              await db.exec('update inventario_lotes set cantidad=0')
+              await db.exec(`insert into semielaborado_tipos(id,producto_base_id,nombre,activo) values('${id(50)}','${id(10)}','Semi ensayo',true)`)
+              await db.query('insert into inventario_semielaborados(id,semielaborado_tipo_id,fecha_produccion,lote_interno,cantidad_inicial,creado_por) values($1,$2,$3,$4,20,$5)',[id(51),id(50),hoy,'SEM-PLAN',id(1)])
+              await ordenPlan(6000,hoy,30);const p=(await calcular())[0];assert.equal(p.inventario_disponible,20);assert.equal(p.unidades_sugeridas,10)
+              assert.deepEqual(p,(await db.query('select * from obtener_produccion_sugerida()')).rows[0])
+            })
+            await casoL('Plan exige fechas y permiso; API anónima rechazada',async()=>{
+              for(const [a,b] of [[null,hoy],[hoy,null],[await fecha(1),hoy],[hoy,await fecha(366)]])await rechazaSinAbortar(()=>calcular(a,b),/período/)
+              await db.exec("select set_config('ensayo.permitido','no',true)");await rechazaSinAbortar(()=>calcular(),e=>e.code==='42501')
+              await db.exec("select set_config('ensayo.permitido','si',true);set role anon");await rechazaSinAbortar(()=>calcular(),e=>e.code==='42501');await db.exec('reset role')
+            })
+            await casoL('Plan se reinstala CRLF y conserva nueve diagnósticos, sin cambios de stock',async()=>{
+              const pt=await cantidad(),mov=await movimientos();await db.exec(sqlPlan.replace(/^begin;$/mi,'').replace(/^commit;$/mi,'').replace(/\r?\n/g,'\r\n'))
+              await db.exec('set transaction read only')
+              for(const n of ['autorizacion_operativa','registro_produccion','consumo_mp_produccion','arranque_operativo','registro_pedidos','operaciones_logistica','reservas_recuperables','edicion_despachos','planificacion_periodo']){
+                const q=await readFile(new URL('../supabase/diagnosticos/verificar_'+n+'.sql',import.meta.url),'utf8'),r=Object.values((await db.query(q)).rows[0])[0];assert.equal(r.correcto,true,JSON.stringify(r))
+              }
+              assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov)
+            })
+          }
         }
       }
     }

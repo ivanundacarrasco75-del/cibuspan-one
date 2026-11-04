@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { consultarArranqueOperativo } from "../repositories/arranqueOperativoRepository"
+import type { EstadoArranque } from "../utils/arranqueOperativo"
+import { mismoPeriodoProduccion, periodoProduccionInicial, validarPeriodoProduccion, type PeriodoProduccion } from "../utils/periodoProduccion"
 import {
   editarProduccionCompletaDb,
   obtenerDetalleProduccionDb,
@@ -255,6 +258,11 @@ export default function ProduccionV2({
   const [produccionConfirmada, setProduccionConfirmada] =
     useState<ProduccionConfirmada[]>([])
 
+  const [periodoEntrega, setPeriodoEntrega] = useState<PeriodoProduccion>(periodoProduccionInicial)
+  const [estadoArranque, setEstadoArranque] = useState<EstadoArranque | null>(null)
+  const [periodoCargado, setPeriodoCargado] = useState<PeriodoProduccion | null>(null)
+  const lecturaPlan = useRef(0), periodoPlan = useRef<PeriodoProduccion | null>(null)
+  const periodoSinAplicar = !mismoPeriodoProduccion(periodoCargado, periodoEntrega)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const accionRegistro = useRef(false)
@@ -272,6 +280,8 @@ export default function ProduccionV2({
       void cargarProduccion()
     }
   }, [vistaInicial])
+
+  useEffect(() => () => { lecturaPlan.current++ }, [])
 
   async function cargarRegistrosPendientes() {
     try { setRegistrosPendientes(await obtenerRegistrosProduccionPendientesDb()) }
@@ -347,6 +357,11 @@ export default function ProduccionV2({
   }
 
   async function cargarProduccion() {
+    let periodo: PeriodoProduccion
+    try { periodo = validarPeriodoProduccion(periodoEntrega) }
+    catch (e) { setError((e as Error).message); return }
+    const lectura = ++lecturaPlan.current
+    const cambioPeriodo = !mismoPeriodoProduccion(periodoPlan.current, periodo)
     setCargando(true)
     setError("")
 
@@ -354,11 +369,16 @@ export default function ProduccionV2({
       const [
         datos,
         tiposSemielaboradoDb,
+        arranqueDb,
       ] = await Promise.all([
-        obtenerProduccionSugeridaDb(),
+        obtenerProduccionSugeridaDb(periodo),
         obtenerTiposSemielaboradoDb(),
+        consultarArranqueOperativo(),
       ])
 
+      if (lectura !== lecturaPlan.current) return
+      periodoPlan.current = periodo; setPeriodoCargado(periodo)
+      setEstadoArranque(arranqueDb)
       setProduccion(datos)
       setTiposSemielaborado(
         tiposSemielaboradoDb,
@@ -368,7 +388,7 @@ export default function ProduccionV2({
         const nuevaSeleccion: SeleccionProduccion = {}
 
         datos.forEach((producto) => {
-          const seleccionAnterior =
+          const seleccionAnterior = cambioPeriodo ? undefined :
             seleccionActual[producto.producto_id]
 
           nuevaSeleccion[producto.producto_id] =
@@ -384,7 +404,7 @@ export default function ProduccionV2({
         const nuevoPlan: LotesPlanificados = {}
 
         datos.forEach((producto) => {
-          const planAnterior =
+          const planAnterior = cambioPeriodo ? undefined :
             planActual[producto.producto_id]
 
           nuevoPlan[producto.producto_id] =
@@ -396,13 +416,15 @@ export default function ProduccionV2({
         return nuevoPlan
       })
     } catch (err) {
+      if (lectura !== lecturaPlan.current) return
+      setPeriodoCargado(null)
       setError(
         err instanceof Error
           ? err.message
           : "No se pudo calcular la producción.",
       )
     } finally {
-      setCargando(false)
+      if (lectura === lecturaPlan.current) setCargando(false)
     }
   }
 
@@ -736,6 +758,8 @@ export default function ProduccionV2({
 
     if (nuevaVista === "INGRESADA") {
       await cargarProduccionesIngresadas()
+    } else {
+      await cargarProduccion()
     }
   }
 
@@ -842,7 +866,8 @@ export default function ProduccionV2({
   }
 
   async function abrirConfirmacion() {
-    if (accionRegistro.current) return
+    if (accionRegistro.current || cargando) return
+    if (periodoSinAplicar) { setError("Aplica las fechas de entrega y espera el cálculo antes de confirmar producción."); return }
     setMensaje("")
     setError("")
 
@@ -1803,7 +1828,7 @@ export default function ProduccionV2({
 
         <button
           type="button"
-          onClick={vista === "INGRESADA" ? cargarProduccionesIngresadas : cargarProduccion}
+          onClick={() => void (vista === "INGRESADA" ? cargarProduccionesIngresadas() : cargarProduccion())}
           disabled={cargando || guardando}
           style={botonSecundario}
         >
@@ -1874,6 +1899,20 @@ export default function ProduccionV2({
 
       {vista === "SUGERIDA" && (
         <>
+      {(!estadoArranque?.aplicado || (estadoArranque.fecha_inicio && estadoArranque.hoy < estadoArranque.fecha_inicio)) && <p role="status" style={{ background: "#fff3d6", borderRadius: 8, padding: 14 }}>
+        {estadoArranque?.aplicado ? `Inventario de arranque preparado para ${formatearFechaDocumento(estadoArranque.fecha_inicio!)}. La operación comienza en esa fecha.` : estadoArranque ? "Inventario de arranque pendiente: esta sugerencia es referencial. Completa el conteo físico antes de comenzar la operación diaria." : "Comprobando el estado del inventario de arranque…"}
+      </p>}
+      <section aria-label="Fechas de entrega para producción" style={{ ...panel, marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0 }}>Pedidos a entregar</h2>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "end" }}>
+          <label>Desde<input type="date" aria-label="Entregas desde" value={periodoEntrega.desde} disabled={guardando || mostrarConfirmacion || cargando} onChange={e => setPeriodoEntrega(p => ({ ...p, desde: e.target.value }))} style={{ ...campo, display: "block" }} /></label>
+          <label>Hasta<input type="date" aria-label="Entregas hasta" value={periodoEntrega.hasta} disabled={guardando || mostrarConfirmacion || cargando} onChange={e => setPeriodoEntrega(p => ({ ...p, hasta: e.target.value }))} style={{ ...campo, display: "block" }} /></label>
+          <button type="button" disabled={guardando || mostrarConfirmacion || cargando} onClick={() => void cargarProduccion()} style={botonSecundario}>Aplicar fechas y calcular</button>
+        </div>
+        <p>{periodoCargado ? `Plan calculado para entregas del ${formatearFechaDocumento(periodoCargado.desde)} al ${formatearFechaDocumento(periodoCargado.hasta)}.` : "Aplica las fechas para obtener un plan válido."} Se descuentan existencias actuales de PT que no venzan antes de la última entrega seleccionada y semielaborados disponibles. La fecha de fabricación se elige al registrar.</p>
+        {periodoSinAplicar && !cargando && <p role="status">Hay fechas sin aplicar o un cálculo pendiente. Recalcula antes de ingresar producción.</p>}
+        <small>Los pedidos de otras fechas quedan fuera de esta sugerencia. Revisa los atrasados antes del arranque.</small>
+      </section>
       <section className="prod-kpis" style={indicadores}>
         <TarjetaIndicador
           titulo="Pedidos pendientes"
@@ -2164,7 +2203,7 @@ export default function ProduccionV2({
             onClick={abrirConfirmacion}
             disabled={
                            productosIncluidos.length === 0 ||
-                           guardando
+                           guardando || cargando || periodoSinAplicar
             }
             style={{
               ...botonIngresarCompleto,

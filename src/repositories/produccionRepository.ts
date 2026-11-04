@@ -1,3 +1,4 @@
+import { validarPeriodoProduccion, type PeriodoProduccion } from "../utils/periodoProduccion"
 import { supabase } from "../lib/supabase"
 import { crearControlRegistroProduccion, detallesProduccionRpc, type DatosRegistroProduccion, type DetalleRegistroProduccion } from "../utils/registroProduccionSeguro"
 import type { OrdenProduccionImportar } from "../utils/ordenesProduccionExcel"
@@ -37,18 +38,15 @@ export type ProduccionIngresadaDb = {
   } | null
 }
 
-export async function obtenerProduccionSugeridaDb() {
-  const { data, error } = await supabase.rpc(
-    "obtener_produccion_sugerida",
-  )
-
-  if (error) {
-    throw new Error(
-      `No se pudo calcular la producción sugerida: ${error.message}`,
-    )
-  }
-
-  return (data ?? []) as ProduccionSugeridaDb[]
+export async function obtenerProduccionSugeridaDb(periodo?: PeriodoProduccion) {
+  const p = periodo ? validarPeriodoProduccion(periodo) : null
+  const { data, error } = p
+    ? await supabase.rpc("obtener_produccion_sugerida_periodo", { p_desde: p.desde, p_hasta: p.hasta })
+    : await supabase.rpc("obtener_produccion_sugerida")
+  if (error) throw new Error(p && (error.code === "PGRST202" || error.code === "42883") ? "Falta instalar la actualización de planificación por fechas." : `No se pudo calcular la producción sugerida: ${error.message}`)
+  if (!Array.isArray(data)) throw new Error("No se confirmó el cálculo de producción. Vuelve a actualizar.")
+  if (p && data.some(r => r.necesidad_neta > 0 && (!Number.isInteger(r.tamano_lote) || r.tamano_lote <= 0 || !Number.isInteger(r.unidades_sugeridas) || r.unidades_sugeridas <= 0))) throw new Error("Hay productos con pedidos y tamaño de parada inválido. Corrige su catálogo antes de planificar.")
+  return data as ProduccionSugeridaDb[]
 }
 
 export async function obtenerProduccionesIngresadasDb() {

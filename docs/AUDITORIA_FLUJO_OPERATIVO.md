@@ -162,3 +162,8 @@ Iván confirma guardar cantidades reales, descontar al despachar y cerrar sin sa
 ## Editor instalado y publicado, 04/11/2026
 
 Terminal de Iván: https://abd0efe0.cibuspan-one.pages.dev y mensaje final de Instalar-EdicionDespachos.ps1. SQL 202611040002 instalado, ocho diagnósticos verificados, migración registrada y app publicada. No se corrigieron documentos ni cambió stock según el resultado recibido; no se mostró SHA de compilación. No repetir instalación ni pedir esa terminal nuevamente. Sólo seguimiento documental en esta actualización, sin publicación adicional. OP-09 definido y conservado sin saldo pendiente; aceptación operativa pendiente. ORG-07/históricos EN PAUSA; OP-03/stock mínimo, micros/empaque y etapa 3 abiertos.
+
+
+## Objetivo 09/11 y planificación por entrega, 04/11/2026
+
+Iván necesita el circuito operativo desde el lunes 09/11. Se retoma preparación del corte físico, sin aplicarlo ni reconstruir históricos. Primera corrección: sugerencia filtrada por fecha_entrega inclusive, evitando cargar todos los pendientes de otras fechas; API nueva, función antigua conservada, sin cambiar stock mínimo. SQL 202611040003 e instalador específico con nueve diagnósticos preparados/probados, pendientes de instalación/verificación/publicación. 216 pruebas/build correctos. Ver PLANIFICACION_POR_FECHAS.md y PUESTA_EN_MARCHA_20261109.md. Conteo real, datos/recetas, accesos del equipo y aceptación del primer ciclo diario son puertas de arranque; no afirmar módulo operativo sólo por instalar. Micros/empaque siguen con movimientos explícitos de Kardex, responsables por confirmar internamente. OP-09 definido; OP-03/stock mínimo aún pendientes. Etapa 3 abierta.
