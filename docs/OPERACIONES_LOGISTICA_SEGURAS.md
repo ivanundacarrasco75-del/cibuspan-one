@@ -54,3 +54,8 @@ No se certifica HTTP concurrente ni varias conexiones PostgreSQL reales, recorri
 ## Continuación del 04/11/2026
 
 La limitación de preparar/liberar descrita para esta entrega del 27/10 se aborda ahora en docs/RESERVAS_RECUPERABLES.md: SQL 202611040001, instalador específico y comprobantes para ambas acciones, preparados/probados, pendientes de instalar/verificar/publicar. No se modifica retrospectivamente el alcance ni la evidencia de este documento. Iván indicó «LISTO SIGAMOS»; no se recibió otra terminal de 202610270002. El instalador de reservas exige ese prerrequisito y siete diagnósticos. Arranque físico/históricos continúan en pausa.
+
+
+## Confirmación mediante el instalador de reservas, 04/11/2026
+
+Iván compartió Cloudflare https://71953738.cibuspan-one.pages.dev y el mensaje final de Instalar-ReservasRecuperables.ps1. Sus siete diagnósticos confirman también el contrato logístico 202610270002 instalado/verificado; la app quedó publicada por ese instalador. No atribuir un despliegue anterior independiente o un SHA de compilación ausente en la terminal. No volver a ejecutar Instalar-OperacionesLogistica.ps1 ni solicitar esa evidencia por rutina. Validación operativa pendiente; arranque físico/históricos EN PAUSA. El instalador no ejecutó operaciones de negocio según su resultado final. Sólo seguimiento actualizado, sin SQL/frontend nuevos que publicar.

@@ -1,10 +1,10 @@
 # Preparar y liberar reservas con recuperación
 
-Entrega preparada el 04/11/2026. Continuación de ORG-06/08 y OP-10, después de eliminación completa y confirmación de despacho (202610270002). Iván indicó «LISTO SIGAMOS»; no adjuntó otra terminal de instalación. No se deduce de esa frase un despliegue o SHA comprobado.
+Entrega preparada e instalada el 04/11/2026. Continuación de ORG-06/08 y OP-10, después de eliminación completa y confirmación de despacho (202610270002). Iván compartió posteriormente la terminal de publicación; la evidencia se registra abajo.
 
 ## Estado y alcance
 
-Código/SQL preparados en main y probados localmente. Instalación, verificación remota, publicación y aceptación operativa de este alcance pendientes de su terminal/uso real. El arranque físico ORG-07 y la regularización histórica siguen EN PAUSA. Esta instalación no prepara, libera ni despacha pedidos y no modifica existencias.
+Código/SQL preparados en main y probados localmente. Instalación, siete verificaciones de metadatos, registro de migración y publicación confirmados por la terminal de Iván del 04/11/2026, Cloudflare https://71953738.cibuspan-one.pages.dev y mensaje final del instalador. La aceptación operativa con usuarios reales sigue pendiente. El arranque físico ORG-07 y la regularización histórica siguen EN PAUSA. La instalación no preparó ni liberó pedidos ni cambió stock según el resultado comunicado.
 
 Ahora las cuatro acciones del flujo usan intentos persistidos: eliminar pedido, preparar, liberar reserva y confirmar despacho. La preparación/liberación usa sus comprobantes privados propios; comparte el panel y bloqueo de intentos del navegador con eliminación/despacho. No se cambia la regla de parcial, el alcance de numeración ni el stock mínimo.
 
@@ -40,7 +40,7 @@ Desde `D:\CIBUSPAN_ONE`, actualizar main y ejecutar `scripts/Instalar-ReservasRe
 
 Requiere 202610270002 ya instalado. Si el preflight indica que falta, completar `Instalar-OperacionesLogistica.ps1` y después ejecutar este instalador. No reinstalar paquetes anteriores por rutina ni modificar su historial para forzar la instalación. Si SQL termina y falla Cloudflare, completar la publicación y cerrar/abrir la PWA: las llamadas antiguas quedan bloqueadas; no retirar la protección para conservar un cliente viejo.
 
-El mensaje final esperado es “Reservas recuperables instaladas, verificadas y publicadas. No se prepararon ni liberaron pedidos y no se cambio stock.” Sólo se documentará instalado/publicado cuando llegue evidencia del usuario.
+Mensaje final recibido el 04/11/2026: “Reservas recuperables instaladas, verificadas y publicadas. No se prepararon ni liberaron pedidos y no se cambio stock.” Se confirma el alcance de instalación/verificación/publicación; también el prerrequisito 202610270002 instalado/verificado según los siete diagnósticos. El fragmento no muestra git log: no atribuir un SHA de compilación ni una publicación anterior independiente. No pedir nuevamente esta terminal ni reinstalar los paquetes. Cerrar/abrir la PWA para cargar el cliente publicado.
 
 ## Verificación
 
@@ -56,4 +56,4 @@ Reproducir el escenario con `CIBUSPAN_PROBAR_RESERVA=1`, `CIBUSPAN_AUDIT_FILE` a
 
 ## Siguiente
 
-Confirmar instalación/publicación con su terminal y validar el circuito real cuando corresponda. Etapa 3 permanece abierta; OP-09 parcial, OP-03 numeración y stock mínimo requieren definición antes de cambiar reglas. Micros/empaque y demás pendientes de la auditoría siguen abiertos. No reanudar arranque físico o reconstrucción histórica por esta entrega.
+Validar el circuito real cuando corresponda; instalación/verificación/publicación ya confirmadas. Esta actualización es sólo documental y no requiere volver a publicar. Etapa 3 permanece abierta; OP-09 parcial, OP-03 numeración y stock mínimo requieren definición antes de cambiar reglas. Micros/empaque y demás pendientes de la auditoría siguen abiertos. No reanudar arranque físico o reconstrucción histórica por esta entrega.
