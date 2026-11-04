@@ -1,5 +1,5 @@
 -- Sólo metadatos del contrato nuevo; no documentos ni existencias.
-select jsonb_build_object('tipo','planificacion_periodo','version','202611040003','correcto',coalesce(
+select jsonb_build_object('tipo','planificacion_periodo','version','202611040003','instalada',p.oid is not null,'correcto',coalesce(
  p.prosecdef and p.provolatile='s' and p.prosrc ~ E'^[[:space:]]*-- cibuspan-planificacion-periodo-v1\\r?\\n'
  and p.proconfig @> array['search_path=pg_catalog, public']
  and strpos(p.prosrc,'perform public.app_exigir_operacion(array[''Producción'',''Reportes'',''Dashboard''])')>0

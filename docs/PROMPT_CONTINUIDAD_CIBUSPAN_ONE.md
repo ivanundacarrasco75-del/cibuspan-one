@@ -159,3 +159,20 @@ Primera corrección para el arranque preparada/probada: Producción sugerida por
 ## Dato operativo confirmado para el conteo
 
 Iván confirma domingo 08/11 CON DESPACHOS; producción aún por definir. No volver a preguntar lo ya respondido ni asumir cero producción. Conteo final tras el último despacho y eventual producción del domingo; alternativa lunes 09/11 antes de primera producción/entrada/despacho. Se pueden preparar catálogo/lotes/unidades antes, pero cantidades finales posteriores a movimientos. Si hay movimientos después del conteo, actualizar/recontar y conciliar antes de confirmar. Hora exacta y conteo real pendientes. No aplicar nada por planificar horarios ni prometer arranque sin completar puertas. Checklist actualizado conservando identidad. SQL 202611040003 aún pendiente de terminal de instalación/publicación; esta respuesta no la confirma ni exige otro despliegue.
+
+
+### Capturas en R2 y retiro de fotos de perchas — 04/11/2026
+
+Iván autorizó almacenar capturas fuera de Supabase y retirar la carga de fotos de perchas. El mensaje observado `exceed_storage_size_quota` bloquea un guardado de revisión: no es un error de OCR ni prueba que se haya guardado. Queda como impedimento de salida en vivo hasta restablecer y comprobar la cuenta real.
+
+Implementación preparada: `docs/CAPTURAS_R2.md`, `scripts/Instalar-CapturasR2.ps1`, SQL nuevo exclusivo `202611040004_capturas_r2.sql`, servicio Pages privado vinculado a R2 `CAPTURAS_CAMPO` y secreto `CAPTURAS_FIRMA`. Nuevas capturas conservan resolución, nombre por hash evita duplicados al reintentar. Mantiene ingreso manual Rosado/Santamaría, caras/presencia/GPS. Formulario sin fotos de perchas; no elimina fotos históricas.
+
+Administración puede copiar todas las capturas históricas vinculadas por páginas, verificar SHA-256, descargar informe y detener/reanudar. El retiro de originales es una acción separada con confirmación explícita en la app: relee/compara original y copia, usa Storage API y comprueba ausencia. Nunca borrar tablas de Storage con SQL. No se modifica la ruta en la visita: lectura híbrida prioriza R2 y conserva el original como alternativa mientras exista. Autorización replica propietario/admin/supervisión por cliente; anónimo denegado y migración exclusiva admin.
+
+Pendiente del propietario: activar R2/revisar condiciones, crear bucket Standard privado `cibuspan-one-capturas`, vincularlo a Pages Production, ejecutar instalación y probar una carga/lectura real antes del traslado. La instalación crea la firma en memoria y no activa planes, no migra ni borra archivos. El instalador verifica la planificación `202611040003` (entregada pero sin confirmación): si su función no existe, instala/verifica solo ese SQL nuevo antes de publicar; si existe y no cumple el contrato se detiene. No reinstala SQL antiguo. No afirmar publicado, migrado ni desbloqueado a partir del commit o de pruebas locales.
+
+El bloqueo de Supabase puede impedir autorizar/descargar/copiar/borrar hasta que el servicio sea restablecido. El cambio no desbloquea automáticamente el proyecto; la cuota es del ciclo y también cuentan las perchas antiguas y otros archivos no incluidos en la limpieza. No activar cargos ni borrar otras evidencias sin una decisión concreta del propietario. No cambiar el estado operativo de inventarios/arranque ni afirmar aceptación del lunes por este cambio.
+
+Verificación local del cambio R2: 38 pruebas aprobadas (10 servicio, 6 permisos SQL, 22 regresiones) y compilaciones de app y Worker. Las cuentas reales y el traslado siguen pendientes.
+
+Además, 134 escenarios de integración operativa aislada aprobados, incluyendo el diagnóstico de planificación ampliado (172 comprobaciones en total). Sin ejecución en la base real.

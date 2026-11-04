@@ -14,14 +14,15 @@ import {
   leerArchivosCampo,
   limpiarArchivosCampo,
 } from "../../utils/borradorCampoComercial"
+import AlmacenamientoCapturas from "./AlmacenamientoCapturas"
 import KpiKamCobertura from "./KpiKamCobertura"
 import SupervisionCampo from "./SupervisionCampo"
 import DashboardVisitasRotacion from "./DashboardVisitasRotacion"
 import { combinarLecturaValidadaCampo } from "../../utils/validacionLecturasCampo"
 import { tieneCantidadesCaptura } from "../../utils/lecturaCapturasCampo"
 import { crearVisitaCampo, registrarSkuEnVisita, type VisitaActivaCampo } from "../../utils/visitaActivaCampo"
-import { asociarFotos, claveFoto, georreferenciarLocal, localDeCaptura, obtenerPosicionCampo, type FotoBorradorCampo, type LocalCampo, type PosicionCampo } from "../../utils/georreferenciaCampo"
-import { ConfigurarUbicacionLocales, FotosCampo, UbicacionCampo } from "./UbicacionCampo"
+import { georreferenciarLocal, localDeCaptura, obtenerPosicionCampo, type LocalCampo, type PosicionCampo } from "../../utils/georreferenciaCampo"
+import { ConfigurarUbicacionLocales, UbicacionCampo } from "./UbicacionCampo"
 
 type Props = {
   periodo: string
@@ -94,7 +95,6 @@ type BorradorCampo = {
   carasPercha?: number | null
   observaciones?: string
   ubicacion?: PosicionCampo | null
-  evidenciasFotos?: FotoBorradorCampo[]
   nombreLocalOcr?: string | null
 }
 
@@ -125,10 +125,6 @@ export default function CampoComercial({
   const [productoId, setProductoId] = useState(borradorInicial.productoId ?? "")
   const [fechaVisita, setFechaVisita] = useState(borradorInicial.visitaActiva || borradorInicial.lecturaConfirmada ? borradorInicial.fechaVisita ?? fechaHoy() : fechaHoy())
   const [capturas, setCapturas] = useState<File[]>([])
-  const [fotosPercha, setFotosPercha] = useState<File[]>([])
-  const [evidenciasFotos, setEvidenciasFotos] = useState<FotoBorradorCampo[]>(borradorInicial.evidenciasFotos ?? [])
-  const [georreferenciandoFoto, setGeorreferenciandoFoto] = useState(false)
-  const revisionFotos = useRef(0)
   const revisionLectura = useRef(0)
   const leyendoCapturas = useRef(false)
   const [rutasCapturas, setRutasCapturas] = useState<string[]>(borradorInicial.rutasCapturas ?? [])
@@ -151,7 +147,7 @@ export default function CampoComercial({
   const [ubicando, setUbicando] = useState(false)
   const [mensaje, setMensaje] = useState("")
   const [error, setError] = useState("")
-  const hayCambiosSku = capturas.length > 0 || fotosPercha.length > 0 || lecturaConfirmada ||
+  const hayCambiosSku = capturas.length > 0 || lecturaConfirmada ||
     lecturaTieneDatos(lectura) || !!observaciones || carasPercha !== null || codificado !== null || presencia !== "NO_REVISADO"
   const localActual: LocalCampo | undefined = visitaActiva?.referenciaLocal ??
     catalogo.locales.find((l) => l.id === (visitaActiva?.localId ?? localId))
@@ -160,7 +156,7 @@ export default function CampoComercial({
     local_captura_coincide: !!nombreLocalOcr && localDeCaptura(nombreLocalOcr, catalogo.locales)?.id === (visitaActiva?.localId ?? localId),
   } : null
 
-  useEffect(() => () => { revisionFotos.current++; revisionLectura.current++ }, [])
+  useEffect(() => () => { revisionLectura.current++ }, [])
 
   useEffect(() => {
     try {
@@ -180,7 +176,6 @@ export default function CampoComercial({
         carasPercha,
         observaciones,
         ubicacion,
-        evidenciasFotos,
         nombreLocalOcr,
       }
       window.localStorage.setItem(CLAVE_BORRADOR_CAMPO, JSON.stringify(borrador))
@@ -203,19 +198,15 @@ export default function CampoComercial({
     ubicacion,
     vista,
     visitaActiva,
-    evidenciasFotos,
     nombreLocalOcr,
   ])
 
   useEffect(() => {
     let activo = true
-    void Promise.all([
-      leerArchivosCampo("capturas"),
-      leerArchivosCampo("percha"),
-    ]).then(([capturasGuardadas, fotosGuardadas]) => {
-      if (!activo) return
-      setCapturas(capturasGuardadas)
-      setFotosPercha(fotosGuardadas)
+    // Los borradores de perchas antiguos no se vuelven a subir. Se conservan
+    // localmente hasta guardar/descartar el SKU con los controles existentes.
+    void leerArchivosCampo("capturas").then((capturasGuardadas) => {
+      if (activo) setCapturas(capturasGuardadas)
     }).catch(() => undefined)
     return () => { activo = false }
   }, [])
@@ -262,7 +253,7 @@ export default function CampoComercial({
 
   function seleccionarCapturas(event: React.ChangeEvent<HTMLInputElement>) {
     if (!clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "")) {
-      event.target.value = ""; setError("Este botón es sólo para capturas de Favorita. Las fotos del local se cargan en Fotos de percha."); return
+      event.target.value = ""; setError("Este botón es sólo para capturas de En Percha de Favorita. No se cargan fotos de estantes o productos."); return
     }
     if (leyendoCapturas.current || guardando) return
     setNombreLocalOcr(null)
@@ -296,44 +287,6 @@ export default function CampoComercial({
     setLecturaConfirmada(false)
     setMensaje("")
     setError("")
-  }
-
-  async function seleccionarFotosPercha(event: React.ChangeEvent<HTMLInputElement>, origen: "CAMARA" | "GALERIA") {
-    const nuevas = Array.from(event.target.files ?? [])
-    event.target.value = ""
-    if (georreferenciandoFoto || guardando || !localActual) return
-    const referencia = { ...localActual }
-    const adjuntadaEn = new Date().toISOString()
-    const archivos = [...fotosPercha]
-    for (const archivo of nuevas) {
-      const repetido = archivos.some((item) =>
-        item.name === archivo.name && item.size === archivo.size && item.lastModified === archivo.lastModified,
-      )
-      if (!repetido && archivos.length < 3) archivos.push(archivo)
-    }
-    const agregadas = archivos.slice(fotosPercha.length)
-    if (!agregadas.length) return
-    setFotosPercha(archivos)
-    void guardarArchivosCampo("percha", archivos).catch(() => undefined)
-    const revision = ++revisionFotos.current
-    setGeorreferenciandoFoto(true)
-    let posicion: PosicionCampo | null = null
-    try { posicion = await obtenerPosicionCampo() }
-    catch {
-      if (revision === revisionFotos.current) setMensaje("Foto adjuntada sin GPS. Se conservará identificada como sin ubicación.")
-    }
-    if (revision !== revisionFotos.current) return
-    setEvidenciasFotos((actuales) => [...actuales, ...agregadas.map((f) => ({ archivo: claveFoto(f), origen,
-      adjuntada_en: adjuntadaEn, georreferencia: georreferenciarLocal(referencia, posicion) }))])
-    setGeorreferenciandoFoto(false)
-  }
-
-  function limpiarFotosPercha() {
-    setFotosPercha([])
-    revisionFotos.current++
-    setEvidenciasFotos([])
-    setGeorreferenciandoFoto(false)
-    void guardarArchivosCampo("percha", []).catch(() => undefined)
   }
 
   async function analizar(archivos = capturas): Promise<LecturaFavorita | null> {
@@ -432,12 +385,8 @@ export default function CampoComercial({
   function limpiarSku() {
     setCapturasSoloRespaldo(false)
     setNombreLocalOcr(null)
-    revisionFotos.current++
-    setEvidenciasFotos([])
-    setGeorreferenciandoFoto(false)
     setProductoId("")
     setCapturas([])
-    setFotosPercha([])
     setRutasCapturas([])
     setLectura(LECTURA_VACIA)
     setLecturaConfirmada(false)
@@ -491,7 +440,7 @@ export default function CampoComercial({
   }
 
   async function guardar() {
-    if (guardando || procesando || leyendoCapturas.current || georreferenciandoFoto) return
+    if (guardando || procesando || leyendoCapturas.current) return
     if (!visitaActiva || !productoId) {
       setError("Inicia una visita y selecciona el SKU.")
       return
@@ -520,12 +469,10 @@ export default function CampoComercial({
     try {
       const nombreLocalLeido = lecturaAGuardar.local_nombre ?? nombreLocalOcr
       const localCapturaCoincide = !!nombreLocalLeido && localDeCaptura(nombreLocalLeido, catalogo.locales)?.id === visitaActiva.localId
-      const rutas = rutasCapturas.length > 0 ? rutasCapturas
+      const usaCapturas = clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === visitaActiva.clienteId)?.nombre ?? "")
+      const rutas = !usaCapturas ? [] : rutasCapturas.length > 0 ? rutasCapturas
         : capturas.length > 0 ? await subirImagenesCampo(capturas, "captura") : []
       setRutasCapturas(rutas)
-      const rutasPercha = fotosPercha.length > 0
-        ? await subirImagenesCampo(fotosPercha.slice(0, 3), "percha")
-        : []
       await guardarVisitaCampo({
         cliente_id: visitaActiva.clienteId,
         local_id: visitaActiva.localId,
@@ -538,7 +485,7 @@ export default function CampoComercial({
         codificado_app: codificado,
         presencia_percha: carasPercha === null ? presencia : carasPercha > 0 ? "PRESENTE" : "AUSENTE",
         capturas_app: rutas,
-        fotos_percha: rutasPercha,
+        fotos_percha: [],
         observaciones: observaciones || null,
         observaciones_sku: observaciones || null,
         confianza_ia: lecturaAGuardar.confianza || null,
@@ -547,8 +494,7 @@ export default function CampoComercial({
           georreferencia_visita: georreferenciaVisita && { ...georreferenciaVisita, nombre_local_captura: nombreLocalLeido, local_captura_coincide: localCapturaCoincide },
           nombre_local_ocr: nombreLocalLeido,
           local_captura_coincide: localCapturaCoincide,
-          fotos_georreferencia: asociarFotos(rutasPercha, fotosPercha, evidenciasFotos,
-            localActual ?? { id: visitaActiva.localId, nombre: "Local seleccionado", codigo: "" }),
+          fotos_georreferencia: [],
         },
         ...lecturaAGuardar,
         nombre_reportado: lecturaAGuardar.nombre_producto,
@@ -598,7 +544,7 @@ export default function CampoComercial({
       {vista === "SUPERVISION" && !soloCampo ? (
         <SupervisionCampo clientes={catalogo.clientes} />
       ) : vista === "ADMIN" && !soloCampo ? (
-        <>{catalogo.puede_administrar && <ConfigurarUbicacionLocales locales={catalogo.locales} actualizado={async () => { await cargar(); setMensaje("Ubicación del local registrada. Las próximas visitas se compararán con este punto."); onActualizado() }} />}<KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} /></>
+        <>{catalogo.rol === "ADMINISTRADOR" && <AlmacenamientoCapturas />}{catalogo.puede_administrar && <ConfigurarUbicacionLocales locales={catalogo.locales} actualizado={async () => { await cargar(); setMensaje("Ubicación del local registrada. Las próximas visitas se compararán con este punto."); onActualizado() }} />}<KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} /></>
       ) : vista === "DASHBOARD" ? (
         <DashboardVisitasRotacion revision={catalogo} cambiarPantalla={cambiarPantalla} />
       ) : (
@@ -641,7 +587,7 @@ export default function CampoComercial({
 
           {visitaActiva && productoId && clienteCapturasFavoritaCampo(catalogo.clientes.find((c) => c.id === clienteId)?.nombre ?? "") && <section className="campo-paso">
             <header><b>3</b><div><span>LECTOR DE IMÁGENES · OPCIONAL</span><h3>Completar datos desde capturas de Favorita</h3></div></header>
-            <p>Este botón es exclusivamente para capturas de la app En Percha de Favorita. No subas fotos de estantes o productos aquí; usa Fotos de percha. Sube de 1 a 3 capturas: se leen automáticamente y completan los campos vacíos. Revisa los valores y pulsa Guardar SKU una sola vez. También puedes ingresar los datos manualmente.</p>
+            <p>Este botón es exclusivamente para capturas de la app En Percha de Favorita. No se cargan fotos de estantes o productos en este módulo. Sube de 1 a 3 capturas: se leen automáticamente y completan los campos vacíos. Revisa los valores y pulsa Guardar SKU una sola vez. También puedes ingresar los datos manualmente.</p>
             <label className="campo-captura">
               <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={seleccionarCapturas} disabled={procesando || guardando} />
               <strong>{capturas.length ? `${capturas.length} de 3 imágenes listas · agregar más` : "Cargar capturas de Favorita"}</strong>
@@ -692,19 +638,8 @@ export default function CampoComercial({
             </div>
             {carasPercha === 0 && (lectura.stock_local_unidades ?? 0) > 0 && <div className="campo-error" role="alert">PRODUCTO CON STOCK NO PERCHADO · Hay existencia en el local y cero caras en percha.</div>}
             {carasPercha !== null && carasPercha > 0 && lectura.stock_local_unidades === 0 && <div className="campo-advertencia" role="status">Revisar dato: hay caras en percha, pero el stock reportado es cero.</div>}
-            <div className="campo-foto-percha">
-              <p>Fotos de percha (opcionales)</p>
-              <div className="campo-grid campo-grid-2">
-                <label><span>Tomar foto</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(e) => void seleccionarFotosPercha(e, "CAMARA")} disabled={fotosPercha.length >= 3 || georreferenciandoFoto} /></label>
-                <label><span>Elegir fotos de la galería</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => void seleccionarFotosPercha(e, "GALERIA")} disabled={fotosPercha.length >= 3 || georreferenciandoFoto} /></label>
-              </div>
-              <small>{fotosPercha.length ? `${fotosPercha.length} de 3 foto(s) lista(s)` : "Puedes tomar fotos o subir imágenes existentes, hasta 3 por SKU."}</small>
-              {georreferenciandoFoto && <p role="status">Registrando ubicación de la foto…</p>}
-              {fotosPercha.map((f) => <div key={claveFoto(f)}><small>{f.name} · GPS al adjuntar la foto</small><UbicacionCampo dato={evidenciasFotos.find((g) => g.archivo === claveFoto(f))?.georreferencia} /></div>)}
-              {fotosPercha.length > 0 && <button type="button" className="campo-salir" onClick={limpiarFotosPercha}>Quitar fotos de percha</button>}
-            </div>
             <label className="campo-observaciones"><span>Observaciones</span><textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ubicación en percha, faltante, novedad, gestión realizada…" /></label>
-            <button className="campo-guardar" type="button" disabled={guardando || procesando || georreferenciandoFoto} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar SKU y continuar con el siguiente"}</button>
+            <button className="campo-guardar" type="button" disabled={guardando || procesando} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar SKU y continuar con el siguiente"}</button>
             </fieldset>
           </section>}
         </div>

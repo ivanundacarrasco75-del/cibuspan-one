@@ -1,3 +1,4 @@
+import { solicitarCapturasR2, subirCapturasR2, mensajeErrorCampo } from "./capturasR2Repository"
 import { supabase } from "../lib/supabase"
 import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
 import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo } from "../utils/georreferenciaCampo"
@@ -173,29 +174,12 @@ function leerEvidenciaCampo(datos: unknown) {
 
 export async function obtenerFotosCampo(rutas: string[]) {
   if (!rutas.length) return []
-  const { data, error } = await supabase.storage.from("visitas-campo").createSignedUrls(rutas, 600)
-  if (error) throw new Error(`No se pudieron abrir las fotos: ${error.message}`)
-  if (data.some((foto) => foto.error || !foto.signedUrl)) throw new Error("No se pudo abrir alguna foto. Actualiza e intenta nuevamente.")
-  return data.map((foto) => ({ ruta: foto.path!, url: foto.signedUrl! }))
+  return solicitarCapturasR2<Array<{ ruta: string; url: string }>>("firmar", { rutas })
 }
 
-export async function subirImagenesCampo(
-  archivos: File[],
-  tipo: "captura" | "percha",
-) {
-  const { data: usuario } = await supabase.auth.getUser()
-  const userId = usuario.user?.id
-  if (!userId) throw new Error("La sesión no es válida.")
-
-  return Promise.all(archivos.map(async (archivo, indice) => {
-    const extension = extensionSegura(archivo)
-    const nombre = `${userId}/${fechaHoy()}/${tipo}-${Date.now()}-${indice}-${crypto.randomUUID()}.${extension}`
-    const { error } = await supabase.storage
-      .from("visitas-campo")
-      .upload(nombre, archivo, { contentType: archivo.type, upsert: false })
-    if (error) throw new Error(`No se pudo subir ${archivo.name}: ${error.message}`)
-    return nombre
-  }))
+export async function subirImagenesCampo(archivos: File[], tipo: "captura" | "percha") {
+  if (tipo !== "captura") throw new Error("Ya no se cargan fotos de perchas. Usa solamente capturas de En Percha.")
+  return subirCapturasR2(archivos)
 }
 
 export async function analizarCapturasFavorita(
@@ -223,7 +207,7 @@ export async function completarLecturaVisitaCampo(id: string, actualizadoEn: str
   const { data, error } = await supabase.rpc(datos.verificacion_campos ? "com_kpi_campo_auditar_lectura" : "com_kpi_campo_completar_lectura", {
     p_registro_id: id, p_actualizado_en: actualizadoEn, p_datos: datos,
   })
-  if (error) throw new Error(`No se pudieron completar los datos: ${error.message}`)
+  if (error) throw new Error(mensajeErrorCampo(`No se pudieron completar los datos: ${error.message}`))
   if (data?.id !== id) throw new Error("La base no confirmó la actualización de esta visita.")
 }
 
@@ -273,6 +257,7 @@ export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
   const { data, error } = await supabase.rpc("com_kpi_campo_guardar_visita", {
     p_datos: {
       ...sinCantidadCd(datos),
+      fotos_percha: [],
       datos_ia: {
         ...sinCantidadCd(datos.datos_ia as Record<string, unknown>),
         ...((datos.datos_ia as LecturaFavorita).lectura_control && datos.capturas_app.length ? {
@@ -286,7 +271,7 @@ export async function guardarVisitaCampo(datos: GuardarVisitaCampo) {
       },
     },
   })
-  if (error) throw new Error(`No se pudo guardar la visita: ${error.message}`)
+  if (error) throw new Error(mensajeErrorCampo(`No se pudo guardar la visita: ${error.message}`))
   if (typeof data !== "string" || !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(data)) throw new Error("La base no confirmó el guardado de la visita. No se anunció como guardada.")
   return data
 }
@@ -334,16 +319,4 @@ export async function obtenerSupervisionCampo(desde: string, hasta: string, clie
     }
     if ((data?.length ?? 0) < 500) return registros
   }
-}
-
-function extensionSegura(archivo: File) {
-  if (archivo.type === "image/png") return "png"
-  if (archivo.type === "image/webp") return "webp"
-  return "jpg"
-}
-
-function fechaHoy() {
-  const ahora = new Date()
-  return new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60_000)
-    .toISOString().slice(0, 10)
 }

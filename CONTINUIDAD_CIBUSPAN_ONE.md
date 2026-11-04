@@ -692,3 +692,20 @@ Plan hasta el 09/11: 4-5 instalar fechas/revisar datos; 5-6 validar catálogo, r
 Iván confirma el 04/11 que el domingo sí hay despacho y todavía no se sabe si habrá producción. No volver a preguntar si hay despachos ni asumir planta sin actividad. Conteo final después del último despacho del domingo y de cualquier producción de ese día. Antes preparar catálogo/lotes/unidades, sin tomar cantidades anteriores como cierre. Si no es viable terminar el domingo, contar/aplicar el lunes 09/11 antes de su primera producción, entrada o despacho. Movimientos posteriores al conteo requieren actualización/reconteo y conciliación antes de confirmar. Hora exacta y decisión de producción pendientes; no inventarlas ni aplicar el corte. El objetivo lunes 09/11 sigue condicionado al conteo completo y validación.
 
 Se actualizan checklist humano conservando identidad y docs/PUESTA_EN_MARCHA_20261109.md. SQL 202611040003 de planificación por fechas sigue preparado/probado en main: instalación/verificación/publicación todavía no confirmadas por terminal. Esta respuesta de horarios no las acredita ni requiere SQL/frontend nuevos que publicar. Ocho paquetes anteriores mantienen confirmaciones, histórico de octubre en pausa y preparación física retomada sin conteo aplicado.
+
+
+### Capturas en R2 y retiro de fotos de perchas — 04/11/2026
+
+Iván autorizó almacenar capturas fuera de Supabase y retirar la carga de fotos de perchas. El mensaje observado `exceed_storage_size_quota` bloquea un guardado de revisión: no es un error de OCR ni prueba que se haya guardado. Queda como impedimento de salida en vivo hasta restablecer y comprobar la cuenta real.
+
+Implementación preparada: `docs/CAPTURAS_R2.md`, `scripts/Instalar-CapturasR2.ps1`, SQL nuevo exclusivo `202611040004_capturas_r2.sql`, servicio Pages privado vinculado a R2 `CAPTURAS_CAMPO` y secreto `CAPTURAS_FIRMA`. Nuevas capturas conservan resolución, nombre por hash evita duplicados al reintentar. Mantiene ingreso manual Rosado/Santamaría, caras/presencia/GPS. Formulario sin fotos de perchas; no elimina fotos históricas.
+
+Administración puede copiar todas las capturas históricas vinculadas por páginas, verificar SHA-256, descargar informe y detener/reanudar. El retiro de originales es una acción separada con confirmación explícita en la app: relee/compara original y copia, usa Storage API y comprueba ausencia. Nunca borrar tablas de Storage con SQL. No se modifica la ruta en la visita: lectura híbrida prioriza R2 y conserva el original como alternativa mientras exista. Autorización replica propietario/admin/supervisión por cliente; anónimo denegado y migración exclusiva admin.
+
+Pendiente del propietario: activar R2/revisar condiciones, crear bucket Standard privado `cibuspan-one-capturas`, vincularlo a Pages Production, ejecutar instalación y probar una carga/lectura real antes del traslado. La instalación crea la firma en memoria y no activa planes, no migra ni borra archivos. El instalador verifica la planificación `202611040003` (entregada pero sin confirmación): si su función no existe, instala/verifica solo ese SQL nuevo antes de publicar; si existe y no cumple el contrato se detiene. No reinstala SQL antiguo. No afirmar publicado, migrado ni desbloqueado a partir del commit o de pruebas locales.
+
+El bloqueo de Supabase puede impedir autorizar/descargar/copiar/borrar hasta que el servicio sea restablecido. El cambio no desbloquea automáticamente el proyecto; la cuota es del ciclo y también cuentan las perchas antiguas y otros archivos no incluidos en la limpieza. No activar cargos ni borrar otras evidencias sin una decisión concreta del propietario. No cambiar el estado operativo de inventarios/arranque ni afirmar aceptación del lunes por este cambio.
+
+Verificación local del cambio R2: 38 pruebas aprobadas (10 servicio, 6 permisos SQL, 22 regresiones) y compilaciones de app y Worker. Las cuentas reales y el traslado siguen pendientes.
+
+Además, 134 escenarios de integración operativa aislada aprobados, incluyendo el diagnóstico de planificación ampliado (172 comprobaciones en total). Sin ejecución en la base real.
