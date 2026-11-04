@@ -140,3 +140,10 @@ Se conserva la prevención global por número que ya usa la interfaz, ahora con 
 ## Actualización OP-10 y eliminación del 27/10/2026
 
 Tras confirmar OP-02 instalado/verificado/publicado en fbafd456, Iván autoriza continuar. Eliminación completa de pedidos y confirmación de despacho con factura/conciliación/salida en una transacción preparadas/probadas; SQL 202610270002 y scripts/Instalar-OperacionesLogistica.ps1, pendientes de instalar/verificar/publicar. Ver docs/OPERACIONES_LOGISTICA_SEGURAS.md. Huella de revisión, comprobante privado, recuperación sin repetir, cierre sellado y protección de clientes viejos. No borra ni regulariza datos al instalar. No se presentan como corregidos metadatos incompletos antiguos ni recuperación de preparar/liberar reserva; regla de parcial conservada y pendiente de definición. ORG-07 sigue en pausa, etapa 3 abierta.
+
+
+## Avance de reservas, 04/11/2026
+
+PREPARAR/LIBERAR incorporados al circuito recuperable; detalle en docs/RESERVAS_RECUPERABLES.md. SQL 202611040001 e instalador específico preparados/probados (179 pruebas/build), pendientes de instalación/verificación/publicación. Revisión READ ONLY, disponibilidad por múltiplos de cada lote, comprobante privado/rollback, recuperación sin repetir tras liberar/preparar nuevamente y ausencia sellada. Se preservan funciones FEFO y se bloquean llamadas sueltas anteriores; el panel comparte pendientes de las cuatro acciones. No modifica físico al reservar/liberar ni ejecuta negocio al instalar. Iván indicó «LISTO SIGAMOS» al continuar, sin nueva terminal del paquete logístico anterior; el instalador nuevo comprueba ese prerrequisito y siete contratos.
+
+ORG-07 e históricos EN PAUSA. OP-09, OP-03, stock mínimo, micros/empaque y validación operativa siguen pendientes; etapa 3 abierta. No se certificaron navegador/HTTP concurrente ni multiconexión PostgreSQL por pruebas locales.

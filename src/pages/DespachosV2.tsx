@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
   guardarNumeroFacturaDespachoDb,
-  liberarReservaDespachoDb,
   obtenerDetallePedidoDespachoDb,
   obtenerDetalleReservaDespachoDb,
   obtenerPedidosDespachoDb,
   obtenerReservaActivaDespachoDb,
   obtenerReservaDespachadaPedidoDb,
-  prepararPedidoDespachoDb,
   type DetallePedidoDespachoDb,
   type DetalleReservaDespachoDb,
   type PedidoDespachoDb,
@@ -134,7 +132,7 @@ export default function DespachosV2() {
     const lectura = ++lecturaDetalle.current
     setPedidoSeleccionadoId(pedidoId)
     setCargandoDetalle(true)
-    setMensaje("")
+    if (!duranteOperacion) setMensaje("")
     setError("")
     setDetallePedido([])
     setReservaActiva(null)
@@ -218,7 +216,7 @@ export default function DespachosV2() {
     const lectura = ++lecturaDetalle.current
     setPedidoSeleccionadoId(pedidoId)
     setCargandoDetalle(true)
-    setMensaje("")
+    if (!duranteOperacion) setMensaje("")
     setError("")
     setDetallePedido([])
     setReservaActiva(null)
@@ -600,16 +598,6 @@ export default function DespachosV2() {
       return
     }
 
-    const confirmacion = window.confirm(
-      `¿Preparar el pedido ${pedidoSeleccionado.id} mediante FEFO por ${totalUnidadesADespachar} de ${totalUnidadesSolicitadas} unidades?${
-        despachoParcial
-          ? `\n\nDESPACHO PARCIAL · Fill Rate previsto ${fillRateProvisional}%`
-          : ""
-      }`,
-    )
-
-    if (!confirmacion) return
-
     accionLogistica.current = true
     setProcesando(true)
     setMensaje("")
@@ -617,16 +605,13 @@ export default function DespachosV2() {
     setAlertaFefo("")
 
     try {
-      await prepararPedidoDespachoDb(
-        pedidoSeleccionado.id,
-        cantidades,
-      )
-
-      setMensaje(
-        despachoParcial
-          ? `Pedido preparado para despacho parcial: ${totalUnidadesADespachar} de ${totalUnidadesSolicitadas} unidades.`
-          : "Pedido preparado correctamente. El inventario fue reservado por FEFO.",
-      )
+      const datos = { pedidoId: pedidoSeleccionado.id, cantidades }
+      const revision = await preverLogisticaDb("PREPARAR", datos)
+      if (!revision.puede_ejecutar) throw new Error(revision.bloqueos.join(" "))
+      const fillRate = revision.total_pedido ? ((revision.unidades / revision.total_pedido) * 100).toFixed(1) : "0.0"
+      if (!window.confirm(`¿Preparar el pedido ${revision.numero_pedido_cliente || revision.pedido_id} mediante FEFO?\n\nA reservar: ${revision.unidades} de ${revision.total_pedido} unidades\nFill Rate previsto: ${fillRate}%${revision.parcial ? "\nPreparación parcial" : ""}\n\nSe reserva inventario; todavía no se registra la salida.`)) return
+      const r = await logistica.ejecutar("PREPARAR", datos, revision)
+      setMensaje(`Pedido preparado: ${r.resumen.unidades} unidades reservadas por FEFO. No se registró una salida de inventario.`)
 
       await cargarPedidos(false)
       await cargarDetallePedido(
@@ -654,25 +639,19 @@ export default function DespachosV2() {
       return
     }
 
-    const confirmacion = window.confirm(
-      `¿Liberar la reserva del pedido ${pedidoSeleccionado.id}? El pedido volverá a estado INGRESADO.`,
-    )
-
-    if (!confirmacion) return
-
     accionLogistica.current = true
     setProcesando(true)
     setMensaje("")
     setError("")
 
     try {
-      await liberarReservaDespachoDb(
-        reservaActiva.id,
-      )
-
-      setMensaje(
-        "Reserva liberada correctamente.",
-      )
+      if (reservaActiva.pedido_id !== pedidoSeleccionado.id) throw new Error("Actualiza el pedido y su reserva antes de liberar.")
+      const datos = { reservaId: reservaActiva.id }
+      const revision = await preverLogisticaDb("LIBERAR", datos)
+      if (!revision.puede_ejecutar) throw new Error(revision.bloqueos.join(" "))
+      if (!window.confirm(`¿Liberar la reserva del pedido ${revision.numero_pedido_cliente || revision.pedido_id}?\n\nSe liberarán ${revision.unidades} unidades reservadas y el pedido volverá a INGRESADO. No cambia el stock físico.`)) return
+      await logistica.ejecutar("LIBERAR", datos, revision)
+      setMensaje("Reserva liberada correctamente. El pedido vuelve a INGRESADO; no cambió el stock físico.")
 
       await cargarPedidos(false)
       await cargarDetallePedido(

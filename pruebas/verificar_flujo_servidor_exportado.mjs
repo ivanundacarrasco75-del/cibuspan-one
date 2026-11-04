@@ -11,7 +11,8 @@ const referencia = Array.isArray(documento) ? documento[0].auditoria_flujo_opera
 assert.ok(Array.isArray(referencia?.funciones) && Array.isArray(referencia?.objetos), 'Diagnóstico inválido')
 const probarAutorizacion = process.env.CIBUSPAN_PROBAR_AUTORIZACION === '1'
 const probarRegistro = process.env.CIBUSPAN_PROBAR_REGISTRO === '1'
-const probarLogistica = process.env.CIBUSPAN_PROBAR_LOGISTICA === '1'
+const probarReserva = process.env.CIBUSPAN_PROBAR_RESERVA === '1'
+const probarLogistica = process.env.CIBUSPAN_PROBAR_LOGISTICA === '1' || probarReserva
 const probarPedido = process.env.CIBUSPAN_PROBAR_PEDIDO === '1' || probarLogistica
 const probarArranque = process.env.CIBUSPAN_PROBAR_ARRANQUE === '1' || probarPedido
 const probarConsumo = process.env.CIBUSPAN_PROBAR_CONSUMO === '1' || probarArranque
@@ -952,6 +953,175 @@ test('Caracterización local de las funciones instaladas exportadas el 23/10/202
         const diag=await readFile(new URL('../supabase/diagnosticos/verificar_operaciones_logistica.sql',import.meta.url),'utf8');const r=(await db.query(diag)).rows[0].operaciones_logistica
         assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:pedido_detalles'));assert.ok(r.pendientes.includes('public.ejecutar_operacion_logistica(uuid,text,jsonb,text,uuid)'))
       })
+      if (probarReserva) {
+        const sqlR=await readFile(new URL('../supabase/migrations/202611040001_reservas_recuperables.sql',import.meta.url),'utf8')
+        const diagnosticoR=await readFile(new URL('../supabase/diagnosticos/verificar_reservas_recuperables.sql',import.meta.url),'utf8')
+        const antes={pt:await cantidad(),mov:await movimientos(),r:(await db.query('select count(*) n from reservas_inventario')).rows[0].n}
+        await db.exec(sqlR)
+        assert.deepEqual({pt:await cantidad(),mov:await movimientos(),r:(await db.query('select count(*) n from reservas_inventario')).rows[0].n},antes)
+        const dp=p=>({pedidoId:p.id,cantidades:[{pedidoDetalleId:p.detalle,unidades:20}]})
+        const preverR=async(tipo,d)=>(await db.query('select prever_operacion_reserva($1,$2::jsonb) r',[tipo,JSON.stringify(d)])).rows[0].r
+        const ejecutarR=async(tipo,d,v,n=3000,usuario=id(1))=>(await db.query('select ejecutar_operacion_reserva($1,$2,$3::jsonb,$4,$5) r',[id(n),tipo,JSON.stringify(d),v.token,usuario])).rows[0].r
+        const resolverR=async(tipo,n=3000)=>(await db.query('select resolver_operacion_reserva($1,$2,$3) r',[id(n),tipo,id(1)])).rows[0].r
+        const prepararR=async p=>ejecutarR('PREPARAR',dp(p),await preverR('PREPARAR',dp(p)))
+        await casoL('Reserva recuperable: previa READ ONLY y preparación no cambian físico/Kardex',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d),pt=await cantidad(),mov=await movimientos()
+          assert.equal(v.unidades,20);assert.equal(v.puede_ejecutar,true)
+          await db.exec('savepoint lectura;set transaction read only');assert.equal((await preverR('PREPARAR',d)).token,v.token);await db.exec('rollback to lectura;release lectura')
+          const r=await ejecutarR('PREPARAR',d,v);assert.equal(r.reserva_id,r.resumen.reserva_id);assert.equal(r.objeto_id,p.id)
+          assert.equal((await ejecutarR('PREPARAR',d,v)).reserva_id,r.reserva_id);assert.equal((await resolverR('PREPARAR')).repetida,true)
+          assert.equal((await db.query('select count(*) n from reservas_inventario')).rows[0].n,1)
+          assert.equal((await db.query('select sum(unidades)::int n from reserva_detalles')).rows[0].n,20)
+          assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov)
+        })
+        await casoL('Liberación recuperable: conserva reserva y devuelve disponibilidad sin entrada física',async()=>{
+          const p=await pedidoL(),r=await prepararR(p),d={reservaId:r.reserva_id},v=await preverR('LIBERAR',d),pt=await cantidad(),mov=await movimientos()
+          await db.exec('savepoint lectura;set transaction read only');assert.equal((await preverR('LIBERAR',d)).token,v.token);await db.exec('rollback to lectura;release lectura')
+          assert.equal((await ejecutarR('LIBERAR',d,v,3001)).estado,'CONFIRMADA')
+          assert.equal((await ejecutarR('LIBERAR',d,v,3001)).repetida,true);assert.equal((await resolverR('LIBERAR',3001)).estado,'CONFIRMADA')
+          assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'INGRESADO')
+          assert.equal((await db.query('select estado from reservas_inventario where id=$1',[r.reserva_id])).rows[0].estado,'LIBERADA')
+          assert.equal((await db.query('select sum(unidades)::int n from reserva_detalles')).rows[0].n,20)
+          assert.equal(await cantidad(),pt);assert.equal(await movimientos(),mov);assert.equal((await stock()).cantidad_reservada,0)
+        })
+        await casoL('Reintento antiguo no prepara otra vez después de liberar, ni libera una reserva nueva',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d),r=await ejecutarR('PREPARAR',d,v)
+          const dl={reservaId:r.reserva_id},vl=await preverR('LIBERAR',dl);await ejecutarR('LIBERAR',dl,vl,3001)
+          assert.equal((await ejecutarR('PREPARAR',d,v)).reserva_id,r.reserva_id)
+          assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'INGRESADO')
+          const nuevo=await ejecutarR('PREPARAR',d,await preverR('PREPARAR',d),3002);assert.notEqual(nuevo.reserva_id,r.reserva_id)
+          await ejecutarR('LIBERAR',dl,vl,3001)
+          assert.equal((await db.query('select estado from reservas_inventario where id=$1',[nuevo.reserva_id])).rows[0].estado,'ACTIVA')
+          assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'PREPARADO')
+        })
+        await casoL('Otra clave no prepara un pedido preparado ni libera una reserva ya liberada',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d),r=await ejecutarR('PREPARAR',d,v)
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v,3002),/cambió/)
+          const dl={reservaId:r.reserva_id},vl=await preverR('LIBERAR',dl);await ejecutarR('LIBERAR',dl,vl,3001)
+          await rechazaSinAbortar(()=>ejecutarR('LIBERAR',dl,vl,3003),/cambió/)
+          assert.equal((await db.query('select count(*) n from reservas_inventario')).rows[0].n,1)
+        })
+        await casoL('Reserva: cambio de stock o pedido invalida revisión sin crear reserva',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d)
+          await db.exec('update inventario_lotes set cantidad=cantidad+1')
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v),/cambió/)
+          const v2=await preverR('PREPARAR',d);await db.query("update pedidos set prioridad='ALTA' where id=$1",[p.id])
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v2),/cambió/)
+          assert.equal((await db.query('select count(*) n from res_solicitudes_operacion')).rows[0].n,0)
+          assert.equal((await db.query('select count(*) n from reservas_inventario')).rows[0].n,0)
+        })
+        await casoL('Cambios de otra reserva sobre los lotes revisados invalidan la preparación',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d)
+          const otro={numeroPedidoCliente:'LOG-OTRO',clienteId:id(2),bodegaId:id(3),fechaEntrega:hoy,horaEntrega:'',prioridad:'NORMAL',tipoEmpaque:'',detalles:[{productoId:id(10),totalUnidades:30,unidadManejo:10}]}
+          const pp=(await db.query('select registrar_pedido_seguro($1,$2::jsonb,$3) r',[id(2101),JSON.stringify(otro),id(1)])).rows[0].r
+          const det=(await db.query('select id from pedido_detalles where pedido_id=$1',[pp.pedido_id])).rows[0].id
+          const dd={pedidoId:pp.pedido_id,cantidades:[{pedidoDetalleId:det,unidades:20}]};await ejecutarR('PREPARAR',dd,await preverR('PREPARAR',dd),3002)
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v),/cambió/)
+          assert.equal((await db.query('select count(*) n from reservas_inventario')).rows[0].n,1)
+        })
+        await casoL('Preparar valida cobertura, ID propio, duplicados, enteros y unidad de manejo',async()=>{
+          const p=await pedidoL(),d=dp(p)
+          for(const cantidades of [[],[...d.cantidades,...d.cantidades],[{pedidoDetalleId:id(99),unidades:20}],[{pedidoDetalleId:p.detalle,unidades:0.1}],[{pedidoDetalleId:p.detalle,unidades:-10}],[{pedidoDetalleId:p.detalle,unidades:1}],[{pedidoDetalleId:p.detalle,unidades:40}],[{pedidoDetalleId:p.detalle,unidades:0}]]) await rechazaSinAbortar(()=>preverR('PREPARAR',{...d,cantidades}),()=>true)
+          await db.query('update pedidos set total_unidades=40 where id=$1',[p.id]);await rechazaSinAbortar(()=>preverR('PREPARAR',d),/no coinciden/)
+        })
+        await casoL('Previa de reserva respeta múltiplos por lote, caducidad y stock insuficiente',async()=>{
+          const p=await pedidoL(),d=dp(p)
+          await db.exec('update inventario_lotes set cantidad=9')
+          const v=await preverR('PREPARAR',d);assert.equal(v.puede_ejecutar,false)
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v),/Stock/)
+          await db.exec("update inventario_lotes set cantidad=100,fecha_vencimiento=current_date-1")
+          assert.equal((await preverR('PREPARAR',d)).puede_ejecutar,false)
+          assert.equal((await db.query('select count(*) n from reservas_inventario')).rows[0].n,0)
+        })
+        await casoL('Fallo tardío al preparar revierte reserva, asignaciones, estado y comprobante',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d)
+          await db.exec("create function ensayo_fallo_preparar() returns trigger language plpgsql as $$begin if new.estado='PREPARADO' then raise exception 'Fallo tardío preparar';end if;return new;end$$;create trigger zz_ensayo_preparar after update on pedidos for each row execute function ensayo_fallo_preparar()")
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v),/Fallo tardío/)
+          for(const tabla of ['reservas_inventario','reserva_detalles','res_solicitudes_operacion']) assert.equal((await db.query(`select count(*) n from ${tabla}`)).rows[0].n,0)
+          assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'INGRESADO')
+        })
+        await casoL('Fallo tardío al liberar revierte estado de reserva, pedido y comprobante',async()=>{
+          const p=await pedidoL(),r=await prepararR(p),d={reservaId:r.reserva_id},v=await preverR('LIBERAR',d)
+          await db.exec("create function ensayo_fallo_liberar() returns trigger language plpgsql as $$begin if new.estado='INGRESADO' then raise exception 'Fallo tardío liberar';end if;return new;end$$;create trigger zz_ensayo_liberar after update on pedidos for each row execute function ensayo_fallo_liberar()")
+          await rechazaSinAbortar(()=>ejecutarR('LIBERAR',d,v,3001),/Fallo tardío/)
+          assert.equal((await db.query('select estado from reservas_inventario where id=$1',[r.reserva_id])).rows[0].estado,'ACTIVA')
+          assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'PREPARADO')
+          assert.equal((await db.query("select count(*) n from res_solicitudes_operacion where tipo='LIBERAR'")).rows[0].n,0)
+        })
+        await casoL('Preparar/liberar por cliente antiguo, GUC falso o filas directas queda bloqueado',async()=>{
+          const p=await pedidoL();await db.query("select set_config('cibuspan.reserva_request',$1,true)",[id(3000)])
+          await rechazaSinAbortar(()=>reservarL(p),/Actualiza/)
+          await rechazaSinAbortar(()=>db.query("insert into reservas_inventario(pedido_id,estado) values($1,'ACTIVA')",[p.id]),/Actualiza/)
+          const r=await prepararR(p)
+          await rechazaSinAbortar(()=>db.query('select liberar_reserva_fefo($1)',[r.reserva_id]),/Actualiza/)
+          await rechazaSinAbortar(()=>db.query("update reservas_inventario set estado='LIBERADA' where id=$1",[r.reserva_id]),/Actualiza/)
+          assert.equal((await db.query('select estado from reservas_inventario where id=$1',[r.reserva_id])).rows[0].estado,'ACTIVA')
+        })
+        await casoL('Ausencia sellada bloquea llegadas tardías tanto de preparar como de liberar',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d)
+          assert.equal((await resolverR('PREPARAR')).estado,'ANULADA');await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v),/cerrado/)
+          const r=await ejecutarR('PREPARAR',d,v,3002),dl={reservaId:r.reserva_id},vl=await preverR('LIBERAR',dl)
+          assert.equal((await resolverR('LIBERAR',3001)).estado,'ANULADA');await rechazaSinAbortar(()=>ejecutarR('LIBERAR',dl,vl,3001),/cerrado/)
+        })
+        await casoL('Reserva recuperable se despacha con OP-10 sin duplicar salida ni reabrir la reserva',async()=>{
+          const p=await pedidoL(),dp0=dp(p),vp=await preverR('PREPARAR',dp0),r=await ejecutarR('PREPARAR',dp0,vp),d=datosL(p,r.reserva_id),v=await preverL('DESPACHAR',d),pt=await cantidad()
+          await ejecutarL('DESPACHAR',d,v);assert.equal(await cantidad(),pt-20)
+          await ejecutarR('PREPARAR',dp0,vp);assert.equal(await cantidad(),pt-20)
+          assert.equal((await preverR('LIBERAR',{reservaId:r.reserva_id})).puede_ejecutar,false)
+          assert.equal((await db.query('select estado from pedidos where id=$1',[p.id])).rows[0].estado,'DESPACHADO')
+        })
+        await casoL('Sesión, actor y datos de reserva incompatibles no recuperan ni repiten otra operación',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d)
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v,3000,id(99)),e=>e.code==='42501')
+          await prepararR(p)
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',{...d,cantidades:[{pedidoDetalleId:p.detalle,unidades:10}]},v),/otros datos/)
+          await db.exec('set role authenticated')
+          await rechazaSinAbortar(()=>db.exec('select * from res_solicitudes_operacion'),e=>e.code==='42501')
+          await rechazaSinAbortar(()=>db.query('select res_base($1,$2::jsonb)',['PREPARAR',JSON.stringify(d)]),e=>e.code==='42501')
+          await db.exec("reset role;select set_config('ensayo.permitido','no',true)")
+          await rechazaSinAbortar(()=>preverR('PREPARAR',d),e=>e.code==='42501')
+        })
+        await casoL('FEFO reserva múltiplos por lote sin juntar sobrantes no despachables',async()=>{
+          const p=await pedidoL(),d=dp(p)
+          await db.exec('update inventario_lotes set cantidad=0')
+          for(let n=0;n<3;n++) await db.query("insert into inventario_lotes(id,producto_id,lote,fecha_produccion,fecha_vencimiento,cantidad) values($1,$2,$3,current_date,current_date+10,9)",[id(4000+n),id(10),'FEFO-'+n])
+          assert.equal(await cantidad(),27);assert.equal((await preverR('PREPARAR',d)).puede_ejecutar,false)
+          await db.query('update inventario_lotes set cantidad=19 where id in($1,$2)',[id(4000),id(4001)])
+          const pt=await cantidad(),r=await prepararR(p),asignadas=(await db.query('select inventario_lote_id,unidades from reserva_detalles where reserva_id=$1 order by inventario_lote_id',[r.reserva_id])).rows
+          assert.deepEqual(asignadas,[{inventario_lote_id:id(4000),unidades:10},{inventario_lote_id:id(4001),unidades:10}]);assert.equal(await cantidad(),pt)
+        })
+        await casoL('Otro actor no consulta comprobantes de reserva ni usa el UUID confirmado',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d);await ejecutarR('PREPARAR',d,v)
+          await db.exec(`insert into auth.users values('${id(99)}');insert into app_profiles(user_id,email,nombre,rol,activo) values('${id(99)}','otro@example.com','Otro','ADMINISTRADOR',true)`)
+          await db.query("select set_config('ensayo.usuario',$1,true)",[id(99)])
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v,3000,id(99)),e=>e.code==='42501')
+          await rechazaSinAbortar(()=>db.query('select resolver_operacion_reserva($1,$2,$3)',[id(3000),'PREPARAR',id(99)]),e=>e.code==='42501')
+        })
+        await casoL('Reservas exigen UID real incluso con rol de mantenimiento en la API pública',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d)
+          await db.query("select set_config('ensayo.usuario','',true)")
+          await rechazaSinAbortar(()=>ejecutarR('PREPARAR',d,v),e=>e.code==='42501')
+          await rechazaSinAbortar(()=>resolverR('PREPARAR'),e=>e.code==='42501')
+          assert.equal((await db.query('select count(*) n from res_solicitudes_operacion')).rows[0].n,0)
+        })
+        await casoL('Reinstalación CRLF y paquetes anteriores conservan siete contratos y comprobantes',async()=>{
+          const p=await pedidoL(),d=dp(p),v=await preverR('PREPARAR',d),r=await ejecutarR('PREPARAR',d,v)
+          await db.exec(sqlR.replace(/^begin;$/mi,'').replace(/^commit;$/mi,'').replace(/\r?\n/g,'\r\n'))
+          for(const nombre of ['202610230001_autorizacion_operativa.sql','202610230002_registro_produccion_seguro.sql','202610230003_consumo_mp_produccion.sql','202610240001_arranque_operativo.sql','202610270001_registro_pedidos_seguro.sql','202610270002_operaciones_logistica_seguras.sql']){
+            const anterior=await readFile(new URL('../supabase/migrations/'+nombre,import.meta.url),'utf8');await db.exec(anterior.replace(/^begin;$/mi,'').replace(/^commit;$/mi,''))
+          }
+          assert.equal((await ejecutarR('PREPARAR',d,v)).reserva_id,r.reserva_id)
+          await db.exec('set transaction read only')
+          for(const nombre of ['autorizacion_operativa','registro_produccion','consumo_mp_produccion','arranque_operativo','registro_pedidos','operaciones_logistica','reservas_recuperables']){
+            const diag=await readFile(new URL('../supabase/diagnosticos/verificar_'+nombre+'.sql',import.meta.url),'utf8');const rr=Object.values((await db.query(diag)).rows[0])[0];assert.equal(rr.correcto,true,JSON.stringify(rr))
+          }
+        })
+        await casoL('Diagnóstico de reservas detecta guardia deshabilitada y API anónima',async()=>{
+          await db.exec('alter table reservas_inventario disable trigger res_operacion_segura;grant execute on function ejecutar_operacion_reserva(uuid,text,jsonb,text,uuid) to anon')
+          const r=(await db.query(diagnosticoR)).rows[0].reservas_recuperables
+          assert.equal(r.correcto,false);assert.ok(r.pendientes.includes('guardia:reservas_inventario'));assert.ok(r.pendientes.includes('public.ejecutar_operacion_reserva(uuid,text,jsonb,text,uuid)'))
+        })
+      }
     }
   } finally { await db.close() }
 })

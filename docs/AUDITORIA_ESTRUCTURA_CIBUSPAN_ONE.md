@@ -232,3 +232,6 @@ Actualización del 27/10/2026 posterior a la pausa del arranque: Iván autoriza 
 
 
 Avance posterior del 27/10/2026: OP-10 y eliminación segura preparados y probados; SQL 202610270002 y scripts/Instalar-OperacionesLogistica.ps1 pendientes de instalar/verificar/publicar. Ver docs/OPERACIONES_LOGISTICA_SEGURAS.md. Pedidos OP-02 ya instalados/verificados/publicados (fbafd456), sin reinstalar. La regla de parcial no cambia. Preparar/liberar reserva conservan funciones actuales y no reciben comprobante nuevo en esta entrega. No se ejecutaron eliminaciones/despachos ni se reanudó ORG-07; validación real y etapa 3 abiertas.
+
+
+Avance del 04/11/2026: recuperación de preparar/liberar reserva preparada/probada, SQL 202611040001 y scripts/Instalar-ReservasRecuperables.ps1 pendientes de instalación/verificación/publicación. Ver docs/RESERVAS_RECUPERABLES.md. Completa el protocolo de intentos para las cuatro acciones de logística, sin declarar terminado el circuito operativo ni cambiar parcial/numeración/stock mínimo. Se conservan DashboardV2/Finanzas/navegación. Arranque físico/históricos EN PAUSA; etapa 3 y aceptación real abiertas. Iván indicó continuar sin adjuntar nueva evidencia técnica de publicación del alcance anterior; el instalador nuevo verifica ese prerrequisito.

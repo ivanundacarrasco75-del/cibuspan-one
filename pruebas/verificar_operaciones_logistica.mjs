@@ -6,8 +6,8 @@ const server=await createServer({root:fileURLToPath(new URL('..',import.meta.url
 after(()=>server.close())
 const {crearControlLogistica,copiarDatosLogistica,LogisticaPendienteError,LogisticaNoEjecutadaError}=await server.ssrLoadModule('/src/utils/operacionLogisticaSegura.ts')
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
-const intento=(n,tipo='DESPACHAR')=>({version:1,id:id(n),usuarioId:id(1),tipo,pedidoId:'PED-ENSAYO',token:'a'.repeat(32),creadoEn:'2026-10-27T12:00:00Z',datos:tipo==='ELIMINAR'?{pedidoId:'PED-ENSAYO'}:{reservaId:id(10),numeroFactura:'FAC-01',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}})
-const ok=(n,tipo='DESPACHAR')=>({estado:'CONFIRMADA',solicitud_id:id(n),tipo,objeto_id:tipo==='ELIMINAR'?'PED-ENSAYO':id(10),pedido_id:'PED-ENSAYO',resumen:{pedido_id:'PED-ENSAYO',numero_pedido_cliente:'OC-ENSAYO',unidades:20,numero_factura:'FAC-01',bloqueos:[],puede_ejecutar:true},repetida:false})
+const intento=(n,tipo='DESPACHAR')=>({version:1,id:id(n),usuarioId:id(1),tipo,pedidoId:'PED-ENSAYO',token:'a'.repeat(32),creadoEn:'2026-10-27T12:00:00Z',datos:tipo==='ELIMINAR'?{pedidoId:'PED-ENSAYO'}:tipo==='PREPARAR'?{pedidoId:'PED-ENSAYO',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}:tipo==='LIBERAR'?{reservaId:id(10)}:{reservaId:id(10),numeroFactura:'FAC-01',cantidades:[{pedidoDetalleId:id(20),unidades:20}]}})
+const ok=(n,tipo='DESPACHAR')=>({estado:'CONFIRMADA',solicitud_id:id(n),tipo,objeto_id:['ELIMINAR','PREPARAR'].includes(tipo)?'PED-ENSAYO':id(10),reserva_id:id(10),pedido_id:'PED-ENSAYO',resumen:{pedido_id:'PED-ENSAYO',reserva_id:id(10),numero_pedido_cliente:'OC-ENSAYO',unidades:20,numero_factura:'FAC-01',bloqueos:[],puede_ejecutar:true},repetida:false})
 function almacen(){const m=new Map();return {m,get length(){return m.size},key:i=>[...m.keys()][i]??null,getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}}
 const control=(a,ejecutar,resolver=async()=>{throw Error('sin conexión')},extra={})=>crearControlLogistica({almacen:a,proyecto:'ensayo',usuarioId:id(1),ejecutar,resolver,...extra})
 test('Copia cantidades y normaliza orden/UUID/factura sin compartir referencias',()=>{
@@ -21,7 +21,7 @@ test('Bloquea líneas repetidas/ajenas, decimales, negativos, cero total y valor
  assert.throws(()=>copiarDatosLogistica('ELIMINAR',{pedidoId:''}))
 })
 test('Persiste revisión y copia de datos antes de enviar cualquiera de las operaciones',async()=>{
- for(const tipo of ['ELIMINAR','DESPACHAR']){
+ for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR']){
   const a=almacen(),s=intento(101,tipo),c=control(a,async recibido=>{assert.equal(a.length,1);assert.notEqual(recibido,s);assert.equal(recibido.token,s.token);return ok(101,tipo)})
   assert.equal((await c.ejecutar(s)).estado,'CONFIRMADA');assert.equal(a.length,0)
  }
@@ -33,7 +33,7 @@ test('Dos clics comparten una petición y no aceptan datos diferentes con el mis
  terminar(ok(102));assert.deepEqual(await uno,await dos)
 })
 test('Respuesta perdida recupera confirmación sin repetir eliminación o salida',async()=>{
- for(const tipo of ['ELIMINAR','DESPACHAR']){
+ for(const tipo of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR']){
   const a=almacen();let envios=0;const c=control(a,async()=>{envios++;throw Error('respuesta perdida')},async()=>ok(103,tipo))
   assert.equal((await c.ejecutar(intento(103,tipo))).repetida,true);assert.equal(envios,1);assert.equal(a.length,0)
  }
@@ -84,4 +84,42 @@ test('Sesiones y proyectos aíslan intentos y rechazan usar la copia de otro usu
  const a=almacen(),c=control(a,async()=>{throw Error()});await assert.rejects(c.ejecutar(intento(114)),LogisticaPendienteError)
  assert.equal(control(a,()=>assert.fail(),undefined,{proyecto:'otro'}).listar().length,0)
  const otra=control(a,()=>assert.fail(),undefined,{usuarioId:id(2)});assert.equal(otra.listar().length,0);await assert.rejects(otra.ejecutar(intento(114)),/inválido/)
+})
+
+test('Preparación copia y valida cantidades; liberar conserva sólo la reserva válida',()=>{
+ const d=intento(120,'PREPARAR').datos,c=copiarDatosLogistica('PREPARAR',d);d.cantidades[0].unidades=999
+ assert.equal(c.cantidades[0].unidades,20);assert.deepEqual(copiarDatosLogistica('LIBERAR',{reservaId:id(10)}),{reservaId:id(10)})
+ for(const datos of [{pedidoId:''},{pedidoId:'PED-ENSAYO',cantidades:[]},{pedidoId:'PED-ENSAYO',cantidades:[{pedidoDetalleId:id(20),unidades:0.5}]}])assert.throws(()=>copiarDatosLogistica('PREPARAR',datos))
+ assert.throws(()=>copiarDatosLogistica('LIBERAR',{reservaId:'OTRA'}));assert.throws(()=>copiarDatosLogistica('OTRA',d))
+})
+test('Preparación o liberación incierta bloquea las cuatro clases hasta comprobar sin reenviar',async()=>{
+ for(const tipo of ['PREPARAR','LIBERAR']){
+  const a=almacen();await assert.rejects(control(a,async()=>{throw Error()}).ejecutar(intento(121,tipo)),LogisticaPendienteError)
+  const c=control(a,()=>assert.fail('No se reenvía'),async()=>ok(121,tipo))
+  assert.equal(c.listar()[0].tipo,tipo)
+  for(const otro of ['ELIMINAR','DESPACHAR','PREPARAR','LIBERAR'])await assert.rejects(c.ejecutar(intento(122,otro)),LogisticaPendienteError)
+  assert.equal((await c.resolver(c.listar()[0])).estado,'CONFIRMADA');assert.equal(a.length,0)
+ }
+})
+test('Reservas: rechaza comprobante con UUID faltante, resumen distinto o cantidades incompatibles',async()=>{
+ for(const tipo of ['PREPARAR','LIBERAR'])for(const malo of [{...ok(123,tipo),reserva_id:undefined},{...ok(123,tipo),reserva_id:'NO-ID'},{...ok(123,tipo),reserva_id:id(11)},{...ok(123,tipo),resumen:{...ok(123,tipo).resumen,reserva_id:id(11)}}]){
+  const a=almacen(),c=control(a,async()=>malo,async()=>malo);await assert.rejects(c.ejecutar(intento(123,tipo)),LogisticaPendienteError);assert.equal(a.length,1)
+ }
+ const malo={...ok(123,'PREPARAR'),resumen:{...ok(123,'PREPARAR').resumen,unidades:30}},a=almacen()
+ await assert.rejects(control(a,async()=>malo,async()=>malo).ejecutar(intento(123,'PREPARAR')),LogisticaPendienteError)
+ const s=intento(123,'PREPARAR');s.pedidoId='OTRO';await assert.rejects(control(almacen(),()=>assert.fail()).ejecutar(s),/no coincide/)
+})
+test('Reservas: doble clic comparte envío y cambios con mismo UUID no se aceptan',async()=>{
+ for(const tipo of ['PREPARAR','LIBERAR']){
+  let terminar,envios=0;const a=almacen(),c=control(a,()=>{envios++;return new Promise(r=>terminar=r)}),s=intento(124,tipo)
+  const uno=c.ejecutar(s),dos=c.ejecutar(s);assert.equal(envios,1)
+  const otro=intento(124,tipo);if(tipo==='PREPARAR')otro.datos.cantidades[0].unidades=10;else otro.datos.reservaId=id(99)
+  await assert.rejects(c.ejecutar(otro),LogisticaPendienteError);terminar(ok(124,tipo));assert.deepEqual(await uno,await dos)
+ }
+})
+test('Reservas: ausencia sellada retira copia y conserva error sin anunciar éxito',async()=>{
+ for(const tipo of ['PREPARAR','LIBERAR']){
+  const a=almacen(),c=control(a,async()=>{throw Error('La reserva cambió')},async s=>({estado:'ANULADA',solicitud_id:s.id,tipo:s.tipo}))
+  await assert.rejects(c.ejecutar(intento(125,tipo)),LogisticaNoEjecutadaError);assert.equal(a.length,0)
+ }
 })

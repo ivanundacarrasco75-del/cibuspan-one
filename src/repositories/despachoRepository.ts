@@ -499,51 +499,15 @@ export async function obtenerDespachosConciliacionDb() {
   })
 }
 
-export async function prepararPedidoDespachoDb(
-  pedidoId: string,
-  cantidades: CantidadDespachoSkuDb[],
-) {
-  if (!pedidoId) throw new Error("Selecciona un pedido.")
-
-  if (!cantidades.length) {
-    throw new Error(
-      "No existen cantidades para preparar el pedido.",
-    )
-  }
-
-  const { data, error } = await supabase.rpc(
-    "reservar_pedido_fefo_parcial",
-    {
-      p_pedido_id: pedidoId,
-      p_cantidades: cantidades.map(
-        (cantidad) => ({
-          pedido_detalle_id:
-            cantidad.pedidoDetalleId,
-          unidades: cantidad.unidades,
-        }),
-      ),
-    },
-  )
-
-  if (error) {
-    throw new Error(
-      error.message ||
-        "No se pudo preparar el pedido.",
-    )
-  }
-
-  if (typeof data !== "string" || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data)) throw new Error("No se confirmó el ID de la reserva. Pulsa Actualizar antes de volver a preparar.")
-  return data
+export async function prepararPedidoDespachoDb(pedidoId: string, cantidades: CantidadDespachoSkuDb[], revision?: VistaLogistica) {
+  if (!revision) throw new Error("Actualiza la pantalla y revisa el pedido antes de preparar.")
+  const r = await ejecutarLogisticaDb("PREPARAR", { pedidoId, cantidades }, revision)
+  return r.reserva_id!
 }
 
-export async function liberarReservaDespachoDb(reservaId: string) {
-  if (!reservaId) throw new Error("No se encontró la reserva.")
-
-  const { error } = await supabase.rpc("liberar_reserva_fefo", {
-    p_reserva_id: reservaId,
-  })
-
-  if (error) throw new Error(error.message || "No se pudo liberar la reserva.")
+export async function liberarReservaDespachoDb(reservaId: string, revision?: VistaLogistica) {
+  if (!revision) throw new Error("Actualiza la pantalla y revisa la reserva antes de liberar.")
+  await ejecutarLogisticaDb("LIBERAR", { reservaId }, revision)
 }
 
 export async function confirmarDespachoDb(reservaId: string, cantidades: CantidadDespachoSkuDb[], numeroFactura = "", revision?: VistaLogistica) {

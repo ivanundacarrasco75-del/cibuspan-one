@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { useLogisticaSegura } from "../../hooks/useLogisticaSegura"
 import { LogisticaNoEjecutadaError, type IntentoLogistica } from "../../utils/operacionLogisticaSegura"
+const nombres = { ELIMINAR: "Eliminar pedido", DESPACHAR: "Confirmar despacho", PREPARAR: "Preparar pedido", LIBERAR: "Liberar reserva" }
 export default function IntentosLogistica({ control, ocupado, onResuelta }: { control: ReturnType<typeof useLogisticaSegura>; ocupado: boolean; onResuelta: () => Promise<void> }) {
   const [mensaje, setMensaje] = useState(""), [error, setError] = useState(""), [cerrado, setCerrado] = useState<IntentoLogistica | null>(null)
   function descargar(s: IntentoLogistica) { const url = URL.createObjectURL(new Blob([JSON.stringify(s, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = `Intento-logistica-${s.id}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) }
@@ -10,7 +11,7 @@ export default function IntentosLogistica({ control, ocupado, onResuelta }: { co
       const r = await control.recuperar(s, reintentar)
       setError("")
       if (r.estado === "ANULADA") { setCerrado(s); setMensaje("El intento quedó cerrado sin ejecutar. Actualiza el pedido y revisa otra vez antes de confirmar.") }
-      else { setCerrado(null); setMensaje(r.tipo === "ELIMINAR" ? `Eliminación del pedido ${r.pedido_id} confirmada; no se repitió.` : `Despacho del pedido ${r.pedido_id} confirmado; no se volvió a descontar stock.`) }
+      else { setCerrado(null); setMensaje(r.tipo === "ELIMINAR" ? `Eliminación del pedido ${r.pedido_id} confirmada; no se repitió.` : r.tipo === "DESPACHAR" ? `Despacho del pedido ${r.pedido_id} confirmado; no se volvió a descontar stock.` : r.tipo === "PREPARAR" ? `Preparación del pedido ${r.pedido_id} confirmada. Reserva: ${r.reserva_id}. No se volvió a preparar.` : `Liberación del pedido ${r.pedido_id} confirmada. No se repitió la operación.`) }
       await onResuelta()
     } catch (e) { if (e instanceof LogisticaNoEjecutadaError) setCerrado(s); setError((e as Error).message) }
   }
@@ -20,7 +21,7 @@ export default function IntentosLogistica({ control, ocupado, onResuelta }: { co
     {control.ocupado && <p role="status">Comprobando el resultado de la operación…</p>}
     {control.error && <p role="alert">{control.error} <button type="button" disabled={ocupado || control.ocupado} onClick={() => void control.refrescar()}>Volver a comprobar</button></p>}
     {control.pendientes.length > 0 && <><h2>Hay una operación por comprobar</h2><p>Puede haberse ejecutado aunque no llegara la respuesta. Conserva este navegador y comprueba el intento antes de repetirlo o cambiar de dispositivo.</p></>}
-    {control.pendientes.map(s => <div key={s.id}><p>{s.tipo === "ELIMINAR" ? "Eliminar pedido" : "Confirmar despacho"}: {s.pedidoId}</p>
+    {control.pendientes.map(s => <div key={s.id}><p>{nombres[s.tipo]}: {s.pedidoId}</p>
       <button type="button" disabled={ocupado || control.ocupado} onClick={() => void recuperar(s, true)}>Reintentar la misma operación</button>{" "}
       <button type="button" disabled={ocupado || control.ocupado} onClick={() => void recuperar(s, false)}>Comprobar para corregir</button>{" "}
       <button type="button" onClick={() => descargar(s)}>Descargar copia</button>

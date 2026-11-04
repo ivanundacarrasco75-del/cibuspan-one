@@ -1,8 +1,8 @@
-export type TipoLogistica = "ELIMINAR" | "DESPACHAR"
-export type DatosLogistica = { pedidoId: string } | { reservaId: string; numeroFactura: string; cantidades: { pedidoDetalleId: string; unidades: number }[] }
-export type VistaLogistica = { token: string; puede_ejecutar: boolean; bloqueos: string[]; pedido_id: string; numero_pedido_cliente: string | null; unidades: number; skus?: number; total_pedido?: number; parcial?: boolean; numero_factura?: string }
+export type TipoLogistica = "ELIMINAR" | "DESPACHAR" | "PREPARAR" | "LIBERAR"
+export type DatosLogistica = { pedidoId: string } | { pedidoId: string; cantidades: { pedidoDetalleId: string; unidades: number }[] } | { reservaId: string } | { reservaId: string; numeroFactura: string; cantidades: { pedidoDetalleId: string; unidades: number }[] }
+export type VistaLogistica = { token: string; puede_ejecutar: boolean; bloqueos: string[]; pedido_id: string; numero_pedido_cliente: string | null; unidades: number; skus?: number; total_pedido?: number; parcial?: boolean; numero_factura?: string; reserva_id?: string | null }
 export type IntentoLogistica = { version: 1; id: string; usuarioId: string; tipo: TipoLogistica; datos: DatosLogistica; token: string; pedidoId: string; creadoEn: string }
-export type ResultadoLogistica = { estado: "CONFIRMADA"; solicitud_id: string; tipo: TipoLogistica; objeto_id: string; pedido_id: string; resumen: Omit<VistaLogistica, "token">; repetida: boolean }
+export type ResultadoLogistica = { estado: "CONFIRMADA"; solicitud_id: string; tipo: TipoLogistica; objeto_id: string; pedido_id: string; reserva_id?: string; resumen: Omit<VistaLogistica, "token">; repetida: boolean }
 export type ResolucionLogistica = ResultadoLogistica | { estado: "ANULADA"; solicitud_id: string; tipo: TipoLogistica }
 type Almacen = Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">
 const uuid = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s)
@@ -15,7 +15,16 @@ export function copiarDatosLogistica(tipo: TipoLogistica, valor: DatosLogistica)
     if (!("pedidoId" in valor) || !idPedido(valor.pedidoId)) throw new Error("Selecciona un pedido.")
     return { pedidoId: valor.pedidoId.trim() }
   }
-  if (tipo !== "DESPACHAR" || !("reservaId" in valor) || !uuid(valor.reservaId) || typeof valor.numeroFactura !== "string" || valor.numeroFactura.trim().length > 200 || !Array.isArray(valor.cantidades) || !valor.cantidades.length || valor.cantidades.length > 1000) throw new Error("Completa reserva, factura y cantidades.")
+  if (tipo === "LIBERAR") {
+    if (!("reservaId" in valor) || !uuid(valor.reservaId)) throw new Error("Selecciona una reserva.")
+    return { reservaId: valor.reservaId.toLowerCase() }
+  }
+  if (tipo === "PREPARAR") {
+    if (!("pedidoId" in valor) || !idPedido(valor.pedidoId) || !("cantidades" in valor)) throw new Error("Completa pedido y cantidades.")
+    const c = copiarDatosLogistica("DESPACHAR", { reservaId: "00000000-0000-0000-0000-000000000000", numeroFactura: "", cantidades: valor.cantidades })
+    return { pedidoId: valor.pedidoId.trim(), cantidades: "cantidades" in c ? c.cantidades : [] }
+  }
+  if (tipo !== "DESPACHAR" || !("reservaId" in valor) || !uuid(valor.reservaId) || !("numeroFactura" in valor) || typeof valor.numeroFactura !== "string" || valor.numeroFactura.trim().length > 200 || !Array.isArray(valor.cantidades) || !valor.cantidades.length || valor.cantidades.length > 1000) throw new Error("Completa reserva, factura y cantidades.")
   const ids = new Set<string>(); let total = 0
   const cantidades = valor.cantidades.map(c => {
     if (!uuid(c.pedidoDetalleId) || ids.has(c.pedidoDetalleId.toLowerCase()) || !Number.isSafeInteger(c.unidades) || c.unidades < 0 || c.unidades > 2147483647) throw new Error("Revisa líneas sin repetir y cantidades enteras, incluyendo cero cuando corresponda.")
@@ -34,7 +43,7 @@ export function crearControlLogistica(op: {
   function validar(s: IntentoLogistica) {
     if (!s || s.version !== 1 || !uuid(s.id) || s.usuarioId !== op.usuarioId || !idPedido(s.pedidoId) || !/^[a-f0-9]{32}$/.test(s.token) || typeof s.creadoEn !== "string" || !Number.isFinite(Date.parse(s.creadoEn))) throw new Error("Intento logístico inválido. Conserva su copia antes de comprobarlo.")
     const datos = copiarDatosLogistica(s.tipo, s.datos)
-    if (s.tipo === "ELIMINAR" && "pedidoId" in datos && datos.pedidoId !== s.pedidoId) throw new Error("El pedido del intento no coincide con la revisión guardada.")
+    if ((s.tipo === "ELIMINAR" || s.tipo === "PREPARAR") && "pedidoId" in datos && datos.pedidoId !== s.pedidoId) throw new Error("El pedido del intento no coincide con la revisión guardada.")
     return { ...s, datos }
   }
   const listar = (): IntentoLogistica[] => {
@@ -54,7 +63,12 @@ export function crearControlLogistica(op: {
     if (v.estado === "ANULADA") return v
     const objeto = "pedidoId" in s.datos ? s.datos.pedidoId : s.datos.reservaId
     if (v.estado !== "CONFIRMADA" || v.objeto_id !== objeto || v.pedido_id !== s.pedidoId || typeof v.repetida !== "boolean" || v.resumen?.pedido_id !== s.pedidoId || !Number.isSafeInteger(v.resumen?.unidades) || v.resumen.unidades < 0 || !Array.isArray(v.resumen.bloqueos)) throw new LogisticaPendienteError()
-    if (s.tipo === "DESPACHAR" && "cantidades" in s.datos && (v.resumen.unidades !== s.datos.cantidades.reduce((n, c) => n + c.unidades, 0) || v.resumen.numero_factura !== s.datos.numeroFactura)) throw new LogisticaPendienteError()
+    if (s.tipo === "DESPACHAR" && "numeroFactura" in s.datos && (v.resumen.unidades !== s.datos.cantidades.reduce((n, c) => n + c.unidades, 0) || v.resumen.numero_factura !== s.datos.numeroFactura)) throw new LogisticaPendienteError()
+    if (s.tipo === "PREPARAR" || s.tipo === "LIBERAR") {
+      if (!uuid(v.reserva_id) || v.resumen.reserva_id !== v.reserva_id) throw new LogisticaPendienteError()
+      if (s.tipo === "PREPARAR" && "cantidades" in s.datos && v.resumen.unidades !== s.datos.cantidades.reduce((n, c) => n + c.unidades, 0)) throw new LogisticaPendienteError()
+      if (s.tipo === "LIBERAR" && "reservaId" in s.datos && v.reserva_id !== s.datos.reservaId) throw new LogisticaPendienteError()
+    }
     return v
   }
   const resolver = async (intento: IntentoLogistica) => { const s = validar(intento), r = comprobar(await op.resolver(s), s); retirar(s.id); return r }
