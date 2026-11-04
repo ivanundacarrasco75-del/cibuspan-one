@@ -4,7 +4,7 @@ Decisión de Iván, 04/11/2026: normalmente se envía completo; cuando no, se gu
 
 ## Estado
 
-SQL 202611040002, frontend, diagnóstico e instalador preparados y probados; instalación/verificación/publicación pendientes de su terminal. Código de referencia anterior: reservas recuperables ya instaladas/verificadas/publicadas según terminal del 04/11, Cloudflare 71953738. No reinstalar ese paquete ni pedir su terminal otra vez. Arranque físico ORG-07 y reconstrucción histórica EN PAUSA; no hay conteo aplicado.
+SQL 202611040002, frontend, diagnóstico e instalador preparados y probados. Instalación, ocho diagnósticos de metadatos, registro de migración y publicación confirmados por la terminal de Iván del 04/11/2026: https://abd0efe0.cibuspan-one.pages.dev y mensaje final de Instalar-EdicionDespachos.ps1. Aceptación operativa con usuarios pendiente. Código de referencia anterior: reservas recuperables ya instaladas/verificadas/publicadas según terminal del 04/11, Cloudflare 71953738. No reinstalar ese paquete ni pedir su terminal otra vez. Arranque físico ORG-07 y reconstrucción histórica EN PAUSA; no hay conteo aplicado.
 
 ## Uso
 
@@ -49,7 +49,7 @@ Reintentar devuelve el mismo comprobante antes de mirar el estado actual; no rep
 
 Actualizar main y ejecutar scripts/Instalar-EdicionDespachos.ps1 desde D:\CIBUSPAN_ONE. Compila primero, aplica únicamente 202611040002_edicion_despachos.sql, exige ocho diagnósticos de metadatos, registra sólo esa versión y publica cibuspan-one/main. Sin dependencias nuevas, db push, reinstalaciones antiguas, operaciones de ensayo en vivo ni conteos.
 
-Mensaje esperado: “Edicion de despachos instalada, verificada y publicada. No se corrigieron documentos ni se cambio stock.” Cerrar y abrir la PWA tras publicar. Si SQL terminó pero Cloudflare falla, completar publicación; no retirar controles. No afirmar instalado/publicado hasta recibir su terminal. El instalador no corrige ningún pedido.
+Mensaje final recibido el 04/11/2026: “Edicion de despachos instalada, verificada y publicada. No se corrigieron documentos ni se cambio stock.” Se confirma instalación/verificación/publicación; no pedir otra vez la terminal ni reinstalar paquetes. El fragmento no contiene git log, por lo que no se atribuye un SHA de compilación. Cerrar y abrir la PWA; en Despachos > Historial, seleccionar el pedido y Editar despacho. Esta actualización documental no requiere publicación adicional.
 
 ## Evidencia y límites
 
@@ -57,8 +57,8 @@ Mensaje esperado: “Edicion de despachos instalada, verificada y publicada. No 
 
 Casos nuevos: editor/revisión READ ONLY; corrección menor/mayor y diferencia única; conservación de estado/factura/pedido y IDs; cambio explícito de lote con dos movimientos; SKU inicialmente omitido y cero por línea; reservas ajenas; huella obsoleta por stock/factura; pertenencia, motivo, enteros/manejo/rango; caducidad/archivo; rollback tardío de físico/Kardex/asignaciones/comprobante; ausencia sellada; sucesivas correcciones e intento antiguo; confirmación original recuperada tras corregir; actor/UID/privados; edición directa/GUC/reapertura rechazadas; corte anterior bloqueado y posterior válido; inconsistencia previa; reinstalación CRLF y siete paquetes previos conservando ocho diagnósticos; detector de trigger deshabilitado y anónimo. Cliente amplía copia, respuesta perdida, recarga/bloqueo entre cinco tipos, doble clic, lotes/motivo, resultado/balance incompatible y cierre sellado, con regresiones anteriores.
 
-PGlite aislado con diagnóstico privado del 23/10 y defaults/auxiliares de ensayo explícitos; ese archivo no se publica. Los casos del corte modelan metadatos aislados para esta frontera, además de los escenarios propios del arranque; no aplican conteos reales. No se certifican HTTP concurrente/multiconexión PostgreSQL real, recorrido visual en navegador o aceptación por empleados. No se consultaron documentos ni se escribieron datos de la base real desde aquí. El instalador PowerShell mantiene el patrón ya usado por Iván; su ejecución final se verifica con la terminal del usuario.
+PGlite aislado con diagnóstico privado del 23/10 y defaults/auxiliares de ensayo explícitos; ese archivo no se publica. Los casos del corte modelan metadatos aislados para esta frontera, además de los escenarios propios del arranque; no aplican conteos reales. No se certifican HTTP concurrente/multiconexión PostgreSQL real, recorrido visual en navegador o aceptación por empleados. No se consultaron documentos ni se escribieron datos de la base real desde aquí. El instalador PowerShell mantiene el patrón ya usado por Iván; su ejecución final ya quedó confirmada por la terminal recibida, sin equipararla a una validación operativa de empleados.
 
 Reproducir: CIBUSPAN_PROBAR_EDICION=1, CIBUSPAN_AUDIT_FILE al exportado privado, CIBUSPAN_SQL_TEST_MODULE al PGlite disponible; node --test pruebas/verificar_flujo_servidor_exportado.mjs. Regresiones cliente: verificar_operaciones_logistica, verificar_registro_pedidos_seguro, verificar_registro_produccion_seguro, verificar_arranque_operativo y verificar_pedidos_octubre con node --test. Finalizar npm run build.
 
-Siguiente: confirmar sólo la instalación/publicación nueva y validar uso real cuando corresponda. OP-09 definido, sin saldo pendiente; OP-03 numeración y stock mínimo aún requieren definición. Micros/empaque y etapa 3 siguen abiertos. ORG-07 e históricos EN PAUSA.
+Siguiente: validar uso real cuando corresponda; instalación/verificación/publicación ya confirmadas. No repetir instalación ni solicitar nuevamente esa evidencia. OP-09 definido, sin saldo pendiente; OP-03 numeración y stock mínimo aún requieren definición. Micros/empaque y etapa 3 siguen abiertos. ORG-07 e históricos EN PAUSA.
