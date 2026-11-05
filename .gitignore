@@ -32,3 +32,6 @@ supabase/.temp/
 
 # Diagnósticos privados generados para la revisión operativa
 auditoria_flujo_operativo_*.json
+
+# Inventarios y registros internos de limpieza selectiva de Storage
+/diagnosticos_privados/
