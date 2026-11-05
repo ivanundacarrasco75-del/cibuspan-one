@@ -176,3 +176,14 @@ El bloqueo de Supabase puede impedir autorizar/descargar/copiar/borrar hasta que
 Verificación local del cambio R2: 38 pruebas aprobadas (10 servicio, 6 permisos SQL, 22 regresiones) y compilaciones de app y Worker. Las cuentas reales y el traslado siguen pendientes.
 
 Además, 134 escenarios de integración operativa aislada aprobados, incluyendo el diagnóstico de planificación ampliado (172 comprobaciones en total). Sin ejecución en la base real.
+
+
+### Instalación R2 confirmada por terminal — 05/11/2026
+
+Iván completó la activación de R2 y mostró el bucket `cibuspan-one-capturas`, Standard, con acceso público deshabilitado. Confirmó guardar el binding `CAPTURAS_CAMPO` en Pages. Después compartió la salida final de `Instalar-CapturasR2.ps1`: despliegue https://ee9dcaf5.cibuspan-one.pages.dev y «Servicio R2 instalado y publicado; binding y firma presentes. No se trasladaron ni borraron archivos».
+
+Esta salida confirma que el instalador terminó: contrato de planificación `202611040003` comprobado, permisos `202611040004` instalados/verificados y registrados, firma configurada y publicación con presencia de binding/firma comprobada. No permite saber si la planificación ya estaba instalada o se completó en esta ejecución; no reinstalarla por esa duda. La evidencia es la terminal del propietario, no una consulta directa del agente a las cuentas reales.
+
+Pendiente inmediato: cerrar/reabrir PWA, guardar una captura de una visita real que deba registrarse, abrir esa captura y comprobar que los datos persisten. El aviso final sobre Supabase es un recordatorio del bloqueo observado antes; no es por sí solo otro fallo de esta instalación ni prueba de que el bloqueo continúe o haya desaparecido. Si vuelve el error de cuota, resolver el estado real de Usage/Billing/soporte antes de continuar. No repetir instalación ni releer datos para resolver cuota.
+
+Todavía no se trasladaron ni retiraron originales. Tras comprobar guardado y apertura, administración podrá ejecutar la copia/verificación de capturas anteriores en Campo comercial > Locales y reportes > Almacenamiento de capturas. Mantener el retiro de originales como paso separado posterior a la revisión. Fotos históricas de perchas y otros archivos permanecen; no afirmar que se liberó espacio. No se aplicó conteo de arranque ni se verificó el circuito operativo real por publicar R2. Este registro solo actualiza documentación; no requiere nueva instalación ni publicación.
