@@ -213,3 +213,10 @@ No recomendar repetir el mismo borrado, añadir `--debug` para intentar desbloqu
 Siguiente vía gratuita por intentar: Iván puede abrir soporte de Supabase y solicitar que evalúen acceso temporal a la API de Storage o un procedimiento soportado para retirar únicamente las fotos descartables, conservando las capturas. Preparar el texto para que él lo copie; no enviar solicitudes externas sin su instrucción explícita. No asegurar que soporte concederá el acceso o responderá antes del lunes. Pro continúa como opción inmediata documentada, pero Iván no lo ha contratado ni autorizado. Esperar el ciclo tampoco garantiza resolverlo si el uso permanece alto.
 
 Este registro solo documenta evidencia del propietario; no cambia código, no ejecuta limpieza ni requiere SQL/publicación. El inicio de sesión, traslado R2 y arranque operativo continúan pendientes de recuperar acceso y verificarse con datos reales.
+
+
+### Requerimiento a soporte enviado por Iván — 05/11/2026
+
+Iván confirmó «ok esta enviado el requerimiento» después de completar el formulario de soporte. Registrar como enviado por el propietario y pendiente de respuesta, no como enviado por el agente ni como desbloqueo concedido. No se conoce número de ticket ni plazo. No pedirle que lo abra otra vez ni enviar duplicados por rutina.
+
+La solicitud pide que Supabase evalúe acceso temporal/procedimiento soportado para eliminar exclusivamente las fotos físicas descartables, conservando capturas de En Percha y datos del negocio. R2 continúa publicado; no hay confirmación de traslado o eliminación, la app sigue pendiente de recuperar acceso y Pro no ha sido contratado/autorizado. Conservar capturas originales en los teléfonos mientras no se confirme su guardado. Cuando llegue la respuesta, revisar instrucciones y alcance antes de proceder; no anticipar limpieza, restablecimiento, fecha de solución ni salida operativa del lunes. Este cambio es solo documental y no necesita instalar ni publicar de nuevo.
