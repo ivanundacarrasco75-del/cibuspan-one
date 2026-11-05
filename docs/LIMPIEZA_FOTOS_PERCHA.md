@@ -62,3 +62,16 @@ Referencias oficiales:
 - https://supabase.com/docs/reference/cli/supabase-storage-rm
 - https://supabase.com/docs/guides/platform/manage-your-usage/storage-size
 - https://supabase.com/kb/troubleshooting/storage-unexpectedly-high-usage-or-exceed_storage_size_quota-errors-ae21a5
+
+
+### Limpieza rechazada por cuota: HTTP 402 confirmado — 05/11/2026
+
+Iván ejecutó el diagnóstico: 959 fotos físicas candidatas, 3792,91 MiB conocidos aproximadamente y 1817 rutas referenciadas protegidas. Resultado local guardado en `diagnosticos_privados/fotos_percha_20261105_123037_852/plan_solo_lectura.json`. Este diagnóstico fue de solo lectura.
+
+Después ejecutó `Revisar-FotosPercha.ps1 -Eliminar` y entregó el error original: `Error status 402` con `exceed_storage_size_quota`. El script terminó en su protección «Storage rechazo el borrado o no confirmo el resultado», sin continuar con otros lotes. La API del proveedor está bloqueando también el retiro de objetos; no atribuirlo a PowerShell, a lectura OCR ni a los permisos de la app. No se confirmó ninguna eliminación; no afirmar que se liberó espacio ni que se borraron las 959 fotos. Si luego hace falta el estado exacto, volver a consultar el diagnóstico sin `-Eliminar`.
+
+No recomendar repetir el mismo borrado, añadir `--debug` para intentar desbloquearlo, borrar filas `storage.objects`/`storage.buckets` por SQL, vaciar el bucket entero ni crear otra app como atajo. La autorización sigue limitada a fotos físicas de percha; todas las capturas de En Percha y los datos de negocio deben conservarse.
+
+Siguiente vía gratuita por intentar: Iván puede abrir soporte de Supabase y solicitar que evalúen acceso temporal a la API de Storage o un procedimiento soportado para retirar únicamente las fotos descartables, conservando las capturas. Preparar el texto para que él lo copie; no enviar solicitudes externas sin su instrucción explícita. No asegurar que soporte concederá el acceso o responderá antes del lunes. Pro continúa como opción inmediata documentada, pero Iván no lo ha contratado ni autorizado. Esperar el ciclo tampoco garantiza resolverlo si el uso permanece alto.
+
+Este registro solo documenta evidencia del propietario; no cambia código, no ejecuta limpieza ni requiere SQL/publicación. El inicio de sesión, traslado R2 y arranque operativo continúan pendientes de recuperar acceso y verificarse con datos reales.
