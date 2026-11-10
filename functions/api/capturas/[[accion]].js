@@ -1,5 +1,6 @@
 // Pages Function. CAPTURAS_CAMPO is a PRIVATE R2 binding; no S3 keys in the app.
-const PROYECTO = 'https://mkntfvsbmlgobettavnu.supabase.co';
+const PROYECTO_ORIGINAL = 'https://mkntfvsbmlgobettavnu.supabase.co';
+const PROYECTO_CONTINGENCIA = 'https://eodcwkuexldsbomflthe.supabase.co';
 const MAX = 10 * 1024 * 1024;
 const tipos = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const enc = new TextEncoder();
@@ -40,8 +41,13 @@ function credenciales(request) {
   if (!Authorization?.startsWith('Bearer ') || !apikey || apikey.length > 3000) throw fallo('Inicia sesion para acceder a las capturas.', 401);
   return { Authorization, apikey, 'Content-Type': 'application/json' };
 }
-async function remoto(ruta, opciones) {
-  const res = await fetch(PROYECTO + ruta, { ...opciones, signal: AbortSignal.timeout(25000) });
+function proyectoCapturas(env) {
+  const proyecto = env.CAPTURAS_SUPABASE_URL ?? PROYECTO_ORIGINAL;
+  if (![PROYECTO_ORIGINAL, PROYECTO_CONTINGENCIA].includes(proyecto)) throw fallo('El proyecto de capturas no está configurado correctamente.', 503);
+  return proyecto;
+}
+async function remoto(proyecto, ruta, opciones) {
+  const res = await fetch(proyecto + ruta, { ...opciones, signal: AbortSignal.timeout(25000) });
   if (!res.ok) {
     // Do not leak tokens, signed URLs or raw upstream error bodies.
     const texto = await res.text();
@@ -54,10 +60,10 @@ async function remoto(ruta, opciones) {
   }
   return res;
 }
-async function autorizar(request, ruta, accion) {
+async function autorizar(proyecto, request, ruta, accion) {
   if (!rutaValida(ruta)) throw fallo('Ruta de evidencia no valida.');
   const headers = credenciales(request);
-  const res = await remoto('/rest/v1/rpc/com_kpi_campo_autorizar_archivo', {
+  const res = await remoto(proyecto, '/rest/v1/rpc/com_kpi_campo_autorizar_archivo', {
     method: 'POST', headers, body: JSON.stringify({ p_ruta: ruta, p_accion: accion }),
   });
   const data = await res.json();
@@ -95,8 +101,8 @@ async function copiar(bucket,ruta,bytes,tipo,origen) {
 }
 export async function onRequest({ request,env,params }) {
   try {
-    const accion = String(params.accion ?? ''), url = new URL(request.url);
-    if (accion === 'estado' && request.method === 'GET') return json({ version:'202611040004',r2:!!env.CAPTURAS_CAMPO,firma:!!env.CAPTURAS_FIRMA,solo_capturas:true });
+    const accion = String(params.accion ?? ''), url = new URL(request.url), proyecto = proyectoCapturas(env);
+    if (accion === 'estado' && request.method === 'GET') return json({ version:'202611040004',r2:!!env.CAPTURAS_CAMPO,firma:!!env.CAPTURAS_FIRMA,solo_capturas:true,proyecto });
     if (!env.CAPTURAS_CAMPO) throw fallo('Falta vincular el almacen de capturas R2 en Cloudflare.',503);
     if (accion === 'imagen' && request.method === 'GET') {
       const ruta = url.searchParams.get('ruta'), vence = url.searchParams.get('vence'), firma = url.searchParams.get('firma');
@@ -109,7 +115,7 @@ export async function onRequest({ request,env,params }) {
       return new Response(objeto.body,{ headers:{ 'Content-Type':objeto.httpMetadata?.contentType ?? 'application/octet-stream','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer' } });
     }
     if (accion === 'subir' && request.method === 'PUT') {
-      const ruta = url.searchParams.get('ruta'); await autorizar(request,ruta,'SUBIR');
+      const ruta = url.searchParams.get('ruta'); await autorizar(proyecto,request,ruta,'SUBIR');
       if (!/\/captura-r2-[a-f0-9]{64}\.(png|jpg|webp)$/.test(ruta)) throw fallo('Solo se suben capturas de En Percha.');
       const bytes = await bytesLimitados(request), tipo = tipoReal(bytes);
       if (request.headers.get('Content-Type') !== tipo) throw fallo('El formato de la captura no coincide con su contenido.');
@@ -126,27 +132,29 @@ export async function onRequest({ request,env,params }) {
       if (!Array.isArray(datos.rutas) || !datos.rutas.length || datos.rutas.length > 10) throw fallo('Selecciona de 1 a 10 capturas.');
       const salida = [];
       for (const ruta of datos.rutas) {
-        const headers = await autorizar(request,ruta,'VER');
+        const headers = await autorizar(proyecto,request,ruta,'VER');
         let enlace;
         if (await env.CAPTURAS_CAMPO.head(ruta)) enlace = await firmar(ruta,env,url.origin);
         else {
-          const res = await remoto('/storage/v1/object/sign/visitas-campo/'+ruta.split('/').map(encodeURIComponent).join('/'),{method:'POST',headers,body:JSON.stringify({expiresIn:600})});
+          if (proyecto !== PROYECTO_ORIGINAL) throw fallo('La captura no está disponible en R2. Las capturas históricas pendientes se conservan en el proyecto anterior.',404);
+          const res = await remoto(proyecto,'/storage/v1/object/sign/visitas-campo/'+ruta.split('/').map(encodeURIComponent).join('/'),{method:'POST',headers,body:JSON.stringify({expiresIn:600})});
           const original = await res.json();
           if (typeof original.signedURL !== 'string' || !original.signedURL.startsWith('/object/sign/visitas-campo/')) throw fallo('No se confirmo el acceso al original.',503);
-          enlace = PROYECTO+'/storage/v1'+original.signedURL;
+          enlace = proyecto+'/storage/v1'+original.signedURL;
         }
         salida.push({ruta,url:enlace});
       }
       return json(salida);
     }
-    const {ruta} = datos, headers = await autorizar(request,ruta,accion === 'migrar' ? 'MIGRAR' : 'RETIRAR');
+    const {ruta} = datos, headers = await autorizar(proyecto,request,ruta,accion === 'migrar' ? 'MIGRAR' : 'RETIRAR');
+    if (proyecto !== PROYECTO_ORIGINAL) throw fallo('El traslado y retiro de originales solo se realizan en el proyecto que los almacena. No se modificó ningún archivo.',409);
     if (accion === 'migrar') {
       const existente = await verificarCopia(env.CAPTURAS_CAMPO,ruta);
       if (existente) {
         if (existente.origen !== 'supabase') throw fallo('El origen de la copia no coincide.',409);
         return json({ruta,sha256:existente.sha,bytes:existente.bytes.byteLength,verificada:true,ya_copiada:true});
       }
-      const res = await remoto(rutaStorage(ruta),{headers});
+      const res = await remoto(proyecto,rutaStorage(ruta),{headers});
       const bytes = await bytesLimitados(res), tipo = tipoReal(bytes);
       return json(await copiar(env.CAPTURAS_CAMPO,ruta,bytes,tipo,'supabase'));
     }
@@ -155,12 +163,12 @@ export async function onRequest({ request,env,params }) {
     if (!copia || copia.origen !== 'supabase' || datos.sha256 !== copia.sha) throw fallo('Primero copia y verifica la captura en R2. No se elimino el original.',409);
     // Download and compare again immediately before deleting through Storage API.
     let original;
-    try { original = await remoto(rutaStorage(ruta),{headers}); }
+    try { original = await remoto(proyecto,rutaStorage(ruta),{headers}); }
     catch (e) { if(e.estado === 404) return json({ruta,retirado:true,ya_retirado:true}); throw e; }
     if (await sha256(await bytesLimitados(original)) !== copia.sha) throw fallo('El original cambio. No se elimino.',409);
-    await remoto('/storage/v1/object/visitas-campo',{method:'DELETE',headers,body:JSON.stringify({prefixes:[ruta]})});
+    await remoto(proyecto,'/storage/v1/object/visitas-campo',{method:'DELETE',headers,body:JSON.stringify({prefixes:[ruta]})});
     // Never return success based only on a DELETE response.
-    try { await remoto(rutaStorage(ruta),{headers}); }
+    try { await remoto(proyecto,rutaStorage(ruta),{headers}); }
     catch(e) { if(e.estado === 404) return json({ruta,retirado:true}); throw e; }
     throw fallo('No se pudo confirmar el retiro del original. La copia de R2 se conserva.',409);
   } catch (e) { return json({error:e.estado ? e.message : 'No se completo la operacion de capturas. Reintenta; no se confirmaron cambios.'},e.estado ?? 503); }

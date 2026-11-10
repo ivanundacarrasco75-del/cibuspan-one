@@ -17,10 +17,10 @@ function entorno() { return {CAPTURAS_CAMPO:almacen(),CAPTURAS_FIRMA:'a'.repeat(
 async function llamar(env,accion,body={},extras={}) {
   return onRequest({env,params:{accion},request:new Request('https://app.test/api/capturas/'+accion+(extras.query??''),{method:extras.method??'POST',headers:{...headers,...extras.headers},body:extras.method==='GET'?undefined:extras.raw??JSON.stringify(body)})})
 }
-function remoto({permiso=true,cuota=false,origen=png,quitarEfectivo=true}={}) {
+function remoto({permiso=true,cuota=false,origen=png,quitarEfectivo=true,proyecto='https://mkntfvsbmlgobettavnu.supabase.co'}={}) {
   let eliminado=false,descargas=0,borrados=0,autorizaciones=0
   const fetch=async(url,op={})=>{
-    assert.ok(url.startsWith('https://mkntfvsbmlgobettavnu.supabase.co/'))
+    assert.ok(url.startsWith(proyecto+'/'))
     if(cuota)return new Response('exceed_storage_size_quota',{status:402})
     if(url.includes('/rpc/')){autorizaciones++;return Response.json({permitido:permiso,usuario_id:uid})}
     if(op.method==='DELETE'){borrados++;if(quitarEfectivo)eliminado=true;return Response.json([{name:viejo}])}
@@ -123,6 +123,37 @@ test('enlace vencido y rutas externas no firman ni leen evidencia',async()=>{
   await usar(mock,async()=>{
     assert.equal((await llamar(env,'firmar',{rutas:['https://otro.test/imagen.png']})).status,400)
     assert.equal((await llamar(env,'imagen',{}, {method:'GET',query:'?'+new URLSearchParams({ruta:viejo,vence:'1',firma:'a'.repeat(64)})})).status,403)
+    assert.equal(mock.autorizaciones,0)
+  })
+})
+
+test('contingencia autoriza en su base y conserva los originales históricos', async()=>{
+  const proyecto='https://eodcwkuexldsbomflthe.supabase.co'
+  const env={...entorno(),CAPTURAS_SUPABASE_URL:proyecto},mock=remoto({proyecto})
+  const ruta=`${uid}/2026-11-04/captura-r2-${await sha256(png)}.png`
+  await usar(mock,async()=>{
+    const estado=await llamar(env,'estado',{}, {method:'GET'})
+    assert.equal((await estado.json()).proyecto,proyecto)
+    const subir=await llamar(env,'subir',{}, {method:'PUT',query:'?ruta='+ruta,raw:png,headers:{'Content-Type':'image/png'}})
+    assert.equal(subir.status,200)
+    const firmada=await llamar(env,'firmar',{rutas:[ruta]})
+    assert.equal(firmada.status,200)
+    assert.match((await firmada.json())[0].url,/\/api\/capturas\/imagen/)
+    const historica=await llamar(env,'firmar',{rutas:[viejo]})
+    assert.equal(historica.status,404)
+    assert.match((await historica.json()).error,/proyecto anterior/)
+    for(const accion of ['migrar','retirar']) assert.equal((await llamar(env,accion,{ruta:viejo})).status,409)
+    assert.equal(mock.descargas,0)
+    assert.equal(mock.borrados,0)
+    assert.equal(mock.autorizaciones,5)
+  })
+})
+
+test('una URL no autorizada no recibe credenciales',async()=>{
+  const env={...entorno(),CAPTURAS_SUPABASE_URL:'https://otro-proyecto.supabase.co'}
+  const mock=remoto()
+  await usar(mock,async()=>{
+    assert.equal((await llamar(env,'migrar',{ruta:viejo})).status,503)
     assert.equal(mock.autorizaciones,0)
   })
 })

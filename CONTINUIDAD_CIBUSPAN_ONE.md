@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Recuperación del 10/11/2026: [estado de la base de contingencia y pruebas pendientes](docs/CONTINGENCIA_SUPABASE.md). El respaldo ya se restauró y los permisos anónimos se retiraron en el destino; la app pública todavía usa el proyecto original.
+
 Guía de trabajo para el siguiente chat. Historial iniciado el 12 de octubre de 2026; última actualización al final: 04/11/2026 (cierre y corrección de despachos). Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 
 ## Proyecto y forma de trabajar
