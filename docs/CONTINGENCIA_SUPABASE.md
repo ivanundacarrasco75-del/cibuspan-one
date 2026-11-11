@@ -16,3 +16,9 @@ Estado al 10/11/2026: Supabase original `mkntfvsbmlgobettavnu` restringió Auth 
 4. Revisar aparte funciones de administración de usuarios y correo que no trae el respaldo SQL. El alta de cuentas no debe usar metadatos editables por usuarios para otorgar un rol. No cambiar la app pública hasta verificar login, acceso por rol y el circuito necesario; conciliar registros realizados durante la interrupción y mantener una sola base de escritura para el equipo.
 
 El ajuste de código permite elegir entre las dos URLs conocidas y no publica automáticamente. La base restaurada y la app publicada son estados separados. No compartir respaldos SQL, certificados con claves privadas, contraseñas o credenciales de servicio.
+
+## Preparación de la vista previa — 11/11/2026
+
+En Cloudflare Pages, proyecto `cibuspan-one`, seleccionar **Preview** en Settings. En Variables and Secrets agregar la variable de texto `CAPTURAS_SUPABASE_URL` con la URL de contingencia. En Bindings añadir el enlace R2 `CAPTURAS_CAMPO` al depósito privado existente `cibuspan-one-capturas`. Conservar deshabilitado el acceso público al depósito.
+
+`scripts/Publicar-VistaPreviaContingencia.ps1` comprueba Git y la última rama de producción, compila con la clave publicable de contingencia, conserva la firma existente de Preview o genera una privada si falta, y publica en una rama de prueba única. Comprueba en Pages que la publicación figure como Preview y en el endpoint de capturas que se usen contingencia, R2 y firma. Si Cloudflare Access protege la vista previa, comprobar ese endpoint desde el navegador autorizado. No ejecuta SQL ni cambia la conexión de producción. La prueba local del usuario fue respondida con «listo», sin detalle de módulos ni confirmación de una carga real; no registrar aceptación completa.
