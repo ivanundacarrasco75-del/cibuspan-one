@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Recuperación del 10/11/2026: [estado de la base de contingencia y pruebas pendientes](docs/CONTINGENCIA_SUPABASE.md). El respaldo ya se restauró y los permisos anónimos se retiraron en el destino; la app pública todavía usa el proyecto original.
+Recuperación del 11/11/2026: [estado de producción y verificaciones pendientes](docs/CONTINGENCIA_SUPABASE.md). La app pública se publicó con la base restaurada y R2. La visita y su captura se comprobaron en la vista previa; queda la comprobación con sesión iniciada en el enlace público.
 
 Guía de trabajo para el siguiente chat. Historial iniciado el 12 de octubre de 2026; última actualización al final: 04/11/2026 (cierre y corrección de despachos). Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 
@@ -13,7 +13,7 @@ Iván mantiene una aplicación real en uso. Continuar sobre sus archivos actuale
 - Aplicación: https://cibuspan-one.pages.dev
 - Entorno del usuario: Windows, VS Code, PowerShell, proyecto en `D:\CIBUSPAN_ONE`.
 - Tecnología: React, TypeScript, Vite, Supabase/Postgres y PWA en Cloudflare Pages.
-- Supabase del proyecto: `mkntfvsbmlgobettavnu`. Esto es un identificador, no una credencial.
+- Supabase operativo: `eodcwkuexldsbomflthe`. El proyecto original `mkntfvsbmlgobettavnu` se conserva para recuperar capturas históricas. Son identificadores, no credenciales.
 
 El repositorio y sus archivos actuales son la fuente de verdad. Las capturas y los Excel sirven para diagnosticar y verificar datos. No reconstruir módulos desde un ZIP antiguo, sustituir la app por otra, cambiar de plataforma ni migrar a Sites. Si falta la copia local, obtener la rama oficial desde GitHub. La carpeta temporal del agente puede cambiar entre chats.
 
