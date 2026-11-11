@@ -2,16 +2,18 @@ import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
 import { datoVerificadoCampo, esIngresoManualCampo, type VerificacionCamposCampo } from "./validacionLecturasCampo.ts"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
 
-export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
+export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "participacion_clase" | "participacion_subclase" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
 export type OrigenVisitaCampo = "TODOS" | "MERCADERISTA" | "KAM"
 export const INDICADORES_CAMPO: Array<{ id: IndicadorCampo; nombre: string; unidad: string; agregacion: "PROMEDIO" | "SUMA"; descripcion: string }> = [
   { id: "rotacion", nombre: "Rotación diaria", unidad: "u/día", agregacion: "PROMEDIO", descripcion: "Venta promedio diaria reportada; promedio entre los locales con dato." },
-  { id: "stock", nombre: "Stock en el local", unidad: "unidades", agregacion: "SUMA", descripcion: "Suma de existencias de los locales con dato; cada local se cuenta una vez." },
+  { id: "stock", nombre: "Existencia en local", unidad: "unidades", agregacion: "SUMA", descripcion: "Suma de existencias de los locales con dato; cada local se cuenta una vez." },
   { id: "dias", nombre: "Días de inventario local", unidad: "días", agregacion: "PROMEDIO", descripcion: "Promedio de días de inventario reportados en los locales con dato." },
   { id: "caras", nombre: "Caras en percha", unidad: "caras", agregacion: "PROMEDIO", descripcion: "Promedio de caras registradas por local." },
-  { id: "precio", nombre: "Precio al público", unidad: "USD", agregacion: "PROMEDIO", descripcion: "Precio promedio registrado en los locales con dato." },
+  { id: "precio", nombre: "Precio comercio", unidad: "USD", agregacion: "PROMEDIO", descripcion: "Precio promedio registrado en los locales con dato." },
   { id: "precio_afiliado", nombre: "Precio afiliado", unidad: "USD", agregacion: "PROMEDIO", descripcion: "Precio de afiliado promedio registrado." },
-  { id: "venta", nombre: "Venta promedio diaria", unidad: "USD/día", agregacion: "PROMEDIO", descripcion: "Valor de venta diaria reportado; promedio por local con dato." },
+  { id: "venta", nombre: "Venta promedio diaria (valor)", unidad: "USD/día", agregacion: "PROMEDIO", descripcion: "Valor de venta diaria reportado; promedio por local con dato." },
+  { id: "participacion_clase", nombre: "Participación en clase", unidad: "%", agregacion: "PROMEDIO", descripcion: "Promedio de la participación en clase reportada por los locales con dato." },
+  { id: "participacion_subclase", nombre: "Participación en subclase", unidad: "%", agregacion: "PROMEDIO", descripcion: "Promedio de la participación en subclase reportada por los locales con dato." },
   { id: "prediccion", nombre: "Predicción de venta", unidad: "unidades", agregacion: "PROMEDIO", descripcion: "Predicción reportada, promediada entre locales; conserva el horizonte de la fuente." },
   { id: "stock_cd", nombre: "Stock del CD", unidad: "cajas", agregacion: "PROMEDIO", descripcion: "Promedio del stock de CD reportado; no se suma porque varios locales pueden mostrar el mismo CD." },
   { id: "dias_cd", nombre: "Días de inventario CD", unidad: "días", agregacion: "PROMEDIO", descripcion: "Promedio de días de inventario del CD reportados." },
@@ -37,6 +39,7 @@ export type RegistroDashboardCampo = {
 const CAMPO_FUENTE_INDICADOR: Partial<Record<IndicadorCampo, keyof LecturaFavorita>> = {
   rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local",
   precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor",
+  participacion_clase: "participacion_clase", participacion_subclase: "participacion_subclase",
   prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd",
   quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades",
 }

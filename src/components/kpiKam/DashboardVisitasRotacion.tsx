@@ -13,6 +13,10 @@ import { camposPendientesDatosCampo } from "../../utils/estadoDatosCampo"
 import { CLAVE_REVISION_CAMPO, type FocoRevisionCampo } from "../../utils/revisionDatosCampo"
 
 const VACIO: DatosDashboardCampo = { clientes: [], locales: [], productos: [], registros: [] }
+const OPCIONES_INDICADOR: IndicadorCampo[] = [
+  "rotacion", "precio", "precio_afiliado", "venta",
+  "participacion_clase", "participacion_subclase", "stock", "dias",
+]
 const COLORES = ["#64748b", "#a78bfa", "#38bdf8", "#fb923c", "#22d3ee"]
 const numero = (valor: number | null) => valor === null ? "—" : valor.toLocaleString("es-EC", { maximumFractionDigits: 2 })
 const fecha = (valor: string) => `${valor.slice(8, 10)}/${valor.slice(5, 7)}`
@@ -87,7 +91,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
     <fieldset className="vr-filtros" disabled={recuperando}>
       <label><span>Cliente</span><select value={clienteId} disabled={cargando} onChange={(e) => { setClienteId(e.target.value); setLocalId("") }}><option value="">Todos los clientes</option>{datos.clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
       <label><span>Local</span><select value={localId} disabled={cargando} onChange={(e) => setLocalId(e.target.value)}><option value="">Todos los locales</option>{datos.locales.map((l) => <option key={l.id} value={l.id}>{l.codigo} · {l.nombre}</option>)}</select></label>
-      <label><span>Indicador</span><select value={indicador} onChange={(e) => setIndicador(e.target.value as IndicadorCampo)}>{INDICADORES_CAMPO.filter((i) => i.id !== "stock_cd").map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}</select></label>
+      <label><span>Indicador</span><select value={indicador} onChange={(e) => setIndicador(e.target.value as IndicadorCampo)}>{OPCIONES_INDICADOR.map((id) => <option key={id} value={id}>{INDICADORES_CAMPO.find((item) => item.id === id)!.nombre}</option>)}</select></label>
       <label><span>Tipo de visita</span><select value={origen} onChange={(e) => setOrigen(e.target.value as OrigenVisitaCampo)}><option value="TODOS">Todas las visitas</option><option value="MERCADERISTA">Mercaderista</option><option value="KAM">KAM</option></select></label>
       <label><span>Calidad de datos</span><select value={soloValidados ? "VALIDADOS" : "TODOS"} onChange={(e) => setSoloValidados(e.target.value === "VALIDADOS")}><option value="TODOS">Todos · pendientes en rojo</option><option value="VALIDADOS">Sólo verificados y manuales declarados</option></select></label>
       <label><span>Semana de referencia</span><input type="date" max={hoy} value={referencia} onChange={(e) => setReferencia(e.target.value)} /></label>

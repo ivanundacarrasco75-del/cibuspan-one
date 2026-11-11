@@ -75,6 +75,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         valores: {
           rotacion: numero(fila.rotacion_diaria_unidades), stock, dias: numero(fila.dias_inventario_local), caras,
           precio: numero(fila.precio_comercio), precio_afiliado: numero(fila.precio_afiliado), venta: numero(fila.venta_diaria_valor),
+          participacion_clase: numero(fila.participacion_clase), participacion_subclase: numero(fila.participacion_subclase),
           prediccion: numero(fila.prediccion_venta_unidades), stock_cd: numero(fila.stock_cd_cajas), dias_cd: numero(fila.dias_inventario_cd),
           presencia: fila.presencia_percha === "PRESENTE" ? 100 : fila.presencia_percha === "AUSENTE" ? 0 : null,
           codificacion: fila.codificado_app == null ? null : fila.codificado_app ? 100 : 0,
