@@ -58,8 +58,41 @@ try {
   const viejo={...r,id:'viejo',visitado_en:'2026-10-13T12:00:00Z'}
   const s=resumirSemanasCampo({registros:[viejo,r],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),indicador:'rotacion',soloValidados:false,camposPendientes:camposPendientesDatosCampo})[0]
   assert.equal(s.semanas[4].valor,1.2)
-  assert.equal(s.semanas[4].pendientes.every(p=>p.registroId==='r'),true)
-  assert.equal(s.semanas[4].pendientes.some(p=>p.campo==='precio_comercio'),false)
+  assert.deepEqual(s.semanas[4].pendientes,[{registroId:'r',campo:'rotacion_diaria_unidades',fecha:r.fecha,clienteId:'c'}])
+ })
+ await test('El precio pendiente no marca rotación; cada indicador abre su campo y su semana',()=>{
+  const anterior={...r,id:'anterior',fecha:'2026-10-07',visitado_en:'2026-10-07T12:00:00Z',valores:{rotacion:1.2,precio:2}}
+  const actual={...r,id:'actual',valores:{rotacion:1.2,precio:2},verificacion_campos:{
+   rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2},precio_comercio:{estado:'PENDIENTE',valor:2},
+  }}
+  const args={registros:[anterior,actual],productos:[],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
+  const rotacion=resumirSemanasCampo({...args,indicador:'rotacion'})[0].semanas
+  const precio=resumirSemanasCampo({...args,indicador:'precio'})[0].semanas
+  assert.deepEqual(rotacion[3].pendientes,[{registroId:'anterior',campo:'rotacion_diaria_unidades',fecha:anterior.fecha,clienteId:'c'}])
+  assert.deepEqual(rotacion[4].pendientes,[])
+  assert.deepEqual(precio[3].pendientes,[])
+  assert.deepEqual(precio[4].pendientes,[{registroId:'actual',campo:'precio_comercio',fecha:actual.fecha,clienteId:'c'}])
+  assert.ok(pendientesRevisionCampo([actual]).some(p=>p.campo==='precio_comercio'))
+ })
+ await test('Una barra marca sólo las mediciones incluidas y el filtro de verificados retira las provisionales',()=>{
+  const confirmado={...r,id:'confirmado',local_id:'l2',lectura_guardada:{rotacion_diaria_unidades:2},verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:2}},valores:{rotacion:2}}
+  const ausente={...r,id:'ausente',local_id:'l3',lectura_guardada:{rotacion_diaria_unidades:null},valores:{rotacion:null}}
+  const args={registros:[r,confirmado,ausente],productos:[],semanas:semanasDashboardCampo(r.fecha),indicador:'rotacion',camposPendientes:camposPendientesDatosCampo}
+  const punto=(cambios)=>resumirSemanasCampo({...args,...cambios})[0].semanas[4]
+  assert.equal(punto().valor,1.6)
+  assert.deepEqual(punto().pendientes.map(p=>p.registroId),['r'])
+  assert.equal(punto({soloValidados:true}).valor,2)
+  assert.deepEqual(punto({soloValidados:true}).pendientes,[])
+  assert.equal(punto({registros:[ausente]}).valor,null)
+  assert.deepEqual(punto({registros:[ausente]}).pendientes,[])
+ })
+ await test('Los indicadores derivados del stock abren el campo de stock; los manuales no arrastran dudas OCR',()=>{
+  const dato={...r,lectura_guardada:{...r.lectura_guardada,stock_local_unidades:0},verificacion_campos:{...r.verificacion_campos,stock_local_unidades:{estado:'PENDIENTE',valor:0}},valores:{stock:0,quiebres:100,sin_perchar:0,caras:2}}
+  const args={registros:[dato],productos:[],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
+  for(const indicador of ['stock','quiebres','sin_perchar']) {
+   assert.deepEqual(resumirSemanasCampo({...args,indicador})[0].semanas[4].pendientes.map(p=>p.campo),['stock_local_unidades'])
+  }
+  assert.deepEqual(resumirSemanasCampo({...args,indicador:'caras'})[0].semanas[4].pendientes,[])
  })
  await test('Recorte localiza etiqueta y valor siguiente, respeta límites y no inventa campo ausente',()=>{
   const lineas=[{text:'Venta promedio diaria (Cant)',bbox:{x0:10,y0:4,x1:200,y1:18}},{text:'1.20',bbox:{x0:10,y0:20,x1:40,y1:35}}]

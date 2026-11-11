@@ -1,6 +1,8 @@
 # Continuidad de CIBUSPAN ONE
 
-Recuperación del 11/11/2026: [estado de producción y verificaciones pendientes](docs/CONTINGENCIA_SUPABASE.md). La app pública se publicó con la base restaurada y R2. La visita y su captura se comprobaron en la vista previa; queda la comprobación con sesión iniciada en el enlace público.
+Recuperación del 11/11/2026: [estado de producción y verificaciones pendientes](docs/CONTINGENCIA_SUPABASE.md). La app pública se publicó con la base restaurada y R2. Iván confirmó que pudo entrar al enlace público y que la app funciona. La visita y su captura se comprobaron en la vista previa.
+
+Visitas y rotación, 11/11/2026: las barras rojas y los avisos por semana señalan sólo mediciones incluidas del indicador seleccionado. Cada barra roja abre la revisión de su propio campo y semana. Cambio de frontend; publicación de este ajuste pendiente. Las publicaciones deben compilar con el Supabase operativo `eodcwkuexldsbomflthe`.
 
 Guía de trabajo para el siguiente chat. Historial iniciado el 12 de octubre de 2026; última actualización al final: 04/11/2026 (cierre y corrección de despachos). Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 

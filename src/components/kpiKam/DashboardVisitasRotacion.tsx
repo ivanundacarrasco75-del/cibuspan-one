@@ -56,14 +56,17 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
   }, [clienteId, desde, hasta, corte, revision, actualizacion])
   const config = INDICADORES_CAMPO.find((item) => item.id === indicador)!
   const unidadCambio = config.unidad === "%" ? "puntos porcentuales" : config.unidad
-  const series = useMemo(() => resumirSemanasCampo({ registros: datos.registros, productos: datos.productos, semanas: ventana.semanas, indicador, clienteId, localId, origen, soloValidados, camposPendientes: (r) => { const campo: Partial<Record<IndicadorCampo, string>> = { rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local", precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor", prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd" }; return camposPendientesDatosCampo(r).sort((a, b) => Number(b.campo === campo[indicador]) - Number(a.campo === campo[indicador])) } }), [datos, ventana.semanas, indicador, clienteId, localId, origen, soloValidados])
+  const series = useMemo(() => resumirSemanasCampo({
+    registros: datos.registros, productos: datos.productos, semanas: ventana.semanas,
+    indicador, clienteId, localId, origen, soloValidados, camposPendientes: camposPendientesDatosCampo,
+  }), [datos, ventana.semanas, indicador, clienteId, localId, origen, soloValidados])
   const esActual = ventana.semanas.length > 0 && hoy >= desde && hoy >= ventana.semanas[4].desde && hoy <= hasta
   const semanas = ventana.semanas.map((s, i) => ({ ...s, etiqueta: i === 4 ? esActual ? "Esta semana · en curso" : "Semana seleccionada" : s.etiqueta }))
   const medidos = series.filter((s) => s.semanas[4]?.valor !== null && s.semanas[4]?.valor !== undefined)
   const comparables = series.filter((s) => s.semanas[4]?.valor != null && s.semanas[3]?.valor != null)
   const revisiones = datos.registros.filter((r) => r.fecha >= (semanas[4]?.desde ?? "9999") && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
   const registrosCapturas = datos.registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
-  const pendientesIndicador = registrosCapturas.filter((r) => r.valores[indicador] != null && valorIndicadorValidadoCampo(r, indicador) === null).length
+  const pendientesIndicador = series.flatMap((s) => s.semanas).reduce((total, p) => total + (p.pendientes?.length ?? 0), 0)
   const clientesTexto = datos.clientes.find((c) => c.id === clienteId)?.nombre ?? "Todos los clientes"
   const localTexto = datos.locales.find((l) => l.id === localId)?.nombre ?? "Todos los locales"
   function restablecer() { setClienteId(""); setLocalId(""); setIndicador("rotacion"); setOrigen("TODOS"); setReferencia(hoy) }
@@ -74,7 +77,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
   function descargar() {
     const celda = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`
     const encabezado = ["Cliente", "Local", "SKU", "Producto", "Indicador", "Unidad", "Estado de datos", ...semanas.flatMap((s) => [`${s.desde} a ${s.hasta}`, "Locales con dato", "Última revisión", "Estado de la semana"])]
-    const filas = series.map((s) => [clientesTexto, localTexto, s.codigo, s.nombre, config.nombre, config.unidad, soloValidados ? "Validados / manuales declarados" : "Sin validar incluidos", ...s.semanas.flatMap((p) => [p.valor, p.locales_con_dato, p.ultima_fecha, p.pendientes?.length ? "SKU con campos pendientes" : "Sin campos pendientes"])])
+    const filas = series.map((s) => [clientesTexto, localTexto, s.codigo, s.nombre, config.nombre, config.unidad, soloValidados ? "Validados / manuales declarados" : "Sin validar incluidos", ...s.semanas.flatMap((p) => [p.valor, p.locales_con_dato, p.ultima_fecha, p.valor === null ? "Sin dato" : p.pendientes?.length ? "Indicador pendiente de verificar" : "Sin pendientes del indicador"])])
     const contenido = "\uFEFF" + [encabezado, ...filas].map((fila) => fila.map(celda).join(";")).join("\r\n")
     const url = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" })), enlace = document.createElement("a")
     enlace.href = url; enlace.download = `visitas_${indicador}_${corte}.csv`; enlace.click(); URL.revokeObjectURL(url)
@@ -97,7 +100,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
     </div>
     <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
-    <p role="status">{pendientesIndicador} mediciones guardadas de {config.nombre.toLowerCase()} pendientes de verificar. {soloValidados ? "Este filtro muestra sólo datos verificados." : "Los valores provisionales se muestran y los SKU con datos dudosos están señalados en rojo. Pulsa Revisar para corregir el campo concreto."}</p>
+    <p role="status">{soloValidados ? "Este filtro muestra sólo datos verificados y manuales declarados." : `${pendientesIndicador} mediciones de ${config.nombre.toLowerCase()} pendientes de verificar en el gráfico. Pulsa una barra roja para abrir la revisión de esa semana.`}</p>
     {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
     {!cargando && !ventana.error && !error && <>
@@ -114,13 +117,13 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
         <div className="vr-leyenda">{semanas.map((s, i) => <span key={s.desde}><i style={{ background: COLORES[i] }} /><span>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></span></span>)}</div>
         {series.length > 0 && !series.some((s) => s.semanas.some((p) => p.valor !== null)) && <p className="vr-estado">No hay mediciones de {config.nombre.toLowerCase()} para estos filtros en las cinco semanas.</p>}
         {!series.length ? <p className="vr-estado">No hay SKU disponibles para este cliente.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} alRevisar={abrirRevision} />}
-        <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. “Sin dato” significa que no hay una medición disponible para el filtro elegido; cero es un valor registrado. Rojo indica que el SKU tiene algún campo pendiente, aunque otro campo ya esté verificado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
+        <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. El rojo indica que alguna medición incluida del indicador seleccionado está pendiente de verificar. “Sin dato” significa que no hay una medición disponible para el filtro elegido; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
         {origen !== "TODOS" && <p className="vr-nota">El tipo de visita usa el rol registrado al guardar. Las visitas antiguas sin rol identificado aparecen en “Todas las visitas”.</p>}
       </section>
       <section className="vr-tabla-panel"><h3>Comparación de las cinco semanas</h3><p>{config.unidad} · Debajo de cada valor: locales con dato / locales revisados.</p><div className="vr-tabla-scroll"><table><thead><tr><th>SKU</th>{semanas.map((s) => <th key={s.desde}>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></th>)}<th>Variación vs anterior</th></tr></thead><tbody>{series.map((s) => {
         const cambio = variacionSemanalCampo(s.semanas[4], s.semanas[3])
         const distinto = s.semanas[4].locales_con_dato !== s.semanas[3].locales_con_dato
-        return <tr key={s.id} className={s.semanas.some((p) => p.pendientes?.length) ? "vr-sku-pendiente" : undefined}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={p.pendientes?.length ? "vr-dato-pendiente" : i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small>{!!p.pendientes?.length && <button type="button" className="vr-boton-revision" onClick={() => abrirRevision(p.pendientes![0])}>Revisar {p.pendientes.length} datos</button>}</td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
+        return <tr key={s.id}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={p.pendientes?.length ? "vr-dato-pendiente" : i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small>{!!p.pendientes?.length && <button type="button" className="vr-boton-revision" onClick={() => abrirRevision(p.pendientes![0])}>Revisar ({p.pendientes.length})</button>}</td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
       })}</tbody></table></div></section>
       </>}
       {vista === "REVISION" && <RevisionDatosCampo registros={registrosCapturas} foco={focoRevision} alGuardar={() => setActualizacion((v) => v + 1)} />}
@@ -145,19 +148,27 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
   const maximo = Math.max(1, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const minimo = Math.min(0, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const x = (valor: number) => margen + (valor - minimo) / (maximo - minimo) * zona
-  return <div className="vr-grafico-scroll"><svg viewBox={`0 0 ${ancho} ${series.length * fila + 55}`} style={{ minWidth: ancho }} role="img" aria-label={`Comparación de ${unidad} para todos los SKU en cinco semanas; valores completos en la tabla inferior.`}>
+  return <div className="vr-grafico-scroll"><svg viewBox={`0 0 ${ancho} ${series.length * fila + 55}`} style={{ minWidth: ancho }} role="group" aria-label={`Comparación de ${unidad} para todos los SKU en cinco semanas; valores completos en la tabla inferior.`}>
     <title>Todos los SKU · cinco semanas · {unidad}</title>
     {Array.from({ length: 5 }, (_, i) => <g key={i}><line x1={margen + i * zona / 4} x2={margen + i * zona / 4} y1={30} y2={series.length * fila + 40} stroke="#283642" /><text x={margen + i * zona / 4} y={18} textAnchor="middle" fill="#aab6c3" fontSize="11">{numero(minimo + i * (maximo - minimo) / 4)}</text></g>)}
     {series.map((s, posicion) => <g key={s.id} transform={`translate(0,${35 + posicion * fila})`}>
-      <text x="12" y="36" fill={s.semanas.some((p) => p.pendientes?.length) ? "#fda4af" : "#e7edf3"} fontSize="12" fontWeight="700"><title>{s.nombre}</title>{nombreCorto(s.nombre).length > 36 ? `${nombreCorto(s.nombre).slice(0, 34)}…` : nombreCorto(s.nombre)}</text>
+      <text x="12" y="36" fill="#e7edf3" fontSize="12" fontWeight="700"><title>{s.nombre}</title>{nombreCorto(s.nombre).length > 36 ? `${nombreCorto(s.nombre).slice(0, 34)}…` : nombreCorto(s.nombre)}</text>
       <text x="12" y="55" fill="#8fa0b0" fontSize="10">{s.codigo}</text>
-      {s.semanas.some((p) => p.pendientes?.length) && <text x="12" y="79" fill="#fb7185" fontSize="12" role="button" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => alRevisar(s.semanas.findLast((p) => p.pendientes?.length)!.pendientes![0])} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") alRevisar(s.semanas.findLast((p) => p.pendientes?.length)!.pendientes![0]) }}>Revisar datos pendientes →</text>}
-      {s.semanas.map((p, i) => <g key={i}><title>{s.nombre} · {semanas[i].etiqueta} ({semanas[i].desde} – {semanas[i].hasta}): {p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · {p.locales_con_dato} locales con dato</title>
-        {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#708296" fontSize="10">Sin dato</text> : <>
-          <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={12} rx={3} fill={p.pendientes?.length ? "#fb7185" : COLORES[i]} />
-          <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 10} fill={i === 4 ? "#67e8f9" : "#bec8d2"} fontSize="10" fontWeight={i === 4 ? "700" : "400"}>{numero(p.valor)}</text>
-        </>}
-      </g>)}
+      {s.semanas.map((p, i) => {
+        const pendiente = p.pendientes?.[0]
+        const descripcion = `${s.nombre} · ${semanas[i].etiqueta} (${semanas[i].desde} – ${semanas[i].hasta}): ${p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · ${p.locales_con_dato} locales con dato`
+        return <g key={i} {...(pendiente && {
+          role: "button", tabIndex: 0, style: { cursor: "pointer" }, "aria-label": `Revisar ${descripcion}`,
+          onClick: () => alRevisar(pendiente),
+          onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alRevisar(pendiente) } },
+        })}>
+          <title>{descripcion}{pendiente && " · Pulsa para revisar"}</title>
+          {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#708296" fontSize="10">Sin dato</text> : <>
+            <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={12} rx={3} fill={pendiente ? "#fb7185" : COLORES[i]} />
+            <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 10} fill={i === 4 ? "#67e8f9" : "#bec8d2"} fontSize="10" fontWeight={i === 4 ? "700" : "400"}>{numero(p.valor)}</text>
+          </>}
+        </g>
+      })}
       <line x1="12" x2={ancho - 12} y1={fila - 10} y2={fila - 10} stroke="#1e2b35" />
     </g>)}
   </svg></div>

@@ -34,11 +34,16 @@ export type RegistroDashboardCampo = {
   responsable_nombre?: string | null; visita_id?: string
   valores: Record<IndicadorCampo, number | null>
 }
+const CAMPO_FUENTE_INDICADOR: Partial<Record<IndicadorCampo, keyof LecturaFavorita>> = {
+  rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local",
+  precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor",
+  prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd",
+  quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades",
+}
 export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador: IndicadorCampo) {
-  const campos: Partial<Record<IndicadorCampo, string>> = { rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local", precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor", prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd", quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades" }
-  const campo = campos[indicador]
+  const campo = CAMPO_FUENTE_INDICADOR[indicador]
   if (!campo || esIngresoManualCampo(r)) return r.valores[indicador]
-  const actual = r.lectura_guardada?.[campo as keyof LecturaFavorita]
+  const actual = r.lectura_guardada?.[campo]
   if (datoVerificadoCampo(campo, actual, r.verificacion_campos)) return r.valores[indicador]
   // La captura sólo de respaldo y el ingreso sin lector son declaraciones manuales.
   if (!Object.keys(r.verificacion_campos ?? {}).length && ["RESPALDO_MANUAL", "SIN_LECTOR"].includes(r.lector_estado ?? "")) return r.valores[indicador]
@@ -90,6 +95,7 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
     grupo.push(r); agrupados.set(key, grupo)
   }
   const config = INDICADORES_CAMPO.find((i) => i.id === indicador)!
+  const campo = CAMPO_FUENTE_INDICADOR[indicador]
   return [...catalogo.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es") || a.codigo.localeCompare(b.codigo)).map((producto) => ({
     ...producto,
     semanas: semanas.map((_, indice) => {
@@ -101,7 +107,9 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
         valor: !datos.length ? null : config.agregacion === "SUMA" ? suma : suma / datos.length,
         locales_con_dato: datos.length, locales_revisados: registrosSku.length,
         ultima_fecha: datos.length ? datos.map((r) => r.fecha).sort().at(-1)! : null,
-        ...(camposPendientes ? { pendientes: registrosSku.flatMap((r) => camposPendientes(r).map((c) => ({ registroId: r.id, campo: c.campo, fecha: r.fecha, clienteId: r.cliente_id }))) } : {}),
+        ...(camposPendientes ? { pendientes: campo && !soloValidados ? datos
+          .filter((r) => camposPendientes(r).some((c) => c.campo === campo))
+          .map((r) => ({ registroId: r.id, campo, fecha: r.fecha, clienteId: r.cliente_id })) : [] } : {}),
       }
     }),
   }))
