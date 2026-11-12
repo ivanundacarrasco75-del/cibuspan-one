@@ -21,7 +21,7 @@ test('La semana actual usa la fecha ecuatoriana aun cuando UTC ya es lunes',()=>
 })
 test('La promoción coincide con el cliente, SKU y fecha de la medición que aporta a la barra', () => {
  const promo = {
-  cliente_id: 'c1', productos: [{ producto_id: 'p1' }], activo: true, estado: 'FINALIZADA',
+  cliente_id: 'c1', productos: [{ producto_id: 'p1', tipo_descuento: 'PORCENTAJE', valor_descuento: 12.5 }], activo: true, estado: 'FINALIZADA',
   fecha_inicio: '2026-10-12', fecha_fin: '2026-10-13',
  }
  const visitas = [
@@ -32,10 +32,17 @@ test('La promoción coincide con el cliente, SKU y fecha de la medición que apo
   registro('otro-cliente', '2026-10-12', 6, { cliente_id: 'c2' }),
   registro('otro-producto', '2026-10-12', 4, { producto_id: 'p2' }),
  ]
- const promociones = [promo, promo, { ...promo, activo: false, estado: 'CANCELADA', fecha_fin: '2026-10-18' }]
+ const promoPorUnidad = { ...promo, productos: [{ producto_id: 'p1', tipo_descuento: 'VALOR_UNIDAD', valor_descuento: 0.25 }] }
+ const cancelada = { ...promo, activo: false, estado: 'CANCELADA', fecha_fin: '2026-10-18',
+  productos: [{ producto_id: 'p1', tipo_descuento: 'PORCENTAJE', valor_descuento: 99 }] }
+ const promociones = [promo, promo, promoPorUnidad, cancelada]
  const series = resumen(visitas, { promociones })
  const punto = sku(series).semanas[4]
  assert.equal(punto.locales_en_promocion, 1)
+ assert.deepEqual(punto.descuentos_promocion, [
+  { tipo_descuento: 'PORCENTAJE', valor_descuento: 12.5 },
+  { tipo_descuento: 'VALOR_UNIDAD', valor_descuento: 0.25 },
+ ])
  assert.equal(punto.locales_con_dato, 3)
  assert.equal(punto.valor, sku(resumen(visitas)).semanas[4].valor)
  assert.equal(sku(series, 'p2').semanas[4].locales_en_promocion, 0)
@@ -68,10 +75,12 @@ test('Stock de locales se suma una vez; CD y rotación se promedian sin sumar el
  assert.equal(sku(resumen(datos,{indicador:'stock_cd'})).semanas[4].valor,15)
  assert.equal(sku(resumen(datos)).semanas[4].valor,15)
 })
-test('Conserva todos los SKU del catálogo y los históricos que tienen revisión en el rango',()=>{
+test('Muestra los SKU del catálogo activo aunque no tengan visitas y excluye SKU históricos inactivos',()=>{
  const datos=[registro('1','2026-10-12',4,{producto_id:'antiguo',producto_codigo:'OLD',producto_nombre:'Producto histórico'}),registro('2','2026-09-01',90,{producto_id:'fuera'})]
  const result=resumen(datos)
- assert.deepEqual(new Set(result.map(r=>r.id)),new Set(['p1','p2','antiguo']))
+ assert.deepEqual(new Set(result.map(r=>r.id)),new Set(['p1','p2']))
+ assert.equal(result.find(r=>r.id==='p1').semanas[4].valor,null)
+ assert.deepEqual(resumen(datos,{productos:[]}),[])
 })
 test('Variación requiere ambas semanas y nunca divide entre cero',()=>{
  const dato=(valor)=>({valor,locales_con_dato:1,locales_revisados:1,ultima_fecha:'2026-10-12'})

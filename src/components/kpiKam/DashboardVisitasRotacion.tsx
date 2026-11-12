@@ -18,8 +18,11 @@ const OPCIONES_INDICADOR: IndicadorCampo[] = [
   "rotacion", "precio", "precio_afiliado", "venta",
   "participacion_clase", "participacion_subclase", "stock", "dias",
 ]
-const COLORES = ["#64748b", "#a78bfa", "#38bdf8", "#fb923c", "#22d3ee"]
+const COLORES = ["#465f80", "#4a74aa", "#4789cc", "#429df1", "#38bdf8"]
+const COLOR_PROMOCION = "#4ade80"
+const COLOR_PENDIENTE = "#fb7185"
 const numero = (valor: number | null) => valor === null ? "—" : valor.toLocaleString("es-EC", { maximumFractionDigits: 2 })
+const formatoDescuento = new Intl.NumberFormat("es-EC", { maximumFractionDigits: 6 })
 const fecha = (valor: string) => `${valor.slice(8, 10)}/${valor.slice(5, 7)}`
 const nombreCorto = (nombre: string) => nombre.replace(/^PANGOL[IÍ]N\s+/i, "")
 
@@ -116,7 +119,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
     </div>
     <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
-    <p role="status">{soloValidados ? "Este filtro muestra sólo datos verificados y manuales declarados." : `${pendientesIndicador} mediciones de ${config.nombre.toLowerCase()} pendientes de verificar en el gráfico. Pulsa una barra roja para abrir la revisión de esa semana.`}</p>
+    <p role="status">{soloValidados ? "Este filtro muestra sólo datos verificados y manuales declarados." : `${pendientesIndicador} mediciones de ${config.nombre.toLowerCase()} pendientes de verificar en el gráfico. Pulsa una barra con borde rojo para abrir la revisión de esa semana.`}</p>
     {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
     {!cargando && !ventana.error && !error && <>
@@ -130,11 +133,14 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
       </div>
       <section className="vr-chart-panel">
         <header><div><h3>{config.nombre} por SKU</h3><p>{config.descripcion}</p></div><button type="button" onClick={descargar} disabled={!series.length}>Descargar datos</button></header>
-        <div className="vr-leyenda">{semanas.map((s, i) => <span key={s.desde}><i style={{ background: COLORES[i] }} /><span>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></span></span>)}</div>
+        <div className="vr-leyenda">
+          {semanas.map((s, i) => <span key={s.desde}><i style={{ background: COLORES[i] }} /><span>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></span></span>)}
+          <span><i style={{ background: COLOR_PROMOCION }} />Promoción</span>
+        </div>
         {series.length > 0 && !series.some((s) => s.semanas.some((p) => p.valor !== null)) && <p className="vr-estado">No hay mediciones de {config.nombre.toLowerCase()} para estos filtros en las cinco semanas.</p>}
         {promociones === "ERROR" && <p className="vr-nota" role="status">No se pudieron consultar las promociones de estas visitas.</p>}
-        {!series.length ? <p className="vr-estado">No hay SKU disponibles para este cliente.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} alRevisar={abrirRevision} />}
-        <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. El rojo indica que alguna medición incluida del indicador seleccionado está pendiente de verificar. “Sin dato” significa que no hay una medición disponible para el filtro elegido; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
+        {!series.length ? <p className="vr-estado">No hay SKU activos disponibles.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} alRevisar={abrirRevision} />}
+        <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. El borde rojo indica que alguna medición incluida del indicador seleccionado está pendiente de verificar. “Sin dato” significa que no hay una medición disponible para el filtro elegido; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
         {origen !== "TODOS" && <p className="vr-nota">El tipo de visita usa el rol registrado al guardar. Las visitas antiguas sin rol identificado aparecen en “Todas las visitas”.</p>}
       </section>
       <section className="vr-tabla-panel"><h3>Comparación de las cinco semanas</h3><p>{config.unidad} · Debajo de cada valor: locales con dato / locales revisados.</p><div className="vr-tabla-scroll"><table><thead><tr><th>SKU</th>{semanas.map((s) => <th key={s.desde}>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></th>)}<th>Variación vs anterior</th></tr></thead><tbody>{series.map((s) => {
@@ -165,8 +171,8 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
   const maximo = Math.max(1, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const minimo = Math.min(0, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const x = (valor: number) => margen + (valor - minimo) / (maximo - minimo) * zona
-  return <div className="vr-grafico-scroll"><svg viewBox={`0 0 ${ancho} ${series.length * fila + 55}`} style={{ minWidth: ancho }} role="group" aria-label={`Comparación de ${unidad} para todos los SKU en cinco semanas; valores completos en la tabla inferior.`}>
-    <title>Todos los SKU · cinco semanas · {unidad}</title>
+  return <div className="vr-grafico-scroll"><svg viewBox={`0 0 ${ancho} ${series.length * fila + 55}`} style={{ minWidth: ancho }} role="group" aria-label={`Comparación de ${unidad} para los SKU activos en cinco semanas. Valores completos en la tabla inferior.`}>
+    <title>SKU activos · cinco semanas · {unidad}</title>
     {Array.from({ length: 5 }, (_, i) => <g key={i}><line x1={margen + i * zona / 4} x2={margen + i * zona / 4} y1={30} y2={series.length * fila + 40} stroke="#283642" /><text x={margen + i * zona / 4} y={18} textAnchor="middle" fill="#aab6c3" fontSize="11">{numero(minimo + i * (maximo - minimo) / 4)}</text></g>)}
     {series.map((s, posicion) => <g key={s.id} transform={`translate(0,${35 + posicion * fila})`}>
       <text x="12" y="36" fill="#e7edf3" fontSize="12" fontWeight="700"><title>{s.nombre}</title>{nombreCorto(s.nombre).length > 36 ? `${nombreCorto(s.nombre).slice(0, 34)}…` : nombreCorto(s.nombre)}</text>
@@ -175,10 +181,14 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
         const pendiente = p.pendientes?.[0]
         const enPromocion = p.locales_en_promocion ?? 0
         const etiquetaPromocion = enPromocion === p.locales_con_dato ? "PROMO" : "PROMO PARCIAL"
+        const descuentos = p.descuentos_promocion?.map(({ tipo_descuento, valor_descuento }) => {
+          const importe = formatoDescuento.format(valor_descuento)
+          return tipo_descuento === "PORCENTAJE" ? `${importe} %` : `USD ${importe} por unidad`
+        }).join(", ")
         const detallePromocion = p.valor === null || p.locales_en_promocion === undefined ? ""
           : enPromocion > 0 ? ` · En promoción en ${enPromocion} de ${p.locales_con_dato} locales con dato`
           : " · Sin promoción registrada en las visitas incluidas"
-        const descripcion = `${s.nombre} · ${semanas[i].etiqueta} (${semanas[i].desde} – ${semanas[i].hasta}): ${p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · ${p.locales_con_dato} locales con dato${detallePromocion}`
+        const descripcion = `${s.nombre} · ${semanas[i].etiqueta} (${semanas[i].desde} – ${semanas[i].hasta}): ${p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · ${p.locales_con_dato} locales con dato${detallePromocion}${descuentos ? ` · Descuento: ${descuentos}` : ""}`
         return <g key={i} {...(pendiente && {
           role: "button", tabIndex: 0, style: { cursor: "pointer" }, "aria-label": `Revisar ${descripcion}`,
           onClick: () => alRevisar(pendiente),
@@ -186,10 +196,11 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
         })}>
           <title>{descripcion}{pendiente && " · Pulsa para revisar"}</title>
           {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#708296" fontSize="10">Sin dato</text> : <>
-            <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={12} rx={3} fill={pendiente ? "#fb7185" : COLORES[i]} />
+            <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={12} rx={3}
+              fill={enPromocion > 0 ? COLOR_PROMOCION : COLORES[i]} stroke={pendiente ? COLOR_PENDIENTE : undefined} strokeWidth={pendiente ? 2 : undefined} />
             <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 10} fill={i === 4 ? "#67e8f9" : "#bec8d2"} fontSize="10" fontWeight={i === 4 ? "700" : "400"}>
               {numero(p.valor)}
-              {enPromocion > 0 && <tspan dx="9" fill="#fde68a" fontWeight="700">{etiquetaPromocion}</tspan>}
+              {enPromocion > 0 && <tspan dx="9" fill="#86efac" fontWeight="700">{etiquetaPromocion}</tspan>}
             </text>
           </>}
         </g>

@@ -65,7 +65,7 @@ try {
   const actual={...r,id:'actual',valores:{rotacion:1.2,precio:2},verificacion_campos:{
    rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2},precio_comercio:{estado:'PENDIENTE',valor:2},
   }}
-  const args={registros:[anterior,actual],productos:[],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
+  const args={registros:[anterior,actual],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
   const rotacion=resumirSemanasCampo({...args,indicador:'rotacion'})[0].semanas
   const precio=resumirSemanasCampo({...args,indicador:'precio'})[0].semanas
   assert.deepEqual(rotacion[3].pendientes,[{registroId:'anterior',campo:'rotacion_diaria_unidades',fecha:anterior.fecha,clienteId:'c'}])
@@ -77,7 +77,7 @@ try {
  await test('Una barra marca sólo las mediciones incluidas y el filtro de verificados retira las provisionales',()=>{
   const confirmado={...r,id:'confirmado',local_id:'l2',lectura_guardada:{rotacion_diaria_unidades:2},verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:2}},valores:{rotacion:2}}
   const ausente={...r,id:'ausente',local_id:'l3',lectura_guardada:{rotacion_diaria_unidades:null},valores:{rotacion:null}}
-  const args={registros:[r,confirmado,ausente],productos:[],semanas:semanasDashboardCampo(r.fecha),indicador:'rotacion',camposPendientes:camposPendientesDatosCampo}
+  const args={registros:[r,confirmado,ausente],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),indicador:'rotacion',camposPendientes:camposPendientesDatosCampo}
   const punto=(cambios)=>resumirSemanasCampo({...args,...cambios})[0].semanas[4]
   assert.equal(punto().valor,1.6)
   assert.deepEqual(punto().pendientes.map(p=>p.registroId),['r'])
@@ -88,7 +88,7 @@ try {
  })
  await test('Los indicadores derivados del stock abren el campo de stock; los manuales no arrastran dudas OCR',()=>{
   const dato={...r,lectura_guardada:{...r.lectura_guardada,stock_local_unidades:0},verificacion_campos:{...r.verificacion_campos,stock_local_unidades:{estado:'PENDIENTE',valor:0}},valores:{stock:0,quiebres:100,sin_perchar:0,caras:2}}
-  const args={registros:[dato],productos:[],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
+  const args={registros:[dato],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
   for(const indicador of ['stock','quiebres','sin_perchar']) {
    assert.deepEqual(resumirSemanasCampo({...args,indicador})[0].semanas[4].pendientes.map(p=>p.campo),['stock_local_unidades'])
   }

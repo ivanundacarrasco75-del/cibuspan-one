@@ -1,7 +1,7 @@
 import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
 import { datoVerificadoCampo, esIngresoManualCampo, type VerificacionCamposCampo } from "./validacionLecturasCampo.ts"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
-import type { PromocionDb } from "../repositories/promocionesRepository"
+import type { PromocionDb, PromocionProductoDb } from "../repositories/promocionesRepository"
 
 export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "participacion_clase" | "participacion_subclase" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
 export type OrigenVisitaCampo = "TODOS" | "MERCADERISTA" | "KAM"
@@ -53,9 +53,12 @@ export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador
   if (!Object.keys(r.verificacion_campos ?? {}).length && ["RESPALDO_MANUAL", "SIN_LECTOR"].includes(r.lector_estado ?? "")) return r.valores[indicador]
   return null
 }
+type DescuentoPromocionCampo = Pick<PromocionProductoDb, "tipo_descuento" | "valor_descuento">
+type VigenciaPromocionCampo = Pick<PromocionDb, "fecha_inicio" | "fecha_fin"> & DescuentoPromocionCampo
 export type PuntoSemanaCampo = {
   valor: number | null; locales_con_dato: number; locales_revisados: number; ultima_fecha: string | null
   locales_en_promocion?: number
+  descuentos_promocion?: DescuentoPromocionCampo[]
   pendientes?: Array<{ registroId: string; campo: string; fecha: string; clienteId: string }>
 }
 export type SerieSkuCampo = ProductoDashboardCampo & { semanas: PuntoSemanaCampo[] }
@@ -84,18 +87,22 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
   camposPendientes?: (r: RegistroDashboardCampo) => Array<{ campo: string }>
   promociones?: readonly PromocionDb[]
 }): SerieSkuCampo[] {
-  const promocionesPorClienteSku = new Map<string, PromocionDb[]>()
+  const promocionesPorClienteSku = new Map<string, VigenciaPromocionCampo[]>()
   for (const promocion of promociones ?? []) {
     if (!promocion.activo || promocion.estado === "CANCELADA") continue
     for (const producto of promocion.productos) {
       const clave = `${promocion.cliente_id}|${producto.producto_id}`
       const vigencias = promocionesPorClienteSku.get(clave) ?? []
-      vigencias.push(promocion)
+      vigencias.push({
+        fecha_inicio: promocion.fecha_inicio, fecha_fin: promocion.fecha_fin,
+        tipo_descuento: producto.tipo_descuento, valor_descuento: producto.valor_descuento,
+      })
       promocionesPorClienteSku.set(clave, vigencias)
     }
   }
+  const catalogo = new Map(productos.map((p) => [p.id, p]))
   const ultimos = new Map<string, RegistroDashboardCampo>()
-  const visibles = registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
+  const visibles = registros.filter((r) => catalogo.has(r.producto_id) && (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
   for (const registro of visibles) {
     const semana = semanas.findIndex((s) => registro.fecha >= s.desde && registro.fecha <= s.hasta)
     if (semana < 0) continue
@@ -103,8 +110,6 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
     const orden = (r: RegistroDashboardCampo) => `${r.fecha}|${r.visitado_en}|${r.actualizado_en}|${r.id}`
     if (!anterior || orden(registro) > orden(anterior)) ultimos.set(clave, registro)
   }
-  const catalogo = new Map(productos.map((p) => [p.id, p]))
-  for (const r of ultimos.values()) if (!catalogo.has(r.producto_id)) catalogo.set(r.producto_id, { id: r.producto_id, codigo: r.producto_codigo, nombre: r.producto_nombre })
   const agrupados = new Map<string, RegistroDashboardCampo[]>()
   for (const [clave, r] of ultimos) {
     const key = `${clave.split("|")[0]}|${r.producto_id}`, grupo = agrupados.get(key) ?? []
@@ -119,14 +124,22 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
       const valores = registrosSku.map((r) => soloValidados ? valorIndicadorValidadoCampo(r, indicador) : r.valores[indicador])
       const datos = registrosSku.filter((_, i) => valores[i] !== null && Number.isFinite(valores[i]))
       const suma = valores.reduce<number>((total, v) => total + (v !== null && Number.isFinite(v) ? v : 0), 0)
+      let localesEnPromocion = 0
+      const descuentos = new Map<string, DescuentoPromocionCampo>()
+      for (const registro of datos) {
+        const vigencias = promocionesPorClienteSku.get(`${registro.cliente_id}|${registro.producto_id}`)
+        const aplicables = vigencias?.filter((p) => p.fecha_inicio <= registro.fecha && registro.fecha <= p.fecha_fin)
+        if (!aplicables?.length) continue
+        localesEnPromocion += 1
+        for (const { tipo_descuento, valor_descuento } of aplicables) {
+          descuentos.set(`${tipo_descuento}|${valor_descuento}`, { tipo_descuento, valor_descuento })
+        }
+      }
       return {
         valor: !datos.length ? null : config.agregacion === "SUMA" ? suma : suma / datos.length,
         locales_con_dato: datos.length, locales_revisados: registrosSku.length,
         ultima_fecha: datos.length ? datos.map((r) => r.fecha).sort().at(-1)! : null,
-        ...(promociones && { locales_en_promocion: datos.filter((r) =>
-          promocionesPorClienteSku.get(`${r.cliente_id}|${r.producto_id}`)?.some((p) =>
-            p.fecha_inicio <= r.fecha && r.fecha <= p.fecha_fin),
-        ).length }),
+        ...(promociones && { locales_en_promocion: localesEnPromocion, descuentos_promocion: [...descuentos.values()] }),
         ...(camposPendientes ? { pendientes: campo && !soloValidados ? datos
           .filter((r) => camposPendientes(r).some((c) => c.campo === campo))
           .map((r) => ({ registroId: r.id, campo, fecha: r.fecha, clienteId: r.cliente_id })) : [] } : {}),
