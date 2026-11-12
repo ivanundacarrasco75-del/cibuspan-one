@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Simulador de PyG por cliente, 12/11/2026: en Pagos y Finanzas > Resultados > PyG por cliente, seleccionar un cliente y aplicar un periodo para comparar la base gerencial hasta EBITDA con un escenario. Los importes editados son totales del periodo y se pueden descargar en CSV junto con la base. Los ajustes duran mientras se mantenga abierto el mismo cliente y periodo. Cambio de frontend. Publicación y comprobación con datos reales pendientes.
+Simulador de PyG por cliente, 12/11/2026: en Pagos y Finanzas > Resultados > PyG por cliente, seleccionar un cliente y aplicar un periodo para comparar la base gerencial hasta EBITDA con un escenario. Los importes editados son totales del periodo y se pueden descargar en CSV junto con la base. Los ajustes duran mientras se mantenga abierto el mismo cliente y periodo. Publicado en producción desde `eb11686`, despliegue `78b67573`. El dominio público sirve el simulador compilado y el endpoint de capturas confirma Supabase operativo, R2 y firma. Queda pendiente validar el PyG con datos reales de un cliente.
 
 Recuperación del 11/11/2026: [estado de producción y verificaciones pendientes](docs/CONTINGENCIA_SUPABASE.md). La app pública se publicó con la base restaurada y R2. Iván confirmó que pudo entrar al enlace público y que la app funciona. La visita y su captura se comprobaron en la vista previa.
 
