@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Simulador de PyG por cliente, 12/11/2026: en Pagos y Finanzas > Resultados > PyG por cliente, seleccionar un cliente y aplicar un periodo para comparar la base gerencial hasta EBITDA con un escenario. Los importes editados son totales del periodo y se pueden descargar en CSV junto con la base. Los ajustes duran mientras se mantenga abierto el mismo cliente y periodo. Cambio de frontend. Publicación y comprobación con datos reales pendientes.
+
 Recuperación del 11/11/2026: [estado de producción y verificaciones pendientes](docs/CONTINGENCIA_SUPABASE.md). La app pública se publicó con la base restaurada y R2. Iván confirmó que pudo entrar al enlace público y que la app funciona. La visita y su captura se comprobaron en la vista previa.
 
 Visitas y rotación, 11/11/2026: las barras rojas y los avisos por semana señalan sólo mediciones incluidas del indicador seleccionado. Cada barra roja abre la revisión de su propio campo y semana. El ajuste de frontend del commit `77af524` ya está en producción. Se confirmó en el código servido por la app pública. Con sesión iniciada en producción, se cambió de Rotación diaria a Stock en el local y se pulsó la barra roja de Botón de Manjar 360 g de la semana del 02 al 08/11. Se abrió el campo Stock en local de una visita del 04/11. La app indicó que esa captura histórica no está disponible en R2. La prueba fue de solo lectura. Este ajuste no requiere SQL. Las publicaciones deben compilar con el Supabase operativo `eodcwkuexldsbomflthe`.

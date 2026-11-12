@@ -94,6 +94,43 @@ type FilaPygCliente = {
   completo: boolean
 }
 
+const rubrosEditables = {
+  ventaBruta: "Ventas brutas",
+  devoluciones: "Devoluciones",
+  descuentos: "Descuentos",
+  costoProducto: "Costo de producto",
+  transporte: "Transporte",
+  gastoClienteDirecto: "Gastos directos del cliente",
+  gastoGeneral: "Gastos generales asignados",
+} as const
+
+type RubroEditable = keyof typeof rubrosEditables
+
+function calcularPygCliente(rubros: Pick<FilaPygCliente, RubroEditable>) {
+  const ventasNetas = rubros.ventaBruta - rubros.descuentos - rubros.devoluciones
+  const margenBruto = rubros.costoProducto === null ? null : ventasNetas - rubros.costoProducto
+  const contribucion = margenBruto === null
+    ? null
+    : margenBruto - rubros.transporte - rubros.gastoClienteDirecto
+  const ebitda = contribucion === null ? null : contribucion - rubros.gastoGeneral
+  return { ventasNetas, margenBruto, contribucion, ebitda }
+}
+
+function descargarCsv(nombre: string, filas: (string | number | null)[][]) {
+  const contenido = filas.map((fila) => fila.map((valor) => {
+    const texto = typeof valor === "string" && /^\s*[=+\-@]/.test(valor)
+      ? `'${valor}`
+      : String(valor ?? "")
+    return `"${texto.replaceAll('"', '""')}"`
+  }).join(",")).join("\r\n")
+  const url = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], { type: "text/csv;charset=utf-8" }))
+  const enlace = document.createElement("a")
+  enlace.href = url
+  enlace.download = nombre
+  enlace.click()
+  URL.revokeObjectURL(url)
+}
+
 type OrdenSku = "APORTE_TOTAL" | "APORTE_UNIDAD" | "MARGEN_TOTAL" | "MARGEN_PORCENTAJE" | "UNIDADES"
 
 function fechaIso(fecha = new Date()) {
@@ -188,6 +225,7 @@ export default function ReporteRentabilidadSku({
   const [ordenSku, setOrdenSku] = useState<OrdenSku>("APORTE_TOTAL")
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
+  const [errorPeriodo, setErrorPeriodo] = useState("")
   const [avisos, setAvisos] = useState<string[]>([])
   const solicitudRef = useRef(0)
   const periodoInicializadoRef = useRef(false)
@@ -282,11 +320,12 @@ export default function ReporteRentabilidadSku({
     const inicio = `${ultimoPeriodo.slice(0, 7)}-01`
     const fin = ultimoDiaMes(inicio)
     periodoInicializadoRef.current = true
+    if (desde !== inicio || hasta !== fin) setCargando(true)
     setDesdeEdicion(inicio)
     setHastaEdicion(fin)
     setDesde(inicio)
     setHasta(fin)
-  }, [modo, resultadosContables])
+  }, [modo, resultadosContables, desde, hasta])
 
   const calculo = useMemo(() => {
     type Campo = "manoObraDirecta" | "transporte" | "gastoClienteDirecto" | "gastoGeneral"
@@ -506,8 +545,15 @@ export default function ReporteRentabilidadSku({
         mapa.set(key, { key, nombre: cliente.nombre })
       }
     })
+    if (modo === "PYG_CLIENTE") {
+      for (const fila of calculo.filas) {
+        if (!mapa.has(fila.clienteKey)) {
+          mapa.set(fila.clienteKey, { key: fila.clienteKey, nombre: fila.cliente })
+        }
+      }
+    }
     return Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
-  }, [clientes])
+  }, [clientes, calculo.filas, modo])
 
   const filasPygClientes = useMemo(() => {
     const mapa = new Map<string, FilaPygCliente>()
@@ -560,18 +606,7 @@ export default function ReporteRentabilidadSku({
       })
 
     return Array.from(mapa.values())
-      .map((fila) => {
-        if (!fila.completo || fila.costoProducto === null) return fila
-        const margenBruto = fila.ventasNetas - fila.costoProducto
-        const contribucion =
-          margenBruto - fila.transporte - fila.gastoClienteDirecto
-        return {
-          ...fila,
-          margenBruto,
-          contribucion,
-          ebitda: contribucion - fila.gastoGeneral,
-        }
-      })
+      .map((fila) => fila.completo ? { ...fila, ...calcularPygCliente(fila) } : fila)
       .sort((a, b) => b.ventasNetas - a.ventasNetas)
   }, [calculo.filas, clienteFiltro])
 
@@ -713,9 +748,12 @@ export default function ReporteRentabilidadSku({
 
   function aplicarPeriodo() {
     if (!desdeEdicion || !hastaEdicion || desdeEdicion > hastaEdicion) {
-      setError("El rango de fechas no es válido.")
+      setErrorPeriodo("El rango de fechas no es válido.")
       return
     }
+    setErrorPeriodo("")
+    if (desde !== desdeEdicion || hasta !== hastaEdicion) setCargando(true)
+    else if (error) void cargar()
     setDesde(desdeEdicion)
     setHasta(hastaEdicion)
   }
@@ -807,13 +845,15 @@ export default function ReporteRentabilidadSku({
               : "Precios, devoluciones, descuentos, costos y gastos expresados por unidad vendida."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={modo === "PYG_CLIENTE" ? exportarPygClientesCsv : exportarCsv}
-          disabled={filasReporte.length === 0}
-        >
-          Exportar CSV
-        </button>
+        {(modo === "SKU" || clienteFiltro === "TODOS") && (
+          <button
+            type="button"
+            onClick={modo === "PYG_CLIENTE" ? exportarPygClientesCsv : exportarCsv}
+            disabled={cargando || !!error || (modo === "PYG_CLIENTE" ? filasPygClientes.length === 0 : filasReporte.length === 0)}
+          >
+            Exportar CSV
+          </button>
+        )}
       </header>
 
       <section className={`upr-filters ${modo === "PYG_CLIENTE" ? "client-mode" : ""}`}>
@@ -824,12 +864,12 @@ export default function ReporteRentabilidadSku({
         <button type="button" onClick={aplicarPeriodo} disabled={cargando}>{cargando ? "Calculando…" : "Aplicar periodo"}</button>
       </section>
 
-      {error && <div className="upr-error">{error}</div>}
+      {(errorPeriodo || error) && <div className="upr-error" role="alert">{errorPeriodo || error}</div>}
       {avisos.length > 0 && <div className="upr-warning">No se pudieron cargar: {avisos.join(", ")}. Los indicadores relacionados pueden estar incompletos.</div>}
       {!cargando && ventas.length === 0 && <div className="upr-warning">No existen ventas importadas entre {desde} y {hasta}. Puedes escoger cualquier cliente o SKU, pero el reporte mostrará resultados cuando se cargue la facturación de ese periodo en el módulo Ventas.</div>}
       {ventas.length > 0 && calculo.costosSinAsignar > 0 && <div className="upr-warning">{moneda(calculo.costosSinAsignar)} de gastos no pudieron asignarse porque no existe una base suficiente de ventas en el periodo.</div>}
 
-      <section className="upr-kpis">
+      {(modo === "SKU" || clienteFiltro === "TODOS") && <section className="upr-kpis">
         {modo === "PYG_CLIENTE" ? (
           <>
             <Kpi titulo="Ventas brutas" valor={moneda(totales.ventaBruta)} detalle={`${numero(totales.unidades)} unidades`} />
@@ -851,7 +891,7 @@ export default function ReporteRentabilidadSku({
             <Kpi titulo="EBITDA unitario" valor={totales.unidades > 0 ? moneda(totales.ebitda / totales.unidades, 4) : "—"} detalle={porcentaje(totales.ventasNetas > 0 ? totales.ebitda / totales.ventasNetas * 100 : 0)} />
           </>
         )}
-      </section>
+      </section>}
 
       {modo === "PYG_CLIENTE" && clienteFiltro === "TODOS" && (
         <section
@@ -910,7 +950,21 @@ export default function ReporteRentabilidadSku({
         </section>
       )}
 
-      {modo === "PYG_CLIENTE" && (
+      {modo === "PYG_CLIENTE" && clienteFiltro !== "TODOS" && (
+        cargando ? <div className="upr-empty">Calculando PyG por cliente…</div>
+          : !error && (filasPygClientes[0] ? (
+            <SimuladorPygCliente
+              key={JSON.stringify([clienteFiltro, desde, hasta])}
+              base={filasPygClientes[0]}
+              desde={desde}
+              hasta={hasta}
+              avisos={avisos}
+              gastosSinAsignar={calculo.costosSinAsignar}
+            />
+          ) : <div className="upr-empty">No existen movimientos del cliente en el periodo.</div>)
+      )}
+
+      {modo === "PYG_CLIENTE" && clienteFiltro === "TODOS" && (
         <section className="upr-panel">
           <header>
             <div>
@@ -957,7 +1011,10 @@ export default function ReporteRentabilidadSku({
                         : null
                     return (
                       <tr key={fila.id}>
-                        <td data-label="Cliente"><strong>{fila.cliente}</strong><small>{numero(fila.unidades)} unidades</small></td>
+                        <td data-label="Cliente">
+                          <button type="button" className="upr-cliente-link" onClick={() => setClienteFiltro(fila.id)}>{fila.cliente}</button>
+                          <small>{numero(fila.unidades)} unidades</small>
+                        </td>
                         <td data-label="Ventas brutas">{moneda(fila.ventaBruta)}</td>
                         <td data-label="Devoluciones">{moneda(fila.devoluciones)}<small>{porcentaje(fila.ventaBruta > 0 ? fila.devoluciones / fila.ventaBruta * 100 : 0)}</small></td>
                         <td data-label="Descuentos">{moneda(fila.descuentos)}<small>{porcentaje(fila.ventaBruta > 0 ? fila.descuentos / fila.ventaBruta * 100 : 0)}</small></td>
@@ -1004,6 +1061,138 @@ export default function ReporteRentabilidadSku({
   )
 }
 
+function SimuladorPygCliente({ base, desde, hasta, avisos, gastosSinAsignar }: {
+  base: FilaPygCliente
+  desde: string
+  hasta: string
+  avisos: string[]
+  gastosSinAsignar: number
+}) {
+  const [ajustes, setAjustes] = useState<Partial<Record<RubroEditable, string>>>({})
+  const rubros = { ...base, costoProducto: base.completo ? base.costoProducto : null }
+  const simulados = { ...rubros }
+  const invalidos = new Set<RubroEditable>()
+  const editables = Object.keys(rubrosEditables) as RubroEditable[]
+  for (const campo of editables) {
+    const valor = ajustes[campo]?.trim()
+    if (!valor) continue
+    const monto = Number(valor.replace(",", "."))
+    if (!/^-?\d+(?:[.,]\d{1,2})?$/.test(valor) || !Number.isFinite(monto)) {
+      invalidos.add(campo)
+      continue
+    }
+    simulados[campo] = monto
+  }
+  const escenario = { ...simulados, ...calcularPygCliente(simulados) }
+  const margenPct = (resultado: number | null, ventasNetas: number) =>
+    resultado !== null && ventasNetas > 0 ? resultado / ventasNetas * 100 : null
+  const editable = (campo: RubroEditable) => ({
+    concepto: rubrosEditables[campo],
+    campo,
+    base: rubros[campo],
+    escenario: escenario[campo],
+  })
+  const filas: {
+    concepto: string
+    campo?: RubroEditable
+    base: number | null
+    escenario: number | null
+    esPorcentaje?: boolean
+  }[] = [
+    editable("ventaBruta"),
+    editable("devoluciones"),
+    editable("descuentos"),
+    { concepto: "Ventas netas", base: base.ventasNetas, escenario: escenario.ventasNetas },
+    editable("costoProducto"),
+    { concepto: "Margen bruto", base: base.margenBruto, escenario: escenario.margenBruto },
+    {
+      concepto: "Margen bruto (%)", esPorcentaje: true,
+      base: margenPct(base.margenBruto, base.ventasNetas),
+      escenario: margenPct(escenario.margenBruto, escenario.ventasNetas),
+    },
+    editable("transporte"),
+    editable("gastoClienteDirecto"),
+    { concepto: "Contribución", base: base.contribucion, escenario: escenario.contribucion },
+    editable("gastoGeneral"),
+    { concepto: "EBITDA estimado", base: base.ebitda, escenario: escenario.ebitda },
+    {
+      concepto: "Margen EBITDA (%)", esPorcentaje: true,
+      base: margenPct(base.ebitda, base.ventasNetas),
+      escenario: margenPct(escenario.ebitda, escenario.ventasNetas),
+    },
+  ]
+  const notas = [
+    !base.completo && "El costo de producto de la base está incompleto. Ingresa un costo total estimado para calcular el margen del escenario.",
+    avisos.length > 0 && `Fuentes pendientes de carga: ${avisos.join(", ")}.`,
+    gastosSinAsignar !== 0 && `Gastos sin asignar a nivel empresa: ${moneda(gastosSinAsignar)}.`,
+  ].filter((nota): nota is string => typeof nota === "string")
+
+  function exportar() {
+    const clienteArchivo = normalizar(base.cliente).toLowerCase().replaceAll(" ", "-").slice(0, 80) || "cliente"
+    const redondear = (valor: number | null) => valor === null ? null : Number(valor.toFixed(2))
+    descargarCsv(`pyg-${clienteArchivo}-${desde}-${hasta}.csv`, [
+      ["PyG gerencial por cliente (USD)"],
+      ["Cliente", base.cliente],
+      ["Desde", desde],
+      ["Hasta", hasta],
+      ...notas.map((nota) => ["Nota", nota]),
+      [],
+      ["Concepto", "Base del periodo", "Escenario"],
+      ...filas.map((fila) => [fila.concepto, redondear(fila.base), redondear(fila.escenario)]),
+    ])
+  }
+
+  return (
+    <section className="upr-panel upr-simulador">
+      <header>
+        <div>
+          <h2>Simulador de PyG · {base.cliente}</h2>
+          <p>{desde} al {hasta} · USD · Resultado gerencial hasta EBITDA</p>
+        </div>
+        <div className="upr-simulador-acciones">
+          <button type="button" onClick={() => setAjustes({})}>Restablecer escenario</button>
+          <button type="button" onClick={exportar} disabled={invalidos.size > 0}>Descargar PyG (CSV)</button>
+        </div>
+      </header>
+      <p id="upr-ayuda-ajustes">Ingresa los nuevos totales del periodo. Deja la casilla vacía para conservar el valor base o escribe 0 para quitar ese importe.</p>
+      {notas.length > 0 && <div className="upr-warning">{notas.join(" ")}</div>}
+      {invalidos.size > 0 && <div className="upr-error" role="alert">Ingresa importes válidos, con hasta dos decimales.</div>}
+      <div className="upr-simulador-tabla">
+        <table aria-label="Estado de resultados base y simulado">
+          <thead>
+            <tr><th scope="col">Concepto</th><th scope="col">Base del periodo</th><th scope="col">Escenario</th></tr>
+          </thead>
+          <tbody>
+            {filas.map((fila) => {
+              const campo = fila.campo
+              const formato = (monto: number | null) =>
+                fila.esPorcentaje ? porcentaje(monto) : monto === null ? "—" : moneda(monto)
+              return (
+                <tr key={fila.concepto} className={campo ? undefined : "upr-simulador-resultado"}>
+                  <th scope="row">{fila.concepto}</th>
+                  <td>{formato(fila.base)}</td>
+                  <td>{campo ? (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={`${fila.concepto} del escenario`}
+                      aria-describedby="upr-ayuda-ajustes"
+                      aria-invalid={invalidos.has(campo)}
+                      placeholder={formato(fila.base)}
+                      value={ajustes[campo] ?? ""}
+                      onChange={(e) => setAjustes({ ...ajustes, [campo]: e.target.value })}
+                    />
+                  ) : formato(invalidos.size > 0 ? null : fila.escenario)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function Kpi({ titulo, valor, detalle }: { titulo: string; valor: string; detalle: string }) {
   return <article><span>{titulo}</span><strong>{valor}</strong><small>{detalle}</small></article>
 }
@@ -1013,6 +1202,19 @@ function ValorPorcentaje({ valor }: { valor: number | null }) {
 }
 
 const css = `
+  .upr-cliente-link{border:0;background:none;padding:0;color:#8f1d24;font:inherit;font-weight:800;text-align:left;text-decoration:underline;cursor:pointer}
+  .upr-simulador-acciones{display:flex;flex-wrap:wrap;gap:8px}
+  .upr-simulador-acciones button{padding:8px 12px;border:1px solid #8f1d24;border-radius:7px;background:white;color:#8f1d24;font-weight:700;cursor:pointer}
+  .upr-simulador-acciones button:last-child{background:#8f1d24;color:white}
+  .upr-simulador-acciones button:disabled{opacity:.5;cursor:default}
+  .upr-simulador>p{font-size:13px;color:#6f625d}
+  .upr-simulador-tabla{overflow:auto}
+  .upr-simulador table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  .upr-simulador th,.upr-simulador td{padding:8px;border-bottom:1px solid #eee8e4;text-align:right}
+  .upr-simulador th:first-child{text-align:left}
+  .upr-simulador thead,.upr-simulador-resultado{background:#f8f5f3;font-weight:750}
+  .upr-simulador input{width:100%;max-width:160px;min-width:70px;box-sizing:border-box;padding:7px;border:1px solid #d9d0cc;border-radius:6px;background:white;color:#392f2c;font:inherit;text-align:right}
+  .upr-simulador input[aria-invalid=true]{border-color:#b91c1c}
   .unit-profit-report{max-width:1760px;margin:0 auto;padding:26px;color:#2b2422;background:#f8f5f1;min-height:100vh}.unit-profit-report.integrated{max-width:none;padding:0;background:transparent;min-height:0}.upr-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}.upr-header span{color:#8f1d24;font-size:9px;font-weight:950;letter-spacing:1.1px}.upr-header h1{margin:4px 0;font-size:30px}.upr-header p,.upr-panel header p{margin:0;color:#776a65;font-size:12px}.upr-header button,.upr-filters>button{min-height:40px;padding:0 15px;border:0;border-radius:8px;background:#8f1d24;color:white;font-weight:850;cursor:pointer}.upr-header button:disabled{opacity:.45}.upr-filters{display:grid;grid-template-columns:145px 145px minmax(190px,1fr) minmax(230px,1.3fr) auto;align-items:end;gap:10px;margin-bottom:14px;padding:14px;border:1px solid #e6dcd6;border-radius:11px;background:white}.upr-filters.client-mode{grid-template-columns:145px 145px minmax(240px,1fr) auto}.upr-filters label>span{display:block;margin-bottom:5px;color:#6f625d;font-size:9px;font-weight:900;text-transform:uppercase}.upr-filters input,.upr-filters select{width:100%;min-height:40px;box-sizing:border-box;padding:7px 9px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:#392f2c}.upr-error,.upr-warning{margin-bottom:12px;padding:11px 13px;border-radius:8px;font-size:11px}.upr-error{border-left:4px solid #b91c1c;background:#fee2e2;color:#991b1b}.upr-warning{border-left:4px solid #f7931e;background:#fff7ed;color:#9a3412}.upr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px}.upr-kpis article{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #eadfd9;border-top:3px solid #f7931e;border-radius:10px;background:white}.upr-kpis span{color:#786b65;font-size:9px;font-weight:850}.upr-kpis strong{color:#8f1d24;font-size:21px}.upr-kpis small{color:#958781;font-size:9px}.upr-panel{padding:17px;border:1px solid #e5dad4;border-radius:12px;background:white}.upr-panel>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.upr-panel h2{margin:0 0 3px;font-size:20px}.upr-count{padding:5px 9px;border-radius:999px;background:#fff1e4;color:#9a4f0f;font-size:9px;font-weight:900}.upr-ranking-controls{display:flex;align-items:flex-end;gap:9px}.upr-ranking-controls>span{padding:5px 8px;border-radius:999px;background:#fff1e4;color:#9a4f0f;font-size:9px;font-weight:900}.upr-ranking-controls label>span{display:block;margin-bottom:4px;color:#776a65;font-size:8px;font-weight:900;text-transform:uppercase}.upr-ranking-controls select{min-height:35px;padding:5px 8px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:#392f2c;font-size:10px;font-weight:800}.upr-table-wrap{overflow:auto;border:1px solid #ece6e2;border-radius:8px}.upr-table-wrap table{width:100%;min-width:2350px;border-collapse:collapse}.upr-table-wrap.compact table{min-width:1650px}.upr-table-wrap.compact th:first-child,.upr-table-wrap.compact td:first-child{text-align:left}.upr-table-wrap.compact th:nth-child(2),.upr-table-wrap.compact td:nth-child(2){text-align:right}.upr-table-wrap th{padding:9px;background:#f8f5f3;color:#6f625d;text-align:right;font-size:9px;white-space:nowrap}.upr-table-wrap th:first-child,.upr-table-wrap td:first-child{text-align:center}.upr-table-wrap th:nth-child(2),.upr-table-wrap td:nth-child(2){text-align:left}.upr-table-wrap td{padding:9px;border-top:1px solid #eee8e4;text-align:right;font-size:10px;white-space:nowrap}.upr-table-wrap td strong{display:block}.upr-table-wrap td small{display:block;margin-top:3px;color:#968983;font-size:8px}.upr-rank{display:inline-grid!important;width:25px;height:25px;place-items:center;border-radius:50%;background:#fff1e4;color:#9a4f0f}.upr-status{display:inline-block;padding:4px 7px;border-radius:999px;font-size:8px;font-weight:900}.upr-status.ready{background:#dcfce7;color:#166534}.upr-status.pending{background:#ffedd5;color:#9a3412}.positive{color:#15803d}.negative{color:#b91c1c}.upr-empty{padding:30px;color:#80736d;text-align:center}.unit-profit-report>footer{margin-top:10px;color:#8d7f79;font-size:10px}.upr-reconciliation{margin-bottom:14px;padding:15px;border:1px solid;border-radius:11px}.upr-reconciliation.ready{border-color:#bbdfc5;background:#f3fbf5}.upr-reconciliation.pending{border-color:#f2cf9c;background:#fff8e8}.upr-reconciliation>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.upr-reconciliation>header span{font-size:9px;font-weight:900;color:#9a4f0f}.upr-reconciliation>header h2{margin:3px 0 0;font-size:18px}.upr-reconciliation>header>strong{color:#8f1d24}.upr-reconciliation>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:12px}.upr-reconciliation article{padding:10px;border:1px solid rgba(120,90,70,.15);border-radius:8px;background:rgba(255,255,255,.7)}.upr-reconciliation article span,.upr-reconciliation article small{display:block;color:#786b65;font-size:8px}.upr-reconciliation article strong{display:block;margin:4px 0;font-size:16px}.upr-reconciliation>p{margin:10px 0 0;color:#786b65;font-size:10px}
   @media(max-width:1100px){.upr-filters,.upr-filters.client-mode{grid-template-columns:repeat(2,minmax(0,1fr))}.upr-filters>button{grid-column:1/-1}.upr-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.upr-reconciliation>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media(max-width:700px){.unit-profit-report{padding:12px 10px 24px}.unit-profit-report.integrated{padding:0}.upr-header{align-items:stretch;flex-direction:column}.upr-header button{width:100%}.upr-filters,.upr-filters.client-mode{grid-template-columns:1fr}.upr-filters>button{grid-column:auto}.upr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.upr-kpis strong{font-size:17px}.upr-panel{padding:11px}.upr-panel>header,.upr-reconciliation>header{flex-direction:column}.upr-reconciliation>div{grid-template-columns:1fr}.upr-ranking-controls{width:100%;align-items:stretch;flex-direction:column}.upr-ranking-controls select{width:100%}.upr-table-wrap{overflow:visible;border:0}.upr-table-wrap table,.upr-table-wrap tbody,.upr-table-wrap tr,.upr-table-wrap td{display:block;width:100%;box-sizing:border-box}.upr-table-wrap table{min-width:0}.upr-table-wrap thead{display:none}.upr-table-wrap tbody{display:grid;gap:9px}.upr-table-wrap tr{padding:9px 11px;border:1px solid #e9dfda;border-radius:9px}.upr-table-wrap td{display:grid;grid-template-columns:130px minmax(0,1fr);align-items:center;gap:7px;padding:5px 0;border:0;white-space:normal}.upr-table-wrap td:before{content:attr(data-label);color:#837670;text-align:left;font-size:8px;font-weight:850}}
