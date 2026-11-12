@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { obtenerDashboardVisitasRotacion, type DatosDashboardCampo } from "../../repositories/dashboardVisitasRotacionRepository"
+import { obtenerPromocionesDb, type PromocionDb } from "../../repositories/promocionesRepository"
 import {
   valorIndicadorValidadoCampo, fechaHoyCampoDashboard, INDICADORES_CAMPO, resumirSemanasCampo, semanasDashboardCampo, variacionSemanalCampo,
   type IndicadorCampo, type OrigenVisitaCampo, type SerieSkuCampo, type SemanaCampo,
@@ -31,6 +32,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
   const [soloValidados, setSoloValidados] = useState(false)
   const [origen, setOrigen] = useState<OrigenVisitaCampo>("TODOS")
   const [datos, setDatos] = useState(VACIO)
+  const [promociones, setPromociones] = useState<PromocionDb[] | "ERROR" | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
@@ -58,12 +60,22 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
     }).finally(() => { if (vigente) setCargando(false) })
     return () => { vigente = false }
   }, [clienteId, desde, hasta, corte, revision, actualizacion])
+  useEffect(() => {
+    let vigente = true
+    void obtenerPromocionesDb().then((respuesta) => {
+      if (vigente) setPromociones(respuesta)
+    }).catch(() => {
+      if (vigente) setPromociones("ERROR")
+    })
+    return () => { vigente = false }
+  }, [revision, actualizacion])
   const config = INDICADORES_CAMPO.find((item) => item.id === indicador)!
   const unidadCambio = config.unidad === "%" ? "puntos porcentuales" : config.unidad
   const series = useMemo(() => resumirSemanasCampo({
     registros: datos.registros, productos: datos.productos, semanas: ventana.semanas,
     indicador, clienteId, localId, origen, soloValidados, camposPendientes: camposPendientesDatosCampo,
-  }), [datos, ventana.semanas, indicador, clienteId, localId, origen, soloValidados])
+    promociones: Array.isArray(promociones) ? promociones : undefined,
+  }), [datos, ventana.semanas, indicador, clienteId, localId, origen, soloValidados, promociones])
   const esActual = ventana.semanas.length > 0 && hoy >= desde && hoy >= ventana.semanas[4].desde && hoy <= hasta
   const semanas = ventana.semanas.map((s, i) => ({ ...s, etiqueta: i === 4 ? esActual ? "Esta semana · en curso" : "Semana seleccionada" : s.etiqueta }))
   const medidos = series.filter((s) => s.semanas[4]?.valor !== null && s.semanas[4]?.valor !== undefined)
@@ -120,6 +132,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
         <header><div><h3>{config.nombre} por SKU</h3><p>{config.descripcion}</p></div><button type="button" onClick={descargar} disabled={!series.length}>Descargar datos</button></header>
         <div className="vr-leyenda">{semanas.map((s, i) => <span key={s.desde}><i style={{ background: COLORES[i] }} /><span>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></span></span>)}</div>
         {series.length > 0 && !series.some((s) => s.semanas.some((p) => p.valor !== null)) && <p className="vr-estado">No hay mediciones de {config.nombre.toLowerCase()} para estos filtros en las cinco semanas.</p>}
+        {promociones === "ERROR" && <p className="vr-nota" role="status">No se pudieron consultar las promociones de estas visitas.</p>}
         {!series.length ? <p className="vr-estado">No hay SKU disponibles para este cliente.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} alRevisar={abrirRevision} />}
         <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. El rojo indica que alguna medición incluida del indicador seleccionado está pendiente de verificar. “Sin dato” significa que no hay una medición disponible para el filtro elegido; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
         {origen !== "TODOS" && <p className="vr-nota">El tipo de visita usa el rol registrado al guardar. Las visitas antiguas sin rol identificado aparecen en “Todas las visitas”.</p>}
@@ -148,7 +161,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
 }
 
 function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCampo[]; semanas: SemanaCampo[]; unidad: string; alRevisar: (f: FocoRevisionCampo) => void }) {
-  const ancho = 1040, margen = 300, zona = 625, fila = 112
+  const ancho = 1120, margen = 300, zona = 625, fila = 112
   const maximo = Math.max(1, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const minimo = Math.min(0, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const x = (valor: number) => margen + (valor - minimo) / (maximo - minimo) * zona
@@ -160,7 +173,12 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
       <text x="12" y="55" fill="#8fa0b0" fontSize="10">{s.codigo}</text>
       {s.semanas.map((p, i) => {
         const pendiente = p.pendientes?.[0]
-        const descripcion = `${s.nombre} · ${semanas[i].etiqueta} (${semanas[i].desde} – ${semanas[i].hasta}): ${p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · ${p.locales_con_dato} locales con dato`
+        const enPromocion = p.locales_en_promocion ?? 0
+        const etiquetaPromocion = enPromocion === p.locales_con_dato ? "PROMO" : "PROMO PARCIAL"
+        const detallePromocion = p.valor === null || p.locales_en_promocion === undefined ? ""
+          : enPromocion > 0 ? ` · En promoción en ${enPromocion} de ${p.locales_con_dato} locales con dato`
+          : " · Sin promoción registrada en las visitas incluidas"
+        const descripcion = `${s.nombre} · ${semanas[i].etiqueta} (${semanas[i].desde} – ${semanas[i].hasta}): ${p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · ${p.locales_con_dato} locales con dato${detallePromocion}`
         return <g key={i} {...(pendiente && {
           role: "button", tabIndex: 0, style: { cursor: "pointer" }, "aria-label": `Revisar ${descripcion}`,
           onClick: () => alRevisar(pendiente),
@@ -169,7 +187,10 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
           <title>{descripcion}{pendiente && " · Pulsa para revisar"}</title>
           {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#708296" fontSize="10">Sin dato</text> : <>
             <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={12} rx={3} fill={pendiente ? "#fb7185" : COLORES[i]} />
-            <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 10} fill={i === 4 ? "#67e8f9" : "#bec8d2"} fontSize="10" fontWeight={i === 4 ? "700" : "400"}>{numero(p.valor)}</text>
+            <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 10} fill={i === 4 ? "#67e8f9" : "#bec8d2"} fontSize="10" fontWeight={i === 4 ? "700" : "400"}>
+              {numero(p.valor)}
+              {enPromocion > 0 && <tspan dx="9" fill="#fde68a" fontWeight="700">{etiquetaPromocion}</tspan>}
+            </text>
           </>}
         </g>
       })}

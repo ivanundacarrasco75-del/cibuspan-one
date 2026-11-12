@@ -6,6 +6,8 @@ Visitas y rotación, 11/11/2026: las barras rojas y los avisos por semana señal
 
 Selector de Visitas y rotación, 11/11/2026. El commit `838ebc0` deja ocho opciones, incluidas las participaciones en clase y subclase. Pasó la compilación con la configuración de contingencia y se publicó en producción desde `main` en el despliegue `7ff4fd1e`. Se comprobó que el enlace público sirve el mismo código compilado del dashboard y que el endpoint de capturas confirma Supabase de contingencia, R2 y firma.
 
+Promociones en Visitas y rotación, 12/11/2026. Las barras marcan PROMO o PROMO PARCIAL según las promociones registradas para el cliente y SKU en la fecha de las mediciones incluidas. La consulta usa los permisos actuales para leer las promociones. Se pospuso el cambio del promedio hasta observar las próximas semanas con visitas regulares. Pendiente de publicación.
+
 Guía de trabajo para el siguiente chat. Historial iniciado el 12 de octubre de 2026; última actualización al final: 04/11/2026 (cierre y corrección de despachos). Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 
 ## Proyecto y forma de trabajar

@@ -19,6 +19,29 @@ test('La semana actual usa la fecha ecuatoriana aun cuando UTC ya es lunes',()=>
  assert.equal(fechaHoyCampoDashboard(new Date('2026-10-12T03:00:00Z')),'2026-10-11')
  assert.equal(fechaHoyCampoDashboard(new Date('2026-10-12T05:00:00Z')),'2026-10-12')
 })
+test('La promoción coincide con el cliente, SKU y fecha de la medición que aporta a la barra', () => {
+ const promo = {
+  cliente_id: 'c1', productos: [{ producto_id: 'p1' }], activo: true, estado: 'FINALIZADA',
+  fecha_inicio: '2026-10-12', fecha_fin: '2026-10-13',
+ }
+ const visitas = [
+  registro('anterior', '2026-10-12', 100),
+  registro('fuera-vigencia', '2026-10-14', 9),
+  registro('durante-vigencia', '2026-10-13', 0, { local_id: 'l2' }),
+  registro('sin-medicion', '2026-10-12', null, { local_id: 'l3' }),
+  registro('otro-cliente', '2026-10-12', 6, { cliente_id: 'c2' }),
+  registro('otro-producto', '2026-10-12', 4, { producto_id: 'p2' }),
+ ]
+ const promociones = [promo, promo, { ...promo, activo: false, estado: 'CANCELADA', fecha_fin: '2026-10-18' }]
+ const series = resumen(visitas, { promociones })
+ const punto = sku(series).semanas[4]
+ assert.equal(punto.locales_en_promocion, 1)
+ assert.equal(punto.locales_con_dato, 3)
+ assert.equal(punto.valor, sku(resumen(visitas)).semanas[4].valor)
+ assert.equal(sku(series, 'p2').semanas[4].locales_en_promocion, 0)
+ assert.equal(sku(resumen(visitas, { promociones, localId: 'l2' })).semanas[4].locales_en_promocion, 1)
+ assert.equal(sku(resumen(visitas)).semanas[4].locales_en_promocion, undefined)
+})
 test('Visitas repetidas no inflan el dato: última revisión por local y SKU; cero registrado permanece cero',()=>{
  const datos=[registro('1','2026-10-12',10,{visitado_en:'2026-10-12T09:00:00Z'}),registro('2','2026-10-12',0),registro('3','2026-10-12',6,{local_id:'l2'})]
  const p=sku(resumen(datos)).semanas[4]
