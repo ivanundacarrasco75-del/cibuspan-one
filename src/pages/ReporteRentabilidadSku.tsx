@@ -28,6 +28,32 @@ type CostoProducto = {
   items_sin_costo: number
 }
 
+type TransporteClasificado = {
+  cliente_id: string
+  cliente_nombre: string
+  gasto_transporte: number
+}
+
+type TransporteMes = { filas: TransporteClasificado[]; sinAtribuir: number }
+
+async function obtenerTransporteClasificado(periodo: string) {
+  const { data: resumen, error: errorResumen } = await supabase.from("fin_vw_transporte_resumen_clasificado")
+    .select("transporte_no_atribuido").eq("periodo", periodo).maybeSingle()
+  if (errorResumen) throw errorResumen
+  const filas: TransporteClasificado[] = []
+  const limite = 1000
+  for (let inicio = 0; ; inicio += limite) {
+    const { data, error } = await supabase.from("fin_vw_transporte_cliente_clasificado")
+      .select("cliente_id,cliente_nombre,gasto_transporte")
+      .eq("periodo", periodo)
+      .order("cliente_id")
+      .range(inicio, inicio + limite - 1)
+    if (error) throw error
+    filas.push(...(data ?? []))
+    if ((data?.length ?? 0) < limite) return { filas, sinAtribuir: Number(resumen?.transporte_no_atribuido ?? 0) }
+  }
+}
+
 type Movimiento = {
   key: string
   clienteKey: string
@@ -208,7 +234,7 @@ export default function ReporteRentabilidadSku({
   const [desdeEdicion, setDesdeEdicion] = useState(inicioMes())
   const [hastaEdicion, setHastaEdicion] = useState(fechaIso())
   const [desde, setDesde] = useState(inicioMes())
-  const [hasta, setHasta] = useState(fechaIso())
+  const [hasta, setHasta] = useState(() => modo === "PYG_CLIENTE" ? ultimoDiaMes(inicioMes()) : fechaIso())
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [relaciones, setRelaciones] = useState<Relacion[]>([])
@@ -216,6 +242,7 @@ export default function ReporteRentabilidadSku({
   const [ventas, setVentas] = useState<VentaDiariaDb[]>([])
   const [devoluciones, setDevoluciones] = useState<DevolucionListadoDb[]>([])
   const [facturas, setFacturas] = useState<FacturaDetalleDb[]>([])
+  const [transporteClasificado, setTransporteClasificado] = useState<TransporteMes | null>(null)
   const [nomina, setNomina] = useState<NominaMensualAreaDb[]>([])
   const [promociones, setPromociones] = useState<PromocionDb[]>([])
   const [resultadosContables, setResultadosContables] = useState<ResultadoMensualDb[]>([])
@@ -257,6 +284,7 @@ export default function ReporteRentabilidadSku({
         promocionesDb,
         reglasDb,
         resultadosDb,
+        transporteDb,
       ] = await Promise.all([
         supabase.from("clientes").select("id,nombre").eq("activo", true).order("nombre"),
         supabase.from("productos").select("id,codigo,nombre,corto").eq("activo", true).order("corto"),
@@ -271,6 +299,9 @@ export default function ReporteRentabilidadSku({
         modo === "PYG_CLIENTE"
           ? opcional(obtenerResultadosMensualesDb(), [], "PyG contable")
           : Promise.resolve([] as ResultadoMensualDb[]),
+        modo === "PYG_CLIENTE"
+          ? opcional(obtenerTransporteClasificado(desde), null, "transporte clasificado en el Libro Mayor")
+          : Promise.resolve(null),
       ])
       if (clientesRes.error) throw clientesRes.error
       if (productosRes.error) throw productosRes.error
@@ -284,6 +315,7 @@ export default function ReporteRentabilidadSku({
       setVentas(ventasDb)
       setDevoluciones(devolucionesDb)
       setFacturas(facturasDb)
+      setTransporteClasificado(transporteDb)
       setNomina(nominaDb)
       setPromociones(promocionesDb)
       setReglas(reglasDb)
@@ -456,7 +488,7 @@ export default function ReporteRentabilidadSku({
       }
     })
 
-    let costosSinAsignar = 0
+    let costosSinAsignar = transporteClasificado?.sinAtribuir ?? 0
     const valorBase = (fila: FilaCalculo, base: BaseDistribucion) => {
       if (base === "UNIDADES") return Math.max(0, fila.unidades)
       if (base === "KG_EQUIVALENTE") return Math.max(0, fila.kgEquivalente)
@@ -501,11 +533,15 @@ export default function ReporteRentabilidadSku({
     })
 
     const cuentasPersonal = new Set(["6.1.01.1.01.01", "6.1.01.1.01.04", "6.2.01.1.01.05", "6.1.01.1.01.06", "NOM-MOD", "NOM-MOI", "NOM-ADM", "NOM-VTA", "NOM-DIST"])
-    const cuentasTransporte = new Set(["6.1.01.2.13.01", "6.1.01.2.13.02"])
+    const cuentaTransporteClasificado = "6.1.01.2.13.01"
+    const cuentasTransporte = new Set([cuentaTransporteClasificado, "6.1.01.2.13.02"])
+    const usarTransporteClasificado = transporteClasificado !== null
+      && (transporteClasificado.filas.length > 0 || transporteClasificado.sinAtribuir > 0)
     facturas.forEach((factura) => {
       const periodoFactura = factura.periodo_servicio
         ?? (factura.fecha_emision ? `${factura.fecha_emision.slice(0, 7)}-01` : null)
       if (factura.estado === "ANULADA" || !periodoFactura || periodoFactura < periodoDesde || periodoFactura > periodoHasta || !factura.impacta_ebitda || cuentasPersonal.has(factura.cuenta_codigo)) return
+      if (usarTransporteClasificado && factura.cuenta_codigo === cuentaTransporteClasificado) return
       const monto = Number(factura.subtotal ?? 0)
       const clienteIds = factura.afecta_tipo === "CLIENTE"
         ? factura.cliente_ids?.length
@@ -527,6 +563,28 @@ export default function ReporteRentabilidadSku({
       }
     })
 
+    for (const gasto of transporteClasificado?.filas ?? []) {
+      const clienteKey = clienteKeyPorId.get(gasto.cliente_id) ?? claveCliente(gasto.cliente_nombre)
+      const candidatas = filas.filter((fila) => fila.clienteKey === clienteKey)
+      const monto = Number(gasto.gasto_transporte)
+      if (candidatas.some((fila) => fila.unidades > 0 || fila.ventasNetas > 0)) {
+        asignar(monto, "UNIDADES", "transporte", clienteKey)
+      } else if (candidatas.length > 0) {
+        candidatas[0].transporte += monto
+      } else {
+        filas.push({
+          key: `${clienteKey}|transporte-clasificado`, clienteKey,
+          cliente: nombresCliente.get(clienteKey) ?? gasto.cliente_nombre,
+          productoKey: "", codigo: "", sku: "Transporte clasificado",
+          unidades: 0, unidadesDevueltas: 0, ventaBruta: 0, descuentos: 0,
+          devoluciones: 0, ventasNetas: 0, kgEquivalente: 0, costoMateriales: 0,
+          manoObraDirecta: 0, transporte: monto, gastoClienteDirecto: 0,
+          gastoGeneral: 0, margenBruto: null, contribucion: null, ebitda: null,
+          completo: true,
+        })
+      }
+    }
+
     filas.forEach((fila) => {
       if (!fila.completo || fila.costoMateriales === null) return
       fila.margenBruto = fila.ventasNetas - fila.costoMateriales - fila.manoObraDirecta
@@ -534,7 +592,7 @@ export default function ReporteRentabilidadSku({
       fila.ebitda = fila.contribucion - fila.gastoGeneral
     })
     return { filas, costosSinAsignar }
-  }, [clientes, productos, relaciones, costos, ventas, devoluciones, facturas, nomina, promociones, reglas, desde, hasta])
+  }, [clientes, productos, relaciones, costos, ventas, devoluciones, facturas, transporteClasificado, nomina, promociones, reglas, desde, hasta])
 
   const opcionesClientes = useMemo(() => {
     const mapa = new Map<string, { key: string; nombre: string }>()
@@ -747,15 +805,17 @@ export default function ReporteRentabilidadSku({
   }, [filasReporte])
 
   function aplicarPeriodo() {
-    if (!desdeEdicion || !hastaEdicion || desdeEdicion > hastaEdicion) {
-      setErrorPeriodo("El rango de fechas no es válido.")
+    const fin = modo === "PYG_CLIENTE" && desdeEdicion ? ultimoDiaMes(desdeEdicion) : hastaEdicion
+    if (!desdeEdicion || !fin || desdeEdicion > fin) {
+      setErrorPeriodo(modo === "PYG_CLIENTE" ? "Selecciona un mes válido." : "El rango de fechas no es válido.")
       return
     }
     setErrorPeriodo("")
-    if (desde !== desdeEdicion || hasta !== hastaEdicion) setCargando(true)
+    if (modo === "PYG_CLIENTE") periodoInicializadoRef.current = true
+    if (desde !== desdeEdicion || hasta !== fin) setCargando(true)
     else if (error) void cargar()
     setDesde(desdeEdicion)
-    setHasta(hastaEdicion)
+    setHasta(fin)
   }
 
   function exportarCsv() {
@@ -857,17 +917,21 @@ export default function ReporteRentabilidadSku({
       </header>
 
       <section className={`upr-filters ${modo === "PYG_CLIENTE" ? "client-mode" : ""}`}>
-        <label><span>Desde</span><input type="date" value={desdeEdicion} onChange={(e) => setDesdeEdicion(e.target.value)} /></label>
-        <label><span>Hasta</span><input type="date" value={hastaEdicion} onChange={(e) => setHastaEdicion(e.target.value)} /></label>
+        {modo === "PYG_CLIENTE" ? (
+          <label><span>Mes</span><input type="month" value={desdeEdicion.slice(0, 7)} onChange={(e) => setDesdeEdicion(e.target.value ? `${e.target.value}-01` : "")} /></label>
+        ) : <>
+          <label><span>Desde</span><input type="date" value={desdeEdicion} onChange={(e) => setDesdeEdicion(e.target.value)} /></label>
+          <label><span>Hasta</span><input type="date" value={hastaEdicion} onChange={(e) => setHastaEdicion(e.target.value)} /></label>
+        </>}
         <label><span>Cliente</span><select value={clienteFiltro} onChange={(e) => { setClienteFiltro(e.target.value); setSkuFiltro("TODOS") }}><option value="TODOS">Todos los clientes</option>{opcionesClientes.map((item) => <option key={item.key} value={item.key}>{item.nombre}</option>)}</select></label>
         {modo === "SKU" && <label><span>SKU</span><select value={skuFiltro} onChange={(e) => setSkuFiltro(e.target.value)}><option value="TODOS">Todos los SKU</option>{opcionesSku.map((item) => <option key={item.key} value={item.key}>{item.nombre} · {item.codigo}</option>)}</select></label>}
-        <button type="button" onClick={aplicarPeriodo} disabled={cargando}>{cargando ? "Calculando…" : "Aplicar periodo"}</button>
+        <button type="button" onClick={aplicarPeriodo} disabled={cargando}>{cargando ? "Calculando…" : modo === "PYG_CLIENTE" ? "Aplicar mes" : "Aplicar periodo"}</button>
       </section>
 
       {(errorPeriodo || error) && <div className="upr-error" role="alert">{errorPeriodo || error}</div>}
       {avisos.length > 0 && <div className="upr-warning">No se pudieron cargar: {avisos.join(", ")}. Los indicadores relacionados pueden estar incompletos.</div>}
       {!cargando && ventas.length === 0 && <div className="upr-warning">No existen ventas importadas entre {desde} y {hasta}. Puedes escoger cualquier cliente o SKU, pero el reporte mostrará resultados cuando se cargue la facturación de ese periodo en el módulo Ventas.</div>}
-      {ventas.length > 0 && calculo.costosSinAsignar > 0 && <div className="upr-warning">{moneda(calculo.costosSinAsignar)} de gastos no pudieron asignarse porque no existe una base suficiente de ventas en el periodo.</div>}
+      {!cargando && calculo.costosSinAsignar > 0 && <div className="upr-warning">{moneda(calculo.costosSinAsignar)} de gastos del periodo quedaron sin asignar a clientes.</div>}
 
       {(modo === "SKU" || clienteFiltro === "TODOS") && <section className="upr-kpis">
         {modo === "PYG_CLIENTE" ? (
