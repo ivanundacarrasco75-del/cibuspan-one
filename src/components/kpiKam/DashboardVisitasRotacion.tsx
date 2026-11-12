@@ -16,7 +16,7 @@ import { CLAVE_REVISION_CAMPO, type FocoRevisionCampo } from "../../utils/revisi
 const VACIO: DatosDashboardCampo = { clientes: [], locales: [], productos: [], registros: [] }
 const OPCIONES_INDICADOR: IndicadorCampo[] = [
   "rotacion", "precio", "precio_afiliado", "venta",
-  "participacion_clase", "participacion_subclase", "stock", "dias",
+  "participacion_clase", "participacion_subclase", "stock", "dias", "caras",
 ]
 const COLORES = ["#465f80", "#4a74aa", "#4789cc", "#429df1", "#38bdf8"]
 const COLOR_PROMOCION = "#4ade80"
@@ -56,7 +56,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
     let vigente = true
     if (!desde || !hasta) { setCargando(false); return }
     setCargando(true); setError("")
-    void obtenerDashboardVisitasRotacion(clienteId, desde, corte).then((respuesta) => {
+    void obtenerDashboardVisitasRotacion(clienteId, desde, corte, { soloAsignados: true }).then((respuesta) => {
       if (vigente) setDatos(respuesta)
     }).catch((err) => {
       if (vigente) setError(err instanceof Error ? err.message : "No se pudieron cargar las visitas.")
@@ -139,7 +139,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
         </div>
         {series.length > 0 && !series.some((s) => s.semanas.some((p) => p.valor !== null)) && <p className="vr-estado">No hay mediciones de {config.nombre.toLowerCase()} para estos filtros en las cinco semanas.</p>}
         {promociones === "ERROR" && <p className="vr-nota" role="status">No se pudieron consultar las promociones de estas visitas.</p>}
-        {!series.length ? <p className="vr-estado">No hay SKU activos disponibles.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} alRevisar={abrirRevision} />}
+        {!series.length ? <p className="vr-estado">No hay SKU activos asignados para estos clientes.</p> : <GraficoSku series={series} semanas={semanas} unidad={config.unidad} alRevisar={abrirRevision} />}
         <p className="vr-nota">Cada barra usa la última revisión de ese SKU en cada local y semana. El borde rojo indica que alguna medición incluida del indicador seleccionado está pendiente de verificar. “Sin dato” significa que no hay una medición disponible para el filtro elegido; cero es un valor registrado. Al cambiar el número de locales revisados, la comparación puede variar por cobertura.{esActual && " La semana actual aún está en curso."}</p>
         {origen !== "TODOS" && <p className="vr-nota">El tipo de visita usa el rol registrado al guardar. Las visitas antiguas sin rol identificado aparecen en “Todas las visitas”.</p>}
       </section>

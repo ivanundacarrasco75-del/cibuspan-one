@@ -8,6 +8,8 @@ Selector de Visitas y rotación, 11/11/2026. El commit `838ebc0` deja ocho opcio
 
 Promociones en Visitas y rotación, 12/11/2026. Las barras marcan PROMO o PROMO PARCIAL según las promociones registradas para el cliente y SKU en la fecha de las mediciones incluidas. El gráfico, la tabla y la descarga muestran los SKU del catálogo activo. Las barras usan tonos de azul por semana y verde cuando hay descuento. El borde rojo señala mediciones pendientes. Al pasar el cursor se ve el porcentaje o el valor por unidad de las promociones que coincidieron con las mediciones. La consulta usa los permisos actuales para leer las promociones. Se pospuso el cambio del promedio hasta observar las próximas semanas con visitas regulares. Publicado en producción con el commit `80cfdec`, despliegue `b5250a06`. Se verificó que el enlace público carga el código compilado del dashboard y que el endpoint de capturas confirma Supabase de contingencia, R2 y firma.
 
+Catálogo de Visitas y rotación, 12/11/2026. El selector incluye Caras en percha. El dashboard muestra productos activos con una asignación activa en Cliente - Producto y usa solo las mediciones que corresponden a esa asignación. Todos los clientes combina los catálogos autorizados por cliente. Pendiente de publicación.
+
 Guía de trabajo para el siguiente chat. Historial iniciado el 12 de octubre de 2026; última actualización al final: 04/11/2026 (cierre y corrección de despachos). Leer primero `AGENTS.md` y comprobar los archivos y el último commit actual. Este documento explica el método; no sustituye el código ni demuestra qué versión está publicada.
 
 ## Proyecto y forma de trabajar
