@@ -6,6 +6,7 @@ const campos = [
   { clave: "precio", etiqueta: "Precio propuesto sin IVA por unidad (USD)" },
   { clave: "unidades", etiqueta: "Unidades previstas" },
   { clave: "materiales", etiqueta: "Materiales y empaque por unidad (USD)" },
+  { clave: "transporte", etiqueta: "Transporte total del pedido (USD)" },
   { clave: "descuento", etiqueta: "Descuento (%)" },
   { clave: "devolucion", etiqueta: "Devoluciones previstas (%)" },
   { clave: "objetivo", etiqueta: "Margen mínimo deseado (%)" },
@@ -114,11 +115,16 @@ export default function SimuladorCostosCotizacion() {
   const objetivo = tasa(valores.objetivo)
   const unidades = importe(valores.unidades)
   const unidadesValidas = unidades !== null && Number.isSafeInteger(unidades) && unidades > 0
+  const transporteBalance = unidadesValidas && transporteUnidad !== null
+    ? transporteUnidad * unidades : null
+  const transportePedido = valores.transporte?.trim() ? importe(valores.transporte) : transporteBalance
+  const manoObraPedido = unidadesValidas && modUnidad !== null ? modUnidad * unidades : null
   const costoProduccion = unidadesValidas && materiales !== null && modUnidad !== null && cifUnidad !== null
     ? (materiales + modUnidad + cifUnidad) * unidades
     : null
-  const gastosTotales = unidadesValidas && transporteUnidad !== null && gastosUnidad !== null
-    ? (transporteUnidad + gastosUnidad) * unidades : null
+  const otrosGastosPedido = unidadesValidas && gastosUnidad !== null ? gastosUnidad * unidades : null
+  const gastosTotales = transportePedido !== null && otrosGastosPedido !== null
+    ? transportePedido + otrosGastosPedido : null
   const costoTotal = costoProduccion !== null && gastosTotales !== null ? costoProduccion + gastosTotales : null
   const costoUnitario = costoTotal !== null && unidadesValidas ? costoTotal / unidades : null
   const factorNeto = descuento !== null && devolucion !== null ? (1 - descuento) * (1 - devolucion) : null
@@ -139,7 +145,8 @@ export default function SimuladorCostosCotizacion() {
     ["Ventas al precio propuesto", venta, moneda],
     ["Ventas netas después de descuento y devoluciones", ventaNeta, moneda],
     ["Costo total de producción", costoProduccion, moneda],
-    ["Transporte y otros gastos", gastosTotales, moneda],
+    ["Transporte aplicado al pedido", transportePedido, moneda],
+    ["Otros gastos asignados al pedido", otrosGastosPedido, moneda],
     ["Costo total con gastos", costoTotal, moneda],
     ["Costo por unidad", costoUnitario, monedaUnidad],
     ["Precio de equilibrio por unidad con los ajustes", precioEquilibrio, monedaUnidad],
@@ -175,7 +182,8 @@ export default function SimuladorCostosCotizacion() {
                 inputMode={clave === "unidades" ? "numeric" : "decimal"}
                 value={texto}
                 aria-invalid={invalido}
-                placeholder={clave === "materiales" && costoCatalogo !== null ? monedaUnidad.format(costoCatalogo) : undefined}
+                placeholder={clave === "materiales" && costoCatalogo !== null ? monedaUnidad.format(costoCatalogo)
+                  : clave === "transporte" && transporteBalance !== null ? moneda.format(transporteBalance) : undefined}
                 onChange={(e) => setValores((actual) => ({ ...actual, [clave]: e.target.value }))}
               />
               {invalido && <small>{esTasa ? clave === "objetivo" ? "Ingresa un porcentaje desde 0 y menor que 100." : "Ingresa un porcentaje entre 0 y 100."
@@ -184,6 +192,10 @@ export default function SimuladorCostosCotizacion() {
                 {referencia === null ? "Consultando el costo de materiales y empaque…" : costoCatalogo === null
                   ? "Costo de catálogo incompleto o no disponible. Ingresa un importe."
                   : `Costo de catálogo: ${monedaUnidad.format(costoCatalogo)}. Puedes reemplazarlo.`}
+              </small>}
+              {clave === "transporte" && <small>
+                {transporteBalance === null ? "Ingresa el flete del pedido o espera la referencia del balance y completa las unidades."
+                  : `Sugerido por el balance: ${moneda.format(transporteBalance)}. Deja el campo vacío para usarlo o escribe el flete total del pedido. 0 indica que no hay flete.`}
               </small>}
             </label>
           )
@@ -202,12 +214,14 @@ export default function SimuladorCostosCotizacion() {
       {base && <section className="cotizacion-base">
         <h3>Base contable de {mesBalance.format(new Date(base.periodo + "T00:00:00Z"))}</h3>
         <p>Balance importado: {base.archivos.length ? base.archivos.join(", ") : "nombre del archivo no disponible"}. Mano de obra tomada de los roles de pago del mismo mes.</p>
-        <p>Mano de obra y CIF repartidos entre {numero.format(base.unidadesProducidas)} unidades producidas. Transporte y otros gastos repartidos entre {numero.format(base.unidadesVendidas)} unidades facturadas del negocio.</p>
+        <p>Mano de obra: {moneda.format(base.manoObra)} ÷ {numero.format(base.unidadesProducidas)} unidades producidas.
+          {manoObraPedido !== null && ` Al pedido se le asignan ${moneda.format(manoObraPedido)} a esa misma tarifa.`}
+          {" "}El CIF usa las mismas unidades producidas. Las referencias de flete y otros gastos usan {numero.format(base.unidadesVendidas)} unidades facturadas.</p>
         <dl className="cotizacion-resultados">
           {([
             ["Mano de obra directa por unidad", modUnidad],
             ["CIF por unidad", cifUnidad],
-            ["Transporte por unidad", transporteUnidad],
+            ["Referencia de transporte por unidad del balance", transporteUnidad],
             ["Otros gastos por unidad", gastosUnidad],
           ] as const).map(([etiqueta, costo]) => (
             <div key={etiqueta}><dt>{etiqueta}</dt><dd>{costo === null ? "—" : monedaUnidad.format(costo)}</dd></div>
