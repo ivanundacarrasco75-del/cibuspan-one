@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Publicación del flete por cliente. El commit `7078062` está activo en producción, despliegue `309e2160`. Pasó `npm run build` y se confirmó que el dominio público sirve el selector de cliente y la consulta al transporte clasificado del Supabase operativo.
+
 Flete de cotización por cliente, 13/11/2026. El simulador identifica al cliente si el producto tiene una sola asociación activa. Se puede elegir otro cliente o usar expresamente el promedio general. Para un cliente seleccionado usa su transporte atribuido en el Libro Mayor y sus unidades facturadas del mes cerrado de referencia. Si falta esa base, solicita el importe del pedido. El flete sigue editable, incluido cero. Se comprobó con rol autenticado que Tuti tiene 3.180 USD de transporte y 25.800 unidades en agosto de 2026, equivalentes a 123,26 USD para 1.000 rollos. Cambio de frontend, sin SQL nuevo.
 
 Publicación del costeo del rollo, 13/11/2026. Cloudflare Pages publicó `9d532b0` en producción como despliegue `2c0f469d`. Pasó `npm run build` con Supabase operativo. El dominio público sirve el Simulador de costos de Pagos y Finanzas > Resultados y su consulta a `fm_vw_productos_costo_completo`. Se verificaron en Supabase con rol autenticado de administración los dos importes completos, y en el dominio público el proyecto operativo, R2 y firma. Para usar el costo automático en el simulador se elige el SKU como producto de referencia y se deja vacío el campo de materiales.
