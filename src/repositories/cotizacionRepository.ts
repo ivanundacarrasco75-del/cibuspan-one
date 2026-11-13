@@ -16,6 +16,20 @@ export type BaseCostosCotizacion = {
 
 const cuentasTransporte = new Set(["6.1.01.2.13.01", "6.1.01.2.13.02"])
 
+export async function obtenerTransporteClienteCotizacion(periodo: string, clienteId: string) {
+  const { data, error } = await supabase.from("fin_vw_transporte_cliente_clasificado")
+    .select("gasto_transporte,unidades_facturadas")
+    .eq("periodo", periodo).eq("cliente_id", clienteId).maybeSingle()
+  if (error) throw error
+  if (data?.gasto_transporte == null || data.unidades_facturadas == null) return null
+
+  const total = Number(data.gasto_transporte)
+  const unidades = Number(data.unidades_facturadas)
+  return Number.isFinite(total) && total >= 0 && Number.isFinite(unidades) && unidades > 0
+    ? { total, unidades }
+    : null
+}
+
 export async function obtenerBaseCostosCotizacion(): Promise<BaseCostosCotizacion | null> {
   const [finanzas, cierres, nomina] = await Promise.all([
     supabase.from("fin_vw_costos_gastos_mensual")

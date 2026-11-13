@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
-import { obtenerBaseCostosCotizacion, type BaseCostosCotizacion } from "../repositories/cotizacionRepository"
+import {
+  obtenerBaseCostosCotizacion,
+  obtenerTransporteClienteCotizacion,
+  type BaseCostosCotizacion,
+} from "../repositories/cotizacionRepository"
+import { obtenerClientesDb, type ClienteDb } from "../services/catalogoService"
 
 const campos = [
   { clave: "precio", etiqueta: "Precio propuesto sin IVA por unidad (USD)" },
@@ -42,6 +47,16 @@ function mostrarLimite(limite: number | null) {
 export default function SimuladorCostosCotizacion() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [productoId, setProductoId] = useState("")
+  const [clientes, setClientes] = useState<ClienteDb[] | null>(null)
+  const [clienteElegido, setClienteElegido] = useState<string | null>(null)
+  const [clienteProducto, setClienteProducto] = useState<string | null>(null)
+  const [errorClientes, setErrorClientes] = useState(false)
+  const [flete, setFlete] = useState<{
+    clienteId: string
+    periodo: string
+    datos: Awaited<ReturnType<typeof obtenerTransporteClienteCotizacion>>
+    error?: boolean
+  } | null>(null)
   const [aviso, setAviso] = useState("")
   const [referencia, setReferencia] = useState<{ productoId: string; costo: number | null } | null>(null)
   const [valores, setValores] = useState<Partial<Record<Campo, string>>>({
@@ -61,6 +76,44 @@ export default function SimuladorCostosCotizacion() {
     })
     return () => { vigente = false }
   }, [])
+
+  useEffect(() => {
+    let vigente = true
+    obtenerClientesDb().then((datos) => {
+      if (vigente) setClientes(datos.filter((cliente) => cliente.activo))
+    }).catch(() => {
+      if (vigente) setErrorClientes(true)
+    })
+    return () => { vigente = false }
+  }, [])
+
+  useEffect(() => {
+    if (!productoId || !clientes) return
+    let vigente = true
+    async function consultarCliente() {
+      const { data, error } = await supabase.from("cliente_productos")
+        .select("cliente_id").eq("producto_id", productoId).eq("activo", true)
+      if (!vigente || error) return
+      const asociados = clientes?.filter((cliente) => data.some((fila) => fila.cliente_id === cliente.id)) ?? []
+      setClienteProducto(asociados.length === 1 ? asociados[0].id : null)
+    }
+    void consultarCliente()
+    return () => { vigente = false }
+  }, [productoId, clientes])
+
+  const clienteId = clienteElegido ?? (productoId ? clienteProducto : "")
+  const cliente = clientes?.find((fila) => fila.id === clienteId)
+  const periodo = base?.periodo
+  useEffect(() => {
+    if (!clienteId || !periodo) return
+    let vigente = true
+    obtenerTransporteClienteCotizacion(periodo, clienteId).then((datos) => {
+      if (vigente) setFlete({ clienteId, periodo, datos })
+    }).catch(() => {
+      if (vigente) setFlete({ clienteId, periodo, datos: null, error: true })
+    })
+    return () => { vigente = false }
+  }, [clienteId, periodo])
 
   useEffect(() => {
     let vigente = true
@@ -107,7 +160,11 @@ export default function SimuladorCostosCotizacion() {
   const materiales = importe(valores.materiales) ?? (!valores.materiales?.trim() ? costoCatalogo : null)
   const modUnidad = base ? base.manoObra / base.unidadesProducidas : null
   const cifUnidad = base ? base.cif / base.unidadesProducidas : null
-  const transporteUnidad = base ? base.transporte / base.unidadesVendidas : null
+  const fleteCliente = flete && flete.clienteId === clienteId && flete.periodo === periodo ? flete : null
+  const transporteUnidad = clienteId === ""
+    ? (base ? base.transporte / base.unidadesVendidas : null)
+    : (fleteCliente?.datos ? fleteCliente.datos.total / fleteCliente.datos.unidades : null)
+  const origenFlete = cliente ? `Libro Mayor · ${cliente.nombre}` : "promedio general del balance"
   const gastosUnidad = base ? base.gastos / base.unidadesVendidas : null
   const precio = importe(valores.precio)
   const descuento = tasa(valores.descuento)
@@ -164,11 +221,25 @@ export default function SimuladorCostosCotizacion() {
           <select value={productoId} onChange={(e) => {
             setProductoId(e.target.value)
             setReferencia(null)
+            setClienteProducto(null)
+            setClienteElegido(null)
+            setFlete(null)
             setValores((actual) => ({ ...actual, materiales: "" }))
           }}>
             <option value="">Ingresar costos manualmente</option>
             {productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.codigo} · {producto.nombre}</option>)}
           </select>
+        </label>
+        <label>Cliente para calcular el flete
+          <select value={clienteId ?? "__auto"} onChange={(e) => {
+            setClienteElegido(e.target.value)
+            setFlete(null)
+          }}>
+            {clienteId === null && <option value="__auto" disabled>Selecciona un cliente</option>}
+            <option value="">Sin cliente · promedio general</option>
+            {clientes?.map((fila) => <option key={fila.id} value={fila.id}>{fila.nombre}</option>)}
+          </select>
+          {errorClientes && <small>El catálogo de clientes no está disponible. Puedes ingresar el flete del pedido.</small>}
         </label>
         {campos.map(({ clave, etiqueta }) => {
           const texto = valores[clave] ?? ""
@@ -194,8 +265,12 @@ export default function SimuladorCostosCotizacion() {
                   : `Costo de catálogo: ${monedaUnidad.format(costoCatalogo)}. Puedes reemplazarlo.`}
               </small>}
               {clave === "transporte" && <small>
-                {transporteBalance === null ? "Ingresa el flete del pedido o espera la referencia del balance y completa las unidades."
-                  : `Sugerido por el balance: ${moneda.format(transporteBalance)}. Deja el campo vacío para usarlo o escribe el flete total del pedido. 0 indica que no hay flete.`}
+                {transporteBalance !== null
+                  ? `Sugerido según ${origenFlete}: ${moneda.format(transporteBalance)}. Puedes reemplazarlo, incluso por 0.`
+                  : fleteCliente?.error ? "No se pudo consultar el transporte clasificado de este cliente. Ingresa el flete del pedido."
+                  : fleteCliente && !fleteCliente.datos ? "El cliente no tiene transporte clasificado con unidades facturadas en este mes. Ingresa el flete del pedido."
+                  : clienteId === null ? "Confirma el cliente o ingresa el flete del pedido."
+                  : "Completa las unidades y espera el flete sugerido, o ingresa el flete del pedido."}
               </small>}
             </label>
           )
@@ -216,12 +291,14 @@ export default function SimuladorCostosCotizacion() {
         <p>Balance importado: {base.archivos.length ? base.archivos.join(", ") : "nombre del archivo no disponible"}. Mano de obra tomada de los roles de pago del mismo mes.</p>
         <p>Mano de obra: {moneda.format(base.manoObra)} ÷ {numero.format(base.unidadesProducidas)} unidades producidas.
           {manoObraPedido !== null && ` Al pedido se le asignan ${moneda.format(manoObraPedido)} a esa misma tarifa.`}
-          {" "}El CIF usa las mismas unidades producidas. Las referencias de flete y otros gastos usan {numero.format(base.unidadesVendidas)} unidades facturadas.</p>
+          {" "}El CIF usa las mismas unidades producidas. Los otros gastos usan {numero.format(base.unidadesVendidas)} unidades facturadas del negocio.</p>
+        {fleteCliente?.datos && <p>Transporte clasificado de {cliente?.nombre} en el Libro Mayor.
+          {" "}{moneda.format(fleteCliente.datos.total)} ÷ {numero.format(fleteCliente.datos.unidades)} unidades facturadas del cliente.</p>}
         <dl className="cotizacion-resultados">
           {([
             ["Mano de obra directa por unidad", modUnidad],
             ["CIF por unidad", cifUnidad],
-            ["Referencia de transporte por unidad del balance", transporteUnidad],
+            ["Flete sugerido por unidad", transporteUnidad],
             ["Otros gastos por unidad", gastosUnidad],
           ] as const).map(([etiqueta, costo]) => (
             <div key={etiqueta}><dt>{etiqueta}</dt><dd>{costo === null ? "—" : monedaUnidad.format(costo)}</dd></div>
