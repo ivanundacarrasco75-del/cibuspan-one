@@ -121,20 +121,11 @@ export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarP
       <button type="button" disabled={recuperando} aria-pressed={vista === "CAPTURAS"} onClick={() => setVista("CAPTURAS")}>Releer capturas / visitas{!cargando && !error && !ventana.error && ` (${revisiones.length})`}</button>
       <button type="button" className="vr-boton-revision" disabled={recuperando || !!ventana.error} onClick={() => abrirRevision()}>Revisar pendientes del indicador</button>
     </div>
-    <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
-    <p role="status">{soloValidados ? "Este filtro muestra sólo datos verificados y manuales declarados." : `${pendientesIndicador} mediciones de ${config.nombre.toLowerCase()} pendientes de verificar en el gráfico. Pulsa una barra con borde rojo para abrir la revisión de esa semana.`}</p>
     {mensaje && <p role="status">{mensaje}</p>}
     {cargando && <p className="vr-estado" role="status">Cargando las cinco semanas de visitas…</p>}
     {!cargando && !ventana.error && !error && <>
-      <div className="vr-contexto"><span>{clientesTexto} / {localTexto}</span><span>{config.nombre} · {config.unidad}</span></div>
       {vista === "EVOLUCION" && <>
-      <div className="vr-cards">
-        <article><span>SKU con dato {esActual ? "esta semana" : "en la semana seleccionada"}</span><strong>{medidos.length} / {series.length}</strong><small>Para {config.nombre.toLowerCase()}</small></article>
-        <article><span>Locales revisados</span><strong>{new Set(revisiones.map((r) => r.local_id)).size}</strong><small>Semana de referencia</small></article>
-        <article><span>SKU comparables</span><strong>{comparables.length}</strong><small>Con dato en las dos últimas semanas</small></article>
-        <article><span>Última visita</span><strong>{revisiones.length ? fecha(revisiones.map((r) => r.fecha).sort().at(-1)!) : "—"}</strong><small>{esActual ? "Semana en curso" : "Semana seleccionada"}</small></article>
-      </div>
       <section className="vr-chart-panel">
         <header><div><h3>{config.nombre} por SKU</h3><p>{config.descripcion}</p></div><button type="button" onClick={descargar} disabled={!series.length}>Descargar datos</button></header>
         <div className="vr-leyenda">
@@ -153,6 +144,14 @@ export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarP
         const distinto = s.semanas[4].locales_con_dato !== s.semanas[3].locales_con_dato
         return <tr key={s.id}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={p.pendientes?.length ? "vr-dato-pendiente" : i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small>{!!p.pendientes?.length && <button type="button" className="vr-boton-revision" onClick={() => abrirRevision(p.pendientes, semanas[i])}>Revisar ({p.pendientes.length})</button>}</td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
       })}</tbody></table></div></section>
+      <div className="vr-contexto"><span>{clientesTexto} / {localTexto}</span><span>{config.nombre} · {config.unidad}</span></div>
+      <div className="vr-cards">
+        <article><span>SKU con dato {esActual ? "esta semana" : "en la semana seleccionada"}</span><strong>{medidos.length} / {series.length}</strong><small>Para {config.nombre.toLowerCase()}</small></article>
+        <article><span>Locales revisados</span><strong>{new Set(revisiones.map((r) => r.local_id)).size}</strong><small>Semana de referencia</small></article>
+        <article><span>SKU comparables</span><strong>{comparables.length}</strong><small>Con dato en las dos últimas semanas</small></article>
+        <article><span>Última visita</span><strong>{revisiones.length ? fecha(revisiones.map((r) => r.fecha).sort().at(-1)!) : "—"}</strong><small>{esActual ? "Semana en curso" : "Semana seleccionada"}</small></article>
+      </div>
+
       </>}
       {vista === "CAPTURAS" && <section className="vr-revisiones">
         <h3>Capturas y datos de visitas</h3>
@@ -167,6 +166,8 @@ export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarP
         </article>)}</div>
       </section>}
     </>}
+    <p role="status">{soloValidados ? "Este filtro muestra sólo datos verificados y manuales declarados." : `${pendientesIndicador} mediciones de ${config.nombre.toLowerCase()} pendientes de verificar en el gráfico. Pulsa una barra con borde rojo para abrir la revisión de esa semana.`}</p>
+    <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
   </section>
 }
 
