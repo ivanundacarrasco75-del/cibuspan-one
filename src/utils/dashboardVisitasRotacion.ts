@@ -37,7 +37,7 @@ export type RegistroDashboardCampo = {
   responsable_nombre?: string | null; visita_id?: string
   valores: Record<IndicadorCampo, number | null>
 }
-const CAMPO_FUENTE_INDICADOR: Partial<Record<IndicadorCampo, keyof LecturaFavorita>> = {
+export const CAMPO_FUENTE_INDICADOR: Partial<Record<IndicadorCampo, keyof LecturaFavorita>> = {
   rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local",
   precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor",
   participacion_clase: "participacion_clase", participacion_subclase: "participacion_subclase",

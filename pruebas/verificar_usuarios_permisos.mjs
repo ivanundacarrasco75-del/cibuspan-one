@@ -42,6 +42,7 @@ test('Todas las rutas existentes mantienen una categoría de permisos, sin alter
   const { PANTALLAS_APLICACION } = servicio(() => {})
   for (const [, ruta] of leer('src/App.tsx').matchAll(/case "([^"]+)":/g)) assert.ok(PANTALLAS_APLICACION.includes(permisoDePantalla(ruta)), ruta)
   assert.equal(permisoDePantalla('Dashboard · Rentabilidad'), 'Dashboard')
+  assert.equal(permisoDePantalla('Dashboard · Visitas y rotación'), 'Campo comercial')
   assert.equal(permisoDePantalla('Pagos y Finanzas · Roles de pago'), 'Administración')
 })
 

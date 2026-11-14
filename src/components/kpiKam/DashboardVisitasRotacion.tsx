@@ -2,16 +2,15 @@ import { useEffect, useMemo, useState } from "react"
 import { obtenerDashboardVisitasRotacion, type DatosDashboardCampo } from "../../repositories/dashboardVisitasRotacionRepository"
 import { obtenerPromocionesDb, type PromocionDb } from "../../repositories/promocionesRepository"
 import {
-  valorIndicadorValidadoCampo, fechaHoyCampoDashboard, INDICADORES_CAMPO, resumirSemanasCampo, semanasDashboardCampo, variacionSemanalCampo,
+  CAMPO_FUENTE_INDICADOR, valorIndicadorValidadoCampo, fechaHoyCampoDashboard, INDICADORES_CAMPO, resumirSemanasCampo, semanasDashboardCampo, variacionSemanalCampo,
   type IndicadorCampo, type OrigenVisitaCampo, type SerieSkuCampo, type SemanaCampo,
 } from "../../utils/dashboardVisitasRotacion"
 import "./DashboardVisitasRotacion.css"
 import { FotosCampo, UbicacionCampo } from "./UbicacionCampo"
 import RecuperarLecturaVisita from "./RecuperarLecturaVisita"
 import RecuperarCapturasPendientes from "./RecuperarCapturasPendientes"
-import RevisionDatosCampo from "./RevisionDatosCampo"
 import { camposPendientesDatosCampo } from "../../utils/estadoDatosCampo"
-import { CLAVE_REVISION_CAMPO, type FocoRevisionCampo } from "../../utils/revisionDatosCampo"
+import { CLAVE_REVISION_CAMPO, type FiltrosRevisionCampo, type FocoRevisionCampo } from "../../utils/revisionDatosCampo"
 
 const VACIO: DatosDashboardCampo = { clientes: [], locales: [], productos: [], registros: [] }
 const OPCIONES_INDICADOR: IndicadorCampo[] = [
@@ -26,7 +25,7 @@ const formatoDescuento = new Intl.NumberFormat("es-EC", { maximumFractionDigits:
 const fecha = (valor: string) => `${valor.slice(8, 10)}/${valor.slice(5, 7)}`
 const nombreCorto = (nombre: string) => nombre.replace(/^PANGOL[IÍ]N\s+/i, "")
 
-export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: { revision: unknown; cambiarPantalla?: (pantalla: string) => void }) {
+export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarPantalla: (pantalla: string) => void }) {
   const [hoy] = useState(() => fechaHoyCampoDashboard())
   const [referencia, setReferencia] = useState(hoy)
   const [clienteId, setClienteId] = useState("")
@@ -40,8 +39,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
   const [error, setError] = useState("")
   const [mensaje, setMensaje] = useState("")
   const [actualizacion, setActualizacion] = useState(0)
-  const [vista, setVista] = useState<"EVOLUCION" | "CAPTURAS" | "REVISION">("EVOLUCION")
-  const [focoRevision, setFocoRevision] = useState<FocoRevisionCampo | null>(null)
+  const [vista, setVista] = useState<"EVOLUCION" | "CAPTURAS">("EVOLUCION")
   const [recuperando, setRecuperando] = useState(false)
   const ventana = useMemo(() => {
     try {
@@ -62,7 +60,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
       if (vigente) setError(err instanceof Error ? err.message : "No se pudieron cargar las visitas.")
     }).finally(() => { if (vigente) setCargando(false) })
     return () => { vigente = false }
-  }, [clienteId, desde, hasta, corte, revision, actualizacion])
+  }, [clienteId, desde, hasta, corte, actualizacion])
   useEffect(() => {
     let vigente = true
     void obtenerPromocionesDb().then((respuesta) => {
@@ -71,7 +69,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
       if (vigente) setPromociones("ERROR")
     })
     return () => { vigente = false }
-  }, [revision, actualizacion])
+  }, [actualizacion])
   const config = INDICADORES_CAMPO.find((item) => item.id === indicador)!
   const unidadCambio = config.unidad === "%" ? "puntos porcentuales" : config.unidad
   const series = useMemo(() => resumirSemanasCampo({
@@ -89,9 +87,16 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
   const clientesTexto = datos.clientes.find((c) => c.id === clienteId)?.nombre ?? "Todos los clientes"
   const localTexto = datos.locales.find((l) => l.id === localId)?.nombre ?? "Todos los locales"
   function restablecer() { setClienteId(""); setLocalId(""); setIndicador("rotacion"); setOrigen("TODOS"); setReferencia(hoy) }
-  function abrirRevision(foco?: FocoRevisionCampo) {
-    if (cambiarPantalla) { try { if (foco) sessionStorage.setItem(CLAVE_REVISION_CAMPO, JSON.stringify(foco)); else sessionStorage.removeItem(CLAVE_REVISION_CAMPO) } catch { /* La lista sigue disponible si el navegador no admite almacenamiento. */ }; cambiarPantalla("Comercial · Revisión de datos") }
-    else { setFocoRevision(foco ?? null); setVista("REVISION") }
+  function abrirRevision(pendientes?: readonly FocoRevisionCampo[], semana?: SemanaCampo) {
+    const filtros: FiltrosRevisionCampo = {
+      campo: pendientes?.[0]?.campo ?? CAMPO_FUENTE_INDICADOR[indicador] ?? (indicador === "caras" ? "caras_percha" : ""),
+      desde: semana?.desde ?? desde,
+      hasta: semana && semana.hasta < corte ? semana.hasta : corte,
+      clienteId,
+      registrosBarra: pendientes?.map((p) => p.registroId),
+    }
+    try { sessionStorage.setItem(CLAVE_REVISION_CAMPO, JSON.stringify(filtros)) } catch { /* La revisión general sigue disponible. */ }
+    cambiarPantalla("Comercial · Revisión de datos")
   }
   function descargar() {
     const celda = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`
@@ -115,7 +120,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
     <div className="vr-vistas" aria-label="Vistas del dashboard">
       <button type="button" disabled={recuperando} aria-pressed={vista === "EVOLUCION"} onClick={() => setVista("EVOLUCION")}>Evolución semanal</button>
       <button type="button" disabled={recuperando} aria-pressed={vista === "CAPTURAS"} onClick={() => setVista("CAPTURAS")}>Releer capturas / visitas{!cargando && !error && !ventana.error && ` (${revisiones.length})`}</button>
-      <button type="button" className="vr-boton-revision" disabled={recuperando} onClick={() => abrirRevision()}>Revisar sólo datos dudosos</button>
+      <button type="button" className="vr-boton-revision" disabled={recuperando || !!ventana.error} onClick={() => abrirRevision()}>Revisar pendientes del indicador</button>
     </div>
     <RecuperarCapturasPendientes registros={registrosCapturas} locales={datos.locales} deshabilitado={cargando || !!error || !!ventana.error} alCambiarEstado={setRecuperando} alTerminar={() => setActualizacion((v) => v + 1)} />
     {(ventana.error || error) && <div className="vr-error" role="alert">{ventana.error || error}</div>}
@@ -146,10 +151,9 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
       <section className="vr-tabla-panel"><h3>Comparación de las cinco semanas</h3><p>{config.unidad} · Debajo de cada valor: locales con dato / locales revisados.</p><div className="vr-tabla-scroll"><table><thead><tr><th>SKU</th>{semanas.map((s) => <th key={s.desde}>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></th>)}<th>Variación vs anterior</th></tr></thead><tbody>{series.map((s) => {
         const cambio = variacionSemanalCampo(s.semanas[4], s.semanas[3])
         const distinto = s.semanas[4].locales_con_dato !== s.semanas[3].locales_con_dato
-        return <tr key={s.id}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={p.pendientes?.length ? "vr-dato-pendiente" : i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small>{!!p.pendientes?.length && <button type="button" className="vr-boton-revision" onClick={() => abrirRevision(p.pendientes![0])}>Revisar ({p.pendientes.length})</button>}</td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
+        return <tr key={s.id}><th>{nombreCorto(s.nombre)}<small>{s.codigo}</small></th>{s.semanas.map((p, i) => <td key={i} className={p.pendientes?.length ? "vr-dato-pendiente" : i === 4 ? "vr-actual" : ""}>{p.valor === null ? "Sin dato" : numero(p.valor)}<small>{p.locales_con_dato} / {p.locales_revisados} locales{p.ultima_fecha && ` · ${fecha(p.ultima_fecha)}`}</small>{!!p.pendientes?.length && <button type="button" className="vr-boton-revision" onClick={() => abrirRevision(p.pendientes, semanas[i])}>Revisar ({p.pendientes.length})</button>}</td>)}<td>{!cambio ? "—" : `${cambio.diferencia > 0 ? "+" : ""}${numero(cambio.diferencia)} ${unidadCambio}`}<small>{cambio?.porcentaje != null ? `${cambio.porcentaje > 0 ? "+" : ""}${numero(cambio.porcentaje)}%` : cambio ? "Base anterior cero" : "Falta dato comparable"}{cambio && distinto && " · Cobertura distinta"}</small></td></tr>
       })}</tbody></table></div></section>
       </>}
-      {vista === "REVISION" && <RevisionDatosCampo registros={registrosCapturas} foco={focoRevision} alGuardar={() => setActualizacion((v) => v + 1)} />}
       {vista === "CAPTURAS" && <section className="vr-revisiones">
         <h3>Capturas y datos de visitas</h3>
         <p>Semana del {fecha(semanas[4].desde)} al {fecha(corte)}. Selecciona cliente y local arriba; pulsa “Releer y guardar comprobados” para actualizar el SKU y el gráfico.</p>
@@ -166,7 +170,7 @@ export default function DashboardVisitasRotacion({ revision, cambiarPantalla }: 
   </section>
 }
 
-function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCampo[]; semanas: SemanaCampo[]; unidad: string; alRevisar: (f: FocoRevisionCampo) => void }) {
+function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCampo[]; semanas: SemanaCampo[]; unidad: string; alRevisar: (f: readonly FocoRevisionCampo[], semana: SemanaCampo) => void }) {
   const ancho = 1120, margen = 300, zona = 625, fila = 112
   const maximo = Math.max(1, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
   const minimo = Math.min(0, ...series.flatMap((s) => s.semanas.map((p) => p.valor ?? 0)))
@@ -191,8 +195,8 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
         const descripcion = `${s.nombre} · ${semanas[i].etiqueta} (${semanas[i].desde} – ${semanas[i].hasta}): ${p.valor === null ? "Sin dato" : `${numero(p.valor)} ${unidad}`} · ${p.locales_con_dato} locales con dato${detallePromocion}${descuentos ? ` · Descuento: ${descuentos}` : ""}`
         return <g key={i} {...(pendiente && {
           role: "button", tabIndex: 0, style: { cursor: "pointer" }, "aria-label": `Revisar ${descripcion}`,
-          onClick: () => alRevisar(pendiente),
-          onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alRevisar(pendiente) } },
+          onClick: () => alRevisar(p.pendientes!, semanas[i]),
+          onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alRevisar(p.pendientes!, semanas[i]) } },
         })}>
           <title>{descripcion}{pendiente && " · Pulsa para revisar"}</title>
           {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#708296" fontSize="10">Sin dato</text> : <>

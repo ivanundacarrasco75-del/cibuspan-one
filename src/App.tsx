@@ -45,6 +45,7 @@ const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
 const KpiKam = lazy(() => import("./pages/KpiKam"))
 const VisitasRotacion = lazy(() => import("./pages/VisitasRotacion"))
+const DashboardVisitasRotacion = lazy(() => import("./components/kpiKam/DashboardVisitasRotacion"))
 const VisitasDiarias = lazy(() => import("./pages/VisitasDiarias"))
 const RevisionDatosVisitas = lazy(() => import("./pages/RevisionDatosVisitas"))
 const SupervisionVisitas = lazy(() => import("./pages/SupervisionVisitas"))
@@ -301,6 +302,9 @@ function App() {
       // ---------------------------------------------------------
       case "Dashboard":
         return <DashboardV2 cambiarPantalla={setPantalla} />
+
+      case "Dashboard · Visitas y rotación":
+        return <DashboardVisitasRotacion cambiarPantalla={setPantalla} />
 
       case "Dashboard · Devoluciones":
         return (

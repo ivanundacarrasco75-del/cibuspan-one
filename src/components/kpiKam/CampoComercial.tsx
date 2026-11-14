@@ -17,7 +17,6 @@ import {
 import AlmacenamientoCapturas from "./AlmacenamientoCapturas"
 import KpiKamCobertura from "./KpiKamCobertura"
 import SupervisionCampo from "./SupervisionCampo"
-import DashboardVisitasRotacion from "./DashboardVisitasRotacion"
 import { combinarLecturaValidadaCampo } from "../../utils/validacionLecturasCampo"
 import { tieneCantidadesCaptura } from "../../utils/lecturaCapturasCampo"
 import { crearVisitaCampo, registrarSkuEnVisita, type VisitaActivaCampo } from "../../utils/visitaActivaCampo"
@@ -77,7 +76,7 @@ const CATALOGO_VACIO: CatalogoCampoComercial = {
   registros: [],
 }
 
-type VistaCampo = "REGISTRO" | "DASHBOARD" | "SUPERVISION" | "ADMIN"
+type VistaCampo = "REGISTRO" | "SUPERVISION" | "ADMIN"
 
 type BorradorCampo = {
   capturasSoloRespaldo?: boolean
@@ -117,7 +116,9 @@ export default function CampoComercial({
 }: Props) {
   const semana = useMemo(() => semanaActual(), [])
   const [borradorInicial] = useState<BorradorCampo>(leerBorradorCampo)
-  const [vista, setVista] = useState<VistaCampo>(borradorInicial.vista ?? "REGISTRO")
+  const [vista, setVista] = useState<VistaCampo>(
+    borradorInicial.vista === "SUPERVISION" || borradorInicial.vista === "ADMIN" ? borradorInicial.vista : "REGISTRO",
+  )
   const [catalogo, setCatalogo] = useState(CATALOGO_VACIO)
   const [visitaActiva, setVisitaActiva] = useState<VisitaActivaCampo | null>(borradorInicial.visitaActiva ?? null)
   const [clienteId, setClienteId] = useState(borradorInicial.clienteId ?? "")
@@ -527,11 +528,11 @@ export default function CampoComercial({
         <div>
           <span>GESTIÓN EN PUNTO DE VENTA</span>
           <h2>Cobertura y rotación</h2>
-          <p>Captura la información del local y revisa el resultado semanal.</p>
+          <p>Registra las visitas a los locales y revisa los datos pendientes.</p>
         </div>
         <nav>
           <button className={vista === "REGISTRO" ? "activo" : ""} onClick={() => setVista("REGISTRO")}>Registrar visita</button>
-          <button className={vista === "DASHBOARD" ? "activo" : ""} onClick={() => setVista("DASHBOARD")}>Dashboard semanal</button>
+          {cambiarPantalla && <button type="button" onClick={() => cambiarPantalla("Comercial · Revisión de datos")}>Revisión de datos</button>}
           {!soloCampo && ["KAM", "ADMINISTRADOR", "GERENTE"].includes(catalogo.rol) && <button className={vista === "SUPERVISION" ? "activo" : ""} onClick={() => setVista("SUPERVISION")}>Supervisión KAM</button>}
           {!soloCampo && catalogo.puede_administrar && <button className={vista === "ADMIN" ? "activo" : ""} onClick={() => setVista("ADMIN")}>Locales y reportes</button>}
         </nav>
@@ -545,8 +546,6 @@ export default function CampoComercial({
         <SupervisionCampo clientes={catalogo.clientes} />
       ) : vista === "ADMIN" && !soloCampo ? (
         <>{catalogo.rol === "ADMINISTRADOR" && <AlmacenamientoCapturas />}{catalogo.puede_administrar && <ConfigurarUbicacionLocales locales={catalogo.locales} actualizado={async () => { await cargar(); setMensaje("Ubicación del local registrada. Las próximas visitas se compararán con este punto."); onActualizado() }} />}<KpiKamCobertura periodo={periodo} cambiarPeriodo={cambiarPeriodo} onActualizado={onActualizado} /></>
-      ) : vista === "DASHBOARD" ? (
-        <DashboardVisitasRotacion revision={catalogo} cambiarPantalla={cambiarPantalla} />
       ) : (
         <div className="campo-flujo">
           {!visitaActiva ? <section className="campo-paso">

@@ -60,6 +60,19 @@ try {
   assert.equal(s.semanas[4].valor,1.2)
   assert.deepEqual(s.semanas[4].pendientes,[{registroId:'r',campo:'rotacion_diaria_unidades',fecha:r.fecha,clienteId:'c'}])
  })
+ await test('La revisión por indicador cuenta todos sus pendientes y puede limitarse a una barra',()=>{
+  const otraVisita={...r,id:'otra',fecha:'2026-10-15'}
+  const revisada={...r,id:'lista',verificacion_campos:{
+   ...r.verificacion_campos,rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2},
+   precio_comercio:{estado:'PENDIENTE',valor:2},
+  }}
+  const registros=[r,otraVisita,revisada]
+  const rotacion='rotacion_diaria_unidades'
+  assert.deepEqual(pendientesRevisionCampo(registros,rotacion).map(p=>p.registro.id),['r','otra'])
+  assert.deepEqual(pendientesRevisionCampo(registros,rotacion,['otra']).map(p=>p.clave),['otra:rotacion_diaria_unidades'])
+  assert.deepEqual(pendientesRevisionCampo(registros,rotacion,['lista']),[])
+  assert.deepEqual(pendientesRevisionCampo([revisada],'precio_comercio').map(p=>p.clave),['lista:precio_comercio'])
+ })
  await test('El precio pendiente no marca rotación; cada indicador abre su campo y su semana',()=>{
   const anterior={...r,id:'anterior',fecha:'2026-10-07',visitado_en:'2026-10-07T12:00:00Z',valores:{rotacion:1.2,precio:2}}
   const actual={...r,id:'actual',valores:{rotacion:1.2,precio:2},verificacion_campos:{

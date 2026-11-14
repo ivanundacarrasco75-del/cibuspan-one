@@ -51,10 +51,13 @@ const COLOR_FONDO = "#F8F5F1"
 const modulos: Modulo[] = [
   {
     id: "Inicio",
-    etiqueta: "Inicio",
+    etiqueta: "Dashboards",
     icono: "inicio",
     entrada: "Dashboard",
-    items: [],
+    items: [
+      { pantalla: "Dashboard", etiqueta: "General" },
+      { pantalla: "Dashboard · Visitas y rotación", etiqueta: "Visitas y rotación" },
+    ],
   },
   {
     id: "Comercial",
@@ -164,7 +167,7 @@ const modulos: Modulo[] = [
 ]
 
 function moduloDePantalla(pantalla: string): Modulo["id"] {
-  if (pantalla === "Dashboard") return "Inicio"
+  if (pantalla === "Dashboard" || pantalla.startsWith("Dashboard ·")) return "Inicio"
 
   if (pantalla.startsWith("Comercial ·")) return "Comercial"
   if (pantalla.startsWith("Producción ·")) return "Producción"

@@ -5,8 +5,18 @@ import { marcaProcesamientoCampo } from "./procesamientoAutomaticoCampo"
 
 export const CLAVE_REVISION_CAMPO = "cibuspan-one:revision-dato"
 export type FocoRevisionCampo = { registroId: string; campo: string; fecha: string; clienteId: string }
-export function pendientesRevisionCampo(registros: RegistroDashboardCampo[]) {
-  return registros.flatMap((registro) => camposPendientesDatosCampo(registro).map((c) => ({ ...c, registro, clave: `${registro.id}:${c.campo}` })))
+export type FiltrosRevisionCampo = {
+  campo: string; desde: string; hasta: string; clienteId: string
+  registrosBarra?: readonly string[]
+}
+export function pendientesRevisionCampo(registros: RegistroDashboardCampo[], campo = "", registrosBarra?: readonly string[]) {
+  const ids = registrosBarra && new Set(registrosBarra)
+  return registros.flatMap((registro) => {
+    if (ids && !ids.has(registro.id)) return []
+    return camposPendientesDatosCampo(registro)
+      .filter((pendiente) => !campo || pendiente.campo === campo)
+      .map((c) => ({ ...c, registro, clave: `${registro.id}:${c.campo}` }))
+  })
 }
 export function prepararRevisionDatoCampo(r: RegistroDashboardCampo, campo: string, valor: number | string | null) {
   const permitido = CAMPOS_LECTURA_VALIDABLES.find(([c]) => c === campo)
