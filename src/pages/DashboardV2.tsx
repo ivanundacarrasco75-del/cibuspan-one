@@ -265,17 +265,24 @@ function agrupacionPredeterminada(tipo: string): AgrupacionDashboard {
   return "DIA"
 }
 
-const TABS: { id: TabId; etiqueta: string; icono: string }[] = [
-  { id: "ejecutivo", etiqueta: "Ejecutivo", icono: "◆" },
-  { id: "comercial", etiqueta: "Comercial", icono: "↗" },
-  { id: "devoluciones", etiqueta: "Devoluciones", icono: "↩" },
-  { id: "produccion", etiqueta: "Producción", icono: "⚙" },
-  { id: "inventario", etiqueta: "Inventario", icono: "▦" },
-  { id: "financiero", etiqueta: "Financiero", icono: "$" },
-  { id: "costos_gastos", etiqueta: "Costos y gastos", icono: "▤" },
-  { id: "rentabilidad_piloto", etiqueta: "Rentabilidad piloto", icono: "%" },
-  { id: "kpi_kam", etiqueta: "Gestión Comercial", icono: "◎" },
-]
+const TITULOS: Record<TabId, string> = {
+  ejecutivo: "Revisión operativa",
+  comercial: "Comercial",
+  devoluciones: "Detalle de devoluciones",
+  produccion: "Producción",
+  inventario: "Inventario",
+  financiero: "Financiero",
+  costos_gastos: "Costos y gastos",
+  rentabilidad_piloto: "Rentabilidad piloto",
+  kpi_kam: "Gestión Comercial",
+  piloto: "Análisis comercial",
+}
+
+const RUTAS_DETALLE_REVISION = {
+  costos_gastos: "Dashboard · Costos y gastos",
+  comercial: "Dashboard · Comercial",
+  devoluciones: "Dashboard · Devoluciones",
+}
 
 const AZUL_MARCA = "var(--cibuspan-azul)"
 const TURQUESA_MARCA = "var(--cibuspan-turquesa-texto)"
@@ -339,18 +346,13 @@ async function cargarDevengoRevision(desde: string, hasta: string): Promise<Deve
 
 export default function DashboardV2({
   cambiarPantalla,
-  tabInicial = "ejecutivo",
+  tabInicial: tabActiva = "ejecutivo",
 }: {
   cambiarPantalla: (pantalla: string) => void
   tabInicial?: TabId
 }) {
   const fechaFinalInicial = fechaIsoLocal(new Date())
   const fechaInicialInicial = `${fechaFinalInicial.slice(0, 7)}-01`
-  const [tabActiva, setTabActiva] = useState<TabId>(tabInicial)
-
-  useEffect(() => {
-    setTabActiva(tabInicial)
-  }, [tabInicial])
   const [fechaDesde, setFechaDesde] = useState(fechaInicialInicial)
   const [fechaHasta, setFechaHasta] = useState(fechaFinalInicial)
   const [fechaDesdeFiltro, setFechaDesdeFiltro] = useState(fechaInicialInicial)
@@ -399,11 +401,11 @@ export default function DashboardV2({
   const semanaAnteriorHasta = inicioSemana(periodoAnterior.hasta)
 
   const cargaCompletaRef = useRef("")
-  const tabsRef = useRef<HTMLElement>(null)
+  const encabezadoRef = useRef<HTMLElement>(null)
 
-  function abrirDetalleRevision(tab: TabId) {
-    setTabActiva(tab)
-    tabsRef.current?.scrollIntoView({ block: "start" })
+  function abrirDetalleRevision(tab: keyof typeof RUTAS_DETALLE_REVISION) {
+    cambiarPantalla(RUTAS_DETALLE_REVISION[tab])
+    encabezadoRef.current?.scrollIntoView({ block: "start" })
   }
 
   useEffect(() => {
@@ -1521,11 +1523,10 @@ export default function DashboardV2({
     <main className="wall-dashboard">
       <style>{css}</style>
 
-      <header className="wall-header">
+      <header ref={encabezadoRef} className="wall-header">
         <div>
           <LogoCibuspan ancho={174} />
-          <h1>Dashboard ejecutivo</h1>
-          <p>Orden, datos y ejecución rentable.</p>
+          <h1>{TITULOS[tabActiva]}</h1>
         </div>
         <button
           type="button"
@@ -1546,20 +1547,12 @@ export default function DashboardV2({
         </button>
       </header>
 
-      <nav ref={tabsRef} className="dashboard-tabs" aria-label="Dashboards de Cibuspan One">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={tabActiva === tab.id ? "active" : ""}
-            onClick={() => setTabActiva(tab.id)}
-            aria-pressed={tabActiva === tab.id}
-          >
-            <span>{tab.icono}</span>
-            {tab.etiqueta}
-          </button>
-        ))}
-      </nav>
+      {(tabActiva === "devoluciones" || tabActiva === "rentabilidad_piloto") && (
+        <button type="button" className="dashboard-volver" onClick={() => {
+          cambiarPantalla("Dashboard")
+          encabezadoRef.current?.scrollIntoView({ block: "start" })
+        }}>Volver a Revisión operativa</button>
+      )}
 
       {tabActiva !== "costos_gastos" && tabActiva !== "kpi_kam" && (
       <section className="dashboard-period-filter">
@@ -1801,13 +1794,6 @@ function DashboardEjecutivo({
         titulo="Resumen ejecutivo"
         descripcion="Los indicadores esenciales para decidir dónde actuar primero."
       />
-
-      <div className="executive-finance-grid">
-        <IndicadorPendiente titulo="Rentabilidad operativa" />
-        <IndicadorPendiente titulo="EBITDA" />
-        <IndicadorPendiente titulo="Margen comercial" />
-        <IndicadorPendiente titulo="Flujo de caja operativo" />
-      </div>
 
       <div className="wall-section-head compact">
         <div><span>PULSO DEL NEGOCIO</span><h2>{periodoTexto}</h2></div>
@@ -3057,12 +3043,7 @@ const css = `
   .wall-section-head > div > span { color: ${TURQUESA_MARCA}; font-size: 10px; font-weight: 950; letter-spacing: 1.35px; }
   .wall-header button { min-height: 42px; padding: 0 17px; border: 1px solid #dce5ee; border-radius: 8px; background: #fff; color: var(--cibuspan-azul); font-weight: 850; cursor: pointer; box-shadow: 0 4px 12px rgba(5,17,66,.06); }
   .wall-header button:disabled { opacity: .6; cursor: wait; }
-  .dashboard-tabs { display: flex; gap: 4px; margin: 0 0 23px; padding: 5px; border: 1px solid #e6dcd6; border-radius: 11px; background: #f5f0ed; overflow-x: auto; scrollbar-width: thin; }
-  .dashboard-tabs button { min-width: max-content; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: #766963; font-size: 11px; font-weight: 850; cursor: pointer; transition: background .16s ease,color .16s ease,box-shadow .16s ease; }
-  .dashboard-tabs button span { color: #aa9388; font-size: 13px; }
-  .dashboard-tabs button:hover { background: #fff9f5; color: ${AZUL_MARCA}; }
-  .dashboard-tabs button.active { background: #fff; color: ${AZUL_MARCA}; box-shadow: 0 3px 11px rgba(76,45,34,.1); }
-  .dashboard-tabs button.active span { color: ${TURQUESA_MARCA}; }
+  .dashboard-volver { margin: 0 0 24px; padding: 8px 12px; border: 1px solid #c5dedb; border-radius: 8px; background: var(--cibuspan-turquesa-claro); color: ${AZUL_MARCA}; font-weight: 750; cursor: pointer; }
   .dashboard-period-filter { width:100%; min-width:0; display: grid; grid-template-columns: minmax(290px,auto) 145px 145px 135px 135px auto minmax(220px,1fr); align-items: end; gap: 10px; margin: -10px 0 22px; padding: 13px; border: 1px solid #e6dcd6; border-radius: 10px; background: #fff; box-shadow: 0 4px 14px rgba(70,43,34,.04); }
   .dashboard-period-filter label { min-width:0; color: #756862; font-size: 9px; font-weight: 900; text-transform: uppercase; }
   .dashboard-period-filter select, .dashboard-period-filter input { display: block; width: 100%; min-height: 39px; box-sizing: border-box; margin-top: 5px; padding: 7px 9px; border: 1px solid #dcd1cb; border-radius: 7px; background: #fff; color: #493b36; font: inherit; }
@@ -3085,7 +3066,7 @@ const css = `
   .dashboard-title > span { color: ${TURQUESA_MARCA}; font-size: 9px; font-weight: 950; letter-spacing: 1.3px; }
   .dashboard-title h2 { margin: 3px 0; color: #4d2828; font-size: 22px; }
   .dashboard-title p { margin: 0; color: #887b76; font-size: 12px; }
-  .executive-finance-grid, .production-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; margin-bottom: 25px; }
+  .production-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; margin-bottom: 25px; }
   .financial-large { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .financial-dashboard-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
   .financial-dashboard-head > button { min-height:40px; padding:0 15px; border:1px solid ${AZUL_MARCA}; border-radius:8px; background:${AZUL_MARCA}; color:#fff; font-size:10px; font-weight:900; cursor:pointer; white-space:nowrap; }
@@ -3284,7 +3265,7 @@ const css = `
     .dashboard-period-filter > button { align-self:end; }
     .dashboard-period-comparison { grid-column: 1 / -1; }
     .market-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
-    .executive-finance-grid, .production-grid, .financial-large { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .production-grid, .financial-large { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .profitability-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .sku-market-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .commercial-columns { grid-template-columns: 1fr; }
@@ -3295,8 +3276,6 @@ const css = `
     .wall-dashboard { padding: 15px 12px 26px; }
     .wall-header { align-items: flex-start; }
     .wall-header button { min-height: 38px; padding: 0 11px; font-size: 11px; }
-    .dashboard-tabs { margin-bottom: 18px; }
-    .dashboard-tabs button { flex: 0 0 auto; min-height: 39px; }
     .dashboard-period-filter { grid-template-columns: 1fr 1fr; margin-top: -7px; }
     .dashboard-period-buttons, .dashboard-period-comparison { grid-column: 1 / -1; }
     .profitability-panel { padding: 14px; }
@@ -3357,7 +3336,7 @@ const css = `
     .market-summary span { font-size: 8px; }
     .market-summary > strong { font-size: 21px; }
     .wall-section-head { align-items: flex-start; flex-direction: column; }
-    .executive-finance-grid, .production-grid, .financial-large { gap: 8px; }
+    .production-grid, .financial-large { gap: 8px; }
     .pending-kpi, .operational-kpi { min-height: 91px; padding: 12px; }
     .pending-kpi strong, .operational-kpi strong { font-size: 21px; }
     .commercial-ranking article { grid-template-columns: 25px minmax(0,1fr) auto; gap: 8px; }

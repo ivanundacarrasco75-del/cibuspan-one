@@ -107,7 +107,7 @@ export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarP
     enlace.href = url; enlace.download = `visitas_${indicador}_${corte}.csv`; enlace.click(); URL.revokeObjectURL(url)
   }
   return <section className="vr-dashboard">
-    <header className="vr-header"><div><span>DASHBOARD · VISITAS Y ROTACIÓN</span><h2>Evolución en punto de venta</h2><p>{desde && `${fecha(desde)} – ${fecha(corte)} · `}{esActual ? "Esta semana" : "Semana seleccionada"} y las cuatro anteriores, SKU por SKU.</p></div><button type="button" disabled={recuperando} onClick={restablecer}>Restablecer filtros</button></header>
+    <header className="vr-header"><div><h2>Visitas PDV</h2><p>{desde && `${fecha(desde)} – ${fecha(corte)} · `}{esActual ? "Esta semana" : "Semana seleccionada"} y las cuatro anteriores, SKU por SKU.</p></div><button type="button" disabled={recuperando} onClick={restablecer}>Restablecer filtros</button></header>
     <fieldset className="vr-filtros" disabled={recuperando}>
       <label><span>Cliente</span><select value={clienteId} disabled={cargando} onChange={(e) => { setClienteId(e.target.value); setLocalId("") }}><option value="">Todos los clientes</option>{datos.clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
       <label><span>Local</span><select value={localId} disabled={cargando} onChange={(e) => setLocalId(e.target.value)}><option value="">Todos los locales</option>{datos.locales.map((l) => <option key={l.id} value={l.id}>{l.codigo} · {l.nombre}</option>)}</select></label>

@@ -51,8 +51,10 @@ const modulos: Modulo[] = [
     icono: "inicio",
     entrada: "Dashboard",
     items: [
-      { pantalla: "Dashboard", etiqueta: "General" },
-      { pantalla: "Dashboard · Visitas y rotación", etiqueta: "Visitas y rotación" },
+      { pantalla: "Dashboard", etiqueta: "Revisión operativa" },
+      { pantalla: "Dashboard · Comercial", etiqueta: "Comercial" },
+      { pantalla: "Dashboard · Visitas y rotación", etiqueta: "Visitas PDV" },
+      { pantalla: "Dashboard · Costos y gastos", etiqueta: "Costos y gastos" },
     ],
   },
   {
@@ -319,6 +321,7 @@ export default function Layout({
                   className={`c1-subnav-item ${
                     pantalla === item.pantalla ? "activo" : ""
                   }`}
+                  aria-current={pantalla === item.pantalla ? "page" : undefined}
                   onClick={() => navegar(item.pantalla)}
                 >
                   {item.etiqueta}

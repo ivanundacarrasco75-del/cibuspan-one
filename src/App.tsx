@@ -305,6 +305,9 @@ function App() {
       case "Dashboard · Visitas y rotación":
         return <DashboardVisitasRotacion cambiarPantalla={setPantalla} />
 
+      case "Dashboard · Costos y gastos":
+        return <DashboardV2 cambiarPantalla={setPantalla} tabInicial="costos_gastos" />
+
       case "Dashboard · Devoluciones":
         return (
           <DashboardV2
@@ -332,6 +335,7 @@ function App() {
       case "Devoluciones":
         return <Devoluciones />
 
+      case "Dashboard · Comercial":
       case "Comercial · Análisis":
         return (
           <DashboardV2

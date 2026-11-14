@@ -1,5 +1,5 @@
 const grupos: Array<[string, string[]]> = [
-  ["Dashboard", ["Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
+  ["Dashboard", ["Dashboard · Comercial", "Dashboard · Costos y gastos", "Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
   ["Pedidos", ["Comercial · Pedidos", "Producción · Pedidos"]],
   ["Inventario", ["Inventario y Despachos · Resumen", "Inventario y Despachos · Inventario", "Inventario y Despachos · Kardex"]],
   ["Producción", ["Producción · Resumen", "Producción · Planificación", "Producción · Producción", "Producción · Historial"]],

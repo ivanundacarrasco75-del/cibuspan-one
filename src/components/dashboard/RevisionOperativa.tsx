@@ -143,7 +143,8 @@ export default function RevisionOperativa({
     const antes = 100 * previoCliente.devueltas / previoCliente.unidades
     const ahora = 100 * cliente.devueltas / cliente.unidades
     return { nombre: cliente.nombre, antes, ahora, aumento: ahora - antes }
-  }).filter((cliente) => cliente !== null && cliente.aumento >= 0.01)
+  }).filter((cliente) => cliente !== null)
+    .filter((cliente) => cliente.aumento >= 0.01)
     .sort((a, b) => b.aumento - a.aumento)[0]
   const mayorCaida = Array.from(previo.clientes, ([clave, cliente]) => ({
     ...cliente,
@@ -158,7 +159,7 @@ export default function RevisionOperativa({
   return (
     <section className="revision-operativa" aria-labelledby="revision-operativa-titulo">
       <header>
-        <h2 id="revision-operativa-titulo">Revisión operativa</h2>
+        <h2 id="revision-operativa-titulo">Comparación de períodos</h2>
         <p>{fechaCorta(actual.desde)}–{fechaCorta(actual.hasta)} frente a {fechaCorta(anterior.desde)}–{fechaCorta(anterior.hasta)}</p>
       </header>
       {!datos ? <p role="status">Cargando revisión del período…</p> : <>

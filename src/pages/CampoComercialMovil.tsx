@@ -21,7 +21,7 @@ export default function CampoComercialMovil({ usuario, cerrarSesion }: Props) {
     <div className="campo-movil-contenido">
       <nav className="campo-movil-nav" aria-label="Campo comercial">
         <button type="button" aria-pressed={pantalla === "Comercial · Visitas y rotación"} onClick={() => setPantalla("Comercial · Visitas y rotación")}>Visitas y rotación</button>
-        <button type="button" aria-pressed={pantalla === "Dashboard · Visitas y rotación"} onClick={() => setPantalla("Dashboard · Visitas y rotación")}>Dashboards</button>
+        <button type="button" aria-pressed={pantalla === "Dashboard · Visitas y rotación"} onClick={() => setPantalla("Dashboard · Visitas y rotación")}>Visitas PDV</button>
         <button type="button" aria-pressed={pantalla === "Comercial · Revisión de datos"} onClick={() => setPantalla("Comercial · Revisión de datos")}>Revisión de datos</button>
       </nav>
       <div hidden={pantalla !== "Comercial · Visitas y rotación"}>
