@@ -9,6 +9,28 @@ try {
  const {visitasSinProcesarCampo}=await server.ssrLoadModule('/src/utils/procesamientoAutomaticoCampo.ts')
  const {resumirSemanasCampo,semanasDashboardCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
  const {camposPendientesDatosCampo}=await server.ssrLoadModule('/src/utils/estadoDatosCampo.ts')
+ await test('La revisión omite solo capturas históricas ausentes y conserva capturas disponibles', async () => {
+  const {supabase}=await server.ssrLoadModule('/src/lib/supabase.ts')
+  const {obtenerFotosParaRevisionCampo}=await server.ssrLoadModule('/src/repositories/campoComercialRepository.ts')
+  const sesion=supabase.auth.getSession, fetchOriginal=globalThis.fetch
+  const antiguo='usuario/2026-10-14/original.png', actual='usuario/2026-11-14/captura-r2-nueva.png'
+  const mensaje='La captura no está disponible en R2. Las capturas históricas pendientes se conservan en el proyecto anterior.'
+  const foto={ruta:actual,url:'https://prueba.invalid/captura'}
+  supabase.auth.getSession=async()=>({data:{session:{access_token:'prueba'}},error:null})
+  globalThis.fetch=async (_, opciones)=>{
+   const {rutas}=JSON.parse(opciones.body)
+   if (rutas.includes('sin-permiso')) return Response.json({error:'Sin permiso'},{status:403})
+   if (rutas.some(ruta=>ruta!==actual)) return Response.json({error:mensaje},{status:404})
+   return Response.json([foto])
+  }
+  try {
+   assert.deepEqual(await obtenerFotosParaRevisionCampo([antiguo]),{fotos:[],soloHistoricas:true})
+   assert.deepEqual(await obtenerFotosParaRevisionCampo([antiguo,actual]),{fotos:[foto],soloHistoricas:false})
+   assert.deepEqual(await obtenerFotosParaRevisionCampo([]),{fotos:[],soloHistoricas:false})
+   await assert.rejects(()=>obtenerFotosParaRevisionCampo(['sin-permiso']),/Sin permiso/)
+   await assert.rejects(()=>obtenerFotosParaRevisionCampo(['usuario/2026-11-14/captura-r2-ausente.png']),/no está disponible/)
+  } finally {globalThis.fetch=fetchOriginal;supabase.auth.getSession=sesion}
+ })
  const r={id:'r',fecha:'2026-10-14',cliente_id:'c',local_id:'l',local_nombre:'Local',producto_id:'p',producto_nombre:'Pan',producto_codigo:'sku',visitado_en:'2026-10-14T12:00:00Z',capturas_app:['original.png'],lectura_guardada:{rotacion_diaria_unidades:1.2,precio_comercio:2},verificacion_campos:{rotacion_diaria_unidades:{estado:'PENDIENTE',valor:1.2},precio_comercio:{estado:'DOBLE_LECTURA',valor:2}},lectura_almacenada:{lectura_control:{principal:{rotacion_diaria_unidades:1.2},control:{rotacion_diaria_unidades:12}}},valores:{rotacion:1.2}}
  await test('Confirmar el mismo valor guarda sólo su certificado y preserva evidencia; no vuelve a procesarse',()=>{
   const d=prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',1.2)

@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Revisión de capturas históricas, 14/11/2026. Si todas las capturas de un registro quedaron en el proyecto anterior y no están disponibles en R2, la pantalla omite sus campos de la cola de revisión al comprobar la disponibilidad. Conserva los valores y su estado de verificación. Si hay una captura disponible se puede revisar el dato. Cambio de frontend pendiente de publicación.
+
 Formato de Visitas PDV, 14/11/2026. La aplicación carga la hoja de estilos de visitas desde la entrada principal y los selectores parten de la raíz del tablero, que se abre directamente desde Dashboards y Campo comercial móvil. Se reforzó el contraste de las barras, las etiquetas y la leyenda de promociones y pendientes. Pasó `npm run build` con el Supabase operativo. Publicado desde `306fbb8` en Cloudflare Pages, despliegue `dfbb499f`. Se verificaron en el dominio público el CSS inicial, el código del tablero con la nueva paleta y la conexión a Supabase, R2 y firma. Cambio de frontend sin SQL nuevo.
 
 Marca en Dashboards, 14/11/2026. El menú principal sirve como ubicación del logo oficial. El encabezado compartido de Comercial y las demás vistas de DashboardV2 muestra el título de la vista. Pasó `npm run build` con el Supabase operativo. Publicado desde `e82f7b6` en Cloudflare Pages, despliegue `95b5db87`. Se verificó el código servido en el dominio público, el logo principal y el encabezado sin duplicado.

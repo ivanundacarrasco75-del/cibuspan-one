@@ -1,5 +1,19 @@
 import { supabase } from "../lib/supabase"
 
+class ErrorCapturasR2 extends Error {
+  readonly estado: number
+
+  constructor(mensaje: string, estado: number) {
+    super(mensaje)
+    this.estado = estado
+  }
+}
+
+export function esCapturaDelProyectoAnterior(error: unknown) {
+  return error instanceof ErrorCapturasR2 && error.estado === 404 &&
+    error.message === "La captura no está disponible en R2. Las capturas históricas pendientes se conservan en el proyecto anterior."
+}
+
 async function cabecerasCapturas() {
   const { data, error } = await supabase.auth.getSession()
   if (error || !data.session) throw new Error("Inicia sesión para trabajar con las capturas.")
@@ -9,7 +23,7 @@ export async function solicitarCapturasR2<T>(accion: string, datos: unknown): Pr
   const respuesta = await fetch(`/api/capturas/${accion}`, { method: "POST", headers: { ...await cabecerasCapturas(), "Content-Type": "application/json" }, body: JSON.stringify(datos) })
   if (!respuesta.headers.get("Content-Type")?.includes("application/json")) throw new Error("Falta publicar el servicio de capturas R2. No se confirmó la operación.")
   const resultado = await respuesta.json()
-  if (!respuesta.ok) throw new Error(resultado.error || "No se completó la operación de capturas.")
+  if (!respuesta.ok) throw new ErrorCapturasR2(resultado.error || "No se completó la operación de capturas.", respuesta.status)
   return resultado as T
 }
 export async function subirCapturasR2(archivos: File[]) {

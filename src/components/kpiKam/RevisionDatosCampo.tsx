@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { RegistroDashboardCampo } from "../../utils/dashboardVisitasRotacion"
 import { CAMPOS_LECTURA_VALIDABLES } from "../../utils/validacionLecturasCampo"
 import { pendientesRevisionCampo, prepararRevisionDatoCampo, type FocoRevisionCampo } from "../../utils/revisionDatosCampo"
-import { completarLecturaVisitaCampo, obtenerFotosCampo, type LecturaFavorita } from "../../repositories/campoComercialRepository"
+import { completarLecturaVisitaCampo, obtenerFotosParaRevisionCampo, type LecturaFavorita } from "../../repositories/campoComercialRepository"
 import { localizarCamposImagen, type RegionCampoImagen } from "../../utils/recorteCampoImagen"
 import "./RevisionDatosCampo.css"
 
@@ -17,10 +17,12 @@ export default function RevisionDatosCampo({ registros, campoInicial = "", regis
   const [clave, setClave] = useState("")
   const [valor, setValor] = useState(""), [sinDato, setSinDato] = useState(false), [confirmado, setConfirmado] = useState(false)
   const [imagenes, setImagenes] = useState<ImagenRevision[]>([]), [abriendo, setAbriendo] = useState(false)
+  const [historicos, setHistoricos] = useState<ReadonlySet<string>>(() => new Set())
   const [guardando, setGuardando] = useState(false), [error, setError] = useState(""), [mensaje, setMensaje] = useState("")
   const cache = useRef(new Map<string, ImagenRevision[]>()), secuencia = useRef(0), operacion = useRef(false)
   const pendientes = useMemo(() => pendientesRevisionCampo(registros, campo, soloBarra ? registrosBarra : undefined), [registros, campo, soloBarra, registrosBarra])
-  const visibles = pendientes.filter((p) => !fecha || p.registro.fecha === fecha)
+  const porFecha = pendientes.filter((p) => !fecha || p.registro.fecha === fecha)
+  const visibles = porFecha.filter((p) => !historicos.has(JSON.stringify([p.registro.id, p.registro.capturas_app])))
   const elegido = visibles.find((p) => p.clave === clave) ?? visibles[0]
   const fechas = [...new Set(registros.map((r) => r.fecha))].sort().reverse()
   useEffect(() => () => { secuencia.current++; for (const imgs of cache.current.values()) for (const i of imgs) URL.revokeObjectURL(i.url) }, [])
@@ -35,7 +37,13 @@ export default function RevisionDatosCampo({ registros, campoInicial = "", regis
     if (cache.current.has(cacheClave)) { setImagenes(cache.current.get(cacheClave)!); setAbriendo(false); return }
     setImagenes([]); setAbriendo(true)
     void (async () => {
-      const urls = await obtenerFotosCampo(r.capturas_app ?? []), nuevas: ImagenRevision[] = []
+      const { fotos: urls, soloHistoricas } = await obtenerFotosParaRevisionCampo(r.capturas_app ?? [])
+      if (secuencia.current !== token) return
+      if (soloHistoricas) {
+        setHistoricos((previos) => new Set([...previos, cacheClave]))
+        return
+      }
+      const nuevas: ImagenRevision[] = []
       try {
         for (const [n, u] of urls.entries()) {
           if (secuencia.current !== token) break
@@ -53,7 +61,7 @@ export default function RevisionDatosCampo({ registros, campoInicial = "", regis
     })().catch((e) => { if (secuencia.current === token) setError(e instanceof Error ? e.message : "No se pudo abrir la evidencia.") }).finally(() => { if (secuencia.current === token) setAbriendo(false) })
   }, [elegido?.clave])
   async function guardar() {
-    if (!elegido || !confirmado || operacion.current || deshabilitado) return
+    if (!elegido || !confirmado || !imagenes.length || abriendo || operacion.current || deshabilitado) return
     operacion.current = true; setGuardando(true); setError("")
     try {
       if (!sinDato && !valor.trim()) throw new Error("Ingresa el valor o marca que la captura no tiene ese dato.")
@@ -78,6 +86,7 @@ export default function RevisionDatosCampo({ registros, campoInicial = "", regis
     {mensaje && <p role="status">{mensaje}</p>}
     {campo === "caras_percha" && <p>Las caras en percha se registran manualmente en la visita y quedan fuera de la revisión de capturas.</p>}
     {!deshabilitado && campo !== "caras_percha" && <p role="status">{visibles.length} pendientes {soloBarra ? "en esta barra" : "con los filtros seleccionados"}</p>}
+    {!deshabilitado && porFecha.length > visibles.length && <p>{porFecha.length - visibles.length} campos omitidos por tener capturas en el proyecto anterior.</p>}
     {!visibles.length ? null : <div className="rd-columnas">
       <nav aria-label="Campos pendientes">{visibles.map((p) => <button key={p.clave} type="button" disabled={guardando || abriendo || deshabilitado} aria-pressed={p.clave === elegido?.clave} onClick={() => { setClave(p.clave); setMensaje("") }}><span>{p.registro.local_nombre}</span><small>{p.registro.producto_nombre} · {p.registro.fecha}</small><strong>{p.nombre}</strong></button>)}</nav>
       {elegido && <article><h4>{elegido.registro.local_nombre} · {elegido.registro.producto_nombre}</h4><p>{elegido.nombre}: {elegido.motivo}</p>
@@ -87,10 +96,10 @@ export default function RevisionDatosCampo({ registros, campoInicial = "", regis
         <p>Valor guardado: {String(elegido.registro.lectura_guardada?.[elegido.campo as keyof LecturaFavorita] ?? "Sin dato")}</p>
         <label>{elegido.nombre}<input type={elegido.campo.startsWith("fecha_") ? "date" : "number"} step="any" value={sinDato ? "" : valor} disabled={guardando || abriendo || deshabilitado || sinDato} onChange={(e) => { setValor(e.target.value); setConfirmado(false) }} /></label>
         <label className="rd-confirmacion"><input type="checkbox" checked={sinDato} disabled={guardando || abriendo || deshabilitado} onChange={(e) => { setSinDato(e.target.checked); setConfirmado(false) }} />En la captura este dato está vacío o no aplica.</label>
-        <label className="rd-confirmacion"><input type="checkbox" checked={confirmado} disabled={guardando || abriendo || deshabilitado} onChange={(e) => setConfirmado(e.target.checked)} />Comprobé este dato, su fecha y su SKU/local en la captura.</label>
+        <label className="rd-confirmacion"><input type="checkbox" checked={confirmado} disabled={!imagenes.length || guardando || abriendo || deshabilitado} onChange={(e) => setConfirmado(e.target.checked)} />Comprobé este dato, su fecha y su SKU/local en la captura.</label>
         {error && <p className="vr-error" role="alert">{error}</p>}
         {elegido.registro.puede_procesar === false && <p>Esta visita sólo puede ser corregida por su autor o gerencia.</p>}
-        <button type="button" disabled={!confirmado || guardando || abriendo || deshabilitado || elegido.registro.puede_procesar === false} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar y verificar este dato"}</button>
+        <button type="button" disabled={!confirmado || !imagenes.length || guardando || abriendo || deshabilitado || elegido.registro.puede_procesar === false} onClick={() => void guardar()}>{guardando ? "Guardando…" : "Guardar y verificar este dato"}</button>
       </article>}
     </div>}
   </section>
