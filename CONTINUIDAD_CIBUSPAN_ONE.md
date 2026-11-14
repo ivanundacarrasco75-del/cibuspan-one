@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Marca en Dashboards, 14/11/2026. El menú principal sirve como ubicación del logo oficial. El encabezado compartido de Comercial y las demás vistas de DashboardV2 muestra el título de la vista. Ajuste de frontend pendiente de publicación.
+Marca en Dashboards, 14/11/2026. El menú principal sirve como ubicación del logo oficial. El encabezado compartido de Comercial y las demás vistas de DashboardV2 muestra el título de la vista. Pasó `npm run build` con el Supabase operativo. Publicado desde `e82f7b6` en Cloudflare Pages, despliegue `95b5db87`. Se verificó el código servido en el dominio público, el logo principal y el encabezado sin duplicado.
 
 Depuración de Dashboards, 14/11/2026. La navegación principal del módulo muestra Revisión operativa, Comercial, Visitas PDV y Costos y gastos en una sola barra. Se retiraron las tarjetas ejecutivas sin datos y se conservan los accesos a detalle de devoluciones, el panel completo de devengo y las rutas existentes. Cambio de frontend sin SQL nuevo. Pasó `npm run build` con el Supabase operativo. Publicado desde `8f73d7b` en Cloudflare Pages, despliegue `41e3a106`. Se verificaron en el dominio público los cuatro tableros, el acceso al panel de devengo y la conexión a Supabase, R2 y firma.
 
