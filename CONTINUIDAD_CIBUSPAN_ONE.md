@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Precios Tuti por sucursal, 13/11/2026. Al elegir el SKU `7868304262219T`, el simulador ofrece Manabí (1,56 USD) y Samborondón (1,60 USD) como opciones separadas del selector de cliente. Los precios por unidad sin IVA se registran en `cliente_bodega_precios` sobre las bodegas activas del catálogo y se usan al dejar vacío el precio propuesto. El transporte conserva la referencia de Tiendas Tuti del Libro Mayor. La migración `202611130003` se validó con rol autenticado en una transacción revertida.
+
 Publicación del flete por cliente. El commit `7078062` está activo en producción, despliegue `309e2160`. Pasó `npm run build` y se confirmó que el dominio público sirve el selector de cliente y la consulta al transporte clasificado del Supabase operativo.
 
 Flete de cotización por cliente, 13/11/2026. El simulador identifica al cliente si el producto tiene una sola asociación activa. Se puede elegir otro cliente o usar expresamente el promedio general. Para un cliente seleccionado usa su transporte atribuido en el Libro Mayor y sus unidades facturadas del mes cerrado de referencia. Si falta esa base, solicita el importe del pedido. El flete sigue editable, incluido cero. Se comprobó con rol autenticado que Tuti tiene 3.180 USD de transporte y 25.800 unidades en agosto de 2026, equivalentes a 123,26 USD para 1.000 rollos. Cambio de frontend, sin SQL nuevo.

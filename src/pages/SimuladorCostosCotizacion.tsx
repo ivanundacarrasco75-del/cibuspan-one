@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 import {
   obtenerBaseCostosCotizacion,
+  obtenerPreciosSucursalCotizacion,
   obtenerTransporteClienteCotizacion,
   type BaseCostosCotizacion,
 } from "../repositories/cotizacionRepository"
@@ -50,6 +51,8 @@ export default function SimuladorCostosCotizacion() {
   const [clientes, setClientes] = useState<ClienteDb[] | null>(null)
   const [clienteElegido, setClienteElegido] = useState<string | null>(null)
   const [clienteProducto, setClienteProducto] = useState<string | null>(null)
+  const [sucursales, setSucursales] = useState<Awaited<ReturnType<typeof obtenerPreciosSucursalCotizacion>>>([])
+  const [errorSucursales, setErrorSucursales] = useState(false)
   const [errorClientes, setErrorClientes] = useState(false)
   const [flete, setFlete] = useState<{
     clienteId: string
@@ -101,7 +104,19 @@ export default function SimuladorCostosCotizacion() {
     return () => { vigente = false }
   }, [productoId, clientes])
 
-  const clienteId = clienteElegido ?? (productoId ? clienteProducto : "")
+  useEffect(() => {
+    if (!productoId) return
+    let vigente = true
+    obtenerPreciosSucursalCotizacion(productoId).then((datos) => {
+      if (vigente) setSucursales(datos)
+    }).catch(() => {
+      if (vigente) setErrorSucursales(true)
+    })
+    return () => { vigente = false }
+  }, [productoId])
+
+  const sucursal = sucursales.find(({ bodega }) => clienteElegido === `bodega:${bodega.id}`)
+  const clienteId = sucursal?.bodega.cliente_id ?? clienteElegido ?? (productoId ? clienteProducto : "")
   const cliente = clientes?.find((fila) => fila.id === clienteId)
   const periodo = base?.periodo
   useEffect(() => {
@@ -166,7 +181,8 @@ export default function SimuladorCostosCotizacion() {
     : (fleteCliente?.datos ? fleteCliente.datos.total / fleteCliente.datos.unidades : null)
   const origenFlete = cliente ? `Libro Mayor · ${cliente.nombre}` : "promedio general del balance"
   const gastosUnidad = base ? base.gastos / base.unidadesVendidas : null
-  const precio = importe(valores.precio)
+  const precioSucursal = sucursal ? Number(sucursal.precio) : null
+  const precio = valores.precio?.trim() ? importe(valores.precio) : precioSucursal
   const descuento = tasa(valores.descuento)
   const devolucion = tasa(valores.devolucion)
   const objetivo = tasa(valores.objetivo)
@@ -223,23 +239,32 @@ export default function SimuladorCostosCotizacion() {
             setReferencia(null)
             setClienteProducto(null)
             setClienteElegido(null)
+            setSucursales([])
+            setErrorSucursales(false)
             setFlete(null)
-            setValores((actual) => ({ ...actual, materiales: "" }))
+            setValores((actual) => ({ ...actual, materiales: "", ...(sucursal ? { precio: "" } : {}) }))
           }}>
             <option value="">Ingresar costos manualmente</option>
             {productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.codigo} · {producto.nombre}</option>)}
           </select>
         </label>
-        <label>Cliente para calcular el flete
-          <select value={clienteId ?? "__auto"} onChange={(e) => {
+        <label>Cliente o sucursal
+          <select value={clienteElegido ?? clienteId ?? "__auto"} onChange={(e) => {
+            if (sucursal || e.target.value.startsWith("bodega:")) {
+              setValores((actual) => ({ ...actual, precio: "" }))
+            }
             setClienteElegido(e.target.value)
-            setFlete(null)
           }}>
             {clienteId === null && <option value="__auto" disabled>Selecciona un cliente</option>}
             <option value="">Sin cliente · promedio general</option>
+            {sucursales.map(({ bodega }) => {
+              const titular = clientes?.find((fila) => fila.id === bodega.cliente_id)
+              return titular && <option key={bodega.id} value={`bodega:${bodega.id}`}>{titular.nombre} · {bodega.nombre}</option>
+            })}
             {clientes?.map((fila) => <option key={fila.id} value={fila.id}>{fila.nombre}</option>)}
           </select>
           {errorClientes && <small>El catálogo de clientes no está disponible. Puedes ingresar el flete del pedido.</small>}
+          {errorSucursales && <small>No se pudieron consultar los precios por sucursal.</small>}
         </label>
         {campos.map(({ clave, etiqueta }) => {
           const texto = valores[clave] ?? ""
@@ -253,12 +278,16 @@ export default function SimuladorCostosCotizacion() {
                 inputMode={clave === "unidades" ? "numeric" : "decimal"}
                 value={texto}
                 aria-invalid={invalido}
-                placeholder={clave === "materiales" && costoCatalogo !== null ? monedaUnidad.format(costoCatalogo)
+                placeholder={clave === "precio" && precioSucursal !== null ? monedaUnidad.format(precioSucursal)
+                  : clave === "materiales" && costoCatalogo !== null ? monedaUnidad.format(costoCatalogo)
                   : clave === "transporte" && transporteBalance !== null ? moneda.format(transporteBalance) : undefined}
                 onChange={(e) => setValores((actual) => ({ ...actual, [clave]: e.target.value }))}
               />
               {invalido && <small>{esTasa ? clave === "objetivo" ? "Ingresa un porcentaje desde 0 y menor que 100." : "Ingresa un porcentaje entre 0 y 100."
                 : clave === "unidades" ? "Ingresa un número entero mayor a cero." : "Ingresa un importe válido, con hasta cuatro decimales."}</small>}
+              {clave === "precio" && precioSucursal !== null && <small>
+                Precio por unidad de {sucursal?.bodega.nombre}: {monedaUnidad.format(precioSucursal)}. Puedes reemplazarlo.
+              </small>}
               {clave === "materiales" && productoId && <small>
                 {referencia === null ? "Consultando el costo de materiales y empaque…" : costoCatalogo === null
                   ? "Costo de catálogo incompleto o no disponible. Ingresa un importe."

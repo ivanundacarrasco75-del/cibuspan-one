@@ -16,6 +16,19 @@ export type BaseCostosCotizacion = {
 
 const cuentasTransporte = new Set(["6.1.01.2.13.01", "6.1.01.2.13.02"])
 
+type PrecioSucursal = {
+  precio: number
+  bodega: { id: string; cliente_id: string; nombre: string }
+}
+
+export async function obtenerPreciosSucursalCotizacion(productoId: string) {
+  const { data, error } = await supabase.from("cliente_bodega_precios")
+    .select("precio,bodega:bodegas!inner(id,cliente_id,nombre)")
+    .eq("producto_id", productoId).eq("bodega.activo", true)
+  if (error) throw error
+  return (data ?? []) as unknown as PrecioSucursal[]
+}
+
 export async function obtenerTransporteClienteCotizacion(periodo: string, clienteId: string) {
   const { data, error } = await supabase.from("fin_vw_transporte_cliente_clasificado")
     .select("gasto_transporte,unidades_facturadas")
