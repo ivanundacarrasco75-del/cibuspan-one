@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Publicación de precios Tuti por sucursal. La migración `202611130003` se aplicó y registró en Supabase operativo. Se confirmaron los dos precios después de la instalación. Pasó `npm run build`. Cloudflare Pages sirve el selector y su consulta en producción desde `e9b8629`, despliegue `76de307b`. Se confirmó el proyecto Supabase en el código servido y R2 y firma en el endpoint de capturas.
+
 Precios Tuti por sucursal, 13/11/2026. Al elegir el SKU `7868304262219T`, el simulador ofrece Manabí (1,56 USD) y Samborondón (1,60 USD) como opciones separadas del selector de cliente. Los precios por unidad sin IVA se registran en `cliente_bodega_precios` sobre las bodegas activas del catálogo y se usan al dejar vacío el precio propuesto. El transporte conserva la referencia de Tiendas Tuti del Libro Mayor. La migración `202611130003` se validó con rol autenticado en una transacción revertida.
 
 Publicación del flete por cliente. El commit `7078062` está activo en producción, despliegue `309e2160`. Pasó `npm run build` y se confirmó que el dominio público sirve el selector de cliente y la consulta al transporte clasificado del Supabase operativo.
