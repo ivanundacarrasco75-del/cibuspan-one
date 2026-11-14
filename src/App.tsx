@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js"
 import { supabase } from "./lib/supabase"
 
 import Layout from "./components/layout/Layout"
+import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
 import InstalarApp from "./components/InstalarApp"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
@@ -254,9 +255,7 @@ function App() {
     return (
       <main style={paginaCarga}>
         <div style={cargador}>
-          <div style={iconoCarga}>C1</div>
-
-          <h1 style={{ margin: 0 }}>CIBUSPAN ONE</h1>
+          <h1 style={{ margin: 0 }}><LogoCibuspan ancho={260} /></h1>
 
           <p
             style={{
@@ -548,7 +547,7 @@ function App() {
 function CargandoModulo() {
   return (
     <section style={cargaModulo}>
-      <div style={pulsoModulo}>C1</div>
+      <LogoCibuspan ancho={132} />
       <div>
         <strong style={{ display: "block", color: "#25272b" }}>Abriendo módulo…</strong>
         <small style={{ color: "#6b7280" }}>Cargando solo la información necesaria.</small>
@@ -566,25 +565,13 @@ const cargaModulo = {
   padding: "28px",
 }
 
-const pulsoModulo = {
-  width: "42px",
-  height: "42px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "12px",
-  background: "#8F1D24",
-  color: "white",
-  fontWeight: 800,
-}
-
 const paginaCarga = {
   minHeight: "100vh",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   padding: "24px",
-  background: "#f8f5f1",
+  background: "var(--cibuspan-fondo)",
 }
 
 const cargador = {
@@ -592,19 +579,6 @@ const cargador = {
   flexDirection: "column" as const,
   alignItems: "center",
   gap: "14px",
-}
-
-const iconoCarga = {
-  width: "58px",
-  height: "58px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "14px",
-  background: "#8F1D24",
-  color: "white",
-  fontWeight: "bold",
-  fontSize: "20px",
 }
 
 export default App

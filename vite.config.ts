@@ -15,10 +15,10 @@ export default defineConfig({
       injectRegister: null,
       manifest: {
         name: 'CIBUSPAN ONE',
-        short_name: 'CIBUSPAN',
+        short_name: 'CIBUSPAN ONE',
         description: 'Gestión de producción, inventario, despachos y reportes de CIBUSPAN.',
-        theme_color: '#8F1D24',
-        background_color: '#F8F5F1',
+        theme_color: '#051142',
+        background_color: '#F3F6FA',
         display: 'standalone',
         start_url: '/',
         scope: '/',
@@ -26,20 +26,10 @@ export default defineConfig({
         orientation: 'any',
         icons: [
           {
-            src: '/pwa-192x192.png',
-            sizes: '192x192',
+            src: 'cibuspan-one-icon.png',
+            sizes: '1254x1254',
             type: 'image/png',
-          },
-          {
-            src: '/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-          {
-            src: '/pwa-maskable-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
+            purpose: 'any',
           },
         ],
       },

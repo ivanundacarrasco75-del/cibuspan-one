@@ -1,3 +1,5 @@
+import LogoCibuspan from "../LogoCibuspan";
+
 type HeaderProps = {
   title: string;
 };
@@ -15,6 +17,7 @@ export default function Header({ title }: HeaderProps) {
       }}
     >
       <div>
+        <LogoCibuspan ancho={174} />
         <h2 style={{ margin: 0 }}>{title}</h2>
         <small style={{ color: "#6b7280" }}>
           Sistema Integral de Producción

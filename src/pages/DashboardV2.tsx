@@ -5,6 +5,7 @@ import DashboardRentabilidadPilotoPanel from "../components/dashboard/DashboardR
 import DashboardCostosGastosPanel from "../components/dashboard/DashboardCostosGastosPanel"
 import KpiKam from "./KpiKam"
 import { supabase } from "../lib/supabase"
+import LogoCibuspan from "../components/LogoCibuspan"
 import {
   obtenerDetallesPedidosPorIdsDb,
   obtenerPedidosRangoDb,
@@ -275,8 +276,8 @@ const TABS: { id: TabId; etiqueta: string; icono: string }[] = [
   { id: "kpi_kam", etiqueta: "Gestión Comercial", icono: "◎" },
 ]
 
-const VINO = "#8F1D24"
-const NARANJA = "#F7931E"
+const AZUL_MARCA = "var(--cibuspan-azul)"
+const TURQUESA_MARCA = "var(--cibuspan-turquesa-texto)"
 
 function fechaIsoLocal(fecha: Date) {
   const y = fecha.getFullYear()
@@ -1476,7 +1477,7 @@ export default function DashboardV2({
 
       <header className="wall-header">
         <div>
-          <span className="wall-kicker">CIBUSPAN ONE · CENTRO DE CONTROL</span>
+          <LogoCibuspan ancho={174} />
           <h1>Dashboard ejecutivo</h1>
           <p>Orden, datos y ejecución rentable.</p>
         </div>
@@ -2995,17 +2996,17 @@ function ResumenMercado({
 const css = `
   .wall-dashboard { width: 100%; max-width: none; margin: 0; padding: 20px 14px 40px; color: #2d2522; font-variant-numeric: tabular-nums; }
   .wall-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
-  .wall-header h1 { margin: 4px 0 3px; color: ${VINO}; font-size: clamp(28px,3vw,38px); letter-spacing: -.7px; }
-  .wall-header p { margin: 0; color: #786d69; font-size: 13px; }
-  .wall-kicker, .wall-section-head > div > span { color: ${NARANJA}; font-size: 10px; font-weight: 950; letter-spacing: 1.35px; }
-  .wall-header button { min-height: 42px; padding: 0 17px; border: 1px solid #e1d5ce; border-radius: 8px; background: #fff; color: ${VINO}; font-weight: 850; cursor: pointer; box-shadow: 0 4px 12px rgba(71,39,30,.06); }
+  .wall-header h1 { margin: 8px 0 3px; color: var(--cibuspan-azul); font-size: clamp(28px,3vw,38px); letter-spacing: -.7px; }
+  .wall-header p { margin: 0; color: #51617a; font-size: 13px; }
+  .wall-section-head > div > span { color: ${TURQUESA_MARCA}; font-size: 10px; font-weight: 950; letter-spacing: 1.35px; }
+  .wall-header button { min-height: 42px; padding: 0 17px; border: 1px solid #dce5ee; border-radius: 8px; background: #fff; color: var(--cibuspan-azul); font-weight: 850; cursor: pointer; box-shadow: 0 4px 12px rgba(5,17,66,.06); }
   .wall-header button:disabled { opacity: .6; cursor: wait; }
   .dashboard-tabs { display: flex; gap: 4px; margin: 0 0 23px; padding: 5px; border: 1px solid #e6dcd6; border-radius: 11px; background: #f5f0ed; overflow-x: auto; scrollbar-width: thin; }
   .dashboard-tabs button { min-width: max-content; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: #766963; font-size: 11px; font-weight: 850; cursor: pointer; transition: background .16s ease,color .16s ease,box-shadow .16s ease; }
   .dashboard-tabs button span { color: #aa9388; font-size: 13px; }
-  .dashboard-tabs button:hover { background: #fff9f5; color: ${VINO}; }
-  .dashboard-tabs button.active { background: #fff; color: ${VINO}; box-shadow: 0 3px 11px rgba(76,45,34,.1); }
-  .dashboard-tabs button.active span { color: ${NARANJA}; }
+  .dashboard-tabs button:hover { background: #fff9f5; color: ${AZUL_MARCA}; }
+  .dashboard-tabs button.active { background: #fff; color: ${AZUL_MARCA}; box-shadow: 0 3px 11px rgba(76,45,34,.1); }
+  .dashboard-tabs button.active span { color: ${TURQUESA_MARCA}; }
   .dashboard-period-filter { width:100%; min-width:0; display: grid; grid-template-columns: minmax(290px,auto) 145px 145px 135px 135px auto minmax(220px,1fr); align-items: end; gap: 10px; margin: -10px 0 22px; padding: 13px; border: 1px solid #e6dcd6; border-radius: 10px; background: #fff; box-shadow: 0 4px 14px rgba(70,43,34,.04); }
   .dashboard-period-filter label { min-width:0; color: #756862; font-size: 9px; font-weight: 900; text-transform: uppercase; }
   .dashboard-period-filter select, .dashboard-period-filter input { display: block; width: 100%; min-height: 39px; box-sizing: border-box; margin-top: 5px; padding: 7px 9px; border: 1px solid #dcd1cb; border-radius: 7px; background: #fff; color: #493b36; font: inherit; }
@@ -3013,11 +3014,11 @@ const css = `
   .dashboard-period-buttons > span { display:block; margin-bottom:5px; color:#756862; font-size:9px; font-weight:900; text-transform:uppercase; }
   .dashboard-period-buttons > section { display:flex; gap:3px; padding:3px; border:1px solid #ddd2cc; border-radius:8px; background:#f5f0ed; }
   .dashboard-period-buttons button { flex:1; min-height:31px; padding:0 9px; border:0; border-radius:5px; background:transparent; color:#786b65; font-size:9px; font-weight:900; cursor:pointer; }
-  .dashboard-period-buttons button:hover { color:${VINO}; }
-  .dashboard-period-buttons button.active { background:#fff; color:${VINO}; box-shadow:0 2px 7px rgba(67,42,34,.11); }
+  .dashboard-period-buttons button:hover { color:${AZUL_MARCA}; }
+  .dashboard-period-buttons button.active { background:#fff; color:${AZUL_MARCA}; box-shadow:0 2px 7px rgba(67,42,34,.11); }
   .dashboard-period-buttons button:disabled { cursor:wait; opacity:.6; }
-  .dashboard-period-filter > button { width:100%; min-height: 39px; padding: 0 15px; border: 0; border-radius: 7px; background: ${VINO}; color: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
-  .dashboard-period-comparison { display: flex; flex-direction: column; justify-content: center; min-height: 39px; padding-left: 10px; border-left: 2px solid ${NARANJA}; }
+  .dashboard-period-filter > button { width:100%; min-height: 39px; padding: 0 15px; border: 0; border-radius: 7px; background: ${AZUL_MARCA}; color: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
+  .dashboard-period-comparison { display: flex; flex-direction: column; justify-content: center; min-height: 39px; padding-left: 10px; border-left: 2px solid ${TURQUESA_MARCA}; }
   .dashboard-period-comparison span { color: #8e817b; font-size: 8px; font-weight: 900; text-transform: uppercase; }
   .dashboard-period-comparison strong { margin-top: 2px; color: #5b3031; font-size: 11px; }
   .dashboard-period-comparison small { margin-top: 2px; color: #998b85; font-size: 8px; }
@@ -3025,19 +3026,19 @@ const css = `
   .dashboard-view { animation: dashboard-in .18s ease-out; }
   @keyframes dashboard-in { from { opacity: .3; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
   .dashboard-title { margin-bottom: 17px; }
-  .dashboard-title > span { color: ${NARANJA}; font-size: 9px; font-weight: 950; letter-spacing: 1.3px; }
+  .dashboard-title > span { color: ${TURQUESA_MARCA}; font-size: 9px; font-weight: 950; letter-spacing: 1.3px; }
   .dashboard-title h2 { margin: 3px 0; color: #4d2828; font-size: 22px; }
   .dashboard-title p { margin: 0; color: #887b76; font-size: 12px; }
   .executive-finance-grid, .production-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; margin-bottom: 25px; }
   .financial-large { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .financial-dashboard-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
-  .financial-dashboard-head > button { min-height:40px; padding:0 15px; border:1px solid ${VINO}; border-radius:8px; background:${VINO}; color:#fff; font-size:10px; font-weight:900; cursor:pointer; white-space:nowrap; }
+  .financial-dashboard-head > button { min-height:40px; padding:0 15px; border:1px solid ${AZUL_MARCA}; border-radius:8px; background:${AZUL_MARCA}; color:#fff; font-size:10px; font-weight:900; cursor:pointer; white-space:nowrap; }
   .pending-kpi, .operational-kpi { min-height: 108px; display: flex; flex-direction: column; justify-content: center; padding: 16px; border: 1px solid #eadfd9; border-radius: 9px; background: linear-gradient(145deg,#fffaf6,#fff); box-shadow: 0 4px 14px rgba(70,43,34,.04); }
   .pending-kpi { border-top: 3px solid #c8b8b0; }
-  .operational-kpi { border-top: 3px solid ${NARANJA}; }
+  .operational-kpi { border-top: 3px solid ${TURQUESA_MARCA}; }
   .pending-kpi.compact { min-height: 101px; }
   .pending-kpi span, .operational-kpi span { color: #75645e; font-size: 9px; font-weight: 950; letter-spacing: .45px; text-transform: uppercase; }
-  .pending-kpi strong, .operational-kpi strong { margin: 6px 0 3px; color: ${VINO}; font-size: 26px; line-height: 1; }
+  .pending-kpi strong, .operational-kpi strong { margin: 6px 0 3px; color: ${AZUL_MARCA}; font-size: 26px; line-height: 1; }
   .pending-kpi small, .operational-kpi small { color: #a0918b; font-size: 9px; }
   .market-strip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; margin-bottom: 12px; }
   .commercial-strip { margin-bottom: 25px; }
@@ -3057,7 +3058,7 @@ const css = `
   .trend.negative { background: #fff0f0; }
   .trend.neutral { background: #f1efee; }
   .operation-ticker { display: flex; align-items: center; gap: 0; min-height: 47px; margin-bottom: 26px; border: 1px solid #e7ddd7; border-radius: 8px; background: #342925; color: #fff; overflow: hidden; }
-  .operation-ticker > span { align-self: stretch; display: grid; place-items: center; padding: 0 15px; background: ${VINO}; color: #fff; font-size: 9px; font-weight: 950; letter-spacing: 1px; }
+  .operation-ticker > span { align-self: stretch; display: grid; place-items: center; padding: 0 15px; background: ${AZUL_MARCA}; color: #fff; font-size: 9px; font-weight: 950; letter-spacing: 1px; }
   .operation-ticker div { display: flex; align-items: baseline; gap: 7px; padding: 0 17px; border-right: 1px solid #594c47; }
   .operation-ticker small { color: #baaFAA; font-size: 9px; text-transform: uppercase; }
   .operation-ticker strong { font-size: 12px; }
@@ -3073,8 +3074,8 @@ const css = `
   .sku-market-card { min-width: 0; border: 1px solid #e7ded9; border-radius: 10px; background: #fff; box-shadow: 0 5px 18px rgba(62,40,33,.05); overflow: hidden; }
   .sku-market-card > header { display: flex; justify-content: space-between; gap: 12px; min-height: 77px; padding: 14px 15px 12px; border-bottom: 1px solid #eee7e3; background: linear-gradient(135deg,#fff,#fcf9f7); }
   .sku-market-card header > div:first-child { min-width: 0; }
-  .sku-market-card header span { color: ${NARANJA}; font-size: 9px; font-weight: 950; letter-spacing: .7px; }
-  .sku-market-card h3 { margin: 3px 0 1px; color: ${VINO}; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sku-market-card header span { color: ${TURQUESA_MARCA}; font-size: 9px; font-weight: 950; letter-spacing: .7px; }
+  .sku-market-card h3 { margin: 3px 0 1px; color: ${AZUL_MARCA}; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sku-market-card header small { display: block; color: #958984; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rate { min-width: 70px; text-align: right; }
   .rate small { color: inherit !important; font-size: 8px !important; font-weight: 900; }
@@ -3090,7 +3091,7 @@ const css = `
   .commercial-ranking article { display: grid; grid-template-columns: 35px minmax(0,1fr) auto auto; align-items: center; gap: 12px; min-height: 57px; padding: 7px 13px; border: 1px solid #eae1dc; border-radius: 8px; background: #fff; }
   .commercial-ranking article > b { color: #c2b3ac; font-size: 13px; }
   .commercial-ranking article div { min-width: 0; }
-  .commercial-ranking article div span { display: block; color: ${NARANJA}; font-size: 8px; font-weight: 900; }
+  .commercial-ranking article div span { display: block; color: ${TURQUESA_MARCA}; font-size: 8px; font-weight: 900; }
   .commercial-ranking article div strong { display: block; color: #513031; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .commercial-ranking article em { color: #312826; font-size: 13px; font-style: normal; font-weight: 900; text-align: right; }
   .commercial-ranking article em small { display: block; margin-top: 2px; color: #998b85; font-size: 8px; font-weight: 750; }
@@ -3103,11 +3104,11 @@ const css = `
   .finance-week-bars article { display:grid; grid-template-columns:92px minmax(90px,1fr) 110px 230px; align-items:center; gap:10px; }
   .finance-week-bars article > span { color:#806f69; font-size:9px; font-weight:850; }
   .finance-week-bars article > div { height:9px; overflow:hidden; border-radius:999px; background:#eee7e3; }
-  .finance-week-bars article i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,${VINO},${NARANJA}); }
+  .finance-week-bars article i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,${AZUL_MARCA},${TURQUESA_MARCA}); }
   .finance-week-bars article strong { color:#3a2d29; font-size:10px; text-align:right; }
   .finance-week-bars article small { color:#998b85; font-size:8px; }
   .sales-week-bars article > div { height: 8px; border-radius: 999px; background: #f1eae6; overflow: hidden; }
-  .sales-week-bars article > div i { display: block; min-width: 3px; height: 100%; border-radius: inherit; background: linear-gradient(90deg,${VINO},${NARANJA}); }
+  .sales-week-bars article > div i { display: block; min-width: 3px; height: 100%; border-radius: inherit; background: linear-gradient(90deg,${AZUL_MARCA},${TURQUESA_MARCA}); }
   .sales-week-bars article > strong { color: #392927; font-size: 11px; text-align: right; }
   .expense-analysis { margin: 4px 0 28px; padding: 19px; border: 1px solid #e5dad4; border-radius: 11px; background: linear-gradient(145deg,#fff,#fcfaf8); box-shadow: 0 5px 18px rgba(62,40,33,.045); }
   .expense-analysis-head { margin-bottom: 14px; }
@@ -3116,7 +3117,7 @@ const css = `
   .expense-analysis-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(300px,.65fr); gap: 13px; }
   .expense-rubrics, .expense-opportunities, .expense-accounts { min-width: 0; padding: 15px; border: 1px solid #eae0db; border-radius: 9px; background: #fff; }
   .expense-rubrics > header, .expense-opportunities > header, .expense-accounts > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-  .expense-rubrics header span, .expense-opportunities header span, .expense-accounts header span { color: ${NARANJA}; font-size: 8px; font-weight: 950; letter-spacing: 1px; }
+  .expense-rubrics header span, .expense-opportunities header span, .expense-accounts header span { color: ${TURQUESA_MARCA}; font-size: 8px; font-weight: 950; letter-spacing: 1px; }
   .expense-rubrics h3, .expense-opportunities h3, .expense-accounts h3 { margin: 3px 0 0; color: #4d2a2a; font-size: 16px; }
   .expense-rubrics header small, .expense-opportunities header small, .expense-accounts header small { color: #9d8f89; font-size: 8px; }
   .expense-rubrics > div { display: grid; gap: 10px; }
@@ -3126,18 +3127,18 @@ const css = `
   .expense-rubric-title > div { display: flex; align-items: center; gap: 7px; min-width: 0; }
   .expense-rubric-title strong { color: #4e3d38; font-size: 10px; }
   .expense-kind { display: inline-flex; width: fit-content; padding: 3px 6px; border-radius: 999px; background: #f2eeec; color: #776b66; font-size: 7px; font-weight: 950; white-space: nowrap; }
-  .expense-kind.ebitda { background: #f8e9e9; color: ${VINO}; }
+  .expense-kind.ebitda { background: #f8e9e9; color: ${AZUL_MARCA}; }
   .expense-kind.inventario { background: #fff0dc; color: #a65d06; }
   .expense-kind.pendiente { background: #fff5d8; color: #8c6816; }
   .expense-rubric-line { height: 7px; margin: 7px 0 6px; overflow: hidden; border-radius: 999px; background: #f1ebe7; }
-  .expense-rubric-line i { display: block; min-width: 0; height: 100%; border-radius: inherit; background: ${VINO}; }
-  .expense-rubric-line i.inventario { background: ${NARANJA}; }
+  .expense-rubric-line i { display: block; min-width: 0; height: 100%; border-radius: inherit; background: ${AZUL_MARCA}; }
+  .expense-rubric-line i.inventario { background: ${TURQUESA_MARCA}; }
   .expense-rubric-line i.pendiente { background: #d6a52d; }
   .expense-rubrics footer { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 10px; }
   .expense-rubrics footer strong { color: #352a27; font-size: 11px; }
   .expense-rubrics footer span, .expense-rubrics footer small { color: #9a8d87; font-size: 8px; }
   .expense-rubrics footer small { text-align: right; }
-  .expense-opportunities { border-top: 3px solid ${NARANJA}; }
+  .expense-opportunities { border-top: 3px solid ${TURQUESA_MARCA}; }
   .expense-opportunities > div { display: grid; gap: 7px; }
   .expense-opportunities article { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 9px; border-radius: 7px; background: #fcf8f5; }
   .expense-opportunities article > b { color: #cab8af; font-size: 9px; }
@@ -3158,8 +3159,8 @@ const css = `
   .expense-accounts td:first-child strong, .expense-accounts td:last-child strong { display: block; color: #542e2f; font-size: 9px; }
   .expense-accounts td small { display: block; margin-top: 2px; color: #a0928c; font-size: 7px; }
   .expense-accounts tbody tr:hover { background: #fffbf8; }
-  .expense-analysis-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; padding: 10px 12px; border-left: 3px solid ${NARANJA}; border-radius: 5px; background: #fff8f0; }
-  .expense-analysis-note span { flex: 0 0 auto; color: ${NARANJA}; font-size: 8px; font-weight: 950; letter-spacing: .7px; text-transform: uppercase; }
+  .expense-analysis-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; padding: 10px 12px; border-left: 3px solid ${TURQUESA_MARCA}; border-radius: 5px; background: #fff8f0; }
+  .expense-analysis-note span { flex: 0 0 auto; color: ${TURQUESA_MARCA}; font-size: 8px; font-weight: 950; letter-spacing: .7px; text-transform: uppercase; }
   .expense-analysis-note p { margin: 0; color: #806f69; font-size: 8px; line-height: 1.5; }
   .production-history-panel { margin-bottom: 25px; padding: 16px; border: 1px solid #e7ddd7; border-radius: 10px; background: #fff; box-shadow: 0 5px 18px rgba(62,40,33,.045); }
   .production-month-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; margin-bottom: 17px; }
@@ -3167,18 +3168,18 @@ const css = `
   .production-month-bars article { display: grid; grid-template-columns: 65px minmax(100px,1fr) 105px 175px; align-items: center; gap: 10px; }
   .production-month-bars article > span { color: #7e6f69; font-size: 9px; font-weight: 900; }
   .production-month-bars article > div { height: 9px; border-radius: 99px; background: #f1eae6; overflow: hidden; }
-  .production-month-bars article > div i { display: block; min-width: 3px; height: 100%; border-radius: inherit; background: linear-gradient(90deg,${VINO},${NARANJA}); }
+  .production-month-bars article > div i { display: block; min-width: 3px; height: 100%; border-radius: inherit; background: linear-gradient(90deg,${AZUL_MARCA},${TURQUESA_MARCA}); }
   .production-month-bars article > strong { color: #382927; font-size: 10px; text-align: right; }
   .production-month-bars article > small { color: #93847e; font-size: 8px; }
   .operational-ranking { margin-bottom: 0; }
   .profitability-panel { margin-top: 27px; padding: 20px; border: 1px solid #e5dad4; border-radius: 11px; background: #fff; box-shadow: 0 5px 18px rgba(62,40,33,.045); }
   .profitability-panel > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 15px; }
-  .profitability-panel > header > div:first-child > span { color: ${NARANJA}; font-size: 9px; font-weight: 950; letter-spacing: 1.1px; }
+  .profitability-panel > header > div:first-child > span { color: ${TURQUESA_MARCA}; font-size: 9px; font-weight: 950; letter-spacing: 1.1px; }
   .profitability-panel h2 { margin: 3px 0; color: #4f292a; font-size: 20px; }
   .profitability-panel header p { margin: 0; color: #8c7e78; font-size: 11px; }
   .profitability-switch { display: flex; flex: 0 0 auto; gap: 3px; padding: 3px; border-radius: 7px; background: #f1ebe7; }
   .profitability-switch button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 5px; background: transparent; color: #786b65; font-size: 10px; font-weight: 900; cursor: pointer; }
-  .profitability-switch button.active { background: #fff; color: ${VINO}; box-shadow: 0 2px 7px rgba(67,42,34,.11); }
+  .profitability-switch button.active { background: #fff; color: ${AZUL_MARCA}; box-shadow: 0 2px 7px rgba(67,42,34,.11); }
   .profitability-warning { margin-bottom: 12px; padding: 10px 12px; border-left: 3px solid #d99a28; border-radius: 5px; background: #fff8e8; color: #846222; font-size: 10px; }
   .profitability-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-bottom: 15px; }
   .profitability-kpis article { min-width: 0; padding: 12px; border: 1px solid #ece3de; border-radius: 7px; background: #fcfaf9; }
@@ -3209,16 +3210,16 @@ const css = `
   .profitability-rules-grid select { grid-column: 2; grid-row: 1 / span 2; width: 100%; min-height: 38px; padding: 0 9px; border: 1px solid #d9ccc6; border-radius: 6px; background: #fff; color: #493c37; font-size: 10px; }
   .profitability-rules-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; }
   .profitability-rules-actions span { color: #72645e; font-size: 9px; }
-  .profitability-rules-actions button { min-height: 38px; padding: 0 15px; border: 0; border-radius: 7px; background: ${VINO}; color: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
+  .profitability-rules-actions button { min-height: 38px; padding: 0 15px; border: 0; border-radius: 7px; background: ${AZUL_MARCA}; color: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
   .profitability-rules-actions button:disabled { cursor: wait; opacity: .65; }
   .profitability-panel > footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee6e1; color: #8d7f79; font-size: 9px; line-height: 1.45; }
   .future-modules { display: grid; grid-template-columns: minmax(220px,.75fr) minmax(0,1.6fr); gap: 22px; margin-top: 22px; padding: 20px; border: 1px solid #ebdfd6; border-radius: 10px; background: #fffaf5; }
-  .future-modules > div:first-child span, .data-notice > span { color: ${NARANJA}; font-size: 9px; font-weight: 950; letter-spacing: 1px; }
+  .future-modules > div:first-child span, .data-notice > span { color: ${TURQUESA_MARCA}; font-size: 9px; font-weight: 950; letter-spacing: 1px; }
   .future-modules h3, .data-notice h3 { margin: 4px 0 0; color: #582e2f; font-size: 17px; }
   .future-modules > div:last-child { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px 18px; }
   .future-modules p { display: flex; align-items: center; gap: 8px; margin: 0; color: #746762; font-size: 11px; }
-  .future-modules i { color: ${NARANJA}; font-size: 15px; font-style: normal; }
-  .data-notice { max-width: 720px; margin-top: 22px; padding: 20px; border-left: 4px solid ${NARANJA}; border-radius: 7px; background: #fff8f0; }
+  .future-modules i { color: ${TURQUESA_MARCA}; font-size: 15px; font-style: normal; }
+  .data-notice { max-width: 720px; margin-top: 22px; padding: 20px; border-left: 4px solid ${TURQUESA_MARCA}; border-radius: 7px; background: #fff8f0; }
   .data-notice p { margin: 6px 0 0; color: #7e6f69; font-size: 12px; line-height: 1.5; }
 
   @media (max-width: 1500px) {

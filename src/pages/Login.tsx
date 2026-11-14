@@ -1,4 +1,5 @@
 import { useState } from "react"
+import LogoCibuspan from "../components/LogoCibuspan"
 import { supabase } from "../lib/supabase"
 
 export default function Login() {
@@ -36,10 +37,8 @@ export default function Login() {
     <main style={pagina}>
       <section style={tarjeta}>
         <div style={marca}>
-          <div style={icono}>C1</div>
-
           <h1 style={titulo}>
-            CIBUSPAN ONE
+            <LogoCibuspan ancho={352} />
           </h1>
 
           <p style={subtitulo}>
@@ -114,7 +113,7 @@ const pagina = {
   alignItems: "center",
   justifyContent: "center",
   padding: "24px",
-  background: "#f4f4f4",
+  background: "var(--cibuspan-fondo)",
 }
 
 const tarjeta = {
@@ -130,20 +129,6 @@ const tarjeta = {
 const marca = {
   textAlign: "center" as const,
   marginBottom: "28px",
-}
-
-const icono = {
-  width: "58px",
-  height: "58px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  margin: "0 auto 14px",
-  borderRadius: "14px",
-  background: "#8f1d24",
-  color: "white",
-  fontSize: "20px",
-  fontWeight: "bold",
 }
 
 const titulo = {
@@ -175,7 +160,7 @@ const boton = {
   padding: "13px 20px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "var(--cibuspan-azul)",
   color: "white",
   fontWeight: "bold",
 }
