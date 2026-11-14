@@ -3,6 +3,7 @@ import DashboardDevolucionesPanel from "../components/dashboard/DashboardDevoluc
 import DashboardPilotoPanel from "../components/dashboard/DashboardPilotoPanel"
 import DashboardRentabilidadPilotoPanel from "../components/dashboard/DashboardRentabilidadPilotoPanel"
 import DashboardCostosGastosPanel from "../components/dashboard/DashboardCostosGastosPanel"
+import RevisionOperativa, { type DevengoRevision } from "../components/dashboard/RevisionOperativa"
 import KpiKam from "./KpiKam"
 import { supabase } from "../lib/supabase"
 import LogoCibuspan from "../components/LogoCibuspan"
@@ -322,6 +323,20 @@ function porcentajeVariacion(actual: number, anterior: number) {
   return ((actual - anterior) / anterior) * 100
 }
 
+async function cargarDevengoRevision(desde: string, hasta: string): Promise<DevengoRevision[]> {
+  const [devengo, cierres] = await Promise.all([
+    supabase.from("fin_vw_costos_gastos_mensual")
+      .select("periodo,ventas_netas,costo_venta,cif_operativo,gasto_especifico_cliente,gasto_general,ebitda")
+      .gte("periodo", desde).lte("periodo", hasta),
+    supabase.from("fin_vw_cierre_contable_mensual")
+      .select("periodo").gte("periodo", desde).lte("periodo", hasta).eq("mes_cerrado", true),
+  ])
+  if (devengo.error) throw devengo.error
+  if (cierres.error) throw cierres.error
+  const mesesCerrados = new Set((cierres.data ?? []).map((fila) => fila.periodo))
+  return (devengo.data ?? []).filter((fila) => mesesCerrados.has(fila.periodo))
+}
+
 export default function DashboardV2({
   cambiarPantalla,
   tabInicial = "ejecutivo",
@@ -351,6 +366,12 @@ export default function DashboardV2({
   const [precios, setPrecios] = useState<PrecioClienteProducto[]>([])
   const [costosReceta, setCostosReceta] = useState<CostoReceta[]>([])
   const [ventasDiarias, setVentasDiarias] = useState<VentaDiariaDb[]>([])
+  const [revisionOperativa, setRevisionOperativa] = useState<{
+    clave: string
+    ventas: VentaDiariaDb[] | null
+    devoluciones: DevolucionListadoDb[] | null
+    devengo: DevengoRevision[] | null
+  } | null>(null)
   const [ventasSemanales, setVentasSemanales] = useState<VentaSemanalDb[]>([])
   const [facturas, setFacturas] = useState<FacturaDetalleDb[]>([])
   const [pagosSemanales, setPagosSemanales] = useState<PagoFacturaSemanalDb[]>([])
@@ -377,7 +398,13 @@ export default function DashboardV2({
   const semanaAnteriorDesde = inicioSemana(periodoAnterior.desde)
   const semanaAnteriorHasta = inicioSemana(periodoAnterior.hasta)
 
-  const cargasCompletadasRef = useRef(new Set<string>())
+  const cargaCompletaRef = useRef("")
+  const tabsRef = useRef<HTMLElement>(null)
+
+  function abrirDetalleRevision(tab: TabId) {
+    setTabActiva(tab)
+    tabsRef.current?.scrollIntoView({ block: "start" })
+  }
 
   useEffect(() => {
     void cargar(fechaDesde, fechaHasta, tabActiva)
@@ -390,13 +417,15 @@ export default function DashboardV2({
     forzar = false,
   ) {
     const claveCarga = `${tab}|${rangoDesde}|${rangoHasta}`
-    if (!forzar && cargasCompletadasRef.current.has(claveCarga)) {
+    const solicitudActual = solicitudCargaRef.current + 1
+    solicitudCargaRef.current = solicitudActual
+    // Los datos de una pestaña pueden reemplazar los de la anterior.
+    if (!forzar && cargaCompletaRef.current === claveCarga) {
       setCargando(false)
       return
     }
 
-    const solicitudActual = solicitudCargaRef.current + 1
-    solicitudCargaRef.current = solicitudActual
+    cargaCompletaRef.current = ""
     setCargando(true)
     setError("")
 
@@ -463,10 +492,27 @@ export default function DashboardV2({
       } else if (tab === "ejecutivo" || tab === "produccion") {
         const produccionDesde = comparacion.desde < hoy ? comparacion.desde : hoy
         const produccionHasta = rangoHasta > hoy ? rangoHasta : hoy
+        const devolucionesPromise = obtenerDevolucionesDb(comparacion.desde, devolucionesHastaConsulta)
+        if (tab === "ejecutivo") {
+          const mesDesde = `${comparacion.desde.slice(0, 7)}-01`
+          void Promise.all([
+            ventasDiariasSeguras(comparacion.desde, rangoHasta),
+            devolucionesPromise.catch(() => null),
+            cargarDevengoRevision(mesDesde, rangoHasta).catch(() => null),
+          ]).then(([ventas, devolucionesRevision, devengo]) => {
+            if (solicitudActual !== solicitudCargaRef.current) return
+            setRevisionOperativa({
+              clave: claveCarga,
+              ventas: ventas.error ? null : ventas.data,
+              devoluciones: devolucionesRevision,
+              devengo,
+            })
+          })
+        }
         const [pedidosDb, devolucionesDb, produccionesDb, stockRes] =
           await Promise.all([
             obtenerPedidosRangoDb(comparacion.desde, rangoHasta),
-            obtenerDevolucionesDb(comparacion.desde, devolucionesHastaConsulta),
+            devolucionesPromise,
             obtenerResumenProduccionesRangoDb(produccionDesde, produccionHasta, true),
             supabase.from("stock_disponible_lotes").select("cantidad_disponible"),
           ])
@@ -588,7 +634,7 @@ export default function DashboardV2({
         )
       }
 
-      cargasCompletadasRef.current.add(claveCarga)
+      cargaCompletaRef.current = claveCarga
     } catch (err) {
       if (solicitudActual !== solicitudCargaRef.current) return
       setError(
@@ -1500,7 +1546,7 @@ export default function DashboardV2({
         </button>
       </header>
 
-      <nav className="dashboard-tabs" aria-label="Dashboards de Cibuspan One">
+      <nav ref={tabsRef} className="dashboard-tabs" aria-label="Dashboards de Cibuspan One">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -1614,14 +1660,24 @@ export default function DashboardV2({
       {error && <div className="wall-error">{error}</div>}
 
       {tabActiva === "ejecutivo" && (
-        <DashboardEjecutivo
-          totales={totales}
-          tasaActual={tasaActual}
-          tasaAnterior={tasaAnterior}
-          produccionHoy={produccionHoy}
-          stockDisponible={stockDisponible}
-          periodoTexto={periodoTexto}
-        />
+        <>
+          <RevisionOperativa
+            datos={revisionOperativa?.clave === `ejecutivo|${fechaDesde}|${fechaHasta}` ? revisionOperativa : null}
+            actual={{ desde: fechaDesde, hasta: fechaHasta }}
+            anterior={periodoAnterior}
+            verCostos={() => abrirDetalleRevision("costos_gastos")}
+            verDevoluciones={() => abrirDetalleRevision("devoluciones")}
+            verComercial={() => abrirDetalleRevision("comercial")}
+          />
+          <DashboardEjecutivo
+            totales={totales}
+            tasaActual={tasaActual}
+            tasaAnterior={tasaAnterior}
+            produccionHoy={produccionHoy}
+            stockDisponible={stockDisponible}
+            periodoTexto={periodoTexto}
+          />
+        </>
       )}
 
       {tabActiva === "comercial" && (
