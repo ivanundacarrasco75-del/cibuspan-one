@@ -28,6 +28,7 @@ export function permisoDePantalla(pantalla: string): string {
 }
 
 export function puedeAbrirPantalla(pantalla: string, rol: string, permitidas: readonly string[]): boolean {
+  if (pantalla === "Compras · Facturas del SRI") return rol === "ADMINISTRADOR"
   const permiso = permisoDePantalla(pantalla)
   if (permiso === "Usuarios y permisos") return rol === "ADMINISTRADOR"
   return permitidas.includes(permiso)
