@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Corrección del flete al cambiar de SKU. El simulador conserva la referencia cargada si el cliente y el mes siguen siendo los mismos. Si cambia cualquiera de los dos, consulta el flete correspondiente. En el caso reportado de Favorita, agosto de 2026 tiene 529,95 USD de transporte clasificado y 19.970 unidades facturadas, equivalentes a 0,026537 USD por unidad. Se verificaron los datos con rol autenticado. Cambio de frontend, sin SQL nuevo.
+
 Precio unitario automático en el simulador. Para el cliente y SKU elegidos se precarga el campo editable con `precio_unitario` de la fecha de facturación más reciente con cantidad y precio positivos. Si en esa fecha hay varios precios, falta historial o falla la consulta, el campo permite ingresar un precio manual. Las sucursales de Tuti conservan sus precios propios y se pide seleccionar la sucursal para ese SKU. Cambio de frontend, sin SQL nuevo. Pasó `npm run build`. Publicado desde `af947f4`, despliegue `895e7475`. Se verificó el código servido en el dominio público y el precio de Pan de Centeno 500 g para El Rosado en la base operativa con rol autenticado.
 
 Publicación de precios Tuti por sucursal. La migración `202611130003` se aplicó y registró en Supabase operativo. Se confirmaron los dos precios después de la instalación. Pasó `npm run build`. Cloudflare Pages sirve el selector y su consulta en producción desde `e9b8629`, despliegue `76de307b`. Se confirmó el proyecto Supabase en el código servido y R2 y firma en el endpoint de capturas.

@@ -266,7 +266,6 @@ export default function SimuladorCostosCotizacion() {
             if (sucursal) setClienteElegido(sucursal.bodega.cliente_id)
             setSucursales(null)
             setErrorSucursales(false)
-            setFlete(null)
             setPrecioFacturado(null)
             setValores((actual) => ({ ...actual, materiales: "", precio: undefined }))
           }}>
