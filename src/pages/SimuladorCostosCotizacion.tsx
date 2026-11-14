@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 import {
   obtenerBaseCostosCotizacion,
+  obtenerPrecioFacturadoCotizacion,
   obtenerPreciosSucursalCotizacion,
   obtenerTransporteClienteCotizacion,
   type BaseCostosCotizacion,
@@ -27,9 +28,10 @@ const porcentaje = new Intl.NumberFormat("es-EC", { style: "percent", maximumFra
 const numero = new Intl.NumberFormat("es-EC")
 const mesBalance = new Intl.DateTimeFormat("es-EC", { month: "long", year: "numeric", timeZone: "UTC" })
 
-function importe(texto: string | undefined) {
+function importe(texto: string | undefined, esPrecio = false) {
   const limpio = texto?.trim()
-  if (!limpio || !/^\d+(?:[.,]\d{1,4})?$/.test(limpio)) return null
+  const formato = esPrecio ? /^\d+(?:[.,]\d{1,6})?$/ : /^\d+(?:[.,]\d{1,4})?$/
+  if (!limpio || !formato.test(limpio)) return null
   const valor = Number(limpio.replace(",", "."))
   return Number.isFinite(valor) ? valor : null
 }
@@ -51,8 +53,14 @@ export default function SimuladorCostosCotizacion() {
   const [clientes, setClientes] = useState<ClienteDb[] | null>(null)
   const [clienteElegido, setClienteElegido] = useState<string | null>(null)
   const [clienteProducto, setClienteProducto] = useState<string | null>(null)
-  const [sucursales, setSucursales] = useState<Awaited<ReturnType<typeof obtenerPreciosSucursalCotizacion>>>([])
+  const [sucursales, setSucursales] = useState<Awaited<ReturnType<typeof obtenerPreciosSucursalCotizacion>> | null>(null)
   const [errorSucursales, setErrorSucursales] = useState(false)
+  const [precioFacturado, setPrecioFacturado] = useState<{
+    clienteId: string
+    productoId: string
+    datos: Awaited<ReturnType<typeof obtenerPrecioFacturadoCotizacion>>
+    error?: boolean
+  } | null>(null)
   const [errorClientes, setErrorClientes] = useState(false)
   const [flete, setFlete] = useState<{
     clienteId: string
@@ -115,9 +123,22 @@ export default function SimuladorCostosCotizacion() {
     return () => { vigente = false }
   }, [productoId])
 
-  const sucursal = sucursales.find(({ bodega }) => clienteElegido === `bodega:${bodega.id}`)
+  const sucursal = sucursales?.find(({ bodega }) => clienteElegido === `bodega:${bodega.id}`)
   const clienteId = sucursal?.bodega.cliente_id ?? clienteElegido ?? (productoId ? clienteProducto : "")
   const cliente = clientes?.find((fila) => fila.id === clienteId)
+  const requiereSucursal = !sucursal && sucursales?.some(({ bodega }) => bodega.cliente_id === clienteId)
+  const sucursalesCargadas = sucursales !== null
+  useEffect(() => {
+    if (!clienteId || !productoId || !sucursalesCargadas || sucursal || requiereSucursal) return
+    let vigente = true
+    obtenerPrecioFacturadoCotizacion(clienteId, productoId).then((datos) => {
+      if (vigente) setPrecioFacturado({ clienteId, productoId, datos })
+    }).catch(() => {
+      if (vigente) setPrecioFacturado({ clienteId, productoId, datos: null, error: true })
+    })
+    return () => { vigente = false }
+  }, [clienteId, productoId, sucursal, requiereSucursal, sucursalesCargadas])
+
   const periodo = base?.periodo
   useEffect(() => {
     if (!clienteId || !periodo) return
@@ -182,7 +203,11 @@ export default function SimuladorCostosCotizacion() {
   const origenFlete = cliente ? `Libro Mayor · ${cliente.nombre}` : "promedio general del balance"
   const gastosUnidad = base ? base.gastos / base.unidadesVendidas : null
   const precioSucursal = sucursal ? Number(sucursal.precio) : null
-  const precio = valores.precio?.trim() ? importe(valores.precio) : precioSucursal
+  const referenciaPrecio = precioFacturado?.clienteId === clienteId && precioFacturado.productoId === productoId
+    ? precioFacturado : null
+  const precioFactura = requiereSucursal ? null : referenciaPrecio?.datos
+  const precioSugerido = precioSucursal ?? (precioFactura?.estado === "disponible" ? precioFactura.precio : null)
+  const precio = valores.precio === undefined ? precioSugerido : importe(valores.precio, true)
   const descuento = tasa(valores.descuento)
   const devolucion = tasa(valores.devolucion)
   const objetivo = tasa(valores.objetivo)
@@ -238,11 +263,12 @@ export default function SimuladorCostosCotizacion() {
             setProductoId(e.target.value)
             setReferencia(null)
             setClienteProducto(null)
-            setClienteElegido(null)
-            setSucursales([])
+            if (sucursal) setClienteElegido(sucursal.bodega.cliente_id)
+            setSucursales(null)
             setErrorSucursales(false)
             setFlete(null)
-            setValores((actual) => ({ ...actual, materiales: "", ...(sucursal ? { precio: "" } : {}) }))
+            setPrecioFacturado(null)
+            setValores((actual) => ({ ...actual, materiales: "", precio: undefined }))
           }}>
             <option value="">Ingresar costos manualmente</option>
             {productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.codigo} · {producto.nombre}</option>)}
@@ -250,14 +276,13 @@ export default function SimuladorCostosCotizacion() {
         </label>
         <label>Cliente o sucursal
           <select value={clienteElegido ?? clienteId ?? "__auto"} onChange={(e) => {
-            if (sucursal || e.target.value.startsWith("bodega:")) {
-              setValores((actual) => ({ ...actual, precio: "" }))
-            }
+            if (e.target.value !== clienteId || sucursal) setPrecioFacturado(null)
+            setValores((actual) => ({ ...actual, precio: undefined }))
             setClienteElegido(e.target.value)
           }}>
             {clienteId === null && <option value="__auto" disabled>Selecciona un cliente</option>}
             <option value="">Sin cliente · promedio general</option>
-            {sucursales.map(({ bodega }) => {
+            {sucursales?.map(({ bodega }) => {
               const titular = clientes?.find((fila) => fila.id === bodega.cliente_id)
               return titular && <option key={bodega.id} value={`bodega:${bodega.id}`}>{titular.nombre} · {bodega.nombre}</option>
             })}
@@ -267,26 +292,37 @@ export default function SimuladorCostosCotizacion() {
           {errorSucursales && <small>No se pudieron consultar los precios por sucursal.</small>}
         </label>
         {campos.map(({ clave, etiqueta }) => {
-          const texto = valores[clave] ?? ""
+          const texto = valores[clave] ?? (clave === "precio" && precioSugerido !== null ? String(precioSugerido) : "")
           const esTasa = clave === "descuento" || clave === "devolucion" || clave === "objetivo"
           const invalido = esTasa
             ? tasa(texto) === null || (clave === "objetivo" && objetivo === 1)
-            : !!texto.trim() && (clave === "unidades" ? !unidadesValidas : importe(texto) === null)
+            : !!texto.trim() && (clave === "unidades" ? !unidadesValidas : importe(texto, clave === "precio") === null)
           return (
             <label key={clave}>{etiqueta}
               <input
                 inputMode={clave === "unidades" ? "numeric" : "decimal"}
                 value={texto}
                 aria-invalid={invalido}
-                placeholder={clave === "precio" && precioSucursal !== null ? monedaUnidad.format(precioSucursal)
-                  : clave === "materiales" && costoCatalogo !== null ? monedaUnidad.format(costoCatalogo)
+                placeholder={clave === "materiales" && costoCatalogo !== null ? monedaUnidad.format(costoCatalogo)
                   : clave === "transporte" && transporteBalance !== null ? moneda.format(transporteBalance) : undefined}
                 onChange={(e) => setValores((actual) => ({ ...actual, [clave]: e.target.value }))}
+                onBlur={clave === "precio" && texto.trim() === "" && precioSugerido !== null
+                  ? () => setValores((actual) => ({ ...actual, precio: undefined }))
+                  : undefined}
               />
               {invalido && <small>{esTasa ? clave === "objetivo" ? "Ingresa un porcentaje desde 0 y menor que 100." : "Ingresa un porcentaje entre 0 y 100."
-                : clave === "unidades" ? "Ingresa un número entero mayor a cero." : "Ingresa un importe válido, con hasta cuatro decimales."}</small>}
-              {clave === "precio" && precioSucursal !== null && <small>
-                Precio por unidad de {sucursal?.bodega.nombre}: {monedaUnidad.format(precioSucursal)}. Puedes reemplazarlo.
+                : clave === "unidades" ? "Ingresa un número entero mayor a cero."
+                : clave === "precio" ? "Ingresa un precio válido, con hasta seis decimales."
+                : "Ingresa un importe válido, con hasta cuatro decimales."}</small>}
+              {clave === "precio" && clienteId && productoId && <small>
+                {sucursal ? `Precio de ${sucursal.bodega.nombre}. Puedes editarlo.`
+                  : requiereSucursal ? "Elige la sucursal para aplicar su precio."
+                  : errorSucursales ? "Ingresa el precio propuesto."
+                  : referenciaPrecio?.error ? "No se pudo consultar el precio facturado. Ingresa el precio propuesto."
+                  : precioFactura?.estado === "disponible" ? `Precio unitario facturado el ${precioFactura.fecha}. Puedes editarlo.`
+                  : precioFactura?.estado === "varios" ? "La última fecha tiene varios precios unitarios. Ingresa el precio de la cotización."
+                  : referenciaPrecio ? "No hay un precio facturado para esta combinación. Ingresa el precio propuesto."
+                  : "Consultando el precio unitario facturado…"}
               </small>}
               {clave === "materiales" && productoId && <small>
                 {referencia === null ? "Consultando el costo de materiales y empaque…" : costoCatalogo === null

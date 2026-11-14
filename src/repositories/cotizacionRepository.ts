@@ -29,6 +29,26 @@ export async function obtenerPreciosSucursalCotizacion(productoId: string) {
   return (data ?? []) as unknown as PrecioSucursal[]
 }
 
+export async function obtenerPrecioFacturadoCotizacion(clienteId: string, productoId: string) {
+  const ventas = () => supabase.from("com_ventas_detalle")
+    .select("fecha_emision,precio_unitario")
+    .eq("cliente_id", clienteId).eq("producto_id", productoId)
+    .gt("cantidad", 0).gt("precio_unitario", 0)
+
+  const { data: ultima, error } = await ventas()
+    .order("fecha_emision", { ascending: false }).limit(1).maybeSingle()
+  if (error) throw error
+  if (!ultima) return null
+
+  const { data: distintos, error: errorDistintos } = await ventas()
+    .eq("fecha_emision", ultima.fecha_emision)
+    .neq("precio_unitario", ultima.precio_unitario).limit(1)
+  if (errorDistintos) throw errorDistintos
+  return distintos.length
+    ? { estado: "varios" as const, fecha: ultima.fecha_emision }
+    : { estado: "disponible" as const, fecha: ultima.fecha_emision, precio: Number(ultima.precio_unitario) }
+}
+
 export async function obtenerTransporteClienteCotizacion(periodo: string, clienteId: string) {
   const { data, error } = await supabase.from("fin_vw_transporte_cliente_clasificado")
     .select("gasto_transporte,unidades_facturadas")

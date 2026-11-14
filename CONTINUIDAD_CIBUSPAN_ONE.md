@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Precio unitario automático en el simulador. Para el cliente y SKU elegidos se precarga el campo editable con `precio_unitario` de la fecha de facturación más reciente con cantidad y precio positivos. Si en esa fecha hay varios precios, falta historial o falla la consulta, el campo permite ingresar un precio manual. Las sucursales de Tuti conservan sus precios propios y se pide seleccionar la sucursal para ese SKU. Cambio de frontend, sin SQL nuevo.
+
 Publicación de precios Tuti por sucursal. La migración `202611130003` se aplicó y registró en Supabase operativo. Se confirmaron los dos precios después de la instalación. Pasó `npm run build`. Cloudflare Pages sirve el selector y su consulta en producción desde `e9b8629`, despliegue `76de307b`. Se confirmó el proyecto Supabase en el código servido y R2 y firma en el endpoint de capturas.
 
 Precios Tuti por sucursal, 13/11/2026. Al elegir el SKU `7868304262219T`, el simulador ofrece Manabí (1,56 USD) y Samborondón (1,60 USD) como opciones separadas del selector de cliente. Los precios por unidad sin IVA se registran en `cliente_bodega_precios` sobre las bodegas activas del catálogo y se usan al dejar vacío el precio propuesto. El transporte conserva la referencia de Tiendas Tuti del Libro Mayor. La migración `202611130003` se validó con rol autenticado en una transacción revertida.
