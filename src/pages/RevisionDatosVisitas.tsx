@@ -3,7 +3,6 @@ import RevisionDatosCampo from "../components/kpiKam/RevisionDatosCampo"
 import { obtenerDashboardVisitasRotacion, type DatosDashboardCampo } from "../repositories/dashboardVisitasRotacionRepository"
 import { fechaHoyCampoDashboard } from "../utils/dashboardVisitasRotacion"
 import { CLAVE_REVISION_CAMPO, type FiltrosRevisionCampo } from "../utils/revisionDatosCampo"
-import "../components/kpiKam/DashboardVisitasRotacion.css"
 
 function leerFiltrosRevision(): FiltrosRevisionCampo | null {
   try {

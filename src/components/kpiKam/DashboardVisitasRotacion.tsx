@@ -5,7 +5,6 @@ import {
   CAMPO_FUENTE_INDICADOR, valorIndicadorValidadoCampo, fechaHoyCampoDashboard, INDICADORES_CAMPO, resumirSemanasCampo, semanasDashboardCampo, variacionSemanalCampo,
   type IndicadorCampo, type OrigenVisitaCampo, type SerieSkuCampo, type SemanaCampo,
 } from "../../utils/dashboardVisitasRotacion"
-import "./DashboardVisitasRotacion.css"
 import { FotosCampo, UbicacionCampo } from "./UbicacionCampo"
 import RecuperarLecturaVisita from "./RecuperarLecturaVisita"
 import RecuperarCapturasPendientes from "./RecuperarCapturasPendientes"
@@ -17,9 +16,9 @@ const OPCIONES_INDICADOR: IndicadorCampo[] = [
   "rotacion", "precio", "precio_afiliado", "venta",
   "participacion_clase", "participacion_subclase", "stock", "dias", "caras",
 ]
-const COLORES = ["#465f80", "#4a74aa", "#4789cc", "#429df1", "#38bdf8"]
-const COLOR_PROMOCION = "#4ade80"
-const COLOR_PENDIENTE = "#fb7185"
+const COLORES = ["#709bd6", "#6eaff5", "#84c6ff", "#81d8f6", "#28f1d9"]
+const COLOR_PROMOCION = "#8ce88c"
+const COLOR_PENDIENTE = "#ff7185"
 const numero = (valor: number | null) => valor === null ? "—" : valor.toLocaleString("es-EC", { maximumFractionDigits: 2 })
 const formatoDescuento = new Intl.NumberFormat("es-EC", { maximumFractionDigits: 6 })
 const fecha = (valor: string) => `${valor.slice(8, 10)}/${valor.slice(5, 7)}`
@@ -106,7 +105,7 @@ export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarP
     const url = URL.createObjectURL(new Blob([contenido], { type: "text/csv;charset=utf-8" })), enlace = document.createElement("a")
     enlace.href = url; enlace.download = `visitas_${indicador}_${corte}.csv`; enlace.click(); URL.revokeObjectURL(url)
   }
-  return <section className="vr-dashboard">
+  return <section className="vr-dashboard vr-pdv">
     <header className="vr-header"><div><h2>Visitas PDV</h2><p>{desde && `${fecha(desde)} – ${fecha(corte)} · `}{esActual ? "Esta semana" : "Semana seleccionada"} y las cuatro anteriores, SKU por SKU.</p></div><button type="button" disabled={recuperando} onClick={restablecer}>Restablecer filtros</button></header>
     <fieldset className="vr-filtros" disabled={recuperando}>
       <label><span>Cliente</span><select value={clienteId} disabled={cargando} onChange={(e) => { setClienteId(e.target.value); setLocalId("") }}><option value="">Todos los clientes</option>{datos.clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
@@ -141,6 +140,7 @@ export default function DashboardVisitasRotacion({ cambiarPantalla }: { cambiarP
         <div className="vr-leyenda">
           {semanas.map((s, i) => <span key={s.desde}><i style={{ background: COLORES[i] }} /><span>{s.etiqueta}<small>{fecha(s.desde)} – {fecha(s.hasta)}</small></span></span>)}
           <span><i style={{ background: COLOR_PROMOCION }} />Promoción</span>
+          <span><i aria-hidden="true" style={{ border: `2px solid ${COLOR_PENDIENTE}` }} />Pendiente de verificar</span>
         </div>
         {series.length > 0 && !series.some((s) => s.semanas.some((p) => p.valor !== null)) && <p className="vr-estado">No hay mediciones de {config.nombre.toLowerCase()} para estos filtros en las cinco semanas.</p>}
         {promociones === "ERROR" && <p className="vr-nota" role="status">No se pudieron consultar las promociones de estas visitas.</p>}
@@ -199,10 +199,10 @@ function GraficoSku({ series, semanas, unidad, alRevisar }: { series: SerieSkuCa
           onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alRevisar(p.pendientes!, semanas[i]) } },
         })}>
           <title>{descripcion}{pendiente && " · Pulsa para revisar"}</title>
-          {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#708296" fontSize="10">Sin dato</text> : <>
-            <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={12} rx={3}
+          {p.valor === null ? <text x={margen + 6} y={i * 18 + 12} fill="#9aabba" fontSize="11">Sin dato</text> : <>
+            <rect x={Math.min(x(0), x(p.valor))} y={i * 18} width={Math.max(2, Math.abs(x(p.valor) - x(0)))} height={14} rx={3}
               fill={enPromocion > 0 ? COLOR_PROMOCION : COLORES[i]} stroke={pendiente ? COLOR_PENDIENTE : undefined} strokeWidth={pendiente ? 2 : undefined} />
-            <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 10} fill={i === 4 ? "#67e8f9" : "#bec8d2"} fontSize="10" fontWeight={i === 4 ? "700" : "400"}>
+            <text x={Math.max(x(0), x(p.valor)) + 7} y={i * 18 + 11} fill={i === 4 ? "#80f8eb" : "#dce6f2"} fontSize="11" fontWeight={i === 4 ? "700" : "400"}>
               {numero(p.valor)}
               {enPromocion > 0 && <tspan dx="9" fill="#86efac" fontWeight="700">{etiquetaPromocion}</tspan>}
             </text>
