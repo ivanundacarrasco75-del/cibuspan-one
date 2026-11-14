@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import {
-  guardarCompraSri, listarComprasSri, marcarRideLeido, obtenerCompraXml,
+  guardarCompraSri, listarComprasSri, marcarRideLeido,
   type CompraGuardada,
 } from "../repositories/comprasSriRepository"
 import { leerFacturaSri } from "../utils/comprasSri"
@@ -22,7 +22,6 @@ export default function ComprasSri() {
   const [revision, setRevision] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [importando, setImportando] = useState(false)
-  const [descargando, setDescargando] = useState("")
   const [errorTabla, setErrorTabla] = useState("")
   const [resultados, setResultados] = useState<string[]>([])
 
@@ -79,23 +78,6 @@ export default function ComprasSri() {
     }
   }
 
-  async function descargar(clave: string, serie: string) {
-    setDescargando(clave)
-    try {
-      const xml = await obtenerCompraXml(clave)
-      const url = URL.createObjectURL(new Blob([xml], { type: "application/xml" }))
-      const enlace = document.createElement("a")
-      enlace.href = url
-      enlace.download = `${serie}.xml`
-      enlace.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (error) {
-      setResultados([`${serie} · ${mensajeError(error)}`])
-    } finally {
-      setDescargando("")
-    }
-  }
-
   return (
     <section>
       <h1>Facturas de compra del SRI</h1>
@@ -123,7 +105,7 @@ export default function ComprasSri() {
         <div style={{ overflowX: "auto" }}>
           <table>
             <thead>
-              <tr>{["Fecha", "Factura", "Proveedor", "Subtotal", "IVA", "Total", "RIDE", "ADMYSIS"]
+              <tr>{["Fecha", "Factura", "Proveedor", "Subtotal", "IVA", "Total", "RIDE"]
                 .map((columna) => <th key={columna} scope="col">{columna}</th>)}</tr>
             </thead>
             <tbody>
@@ -154,12 +136,6 @@ export default function ComprasSri() {
                     .reduce((total, impuesto) => total + Number(impuesto.valor), 0))}</td>
                   <td>{monto(datos.total)}</td>
                   <td>{ride_leido ? "Vinculado" : "Pendiente"}</td>
-                  <td>
-                    <button type="button" disabled={Boolean(descargando)}
-                      onClick={() => void descargar(datos.clave, datos.serie)}>
-                      {descargando === datos.clave ? "Descargando…" : "Descargar XML"}
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>

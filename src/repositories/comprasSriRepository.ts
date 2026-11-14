@@ -31,10 +31,3 @@ export async function marcarRideLeido(clave: string) {
   if (error) throw error
   return data.length > 0
 }
-
-export async function obtenerCompraXml(clave: string) {
-  const { data, error } = await supabase.from("compras_sri")
-    .select("xml_original").eq("clave_acceso", clave).single()
-  if (error) throw error
-  return data.xml_original as string
-}
