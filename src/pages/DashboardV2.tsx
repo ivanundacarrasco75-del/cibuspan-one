@@ -6,7 +6,6 @@ import DashboardCostosGastosPanel from "../components/dashboard/DashboardCostosG
 import RevisionOperativa, { type DevengoRevision } from "../components/dashboard/RevisionOperativa"
 import KpiKam from "./KpiKam"
 import { supabase } from "../lib/supabase"
-import LogoCibuspan from "../components/LogoCibuspan"
 import {
   obtenerDetallesPedidosPorIdsDb,
   obtenerPedidosRangoDb,
@@ -1524,10 +1523,7 @@ export default function DashboardV2({
       <style>{css}</style>
 
       <header ref={encabezadoRef} className="wall-header">
-        <div>
-          <LogoCibuspan ancho={174} />
-          <h1>{TITULOS[tabActiva]}</h1>
-        </div>
+        <h1>{TITULOS[tabActiva]}</h1>
         <button
           type="button"
           onClick={() => {
@@ -3038,8 +3034,7 @@ function ResumenMercado({
 const css = `
   .wall-dashboard { width: 100%; max-width: none; margin: 0; padding: 20px 14px 40px; color: #2d2522; font-variant-numeric: tabular-nums; }
   .wall-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
-  .wall-header h1 { margin: 8px 0 3px; color: var(--cibuspan-azul); font-size: clamp(28px,3vw,38px); letter-spacing: -.7px; }
-  .wall-header p { margin: 0; color: #51617a; font-size: 13px; }
+  .wall-header h1 { margin: 0; color: var(--cibuspan-azul); font-size: clamp(28px,3vw,38px); letter-spacing: -.7px; }
   .wall-section-head > div > span { color: ${TURQUESA_MARCA}; font-size: 10px; font-weight: 950; letter-spacing: 1.35px; }
   .wall-header button { min-height: 42px; padding: 0 17px; border: 1px solid #dce5ee; border-radius: 8px; background: #fff; color: var(--cibuspan-azul); font-weight: 850; cursor: pointer; box-shadow: 0 4px 12px rgba(5,17,66,.06); }
   .wall-header button:disabled { opacity: .6; cursor: wait; }
@@ -3331,7 +3326,6 @@ const css = `
     .dashboard-period-buttons, .dashboard-period-comparison { grid-column: auto; }
     .dashboard-period-buttons > section { display:grid; grid-template-columns:1fr 1fr; }
     .wall-header h1 { font-size: 25px; }
-    .wall-header p { font-size: 10px; }
     .market-summary-title { align-items: flex-start; }
     .market-summary span { font-size: 8px; }
     .market-summary > strong { font-size: 21px; }
