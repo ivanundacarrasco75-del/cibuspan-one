@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Orden de Visitas PDV, 14/11/2026. El gráfico y la tabla aparecen debajo de los filtros. El contexto, las tarjetas de resumen, el conteo de pendientes y el panel de capturas y recuperación quedan debajo de la tabla. Pendiente de publicación.
+Orden de Visitas PDV, 14/11/2026. El gráfico y la tabla aparecen debajo de los filtros. El contexto, las tarjetas de resumen, el conteo de pendientes y el panel de capturas y recuperación quedan debajo de la tabla. Publicado en producción el 15/11/2026 desde `c708a5b`, despliegue `354903d7`. Se comprobó que el enlace público carga el dashboard compilado con el nuevo orden y que el servicio de capturas confirma Supabase de contingencia, R2 y firma.
 
 Revisión de capturas históricas, 14/11/2026. Si todas las capturas de un registro quedaron en el proyecto anterior y no están disponibles en R2, la pantalla omite sus campos de la cola de revisión al comprobar la disponibilidad. Conserva los valores y su estado de verificación. Si hay una captura disponible se puede revisar el dato. Publicado en producción desde `5757333`, despliegue `40d7a54c`. Se comprobó que el dominio público sirve los archivos compilados de Revisión de datos y que el endpoint de capturas confirma Supabase de contingencia, R2 y firma.
 
