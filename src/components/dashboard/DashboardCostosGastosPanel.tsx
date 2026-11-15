@@ -53,7 +53,7 @@ type NominaResumen = {
 type FilaDashboard = FilaFinanciera & {
   unidadesProducidas: number
   unidadesVendidas: number
-  mod: number
+  mod: number | null
   modUnidad: number | null
   cifUnidad: number | null
   costoVentaUnidadVendida: number | null
@@ -105,6 +105,18 @@ type DetalleRubro = {
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 const VINO = "#8F1D24"
 const NARANJA = "#F7931E"
+const CUENTA_PRODUCTO_TERMINADO = "5.2.01.1.01.02"
+
+function compararProductoTerminado(costoAnterior: number, costoActual: number, unidadesAnteriores: number, unidadesActuales: number) {
+  const unitarioAnterior = unidadesAnteriores > 0 ? costoAnterior / unidadesAnteriores : null
+  const unitarioActual = unidadesActuales > 0 ? costoActual / unidadesActuales : null
+  const comparable = unitarioAnterior !== null && unitarioActual !== null
+  return {
+    costoAnterior, costoActual, unidadesAnteriores, unidadesActuales, unitarioAnterior, unitarioActual,
+    volumen: comparable ? (unidadesActuales - unidadesAnteriores) * unitarioAnterior : null,
+    unitarioYMezcla: comparable ? (unitarioActual - unitarioAnterior) * unidadesActuales : null,
+  }
+}
 
 export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
   const [filas, setFilas] = useState<FilaDashboard[]>([])
@@ -222,14 +234,14 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
       const modMes = new Map<string, number>()
       nomina.forEach((fila) => {
         if (!fila.periodo.startsWith(String(anioObjetivo))) return
-        if (fila.area !== "MANO_OBRA_DIRECTA") return
-        modMes.set(fila.periodo, (modMes.get(fila.periodo) ?? 0) + Number(fila.costo_empresa ?? 0))
+        if (fila.area !== "MANO_OBRA_DIRECTA" || fila.costo_empresa == null) return
+        modMes.set(fila.periodo, (modMes.get(fila.periodo) ?? 0) + Number(fila.costo_empresa))
       })
 
       const dashboard = ((finRes.data ?? []) as FilaFinanciera[]).map((fila) => {
         const producidas = produccionMes.get(fila.periodo) ?? 0
         const vendidas = ventasMes.get(fila.periodo) ?? 0
-        const mod = modMes.get(fila.periodo) ?? 0
+        const mod = modMes.get(fila.periodo) ?? null
         const ventasNetas = Number(fila.ventas_netas ?? 0)
         const cif = Number(fila.cif_total_informativo ?? 0)
         const costoVenta = Number(fila.costo_venta ?? 0)
@@ -241,7 +253,7 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
           unidadesProducidas: producidas,
           unidadesVendidas: vendidas,
           mod,
-          modUnidad: producidas > 0 ? mod / producidas : null,
+          modUnidad: producidas > 0 && mod !== null ? mod / producidas : null,
           cifUnidad: producidas > 0 ? cif / producidas : null,
           costoVentaUnidadVendida: vendidas > 0 ? costoVenta / vendidas : null,
           gastoEspecificoUnidad: vendidas > 0 ? gastoEspecifico / vendidas : null,
@@ -278,6 +290,17 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
   const ultima = filas.at(-1) ?? null
   const anterior = filas.length > 1 ? filas.at(-2) ?? null : null
 
+  const productoTerminado = useMemo(() => {
+    if (!ultima || !anterior) return null
+    const cuentas = rubros.filter((rubro) =>
+      rubro.cuenta_codigo === CUENTA_PRODUCTO_TERMINADO && rubro.incluida_costo_venta_contable &&
+      (rubro.periodo === anterior.periodo || rubro.periodo === ultima.periodo))
+    if (cuentas.length === 0) return null
+    const costo = (periodo: string) => cuentas.filter((rubro) => rubro.periodo === periodo)
+      .reduce((total, rubro) => total + Number(rubro.valor), 0)
+    return compararProductoTerminado(costo(anterior.periodo), costo(ultima.periodo), anterior.unidadesVendidas, ultima.unidadesVendidas)
+  }, [rubros, anterior, ultima])
+
   const graficoCostoUnidad = useMemo(
     () => filas.map((fila) => ({
       etiqueta: etiquetaMes(fila.periodo),
@@ -301,6 +324,7 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
     const mapa = new Map<string, Acumulado>()
 
     const cargarFila = (rubro: RubroMensual, esActual: boolean) => {
+      if (rubro.cuenta_codigo === CUENTA_PRODUCTO_TERMINADO && rubro.incluida_costo_venta_contable) return
       // El nivel gerencial principal es la CUENTA CONTABLE completa.
       // Una cuenta que requiere detalle puede estar repartida entre CIF,
       // gasto específico, gasto general, etc.; no debe aparecer fragmentada
@@ -401,15 +425,21 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
 
   const puenteEbitda = useMemo(() => {
     if (!ultima || !anterior) return [] as Array<{ etiqueta: string; impacto: number }>
+    const cambioCostoVenta = ultima.costo_venta - anterior.costo_venta
+    const costosVenta = productoTerminado?.volumen != null && productoTerminado.unitarioYMezcla !== null ? [
+      { etiqueta: "Producto terminado · volumen facturado", impacto: -productoTerminado.volumen, neutro: true },
+      { etiqueta: "Producto terminado · costo unitario y mezcla", impacto: -productoTerminado.unitarioYMezcla },
+      { etiqueta: "Otros costos de venta", impacto: -(cambioCostoVenta - (productoTerminado.costoActual - productoTerminado.costoAnterior)) },
+    ] : [{ etiqueta: "Costo de venta contable", impacto: -cambioCostoVenta, neutro: true }]
     return [
       { etiqueta: "Ventas netas", impacto: ultima.ventas_netas - anterior.ventas_netas },
       { etiqueta: "Otros ingresos", impacto: ultima.otros_ingresos - anterior.otros_ingresos },
-      { etiqueta: "Costo de venta", impacto: -(ultima.costo_venta - anterior.costo_venta) },
+      ...costosVenta,
       { etiqueta: "CIF reclasificado", impacto: -(ultima.cif_operativo - anterior.cif_operativo) },
       { etiqueta: "Gastos específicos", impacto: -(ultima.gasto_especifico_cliente - anterior.gasto_especifico_cliente) },
       { etiqueta: "Gastos generales", impacto: -(ultima.gasto_general - anterior.gasto_general) },
     ].filter((item) => Math.abs(item.impacto) > 0.005)
-  }, [ultima, anterior])
+  }, [ultima, anterior, productoTerminado])
 
   async function verDetalle(desviacion: Desviacion) {
     if (!ultima) return
@@ -530,6 +560,28 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
             </div>
           )}
 
+          {anterior && productoTerminado && (
+            <article className="cg-card">
+              <div className="cg-card-title">
+                <div><h3>Producto terminado · costo variable de venta</h3></div>
+                <small>Compara el costo por unidad facturada. La mezcla de productos también puede cambiar ese promedio.</small>
+              </div>
+              <div className="cg-table-wrap compact">
+                <table>
+                  <thead><tr><th>Indicador</th><th>{etiquetaMes(anterior.periodo)}</th><th>{etiquetaMes(ultima.periodo)}</th></tr></thead>
+                  <tbody>
+                    <tr><td>Unidades facturadas</td><td>{numero(productoTerminado.unidadesAnteriores)}</td><td>{numero(productoTerminado.unidadesActuales)}</td></tr>
+                    <tr><td>Costo total</td><td>{dinero(productoTerminado.costoAnterior)}</td><td>{dinero(productoTerminado.costoActual)}</td></tr>
+                    <tr><td>Costo por unidad facturada</td><td>{dineroUnitario(productoTerminado.unitarioAnterior)}</td><td>{dineroUnitario(productoTerminado.unitarioActual)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              {productoTerminado.volumen !== null && productoTerminado.unitarioYMezcla !== null ? (
+                <p className="cg-info">Variación del costo atribuible al volumen facturado: <strong>{dineroConSigno(productoTerminado.volumen)}</strong>. Variación por costo unitario promedio y mezcla: <strong>{dineroConSigno(productoTerminado.unitarioYMezcla)}</strong>.</p>
+              ) : <p className="cg-info">Se necesitan unidades facturadas en ambos meses para separar el efecto del volumen del cambio en costo unitario y mezcla.</p>}
+            </article>
+          )}
+
           {anterior && (
             <div className="cg-grid-two cg-analysis-grid">
               <article className="cg-card">
@@ -538,7 +590,7 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
                     <span>¿QUÉ CAMBIÓ ESTE MES?</span>
                     <h3>Rubros con mayor impacto económico</h3>
                   </div>
-                  <small>Ordenados por impacto en dólares sobre EBITDA. Cada fila representa la cuenta contable completa; haz clic para ver cómo se repartió entre CIF, cliente, gasto general u otras clasificaciones cuando exista detalle.</small>
+                  <small>Ordenados por impacto en dólares sobre EBITDA. Producto terminado se analiza por unidad facturada. Haz clic en una cuenta para consultar el detalle disponible.</small>
                 </div>
                 <div className="cg-table-wrap compact">
                   <table className="cg-impact-table">
@@ -583,7 +635,7 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
                   {puenteEbitda.map((item) => (
                     <div key={item.etiqueta}>
                       <span>{item.etiqueta}</span>
-                      <strong className={item.impacto >= 0 ? "positive" : "negative"}>{dineroConSigno(item.impacto)}</strong>
+                      <strong className={"neutro" in item && item.neutro ? undefined : item.impacto >= 0 ? "positive" : "negative"}>{dineroConSigno(item.impacto)}</strong>
                     </div>
                   ))}
                 </div>
@@ -643,6 +695,15 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
               </div>
               <LineasCosto datos={graficoCostoUnidad} />
               <div className="cg-legend"><span>● MOD / ud.</span><span>◆ CIF / ud.</span></div>
+              {filas.some((fila) => fila.unidadesProducidas <= 0 || fila.mod === null) && (
+                <div className="cg-info">
+                  {filas.filter((fila) => fila.unidadesProducidas <= 0 || fila.mod === null).map((fila) => (
+                    <div key={fila.periodo}><strong>{etiquetaMes(fila.periodo)}</strong> · {
+                      [fila.unidadesProducidas <= 0 && "faltan unidades producidas", fila.mod === null && "falta mano de obra de Roles de pago"].filter(Boolean).join(" y ")
+                    }.</div>
+                  ))}
+                </div>
+              )}
             </article>
 
             <article className="cg-card">
@@ -693,7 +754,7 @@ export default function DashboardCostosGastosPanel({ cambiarPantalla }: Props) {
                       <td>{dinero(fila.ventas_netas)}</td>
                       <td>{dinero(fila.costo_venta)}</td>
                       <td>{dineroUnitario(fila.costoVentaUnidadVendida)}</td>
-                      <td>{dinero(fila.mod)}</td>
+                      <td>{fila.mod === null ? "—" : dinero(fila.mod)}</td>
                       <td>{dineroUnitario(fila.modUnidad)}</td>
                       <td>{dinero(fila.cif_total_informativo)}</td>
                       <td>{dineroUnitario(fila.cifUnidad)}</td>
@@ -786,10 +847,12 @@ function LineasCosto({ datos }: { datos: Array<{ etiqueta: string; mod: number |
   const maximo = Math.max(...valores, 0.01)
   const pasoX = datos.length > 1 ? (ancho - margen * 2) / (datos.length - 1) : 0
   const y = (valor: number | null) => valor == null ? null : alto - margen - (valor / maximo) * (alto - margen * 2)
-  const puntos = (clave: "mod" | "cif") => datos
+  const trazo = (clave: "mod" | "cif") => datos
     .map((fila, indice) => {
       const yy = y(fila[clave])
-      return yy == null ? null : `${margen + indice * pasoX},${yy}`
+      if (yy === null) return ""
+      const comando = indice > 0 && datos[indice - 1][clave] !== null ? "L" : "M"
+      return `${comando}${margen + indice * pasoX},${yy}`
     })
     .filter(Boolean)
     .join(" ")
@@ -798,8 +861,8 @@ function LineasCosto({ datos }: { datos: Array<{ etiqueta: string; mod: number |
     <div className="cg-chart-scroll">
       <svg viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-label="Evolución de MOD y CIF por unidad">
         <line x1={margen} y1={alto - margen} x2={ancho - margen} y2={alto - margen} className="axis" />
-        <polyline points={puntos("mod")} className="line-mod" />
-        <polyline points={puntos("cif")} className="line-cif" />
+        <path d={trazo("mod")} className="line-mod" />
+        <path d={trazo("cif")} className="line-cif" />
         {datos.map((fila, indice) => {
           const x = margen + indice * pasoX
           const yMod = y(fila.mod)
