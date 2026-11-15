@@ -4,11 +4,10 @@ import {
   type CompraGuardada,
 } from "../repositories/comprasSriRepository"
 import { leerFacturaSri } from "../utils/comprasSri"
+import ComprasSriTabla from "./ComprasSriTabla"
 
 const sri = "https://srienlinea.sri.gob.ec/sri-en-linea/inicio/NAT"
 const porPagina = 25
-const formato = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const monto = (valor: string | number) => formato.format(Number(valor))
 
 function mensajeError(error: unknown) {
   if (typeof error === "object" && error && "message" in error) return String(error.message)
@@ -81,7 +80,6 @@ export default function ComprasSri() {
   return (
     <section>
       <h1>Facturas de compra del SRI</h1>
-      <p>Abre el SRI, consulta Comprobantes electrónicos recibidos y descarga el XML y el RIDE de las facturas que quieras registrar.</p>
       <p><a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a></p>
       <label>
         Importar XML y PDF del SRI{" "}
@@ -101,47 +99,7 @@ export default function ComprasSri() {
       {errorTabla && <p role="alert">No se pudieron consultar las compras. {errorTabla}</p>}
       {cargando && <p role="status">Cargando compras…</p>}
       {!cargando && !errorTabla && !compras.length && <p>Todavía no hay facturas registradas.</p>}
-      {!cargando && !errorTabla && compras.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>{["Fecha", "Factura", "Proveedor", "Subtotal", "IVA", "Total", "RIDE"]
-                .map((columna) => <th key={columna} scope="col">{columna}</th>)}</tr>
-            </thead>
-            <tbody>
-              {compras.map(({ datos, ride_leido }) => (
-                <tr key={datos.clave}>
-                  <td>{datos.fecha}</td>
-                  <td>
-                    <details>
-                      <summary>{datos.serie}</summary>
-                      <div>Autorización: {datos.autorizacion}</div>
-                      <div>{datos.estadoXml}</div>
-                      <ul>
-                        {datos.items.map((item, indice) => (
-                          <li key={indice}>
-                            {item.codigo} · {item.descripcion} · {item.cantidad} × {item.precio}
-                            {" · Subtotal "}{monto(item.subtotal)}
-                          </li>
-                        ))}
-                      </ul>
-                      {datos.pagos.map((pago, indice) => (
-                        <div key={indice}>Pago {pago.forma} · {pago.total} · {pago.plazo} {pago.unidad}</div>
-                      ))}
-                    </details>
-                  </td>
-                  <td>{datos.proveedor}<br /><small>{datos.ruc}</small></td>
-                  <td>{monto(datos.subtotal)}</td>
-                  <td>{monto(datos.impuestos.filter((impuesto) => impuesto.codigo === "2")
-                    .reduce((total, impuesto) => total + Number(impuesto.valor), 0))}</td>
-                  <td>{monto(datos.total)}</td>
-                  <td>{ride_leido ? "Vinculado" : "Pendiente"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {!cargando && !errorTabla && compras.length > 0 && <ComprasSriTabla compras={compras} />}
       {(pagina > 0 || haySiguiente) && !errorTabla && (
         <nav aria-label="Páginas de facturas">
           <button type="button" disabled={pagina === 0 || cargando} onClick={() => setPagina(pagina - 1)}>Anterior</button>

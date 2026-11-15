@@ -1,0 +1,78 @@
+.compras-sri-contenedor {
+  overflow: auto;
+  max-height: 72vh;
+  border: 1px solid #a6b5c3;
+}
+
+.compras-sri-tabla {
+  width: 100%;
+  min-width: 1210px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  color: #152536;
+  font-size: 0.83rem;
+}
+
+.compras-sri-tabla th,
+.compras-sri-tabla td {
+  padding: 3px 5px;
+  border-bottom: 1px solid #bac5d1;
+  border-right: 1px solid #bac5d1;
+  text-align: left;
+}
+
+.compras-sri-tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #e9eff4;
+  white-space: nowrap;
+}
+
+.compras-sri-tabla td > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 66px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  padding: 3px 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.compras-sri-tabla td > input:focus {
+  outline: 2px solid #2371ab;
+  outline-offset: -1px;
+  background: white;
+  color: #152536;
+}
+
+.compras-sri-celda-proveedor { min-width: 185px; }
+.compras-sri-celda-descripcion { min-width: 235px; }
+.compras-sri-celda-serie { min-width: 130px; }
+.compras-sri-celda-fecha { min-width: 116px; }
+
+.compras-sri-celda-subtotal > input,
+.compras-sri-celda-iva > input,
+.compras-sri-celda-total > input,
+.compras-sri-tabla .compras-sri-monto { text-align: right; }
+
+.compras-sri-tabla .compras-sri-pagada > td { background: #9edbfa; color: #10304b; }
+.compras-sri-tabla .compras-sri-saldo > td { background: #fff; font-weight: 650; }
+.compras-sri-movimiento { font-variant-numeric: tabular-nums; }
+.compras-sri-estado { white-space: nowrap; }
+.compras-sri-acciones button { margin: 2px; white-space: nowrap; }
+.compras-sri-acciones summary { cursor: pointer; }
+.compras-sri-acciones details { overflow-wrap: anywhere; }
+
+.compras-sri-formulario {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 7px 4px;
+}
+
+.compras-sri-error { background: #fff1ee; color: #8b1f16; }

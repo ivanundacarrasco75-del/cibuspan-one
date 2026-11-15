@@ -1,17 +1,41 @@
 import { supabase } from "../lib/supabase"
 import type { FacturaSri } from "../utils/comprasSri"
 
-export type CompraGuardada = {
+export type CampoCompra = "fecha" | "serie" | "proveedor" | "descripcion" | "subtotal" | "iva" | "total" | "retencion" | "documento"
+export type AbonoCompra = { id: string; valor: string; fecha: string; documento: string }
+export type ControlCompra = {
+  edicion: Partial<Record<CampoCompra, string>>
+  abonos: AbonoCompra[]
+}
+export type CompraGuardada = ControlCompra & {
   datos: FacturaSri
   ride_leido: boolean
 }
 
 export async function listarComprasSri(desde: number, limite: number) {
   const { data, error } = await supabase.from("compras_sri")
-    .select("datos,ride_leido").order("fecha_emision", { ascending: false })
+    .select("datos,ride_leido,edicion,abonos").order("fecha_emision", { ascending: false })
     .order("clave_acceso").range(desde, desde + limite - 1)
   if (error) throw error
   return data as CompraGuardada[]
+}
+
+export async function editarCompraSri(clave: string, campo: CampoCompra, valor: string) {
+  const { data, error } = await supabase.rpc("compras_sri_editar", {
+    p_clave: clave, p_campo: campo, p_valor: valor,
+  })
+  if (error) throw error
+  return data as ControlCompra
+}
+
+export async function abonarCompraSri(
+  clave: string, id: string, valor: string | null, fecha: string, documento: string,
+) {
+  const { data, error } = await supabase.rpc("compras_sri_abonar", {
+    p_clave: clave, p_id: id, p_valor: valor, p_fecha: fecha, p_documento: documento,
+  })
+  if (error) throw error
+  return data as ControlCompra
 }
 
 export async function guardarCompraSri(datos: FacturaSri, xml: string) {
