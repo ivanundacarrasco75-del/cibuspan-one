@@ -14,6 +14,7 @@ import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 // Esto reduce mucho el JavaScript inicial de la app y evita cargar importadores,
 // PDF/Excel y pantallas pesadas que no se están usando.
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
+const ComprasSri = lazy(() => import("./pages/ComprasSri"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
 const KardexInventario = lazy(() => import("./pages/KardexInventario"))
@@ -457,6 +458,9 @@ function App() {
 
       case "Compras · Facturas":
         return <PagosGastos />
+
+      case "Compras · Facturas del SRI":
+        return <ComprasSri />
 
       case "Compras · Resumen":
       case "Compras · Proveedores":

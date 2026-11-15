@@ -116,6 +116,7 @@ const modulos: Modulo[] = [
       { pantalla: "Compras · Resumen", etiqueta: "Resumen" },
       { pantalla: "Compras · Proveedores", etiqueta: "Proveedores" },
       { pantalla: "Compras · Facturas", etiqueta: "Facturas" },
+      { pantalla: "Compras · Facturas del SRI", etiqueta: "Facturas del SRI" },
       {
         pantalla: "Compras · Materias Primas y Empaques",
         etiqueta: "Materias Primas y Empaques",
