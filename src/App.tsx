@@ -8,7 +8,10 @@ import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
 import InstalarApp from "./components/InstalarApp"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
-import { PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_MENU_COMPRAS, puedeAbrirPantalla } from "./utils/permisosAplicacion"
+import {
+  PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
+  PANTALLA_MENU_COMPRAS, PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla,
+} from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
 // Esto reduce mucho el JavaScript inicial de la app y evita cargar importadores,
@@ -17,6 +20,7 @@ const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
+const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
 const KardexInventario = lazy(() => import("./pages/KardexInventario"))
@@ -461,11 +465,18 @@ function App() {
       case "Compras · Facturas":
         return <PagosGastos />
 
-      case "Compras · Facturas del SRI":
+      case PANTALLA_FACTURAS_SRI:
         return <ComprasSri />
 
       case PANTALLA_MENU_COMPRAS:
-        return <ComprasResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+      case PANTALLA_FACTURAS_COMPRAS:
+        return <ComprasResumen facturas={pantalla === PANTALLA_FACTURAS_COMPRAS} puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
+      case PANTALLA_NOTAS_VENTA:
+        return <ComprasDocumentos key={pantalla} tipo="notas" />
+
+      case PANTALLA_NO_DEDUCIBLES:
+        return <ComprasDocumentos key={pantalla} tipo="noDeducibles" />
 
       case PANTALLA_ANTICIPAR_COMPRAS:
         return <ComprasAnticipar />

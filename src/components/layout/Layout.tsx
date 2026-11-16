@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { filtrarModulosPermitidos, PANTALLA_MENU_COMPRAS } from "../../utils/permisosAplicacion"
+import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
 import LogoCibuspan from "../LogoCibuspan"
 
 type LayoutProps = {
@@ -300,6 +300,11 @@ export default function Layout({
       <main className="c1-content">
         {moduloActualId === "Compras" && pantalla !== PANTALLA_MENU_COMPRAS && moduloActual && (
           <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Compras">
+            {PANTALLAS_DOCUMENTOS_COMPRAS.includes(pantalla) && puedeAcceder(PANTALLA_FACTURAS_COMPRAS) && (
+              <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_FACTURAS_COMPRAS)}>
+                <span aria-hidden="true">← </span>Volver a Facturas de compras
+              </button>
+            )}
             <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_COMPRAS)}>
               <span aria-hidden="true">← </span>Volver a Compras
             </button>
@@ -723,6 +728,12 @@ const css = `
     border-color: var(--cibuspan-azul);
     background: var(--cibuspan-azul);
     color: white;
+  }
+
+  .c1-compras-regreso {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
   }
 
   .c1-compras-regreso .c1-subnav-item {

@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
-import { PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_MENU_COMPRAS, puedeAbrirPantalla, permisoDePantalla, filtrarModulosPermitidos, permisosCoinciden } from '../src/utils/permisosAplicacion.ts'
+import {
+  PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI, PANTALLA_MENU_COMPRAS,
+  PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla, permisoDePantalla, filtrarModulosPermitidos, permisosCoinciden,
+} from '../src/utils/permisosAplicacion.ts'
 
 const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
@@ -38,6 +41,15 @@ test('El menú de Compras permite regresar desde cualquier sección autorizada',
   }
   assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'KAM', ['KPI KAM']), false)
   assert.equal(puedeAbrirPantalla(PANTALLA_ANTICIPAR_COMPRAS, 'GERENTE', ['Administración', 'Materias primas']), true)
+})
+
+test('Facturas de compras agrupa documentos sin ampliar el acceso al SRI', () => {
+  const rutas = [PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES]
+  const accesos = (rol, permisos) => rutas.filter(ruta => puedeAbrirPantalla(ruta, rol, permisos))
+  assert.deepEqual(accesos('ADMINISTRADOR', ['Administración']), rutas)
+  assert.deepEqual(accesos('ADMINISTRADOR', []), [PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI])
+  assert.deepEqual(accesos('GERENTE', ['Administración']), [PANTALLA_FACTURAS_COMPRAS, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES])
+  assert.deepEqual(accesos('BODEGUERO', ['Materias primas']), [])
 })
 
 function servicio(responder) {
