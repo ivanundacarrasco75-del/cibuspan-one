@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Margen en dólares y revisión de costeo publicados el 16/11/2026 desde `e3944d3`, despliegue `b443a5bf`. Pasó `npm run build` y se comprobó que producción sirve el módulo compilado con el Supabase operativo. Cambio de frontend sin SQL nuevo.
+
 Menú de Compras, 16/11/2026. La entrada de Compras muestra las tarjetas de las secciones autorizadas. «Compras por anticipar» es una tarjeta independiente y consulta el Kardex al abrirse. Cada sección ofrece «Volver a Compras». El menú también está disponible para perfiles con acceso limitado a alguna sección, con los permisos previos de cada destino. Se comprobó en Chrome con Supabase simulado la apertura y el regreso desde las nueve tarjetas, la carga de avisos, el reintento, los permisos y el diseño a 360 px. Pasaron 17 pruebas y `npm run build`.
 
 Menú de Compras publicado el 16/11/2026 desde `23caced` en `main`, despliegue de producción `d35d4c97`. Pasó `npm run build` con el Supabase operativo. En el dominio público se verificaron el botón de regreso, el SHA-256 del índice JavaScript y los dos módulos de Compras, además de la configuración de R2 y firma. Cambio de frontend sin SQL nuevo.
