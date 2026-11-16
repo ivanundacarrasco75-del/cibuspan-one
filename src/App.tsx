@@ -15,6 +15,7 @@ import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 // PDF/Excel y pantallas pesadas que no se están usando.
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
+const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
 const KardexInventario = lazy(() => import("./pages/KardexInventario"))
@@ -463,6 +464,8 @@ function App() {
         return <ComprasSri />
 
       case "Compras · Resumen":
+        return <ComprasResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
       case "Compras · Proveedores":
       case "Compras · Costos":
       case "Compras · Historial":

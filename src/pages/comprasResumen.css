@@ -1,0 +1,117 @@
+.compras-resumen {
+  --compras-marino: #102646;
+  --compras-turquesa: #087e83;
+  --compras-texto-secundario: #52647b;
+  --compras-borde: #dbe6ef;
+  width: 100%;
+  max-width: 1360px;
+  margin-inline: auto;
+  padding: clamp(12px, 2.6vw, 32px);
+  border-radius: 20px;
+  background: #f3f7fb;
+  color: var(--compras-marino);
+}
+
+.compras-resumen h1, .compras-resumen h2, .compras-resumen h3, .compras-resumen p {
+  margin: 0;
+}
+
+.compras-resumen p { color: var(--compras-texto-secundario); line-height: 1.5; }
+.compras-resumen h2 { font-size: clamp(1.15rem, 2vw, 1.4rem); }
+.compras-cabecera, .compras-panel {
+  border: 1px solid var(--compras-borde);
+  border-radius: 16px;
+  background: #fff;
+  padding: clamp(14px, 2.6vw, 26px);
+}
+
+.compras-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px clamp(18px, 3vw, 36px);
+  margin-bottom: 18px;
+  border-top: 4px solid #11a8ae;
+}
+
+.compras-cabecera h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.15; margin-bottom: 6px; }
+.compras-seccion-titulo, .compras-aviso-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.compras-seccion-titulo p { margin-top: 5px; font-size: .9rem; }
+.compras-periodo, .compras-estado {
+  display: inline-block;
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: .78rem;
+  line-height: 1.35;
+}
+
+.compras-periodo, .compras-estado.fecha { color: #075f65; background: #e4f7f7; }
+.compras-estado.pendiente { color: #6b4810; background: #fff3d8; }
+.compras-estado.riesgo { color: #9e1526; background: #ffe8ec; }
+.compras-resumen .compras-mensaje { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: #eef5fa; font-size: .88rem; }
+.compras-lista { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 9px; }
+.compras-aviso {
+  padding: 12px 14px;
+  border: 1px solid var(--compras-borde);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.compras-aviso-riesgo { border-inline-start: 4px solid #c3384b; }
+.compras-aviso-titulo h3 { font-size: 1rem; }
+.compras-aviso-titulo span { font-size: .78rem; color: var(--compras-texto-secundario); }
+.compras-medidas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 10px 0;
+  padding: 8px 10px;
+  background: #f5f8fb;
+  border-radius: 8px;
+}
+
+.compras-medidas dt { color: var(--compras-texto-secundario); font-size: .76rem; }
+.compras-medidas dd { margin: 3px 0 0; font-size: .9rem; font-weight: 700; }
+.compras-resumen .compras-faltantes { font-size: .82rem; margin-bottom: 4px; }
+.compras-aviso summary { width: fit-content; cursor: pointer; color: #086d71; font-size: .84rem; font-weight: 700; padding-block: 4px; }
+.compras-aviso details p { font-size: .83rem; margin: 4px 0; max-width: 75ch; }
+.compras-resumen .compras-boton { min-height: 40px; margin-top: 10px; padding: 6px 12px; color: #07666b; background: #fff; border: 1px solid #9bcfd2; border-radius: 8px; cursor: pointer; font-weight: 700; }
+
+.compras-accesos { margin-top: 22px; }
+.compras-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; margin-top: 10px; }
+.compras-resumen .compras-tarjeta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  min-height: 94px;
+  padding: 14px;
+  border: 1px solid var(--compras-borde);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--compras-marino);
+  text-align: start;
+  cursor: pointer;
+}
+
+.compras-tarjeta:hover { border-color: #5db6bb; background: #fbfefe; }
+.compras-tarjeta strong { display: block; font-size: .95rem; }
+.compras-tarjeta strong + span { display: block; margin-top: 4px; font-size: .8rem; color: var(--compras-texto-secundario); line-height: 1.35; }
+.compras-tarjeta strong + .compras-en-desarrollo { color: #765214; }
+.compras-icono { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #e4f7f7; color: var(--compras-turquesa); }
+.compras-icono svg { width: 21px; height: 21px; }
+.compras-flecha { color: var(--compras-turquesa); font-size: 1rem; }
+.compras-resumen :is(button, summary):focus-visible { outline: 2px solid var(--compras-turquesa); outline-offset: 3px; }
+
+@media (max-width: 520px) {
+  .compras-resumen { padding: 9px; }
+  .compras-aviso { padding: 10px; }
+  .compras-medidas { padding: 8px; column-gap: 8px; }
+}
