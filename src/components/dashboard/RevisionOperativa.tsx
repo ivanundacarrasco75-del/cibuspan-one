@@ -1,5 +1,7 @@
 import type { DevolucionListadoDb } from "../../repositories/devolucionRepository"
 import type { VentaDiariaDb } from "../../repositories/ventasRepository"
+import type { SaldoBancarioRevision } from "../../repositories/bancosRevisionRepository"
+import { desplazarMes, GraficoRevision, mesRevision } from "./GraficosRevisionOperativa"
 import "./RevisionOperativa.css"
 
 type Rango = { desde: string; hasta: string }
@@ -116,6 +118,100 @@ type Datos = {
   ventas: VentaDiariaDb[] | null
   devoluciones: DevolucionListadoDb[] | null
   devengo: DevengoRevision[] | null
+  bancos: SaldoBancarioRevision[] | null
+}
+
+function rangoMes(periodo: string): Rango {
+  return { desde: periodo, hasta: sumarDias(desplazarMes(periodo, 1), -1) }
+}
+
+function etiquetaRango(rango: Rango) {
+  return `${fechaCorta(rango.desde)}–${fechaCorta(rango.hasta)}`
+}
+
+function etiquetaContable(rango: Rango) {
+  return rango.desde.slice(0, 7) === rango.hasta.slice(0, 7)
+    ? mesRevision(rango.desde)
+    : etiquetaRango(rango)
+}
+
+function margenDevengo(resumen: ReturnType<typeof resumirDevengo>) {
+  return resumen && resumen.ventas > 0 ? 100 * resumen.ebitda / resumen.ventas : null
+}
+
+function GraficosOperativos({ datos, actual, anterior, tasa, tasaAnterior, verCostos, verDevoluciones }: {
+  datos: Datos
+  actual: Rango
+  anterior: Rango
+  tasa: number | null
+  tasaAnterior: number | null
+  verCostos: () => void
+  verDevoluciones: () => void
+}) {
+  const filas = datos.devengo ?? []
+  const resumenSeleccionado = resumirDevengo(filas, actual)
+  const ultimo = filas.map(({ periodo }) => periodo)
+    .filter((periodo) => rangoMes(periodo).hasta <= actual.hasta && resumirDevengo(filas, rangoMes(periodo)))
+    .sort().at(-1)
+  const rango = resumenSeleccionado ? actual : ultimo ? rangoMes(ultimo) : null
+  const previo = resumenSeleccionado ? anterior : ultimo ? rangoMes(desplazarMes(ultimo, -1)) : null
+  const resumen = resumenSeleccionado ?? (rango ? resumirDevengo(filas, rango) : null)
+  const resumenPrevio = previo ? resumirDevengo(filas, previo) : null
+  const corte = rango ? desplazarMes(rango.hasta, 0) : null
+  const cortePrevio = previo && rangoMes(desplazarMes(previo.hasta, 0)).hasta === previo.hasta
+    ? desplazarMes(previo.hasta, 0) : null
+  const saldo = datos.bancos?.find((fila) => fila.periodo === corte)?.saldo ?? null
+  const saldoPrevio = datos.bancos?.find((fila) => fila.periodo === cortePrevio)?.saldo ?? null
+  const ventas = corte ? Array.from({ length: 6 }, (_, i) => {
+    const periodo = desplazarMes(corte, i - 5)
+    return { etiqueta: mesRevision(periodo), valor: resumirDevengo(filas, rangoMes(periodo))?.ventas ?? null }
+  }) : []
+  const par = (vigente: number | null, anterior: number | null) => [
+    { etiqueta: previo ? etiquetaContable(previo) : "Anterior", valor: anterior },
+    { etiqueta: rango ? etiquetaContable(rango) : "Actual", valor: vigente },
+  ]
+  const margen = margenDevengo(resumen), margenAnterior = margenDevengo(resumenPrevio)
+  const costos = resumen?.costos ?? null, costosPrevios = resumenPrevio?.costos ?? null
+  const porcentaje = (valor: number) => `${decimal.format(valor)} %`
+  const faltaDevengo = datos.devengo === null ? "Devengo no disponible." : "Sin cierre contable hasta la fecha elegida."
+
+  return (
+    <>
+      <p className="revision-grafico-corte">
+        {rango ? `Corte contable y bancario · ${etiquetaRango(rango)} de ${rango.hasta.slice(0, 4)}`
+          : "Corte contable pendiente"}
+        {previo && resumenPrevio ? ` · Comparación ${etiquetaRango(previo)} de ${previo.hasta.slice(0, 4)}` : ""}
+        {` · Devoluciones ${etiquetaRango(actual)} vs. ${etiquetaRango(anterior)}`}
+      </p>
+      <div className="revision-graficos">
+        <GraficoRevision titulo="Ventas netas" vigente={resumen?.ventas ?? null} anterior={resumenPrevio?.ventas ?? null}
+          puntos={ventas} formato={usd.format} unidad="USD" faltante={faltaDevengo} tendencia>
+          {ventas.some(({ valor }) => valor !== null) && <small>Ventas mensuales · USD</small>}
+        </GraficoRevision>
+        <GraficoRevision titulo="Margen EBITDA" vigente={margen} anterior={margenAnterior} puntos={par(margen, margenAnterior)}
+          formato={porcentaje} unidad="Margen EBITDA por período" faltante={resumen ? "Se necesitan ventas netas positivas." : faltaDevengo} indice>
+          {resumen && <small>EBITDA · {usd.format(resumen.ebitda)}</small>}
+        </GraficoRevision>
+        <GraficoRevision titulo="Costos y gastos por devengo" vigente={costos} anterior={costosPrevios} puntos={par(costos, costosPrevios)}
+          formato={usd.format} unidad="Costos y gastos operativos en USD" faltante={faltaDevengo} subeEsBueno={false}>
+          <button type="button" onClick={verCostos}>Ver costos y gastos</button>
+        </GraficoRevision>
+        <GraficoRevision titulo="Tasa de devoluciones" vigente={tasa} anterior={tasaAnterior}
+          puntos={[{ etiqueta: etiquetaRango(anterior), valor: tasaAnterior }, { etiqueta: etiquetaRango(actual), valor: tasa }]}
+          formato={porcentaje} unidad="Unidades devueltas atribuidas sobre unidades facturadas"
+          faltante={datos.ventas === null || datos.devoluciones === null ? "Datos de ventas o devoluciones no disponibles." : "Sin unidades facturadas para calcular la tasa."} indice subeEsBueno={false}>
+          <button type="button" onClick={verDevoluciones}>Ver devoluciones</button>
+        </GraficoRevision>
+        <GraficoRevision titulo="Saldo de bancos al cierre" vigente={saldo} anterior={saldoPrevio}
+          puntos={[{ etiqueta: cortePrevio ? mesRevision(cortePrevio) : "Anterior", valor: saldoPrevio },
+            { etiqueta: corte ? mesRevision(corte) : "Actual", valor: saldo }]}
+          formato={usd.format} unidad="Saldo de bancos en USD"
+          faltante={datos.bancos === null ? "Balance Comparativo no disponible." : "Sin saldo bancario para el cierre indicado."}>
+          {saldo !== null && corte && <small>Balance Comparativo · {mesRevision(corte, "long")}</small>}
+        </GraficoRevision>
+      </div>
+    </>
+  )
 }
 
 export default function RevisionOperativa({
@@ -157,12 +253,12 @@ export default function RevisionOperativa({
   const hayCambios = aumentoCostos >= 0.01 || aumentoTasa >= 0.01 || (ventasComparables && !!mayorCaida)
 
   return (
-    <section className="revision-operativa" aria-labelledby="revision-operativa-titulo">
-      <header>
-        <h2 id="revision-operativa-titulo">Comparación de períodos</h2>
-        <p>{fechaCorta(actual.desde)}–{fechaCorta(actual.hasta)} frente a {fechaCorta(anterior.desde)}–{fechaCorta(anterior.hasta)}</p>
-      </header>
+    <section className="revision-operativa" aria-label="Indicadores de revisión operativa">
       {!datos ? <p role="status">Cargando revisión del período…</p> : <>
+        <GraficosOperativos datos={datos} actual={actual} anterior={anterior} tasa={vigente.tasa}
+          tasaAnterior={previo.tasa} verCostos={verCostos} verDevoluciones={verDevoluciones} />
+        <details className="revision-operativa-detalle">
+          <summary>Ver detalle del período seleccionado</summary>
         <div className="revision-operativa-columnas">
           <section className="revision-operativa-panel">
             <h3>¿Qué requiere atención?</h3>
@@ -237,6 +333,7 @@ export default function RevisionOperativa({
           {devengo && !devengoAnterior && <p>Sin cierre contable comparable para el período anterior.</p>}
           <button type="button" onClick={verCostos}>Abrir panel completo de costos y gastos</button>
         </section>
+        </details>
       </>}
     </section>
   )

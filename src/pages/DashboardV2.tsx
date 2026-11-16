@@ -4,6 +4,7 @@ import DashboardPilotoPanel from "../components/dashboard/DashboardPilotoPanel"
 import DashboardRentabilidadPilotoPanel from "../components/dashboard/DashboardRentabilidadPilotoPanel"
 import DashboardCostosGastosPanel from "../components/dashboard/DashboardCostosGastosPanel"
 import RevisionOperativa, { type DevengoRevision } from "../components/dashboard/RevisionOperativa"
+import { obtenerSaldosBancariosRevision, type SaldoBancarioRevision } from "../repositories/bancosRevisionRepository"
 import KpiKam from "./KpiKam"
 import { supabase } from "../lib/supabase"
 import {
@@ -372,6 +373,7 @@ export default function DashboardV2({
     ventas: VentaDiariaDb[] | null
     devoluciones: DevolucionListadoDb[] | null
     devengo: DevengoRevision[] | null
+    bancos: SaldoBancarioRevision[] | null
   } | null>(null)
   const [ventasSemanales, setVentasSemanales] = useState<VentaSemanalDb[]>([])
   const [facturas, setFacturas] = useState<FacturaDetalleDb[]>([])
@@ -495,18 +497,22 @@ export default function DashboardV2({
         const produccionHasta = rangoHasta > hoy ? rangoHasta : hoy
         const devolucionesPromise = obtenerDevolucionesDb(comparacion.desde, devolucionesHastaConsulta)
         if (tab === "ejecutivo") {
-          const mesDesde = `${comparacion.desde.slice(0, 7)}-01`
+          const mesHistorico = new Date(`${rangoHasta.slice(0, 7)}-01T12:00:00`)
+          mesHistorico.setMonth(mesHistorico.getMonth() - 12)
+          const mesDesde = [fechaIsoLocal(mesHistorico), `${comparacion.desde.slice(0, 7)}-01`].sort()[0]
           void Promise.all([
             ventasDiariasSeguras(comparacion.desde, rangoHasta),
             devolucionesPromise.catch(() => null),
             cargarDevengoRevision(mesDesde, rangoHasta).catch(() => null),
-          ]).then(([ventas, devolucionesRevision, devengo]) => {
+            obtenerSaldosBancariosRevision(mesDesde, rangoHasta).catch(() => null),
+          ]).then(([ventas, devolucionesRevision, devengo, bancos]) => {
             if (solicitudActual !== solicitudCargaRef.current) return
             setRevisionOperativa({
               clave: claveCarga,
               ventas: ventas.error ? null : ventas.data,
               devoluciones: devolucionesRevision,
               devengo,
+              bancos,
             })
           })
         }
@@ -1550,8 +1556,8 @@ export default function DashboardV2({
         }}>Volver a Revisión operativa</button>
       )}
 
-      {tabActiva !== "costos_gastos" && tabActiva !== "kpi_kam" && (
-      <section className="dashboard-period-filter">
+      {tabActiva !== "costos_gastos" && tabActiva !== "kpi_kam" && (() => {
+      const filtros = <section className="dashboard-period-filter">
         <div className="dashboard-period-buttons">
           <span>Vista por periodo</span>
           <section>
@@ -1644,7 +1650,13 @@ export default function DashboardV2({
           </small>
         </div>
       </section>
-      )}
+      return tabActiva === "ejecutivo" ? (
+        <details className="dashboard-revision-filtros">
+          <summary>Filtros del período · {textoPeriodo(fechaDesde, fechaHasta)}</summary>
+          {filtros}
+        </details>
+      ) : filtros
+      })()}
 
       {error && <div className="wall-error">{error}</div>}
 
@@ -1658,6 +1670,8 @@ export default function DashboardV2({
             verDevoluciones={() => abrirDetalleRevision("devoluciones")}
             verComercial={() => abrirDetalleRevision("comercial")}
           />
+          <details className="dashboard-revision-filtros">
+          <summary>Ver resumen de despachos, devoluciones y operación de hoy</summary>
           <DashboardEjecutivo
             totales={totales}
             tasaActual={tasaActual}
@@ -1666,6 +1680,7 @@ export default function DashboardV2({
             stockDisponible={stockDisponible}
             periodoTexto={periodoTexto}
           />
+          </details>
         </>
       )}
 
@@ -3038,6 +3053,9 @@ const css = `
   .wall-section-head > div > span { color: ${TURQUESA_MARCA}; font-size: 10px; font-weight: 950; letter-spacing: 1.35px; }
   .wall-header button { min-height: 42px; padding: 0 17px; border: 1px solid #dce5ee; border-radius: 8px; background: #fff; color: var(--cibuspan-azul); font-weight: 850; cursor: pointer; box-shadow: 0 4px 12px rgba(5,17,66,.06); }
   .wall-header button:disabled { opacity: .6; cursor: wait; }
+  .dashboard-revision-filtros { margin: 0 0 12px; text-align: left; }
+  .dashboard-revision-filtros > summary { width: fit-content; color: ${AZUL_MARCA}; cursor: pointer; font-size: 13px; font-weight: 750; padding: 5px 0; }
+  .dashboard-revision-filtros > .dashboard-period-filter { margin-top: 8px; }
   .dashboard-volver { margin: 0 0 24px; padding: 8px 12px; border: 1px solid #c5dedb; border-radius: 8px; background: var(--cibuspan-turquesa-claro); color: ${AZUL_MARCA}; font-weight: 750; cursor: pointer; }
   .dashboard-period-filter { width:100%; min-width:0; display: grid; grid-template-columns: minmax(290px,auto) 145px 145px 135px 135px auto minmax(220px,1fr); align-items: end; gap: 10px; margin: -10px 0 22px; padding: 13px; border: 1px solid #e6dcd6; border-radius: 10px; background: #fff; box-shadow: 0 4px 14px rgba(70,43,34,.04); }
   .dashboard-period-filter label { min-width:0; color: #756862; font-size: 9px; font-weight: 900; text-transform: uppercase; }
