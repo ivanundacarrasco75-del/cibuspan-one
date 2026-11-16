@@ -8,7 +8,7 @@ import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
 import InstalarApp from "./components/InstalarApp"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
-import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
+import { PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_MENU_COMPRAS, puedeAbrirPantalla } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
 // Esto reduce mucho el JavaScript inicial de la app y evita cargar importadores,
@@ -16,6 +16,7 @@ import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
+const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
 const KardexInventario = lazy(() => import("./pages/KardexInventario"))
@@ -463,8 +464,11 @@ function App() {
       case "Compras · Facturas del SRI":
         return <ComprasSri />
 
-      case "Compras · Resumen":
+      case PANTALLA_MENU_COMPRAS:
         return <ComprasResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
+      case PANTALLA_ANTICIPAR_COMPRAS:
+        return <ComprasAnticipar />
 
       case "Compras · Proveedores":
       case "Compras · Costos":

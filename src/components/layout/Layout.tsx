@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { filtrarModulosPermitidos } from "../../utils/permisosAplicacion"
+import { filtrarModulosPermitidos, PANTALLA_MENU_COMPRAS } from "../../utils/permisosAplicacion"
 import LogoCibuspan from "../LogoCibuspan"
 
 type LayoutProps = {
@@ -111,21 +111,8 @@ const modulos: Modulo[] = [
     id: "Compras",
     etiqueta: "Compras",
     icono: "compras",
-    entrada: "Compras · Resumen",
-    items: [
-      { pantalla: "Compras · Resumen", etiqueta: "Resumen" },
-      { pantalla: "Compras · Proveedores", etiqueta: "Proveedores" },
-      { pantalla: "Compras · Facturas", etiqueta: "Facturas" },
-      { pantalla: "Compras · Facturas del SRI", etiqueta: "Facturas del SRI" },
-      {
-        pantalla: "Compras · Materias Primas y Empaques",
-        etiqueta: "Materias Primas y Empaques",
-      },
-      { pantalla: "Compras · Costos", etiqueta: "Costos" },
-      { pantalla: "Compras · Kardex", etiqueta: "Kardex" },
-      { pantalla: "Compras · Historial", etiqueta: "Historial" },
-      { pantalla: "Compras · Análisis", etiqueta: "Análisis" },
-    ],
+    entrada: PANTALLA_MENU_COMPRAS,
+    items: [],
   },
   {
     id: "Pagos y Finanzas",
@@ -311,6 +298,13 @@ export default function Layout({
       </header>
 
       <main className="c1-content">
+        {moduloActualId === "Compras" && pantalla !== PANTALLA_MENU_COMPRAS && moduloActual && (
+          <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Compras">
+            <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_COMPRAS)}>
+              <span aria-hidden="true">← </span>Volver a Compras
+            </button>
+          </nav>
+        )}
         {moduloActual && moduloActual.items.length > 0 && (
           <div className="c1-subnav-shell">
             <div className="c1-module-title">{moduloActual.etiqueta}</div>
@@ -729,6 +723,11 @@ const css = `
     border-color: var(--cibuspan-azul);
     background: var(--cibuspan-azul);
     color: white;
+  }
+
+  .c1-compras-regreso .c1-subnav-item {
+    min-height: 44px;
+    color: var(--cibuspan-azul);
   }
 
   .c1-page-slot {

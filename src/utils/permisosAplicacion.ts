@@ -1,3 +1,6 @@
+export const PANTALLA_MENU_COMPRAS = "Compras · Resumen"
+export const PANTALLA_ANTICIPAR_COMPRAS = "Compras · Compras por anticipar"
+
 const grupos: Array<[string, string[]]> = [
   ["Dashboard", ["Dashboard · Comercial", "Dashboard · Costos y gastos", "Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
   ["Pedidos", ["Comercial · Pedidos", "Producción · Pedidos"]],
@@ -28,6 +31,12 @@ export function permisoDePantalla(pantalla: string): string {
 }
 
 export function puedeAbrirPantalla(pantalla: string, rol: string, permitidas: readonly string[]): boolean {
+  if (pantalla === PANTALLA_MENU_COMPRAS) {
+    return permitidas.includes("Administración") || permitidas.includes("Materias primas") || rol === "ADMINISTRADOR"
+  }
+  if (pantalla === PANTALLA_ANTICIPAR_COMPRAS) {
+    return permitidas.includes("Administración") && permitidas.includes("Materias primas")
+  }
   if (pantalla === "Compras · Facturas del SRI") return rol === "ADMINISTRADOR"
   const permiso = permisoDePantalla(pantalla)
   if (permiso === "Usuarios y permisos") return rol === "ADMINISTRADOR"

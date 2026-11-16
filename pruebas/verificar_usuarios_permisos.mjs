@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
-import { puedeAbrirPantalla, permisoDePantalla, filtrarModulosPermitidos, permisosCoinciden } from '../src/utils/permisosAplicacion.ts'
+import { PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_MENU_COMPRAS, puedeAbrirPantalla, permisoDePantalla, filtrarModulosPermitidos, permisosCoinciden } from '../src/utils/permisosAplicacion.ts'
 
 const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
@@ -24,6 +24,20 @@ test('Revocar acceso también bloquea aliases y una pantalla guardada de la sesi
   assert.equal(puedeAbrirPantalla('Comercial · Visitas y rotación', 'MERCADERISTA', []), false)
   assert.equal(puedeAbrirPantalla('Usuarios y permisos', 'GERENTE', ['Usuarios y permisos']), false)
   assert.equal(puedeAbrirPantalla('Usuarios y permisos', 'ADMINISTRADOR', []), true)
+})
+
+test('El menú de Compras permite regresar desde cualquier sección autorizada', () => {
+  for (const [rol, permitidas, ruta] of [
+    ['BODEGUERO', ['Materias primas'], 'Compras · Kardex'],
+    ['GERENTE', ['Administración'], 'Compras · Facturas'],
+    ['ADMINISTRADOR', [], 'Compras · Facturas del SRI'],
+  ]) {
+    assert.equal(puedeAbrirPantalla(ruta, rol, permitidas), true)
+    assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, rol, permitidas), true)
+    assert.equal(puedeAbrirPantalla(PANTALLA_ANTICIPAR_COMPRAS, rol, permitidas), false)
+  }
+  assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'KAM', ['KPI KAM']), false)
+  assert.equal(puedeAbrirPantalla(PANTALLA_ANTICIPAR_COMPRAS, 'GERENTE', ['Administración', 'Materias primas']), true)
 })
 
 function servicio(responder) {
