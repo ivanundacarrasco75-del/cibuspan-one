@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase"
-import type { CatalogoArranque, ConteosArranque, EstadoArranque, VistaArranque } from "../utils/arranqueOperativo"
+import type { AlcanceArranque, CatalogoArranque, ConteosArranque, EstadoArranque, VistaArranque } from "../utils/arranqueOperativo"
 import { crearControlArranque, type IntentoArranque } from "../utils/controlArranque"
 async function sesion(esperado?: string) {
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -22,9 +22,10 @@ export async function preverArranqueOperativo(inicio: string, conteos: ConteosAr
   if (error) throw new Error(error.message)
   return data as VistaArranque
 }
-export async function contextoBorradorArranque() {
+export async function contextoBorradorArranque(alcance: AlcanceArranque) {
   const usuarioId = await sesion()
-  return { usuarioId, clave: `cibuspan:arranque:borrador:v1:${encodeURIComponent(import.meta.env.VITE_SUPABASE_URL)}:${usuarioId}` }
+  const clave = `cibuspan:arranque:borrador:v1:${encodeURIComponent(import.meta.env.VITE_SUPABASE_URL)}:${usuarioId}`
+  return { usuarioId, clave: alcance === "PT" ? clave + ":pt" : clave }
 }
 async function control(esperado?: string) {
   const usuarioId = await sesion(esperado)

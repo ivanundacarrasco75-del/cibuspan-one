@@ -1,4 +1,5 @@
 export type GrupoArranque = "mp" | "pt" | "semi"
+export type AlcanceArranque = "COMPLETO" | "PT"
 export type ArticuloArranque = { id: string; codigo: string; codigo_contable?: string | null; nombre: string; unidad: string; activo: boolean; saldo: number; saldo_kardex?: number }
 export type LotePtArranque = { id: string; producto_id: string; lote: string; fecha_produccion: string; fecha_vencimiento: string; cantidad: number; inv_archivo_id: string | null }
 export type LoteSemiArranque = { id: string; semielaborado_tipo_id: string; fecha_produccion: string; lote_interno: string; disponible: number; convertido: number; cantidad_inicial: number }
@@ -14,13 +15,14 @@ export type IncidenciaArranque = { clave: string; codigo: string; nombre: string
 export type BorradorArranque = { version: 1; inicio: string; nota: string; fuentes: string[]; incidencias: IncidenciaArranque[]; mp: ConteoMp[]; pt: ConteoLotes[]; semi: ConteoLotes[] }
 export type ConteosArranque = {
   version: 1; nota: string; fuentes: string[]; incidencias: IncidenciaArranque[]
+  alcance?: "PT"
   mp: { id: string; cantidad: number; unidad: string }[]
   pt: { id: string; total: number; lotes: { id: string; lote: string; fecha_produccion: string; fecha_vencimiento: string; cantidad: number }[] }[]
   semi: { id: string; total: number; lotes: { id: string; fecha_produccion: string; lote_interno: string; cantidad: number }[] }[]
 }
 export type LineaVistaArranque = { grupo: GrupoArranque; id: string; codigo: string; nombre: string; unidad: string; sistema: number; conteo: number; diferencia: number; kardex: number }
 export type VistaArranque = { token: string; puede_aplicar: boolean; bloqueos: string[]; avisos: string[]; lineas: LineaVistaArranque[]; fecha_inicio: string; fecha_cierre: string }
-export type EstadoArranque = { instalado: boolean; aplicado: boolean; puede_preparar: boolean; hoy: string; id?: string; fecha_inicio?: string; fecha_cierre?: string; aplicado_en?: string }
+export type EstadoArranque = { instalado: boolean; aplicado: boolean; puede_preparar: boolean; hoy: string; permite_solo_pt?: boolean; alcance?: AlcanceArranque; id?: string; fecha_inicio?: string; fecha_cierre?: string; aplicado_en?: string }
 export type ResultadoArranque = { estado: "APLICADO"; solicitud_id: string; fecha_inicio: string; fecha_cierre: string; resumen: { lineas: LineaVistaArranque[]; avisos: string[] }; repetido: boolean }
 export const uuidArranque = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s)
 export const fechaArranque = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s
@@ -64,14 +66,15 @@ export function sincronizarBorradorArranque(d: BorradorArranque, c: CatalogoArra
     semi: nuevo.semi.map(a => { const antes = d.semi.find(x => x.id === a.id); return antes ? { ...a, total: antes.total, lotes: antes.lotes } : a }),
   }
 }
-export function prepararConteosArranque(d: BorradorArranque, c: CatalogoArranque): ConteosArranque {
+export function prepararConteosArranque(d: BorradorArranque, c: CatalogoArranque, alcance: AlcanceArranque = "COMPLETO"): ConteosArranque {
   if (!fechaArranque(d.inicio) || d.inicio < c.hoy || d.inicio > sumarDiaArranque(c.hoy)) throw new Error("Elige inicio hoy o mañana cuando esté listo el conteo al cierre anterior.")
   if (d.nota.trim().length < 5 || d.nota.length > 2000) throw new Error("Escribe una nota del conteo (5 a 2000 caracteres).")
   if (d.incidencias.some(i => i.decision.trim().length < 5)) throw new Error("Resuelve las filas pendientes del Excel o los cambios del catálogo antes de continuar.")
-  for (const g of ["mp", "pt", "semi"] as const) {
+  const grupos = alcance === "PT" ? ["pt"] as const : ["mp", "pt", "semi"] as const
+  for (const g of grupos) {
     if (d[g].length !== c[g].length || new Set(d[g].map(a => a.id)).size !== d[g].length || d[g].some(a => !c[g].some(x => x.id === a.id))) throw new Error("El catálogo cambió: sincroniza y completa los artículos nuevos.")
   }
-  const mp = d.mp.map(a => {
+  const mp = (alcance === "PT" ? [] : d.mp).map(a => {
     if (a.unidad !== c.mp.find(x => x.id === a.id)!.unidad) throw new Error(`Revisa la unidad de ${a.etiqueta}.`)
     return { id: a.id, unidad: a.unidad, cantidad: numeroArranque(a.cantidad, a.unidad === "UNIDAD") }
   })
@@ -97,9 +100,9 @@ export function prepararConteosArranque(d: BorradorArranque, c: CatalogoArranque
     if (items.reduce((s, l) => s + l.cantidad, 0) !== total) throw new Error(`Los lotes de ${a.etiqueta} no suman el total físico contado.`)
     return { id: a.id, total, lotes: items }
   }
-  return { version: 1, nota: d.nota.trim(), fuentes: [...d.fuentes], incidencias: d.incidencias.map(i => ({ ...i })), mp,
+  return { version: 1, ...(alcance === "PT" ? { alcance } : {}), nota: d.nota.trim(), fuentes: [...d.fuentes], incidencias: d.incidencias.map(i => ({ ...i })), mp,
     pt: d.pt.map(a => { const v = lotes(a, "pt"); return { ...v, lotes: v.lotes.map(({ id, cantidad, lote, fecha_produccion, fecha_vencimiento }) => ({ id, cantidad, lote, fecha_produccion, fecha_vencimiento })) } }),
-    semi: d.semi.map(a => { const v = lotes(a, "semi"); return { ...v, lotes: v.lotes.map(({ id, cantidad, lote_interno, fecha_produccion }) => ({ id, cantidad, lote_interno, fecha_produccion })) } }),
+    semi: (alcance === "PT" ? [] : d.semi).map(a => { const v = lotes(a, "semi"); return { ...v, lotes: v.lotes.map(({ id, cantidad, lote_interno, fecha_produccion }) => ({ id, cantidad, lote_interno, fecha_produccion })) } }),
   }
 }
 export function vincularCodigoArranque(codigo: string, c: CatalogoArranque) {
