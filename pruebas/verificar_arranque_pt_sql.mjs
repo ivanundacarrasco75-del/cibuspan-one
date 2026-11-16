@@ -58,6 +58,9 @@ test("Corte PT sobre el arranque instalado: valida, concilia y conserva los dem√
     const sqlPt = await migracion("202611160001_arranque_producto_terminado")
     await db.exec(sqlPt)
     await db.exec(sqlPt)
+    const sqlMp = await migracion("202611160002_arranque_materias_primas")
+    await db.exec(sqlMp)
+    await db.exec(sqlMp)
     const [permisos] = (await db.query(`
       select has_table_privilege('authenticated','inv_arranque_cortes','TRUNCATE') as vaciar_corte,
              has_table_privilege('service_role','inv_arranque_solicitudes','TRUNCATE') as vaciar_solicitudes,
@@ -100,12 +103,36 @@ test("Corte PT sobre el arranque instalado: valida, concilia y conserva los dem√
       `select inv_arranque_confirmar($1,${hoy},$2::jsonb,$3,true,true,auth.uid()) as resultado`,
       [id(11), JSON.stringify(datos), token]
     )).rows[0].resultado
+    const datosMp = { version: 1, alcance: "MP", nota: "Conteo de materiales", mp: [{ id: id(3), unidad: "KG", cantidad: 15.5 }], pt: [], semi: [] }
+    const preverMp = async (fecha = `${hoy}+1`) => (await db.query(
+      `select inv_arranque_prever_mp(${fecha},$1::jsonb) as vista`, [JSON.stringify(datosMp)]
+    )).rows[0].vista
+    const confirmarMp = async token => (await db.query(
+      `select inv_arranque_confirmar_mp($1,${hoy}+1,$2::jsonb,$3,true,auth.uid()) as resultado`,
+      [id(12), JSON.stringify(datosMp), token]
+    )).rows[0].resultado
 
     await assert.rejects(prever({ ...datos, mp: [{ id: id(3), cantidad: 0 }] }), /solo admite conteos/)
     await assert.rejects(prever({ ...datos, pt: [] }), /Faltan art√≠culos/)
     const { alcance, ...completo } = datos
     await assert.rejects(prever(completo), /Faltan art√≠culos del grupo mp/)
     assert.equal((await prever(datos)).puede_aplicar, false)
+    assert.equal((await preverMp(hoy)).puede_aplicar, false)
+    // Primero MP, incluso con una reserva de PT activa.
+    await db.exec("begin")
+    const primeroMp = await preverMp()
+    assert.equal(primeroMp.puede_aplicar, true)
+    assert.equal((await confirmarMp(primeroMp.token)).repetido, false)
+    assert.equal((await db.query("select inv_arranque_estado()->>'aplicado' aplicado")).rows[0].aplicado, "false")
+    assert.equal((await db.query("select sum(cantidad) saldo from inventario_lotes")).rows[0].saldo, 13)
+    await db.exec("savepoint antes_revision_completa")
+    await assert.rejects(prever(completo), /materiales ya tienen saldo inicial/)
+    await db.exec("rollback to savepoint antes_revision_completa")
+    await db.exec("update reservas_inventario set estado='LIBERADA'")
+    const luegoPt = await prever(datos)
+    assert.ok(luegoPt.puede_aplicar)
+    assert.equal((await confirmar(luegoPt.token)).repetido, false)
+    await db.exec("rollback")
     await db.exec("update reservas_inventario set estado='LIBERADA'")
 
     const vista = await prever(datos)
@@ -127,6 +154,18 @@ test("Corte PT sobre el arranque instalado: valida, concilia y conserva los dem√
       insert into inv_kardex_movimientos(tipo,articulo_id,clase,fecha,cantidad)
       values ('MATERIA_PRIMA','${id(3)}','ENTRADA',${hoy}-1,5);
     `)
+    // Luego MP despu√©s de PT, sin alterar el saldo ni la fecha de PT.
+    const luegoMp = await preverMp()
+    assert.ok(luegoMp.puede_aplicar)
+    assert.equal((await confirmarMp(luegoMp.token)).repetido, false)
+    assert.equal((await confirmarMp(luegoMp.token)).repetido, true)
+    assert.equal((await db.query("select sum(cantidad) saldo from inv_kardex_movimientos where tipo='MATERIA_PRIMA'")).rows[0].saldo, "15.5")
+    assert.equal((await db.query("select sum(cantidad) saldo from inventario_lotes")).rows[0].saldo, 9)
+    const [estado] = (await db.query("select inv_arranque_estado() as datos")).rows
+    assert.equal(estado.datos.id, id(11))
+    assert.equal(estado.datos.corte_mp.id, id(12))
+    assert.notEqual(estado.datos.fecha_inicio, estado.datos.corte_mp.fecha_inicio)
+    await assert.rejects(db.exec(`update inv_kardex_movimientos set cantidad=100 where tipo='MATERIA_PRIMA'`), /per√≠odo de materias primas/)
   } finally {
     await db.close()
   }

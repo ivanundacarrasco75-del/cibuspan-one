@@ -27,6 +27,15 @@ test('Todos los artículos deben contarse y PT requiere suma y fechas reales',()
  for(const variar of variantes){const v=structuredClone(d);variar(v);assert.throws(()=>prepararConteosArranque(v,c))}
  d.mp[0].cantidad='0';d.pt[0].total='0';d.pt[0].lotes=[];assert.equal(prepararConteosArranque(d,c).pt[0].total,0)
 })
+test('Los borradores por inventario solo requieren y envían el grupo elegido',()=>{
+ const {c,d}=listo()
+ d.mp[0].cantidad=''
+ const pt=prepararConteosArranque(d,c,'PT')
+ assert.equal(pt.alcance,'PT');assert.deepEqual(pt.mp,[]);assert.equal(pt.pt[0].total,6)
+ d.mp[0].cantidad='5,25';d.pt[0].total=''
+ const mp=prepararConteosArranque(d,c,'MP')
+ assert.equal(mp.alcance,'MP');assert.deepEqual(mp.pt,[]);assert.deepEqual(mp.semi,[]);assert.equal(mp.mp[0].cantidad,5.25)
+})
 test('Código sin ceros se vincula; alias ambiguos y EAN distintos no se adivinan',()=>{
  const c=catalogo();assert.equal(vincularCodigoArranque('42',c).articulo.id,id(10))
  c.pt[0].codigo='42';assert.equal(vincularCodigoArranque('00042',c),null)

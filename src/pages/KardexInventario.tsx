@@ -21,7 +21,7 @@ export default function KardexInventario() {
   const [tipo, setTipo] = useState<TipoInventario>("MATERIA_PRIMA")
   const [busqueda, setBusqueda] = useState("")
   const [seleccion, setSeleccion] = useState("")
-  const [vista, setVista] = useState<"KARDEX" | "INICIAL" | "ARRANQUE" | "ARRANQUE_PT">("KARDEX")
+  const [vista, setVista] = useState<"KARDEX" | "INICIAL" | "ARRANQUE" | "ARRANQUE_PT" | "ARRANQUE_MP">("KARDEX")
   const [arranque, setArranque] = useState<EstadoArranque | null>(null)
   const corteMostrado = useRef("")
   const [desde, setDesde] = useState("2026-10-01")
@@ -180,7 +180,7 @@ export default function KardexInventario() {
     setAltaFila(null); setConfirmarCarga(false); setMensaje("Artículo disponible y vinculado. El stock se guardará al confirmar la carga.")
   }
   async function cargarInicial() {
-    if (arranque?.aplicado) { setError("El arranque físico ya está confirmado. Usa movimientos del período vigente en el Kardex."); return }
+    if (arranque?.aplicado || arranque?.corte_mp) { setError("Ya hay un arranque físico confirmado. Usa movimientos del período vigente en el Kardex."); return }
     if (guardando || errorCarga || !unidadConfirmada || !incluidos.length || !confirmarCarga) return
     setGuardando(true); setError(""); setMensaje("")
     try {
@@ -201,15 +201,17 @@ export default function KardexInventario() {
     <style>{css}</style><header><div><small>INVENTARIO Y BODEGA</small><h1>Kardex</h1><p>Saldo inicial, entradas, salidas y ajustes por artículo.</p></div>
       <button disabled={guardando || cargando} onClick={() => void actualizar()}>Actualizar</button></header>
     <nav><button disabled={guardando} className={vista === "KARDEX" ? "activo" : ""} onClick={() => setVista("KARDEX")}>Revisar artículos</button>
-      {!arranque?.aplicado && <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Saldo histórico de septiembre</button>}
+      {!arranque?.aplicado && !arranque?.corte_mp && <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Saldo histórico de septiembre</button>}
       <button disabled={guardando} className={vista === "ARRANQUE_PT" ? "activo" : ""} onClick={() => setVista("ARRANQUE_PT")}>Toma física de PT</button>
-      {arranque?.alcance !== "PT" && <button disabled={guardando} className={vista === "ARRANQUE" ? "activo" : ""} onClick={() => setVista("ARRANQUE")}>Arranque completo</button>}</nav>
+      <button disabled={guardando} className={vista === "ARRANQUE_MP" ? "activo" : ""} onClick={() => setVista("ARRANQUE_MP")}>Toma física de MP y empaques</button>
+      {arranque?.alcance !== "PT" && !arranque?.corte_mp && <button disabled={guardando} className={vista === "ARRANQUE" ? "activo" : ""} onClick={() => setVista("ARRANQUE")}>Arranque completo</button>}</nav>
     {error && <p role="alert" className="error">{error}</p>}{mensaje && <p role="status" className="exito">{mensaje}</p>}
     {arranque?.aplicado && <section><p>{arranque.alcance === "PT" ? "Inicio operativo de producto terminado" : "Inicio operativo"}: {arranque.fecha_inicio} · Conteo al cierre: {arranque.fecha_cierre}.</p>
       {vista === "KARDEX" && (arranque.alcance !== "PT" || tipo === "PRODUCTO_TERMINADO") && desde && desde < arranque.fecha_inicio! && <p className="pendiente">El rango incluye movimientos previos al arranque; esos datos históricos no están conciliados.</p>}</section>}
-    {!arranque?.aplicado && inicio?.activo && <section><p>Inventario histórico desde el 01/10/2026, aún provisional. Registra un conteo físico para iniciar el control con existencias verificadas.</p>
+    {arranque?.corte_mp && (!arranque.aplicado || arranque.alcance === "PT") && <section><p>Inicio operativo de MP y empaques: {arranque.corte_mp.fecha_inicio} · Conteo al cierre: {arranque.corte_mp.fecha_cierre}.</p></section>}
+    {!arranque?.aplicado && !arranque?.corte_mp && inicio?.activo && <section><p>Inventario histórico desde el 01/10/2026, aún provisional. Registra un conteo físico para iniciar el control con existencias verificadas.</p>
       {inicio.puede_descargar && <button disabled={guardando} onClick={() => void descargarRespaldoInicio(inicio.respaldo_id!).catch((e) => setError(e.message))}>Descargar respaldo anterior</button>}</section>}
-    {vista === "ARRANQUE" || vista === "ARRANQUE_PT" ? <ArranqueOperativo key={vista} alcance={vista === "ARRANQUE_PT" ? "PT" : "COMPLETO"} onEstado={e => { const recargar = e.aplicado && !arranque?.aplicado; mostrarArranque(e); if (recargar) void actualizar() }} /> : vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
+    {vista === "ARRANQUE" || vista === "ARRANQUE_PT" || vista === "ARRANQUE_MP" ? <ArranqueOperativo key={vista} alcance={vista === "ARRANQUE_PT" ? "PT" : vista === "ARRANQUE_MP" ? "MP" : "COMPLETO"} onEstado={e => { const recargar = (e.aplicado && !arranque?.aplicado) || (e.corte_mp && !arranque?.corte_mp); mostrarArranque(e); if (recargar) void actualizar() }} /> : vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
       <p>Los artículos se vinculan automáticamente por código. Revisa las filas pendientes, las sucursales y las unidades.</p>
       <p>Para producto terminado se genera un lote de referencia y se usa el cierre como fecha de producción estimada. El vencimiento se calcula con la vida útil del SKU en el catálogo. Puedes corregir las fechas y dividir la cantidad entre lotes.</p>
       <p>La carga habitual añade saldos y bloquea artículos con movimientos. La opción de inicio de octubre respalda y sustituye el inventario anterior. La carga no sustituye la importación de costos de Compras.</p>

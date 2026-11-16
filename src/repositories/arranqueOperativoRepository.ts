@@ -18,22 +18,27 @@ export async function obtenerCatalogoArranque() {
   return data as CatalogoArranque
 }
 export async function preverArranqueOperativo(inicio: string, conteos: ConteosArranque) {
-  const { data, error } = await supabase.rpc("inv_arranque_prever", { p_inicio: inicio, p_conteos: conteos })
+  const { data, error } = await supabase.rpc(conteos.alcance === "MP" ? "inv_arranque_prever_mp" : "inv_arranque_prever", { p_inicio: inicio, p_conteos: conteos })
   if (error) throw new Error(error.message)
   return data as VistaArranque
 }
 export async function contextoBorradorArranque(alcance: AlcanceArranque) {
   const usuarioId = await sesion()
   const clave = `cibuspan:arranque:borrador:v1:${encodeURIComponent(import.meta.env.VITE_SUPABASE_URL)}:${usuarioId}`
-  return { usuarioId, clave: alcance === "PT" ? clave + ":pt" : clave }
+  return { usuarioId, clave: alcance === "COMPLETO" ? clave : clave + ":" + alcance.toLowerCase() }
 }
-async function control(esperado?: string) {
+async function control(alcance: AlcanceArranque, esperado?: string) {
   const usuarioId = await sesion(esperado)
   let almacen: Storage
   try { almacen = window.localStorage } catch { throw new Error("Habilita el almacenamiento del navegador para conservar el intento.") }
-  return crearControlArranque({ almacen, proyecto: import.meta.env.VITE_SUPABASE_URL, usuarioId,
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const proyecto = alcance === "COMPLETO" ? url : `${url}:${alcance}`
+  return crearControlArranque({ almacen, proyecto, usuarioId,
     aplicar: async s => {
-      const { data, error } = await supabase.rpc("inv_arranque_confirmar", { p_solicitud: s.id, p_inicio: s.inicio, p_conteos: s.conteos, p_token: s.token, p_conteo_completo: true, p_pedidos_revisados: true, p_usuario: usuarioId })
+      const argumentos = { p_solicitud: s.id, p_inicio: s.inicio, p_conteos: s.conteos, p_token: s.token, p_conteo_completo: true, p_usuario: usuarioId }
+      const { data, error } = s.conteos.alcance === "MP"
+        ? await supabase.rpc("inv_arranque_confirmar_mp", argumentos)
+        : await supabase.rpc("inv_arranque_confirmar", { ...argumentos, p_pedidos_revisados: true })
       if (error) throw new Error(error.message); return data
     },
     resolver: async id => {
@@ -42,10 +47,10 @@ async function control(esperado?: string) {
     },
   })
 }
-export async function intentosArranquePendientes() { return (await control()).listar() }
-export async function aplicarArranqueOperativo(s: IntentoArranque) { return (await control(s.usuarioId)).aplicar(s) }
-export async function resolverArranqueOperativo(s: IntentoArranque) { return (await control(s.usuarioId)).resolver(s.id) }
-export async function informeArranqueOperativo() {
-  const { data, error } = await supabase.rpc("inv_arranque_reporte")
+export async function intentosArranquePendientes(alcance: AlcanceArranque) { return (await control(alcance)).listar() }
+export async function aplicarArranqueOperativo(s: IntentoArranque) { return (await control(s.conteos.alcance ?? "COMPLETO", s.usuarioId)).aplicar(s) }
+export async function resolverArranqueOperativo(s: IntentoArranque) { return (await control(s.conteos.alcance ?? "COMPLETO", s.usuarioId)).resolver(s.id) }
+export async function informeArranqueOperativo(alcance?: AlcanceArranque) {
+  const { data, error } = await supabase.rpc(alcance === "MP" ? "inv_arranque_reporte_mp" : "inv_arranque_reporte")
   if (error) throw new Error(error.message); return data as Record<string, unknown> | null
 }

@@ -12,6 +12,8 @@ function descargar(nombre: string, datos: unknown) { const url = URL.createObjec
 type Preparado = { vista: VistaArranque; intento: IntentoArranque }
 export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { alcance?: AlcanceArranque; onEstado: (s: EstadoArranque) => void }) {
   const soloPt = alcance === "PT"
+  const soloMp = alcance === "MP"
+  const titulo = soloMp ? "Toma física de materias primas y empaques" : soloPt ? "Toma física de producto terminado" : "Arranque con inventario físico"
   const [estado, setEstado] = useState<EstadoArranque | null>(null)
   const [catalogo, setCatalogo] = useState<CatalogoArranque | null>(null)
   const [borrador, setBorrador] = useState<BorradorArranque | null>(null)
@@ -35,19 +37,30 @@ export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { 
   const bloqueado = ocupado || pendientes.length > 0 || !!resultado || !!estado?.aplicado
   async function cargarCatalogo() {
     const datos = await obtenerCatalogoArranque()
+    if (soloMp) return { ...datos, pt: [], semi: [], lotes_pt: [], lotes_semi: [] }
     return soloPt ? { ...datos, mp: [], semi: [], lotes_semi: [] } : datos
+  }
+  function mostrarEstado(e: EstadoArranque) {
+    onEstado(e)
+    const corte = e.corte_mp
+    const actual = soloMp
+      ? { ...e, ...corte, aplicado: !!corte, alcance: "MP" as const }
+      : e
+    setEstado(actual)
+    return actual
   }
   function cambiar(d: BorradorArranque) { setBorrador(d); setPreparado(null); setConfirmaConteo(false); setConfirmaPedidos(false); setMensaje("") }
   async function cargar() {
-    const e = await consultarArranqueOperativo()
+    const general = await consultarArranqueOperativo()
     if (!activo.current) return
-    setEstado(e); onEstado(e)
+    const e = mostrarEstado(general)
     if (!e.instalado || !e.puede_preparar) return
-    const ctx = await contextoBorradorArranque(alcance), intentos = await intentosArranquePendientes()
+    const ctx = await contextoBorradorArranque(alcance), intentos = await intentosArranquePendientes(alcance)
     if (!activo.current) return
     setContexto(ctx); setPendientes(intentos)
-    if (e.aplicado) { const r = await informeArranqueOperativo(); if (activo.current) setInforme(r); return }
+    if (e.aplicado) { const r = await informeArranqueOperativo(alcance); if (activo.current) setInforme(r); return }
     if (soloPt && !e.permite_solo_pt) return
+    if (soloMp && e.corte_mp === undefined) return
     const c = await cargarCatalogo()
     if (!activo.current) return
     setCatalogo(c)
@@ -122,7 +135,7 @@ export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { 
       const d = importarFilasArranque(borrador, catalogo, filas, fuente)
       // Las hojas no leídas son incidencias visibles; no se ignoran silenciosamente.
       d.incidencias.push(...omitidas.map((m, i) => ({ clave: fuente + "|hoja:" + i, codigo: "", nombre: f.name, cantidad: null, motivo: m, decision: "" })))
-      cambiar(d); setMensaje("Cantidades leídas. Revisa las filas pendientes y completa el conteo por lote.")
+      cambiar(d); setMensaje(soloMp ? "Cantidades leídas. Revisa las filas pendientes y sus unidades." : "Cantidades leídas. Revisa las filas pendientes y completa el conteo por lote.")
     } catch (e) { setError((e as Error).message) }
     finally { accion.current = false; setOcupado(false); if (archivo.current) archivo.current.value = "" }
   }
@@ -139,15 +152,15 @@ export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { 
   }
   async function confirmado(r: ResultadoArranque) {
     setResultado(r); setPreparado(null); setMensaje(r.repetido ? "Se recuperó el corte ya aplicado, sin repetir ajustes." : "Arranque aplicado. El físico y el Kardex quedaron con el conteo confirmado.")
-    try { const e = await consultarArranqueOperativo(); setEstado(e); onEstado(e); setInforme(await informeArranqueOperativo()); setPendientes(await intentosArranquePendientes()) }
+    try { mostrarEstado(await consultarArranqueOperativo()); setInforme(await informeArranqueOperativo(alcance)); setPendientes(await intentosArranquePendientes(alcance)) }
     catch { setError("El arranque ya quedó aplicado. No se pudo refrescar su informe; vuelve a abrir esta pantalla.") }
   }
   async function aplicar() {
-    if (!preparado || !confirmaConteo || !confirmaPedidos || !preparado.vista.puede_aplicar || accion.current || pendientes.length) return
+    if (!preparado || !confirmaConteo || (!soloMp && !confirmaPedidos) || !preparado.vista.puede_aplicar || accion.current || pendientes.length) return
     if (!window.confirm(`¿Aplicar el inventario contado al cierre del ${preparado.vista.fecha_cierre} para iniciar el ${preparado.vista.fecha_inicio}? Esta apertura se confirma una sola vez.`)) return
     accion.current = true; setOcupado(true); setError("")
     try { await confirmado(await aplicarArranqueOperativo(preparado.intento)) }
-    catch (e) { setError((e as Error).message); if (e instanceof ArranqueNoAplicadoError) setPreparado(null); try { setPendientes(await intentosArranquePendientes()) } catch { /* conserva bloqueo y error */ } }
+    catch (e) { setError((e as Error).message); if (e instanceof ArranqueNoAplicadoError) setPreparado(null); try { setPendientes(await intentosArranquePendientes(alcance)) } catch { /* conserva bloqueo y error */ } }
     finally { accion.current = false; setOcupado(false) }
   }
   async function recuperar(s: IntentoArranque, reintentar: boolean) {
@@ -156,14 +169,15 @@ export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { 
     try {
       const r = reintentar ? await aplicarArranqueOperativo(s) : await resolverArranqueOperativo(s)
       if (r.estado === "APLICADO") await confirmado(r)
-      else { setPendientes(await intentosArranquePendientes()); setPreparado(null); setConfirmaConteo(false); setConfirmaPedidos(false); setMensaje("El intento quedó cerrado sin aplicar. Conservamos el borrador; actualiza la vista previa antes de volver a confirmar.") }
-    } catch (e) { setError((e as Error).message); if (e instanceof ArranqueNoAplicadoError) setPreparado(null); try { setPendientes(await intentosArranquePendientes()) } catch { /* conserva el bloqueo del intento conocido */ } }
+      else { setPendientes(await intentosArranquePendientes(alcance)); setPreparado(null); setConfirmaConteo(false); setConfirmaPedidos(false); setMensaje("El intento quedó cerrado sin aplicar. Conservamos el borrador; actualiza la vista previa antes de volver a confirmar.") }
+    } catch (e) { setError((e as Error).message); if (e instanceof ArranqueNoAplicadoError) setPreparado(null); try { setPendientes(await intentosArranquePendientes(alcance)) } catch { /* conserva el bloqueo del intento conocido */ } }
     finally { accion.current = false; setOcupado(false) }
   }
-  const filasResumen = resultado?.resumen.lineas ?? ((informe?.resumen as { lineas?: ResultadoArranque["resumen"]["lineas"] } | undefined)?.lineas ?? [])
+  const lineasInforme = resultado?.resumen.lineas ?? ((informe?.resumen as { lineas?: ResultadoArranque["resumen"]["lineas"] } | undefined)?.lineas ?? [])
+  const filasResumen = alcance === "COMPLETO" ? lineasInforme : lineasInforme.filter(l => l.grupo === (soloMp ? "mp" : "pt"))
   return <section className="arranque-op">
     <style>{css}</style>
-    <h2>{soloPt ? "Toma física de producto terminado" : "Arranque con inventario físico"}</h2>
+    <h2>{titulo}</h2>
     <p>Prepara el conteo ahora y elige la fecha cuando esté listo. El inicio será hoy o mañana, con inventario al cierre del día anterior. Hasta confirmar, esta pantalla no cambia existencias.</p>
     {error && <p className="ao-error" role="alert">{error}</p>}{errorLocal && <p className="ao-error" role="alert">{errorLocal}</p>}{mensaje && <p className="ao-exito" role="status">{mensaje}</p>}
     {ocupado && <p role="status">Procesando…</p>}
@@ -174,25 +188,26 @@ export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { 
     </div>}
     {estado && !estado.instalado && <p>La actualización del arranque está pendiente de instalar. Solicita la actualización del sistema.</p>}
     {soloPt && estado?.instalado && !estado.aplicado && !estado.permite_solo_pt && <p>La toma física de producto terminado requiere actualizar la base de datos.</p>}
+    {soloMp && estado?.instalado && estado.corte_mp === undefined && <p>La toma física de materias primas y empaques requiere actualizar la base de datos.</p>}
     {estado?.instalado && !estado.puede_preparar && !estado.aplicado && <p>Un administrador habilitado debe preparar y confirmar este inventario.</p>}
     {pendientes.length > 0 && <div className="ao-aviso"><h3>Hay un intento por comprobar</h3><p>No prepares otra aplicación hasta resolver su resultado. No borres el almacenamiento ni cambies de dispositivo para reintentar.</p>
       {pendientes.map(s => <div key={s.id}><span>Inicio {s.inicio}</span> <button disabled={ocupado || !estado?.puede_preparar} onClick={() => void recuperar(s, true)}>Reintentar el mismo corte</button> <button disabled={ocupado || !estado?.puede_preparar} onClick={() => void recuperar(s, false)}>Comprobar resultado</button></div>)}
     </div>}
     {(estado?.aplicado || resultado) ? <div>
-      <h3>{estado?.alcance === "PT" ? "Arranque de producto terminado confirmado" : "Arranque confirmado"}</h3><p>Inicio: {resultado?.fecha_inicio ?? estado?.fecha_inicio}. Cierre contado: {resultado?.fecha_cierre ?? estado?.fecha_cierre}.</p>
-      {estado?.puede_preparar && <button onClick={() => { if (informe) descargar(`Arranque-inventario-${estado?.fecha_inicio}.json`, informe); else void informeArranqueOperativo().then(r => descargar(`Arranque-inventario.json`, r)).catch(e => setError(e.message)) }}>Descargar informe y respaldo del corte</button>}
+      <h3>{soloMp ? "Arranque de materias primas y empaques confirmado" : estado?.alcance === "PT" ? "Arranque de producto terminado confirmado" : "Arranque confirmado"}</h3><p>Inicio: {resultado?.fecha_inicio ?? estado?.fecha_inicio}. Cierre contado: {resultado?.fecha_cierre ?? estado?.fecha_cierre}.</p>
+      {estado?.puede_preparar && <button onClick={() => { if (informe) descargar(`Arranque-inventario-${alcance}-${estado?.fecha_inicio}.json`, informe); else void informeArranqueOperativo(alcance).then(r => descargar(`Arranque-inventario-${alcance}.json`, r)).catch(e => setError(e.message)) }}>Descargar informe y respaldo del corte</button>}
       {!!filasResumen.length && <div className="ao-tabla"><table><thead><tr><th>Grupo</th><th>Artículo</th><th>Anterior</th><th>Contado</th><th>Diferencia</th><th>Unidad</th></tr></thead><tbody>{filasResumen.map(l => <tr key={l.grupo + l.id}><td>{l.grupo.toUpperCase()}</td><td>{l.codigo} · {l.nombre}</td><td>{n(l.sistema)}</td><td>{n(l.conteo)}</td><td>{n(l.diferencia)}</td><td>{l.unidad}</td></tr>)}</tbody></table></div>}
     </div> : borrador && catalogo && <>
       <fieldset disabled={bloqueado}>
         <div className="ao-campos"><label>Fecha de inicio<input type="date" min={catalogo.hoy} max={sumarDiaArranque(catalogo.hoy)} value={borrador.inicio} onChange={e => cambiar({ ...borrador, inicio: e.target.value })} /></label>
           <label>Nota / responsable del conteo<textarea maxLength={2000} rows={2} value={borrador.nota} onChange={e => cambiar({ ...borrador, nota: e.target.value })} /></label></div>
-        <p>{soloPt ? "Cuenta cada SKU por lote e ingresa las fechas reales de producción y vencimiento. Declara cero cuando se haya comprobado que no hay existencias." : "Cuenta MP, empaques y micros inventariables en sus unidades de catálogo. PT y semielaborados se desglosan por lotes y fechas reales. Un campo vacío sigue pendiente; no es cero."}</p>
-        <div className="ao-acciones"><button onClick={() => void actualizarCatalogo()}>Actualizar catálogo conservando conteos</button><button onClick={() => archivo.current?.click()}>{soloPt ? "Leer Excel de producto terminado" : "Leer Excel de MP y PT"}</button>
+        <p>{soloMp ? "Ingresa el conteo de materias primas, empaques y micros en sus unidades de catálogo. Declara cero cuando se haya comprobado que no hay existencias." : soloPt ? "Cuenta cada SKU por lote e ingresa las fechas reales de producción y vencimiento. Declara cero cuando se haya comprobado que no hay existencias." : "Cuenta MP, empaques y micros inventariables en sus unidades de catálogo. PT y semielaborados se desglosan por lotes y fechas reales. Un campo vacío sigue pendiente; no es cero."}</p>
+        <div className="ao-acciones"><button onClick={() => void actualizarCatalogo()}>Actualizar catálogo conservando conteos</button><button onClick={() => archivo.current?.click()}>{soloMp ? "Leer Excel de materias primas y empaques" : soloPt ? "Leer Excel de producto terminado" : "Leer Excel de MP y PT"}</button>
           <button onClick={() => descargar("Borrador-arranque.json", borrador)}>Descargar borrador</button><button onClick={() => json.current?.click()}>Cargar borrador guardado</button></div>
         <input hidden ref={archivo} type="file" accept=".xlsx" onChange={e => { const f = e.target.files?.[0]; if (f) void importar(f) }} />
         <input hidden ref={json} type="file" accept=".json" onChange={e => { const f = e.target.files?.[0]; if (f) void f.text().then(s => cambiar(sincronizarBorradorArranque(leerBorradorArranque(s), catalogo))).catch(e => setError(e.message)); e.currentTarget.value = "" }} />
-        <p>El Excel rellena los totales por artículo. Verifica las bodegas incluidas y completa los lotes y las fechas.</p>
-        {soloPt ? <p>SKU pendientes de contar: {borrador.pt.filter(a => pendiente(a.id, "pt")).length}</p> :
+        <p>El Excel rellena los totales por artículo. Verifica las bodegas incluidas{!soloMp && " y completa los lotes y las fechas"}.</p>
+        {alcance !== "COMPLETO" ? <p>Artículos pendientes de contar: {borrador[grupo].filter(a => pendiente(a.id, grupo)).length}</p> :
           <nav className="ao-acciones">{(["mp", "pt", "semi"] as const).map(g => <button className={grupo === g ? "activo" : ""} key={g} onClick={() => setGrupo(g)}>{g === "mp" ? "MP / Empaques / Micros" : g === "pt" ? "Producto terminado" : "Semielaborados"} ({borrador[g].filter(a => pendiente(a.id, g)).length} pendientes)</button>)}</nav>}
         <div className="ao-campos"><label>Buscar artículo<input value={buscar} onChange={e => setBuscar(e.target.value)} /></label><label className="ao-check"><input type="checkbox" checked={soloPendientes} onChange={e => setSoloPendientes(e.target.checked)} />Sólo pendientes</label></div>
         {grupo === "mp" ? <div className="ao-tabla"><table><thead><tr><th>Artículo</th><th>Saldo en sistema</th><th>Conteo físico</th><th>Unidad</th><th /></tr></thead><tbody>
@@ -212,19 +227,19 @@ export default function ArranqueOperativo({ alcance = "COMPLETO", onEstado }: { 
           {borrador.incidencias.map((i, k) => <label key={i.clave}>{i.codigo} · {i.nombre} · {i.cantidad === null ? "Cantidad sin verificar" : n(i.cantidad)}<p>{i.motivo}</p>
             <input aria-label={`Decisión ${i.codigo || k}`} placeholder="Cómo se resolvió o por qué se excluye (mínimo 5 caracteres)" value={i.decision} onChange={e => cambiar({ ...borrador, incidencias: borrador.incidencias.map((x, j) => j === k ? { ...x, decision: e.target.value } : x) })} /></label>)}
         </section>}
-        <details open={pedidoVisto} onToggle={e => setPedidoVisto(e.currentTarget.open)}><summary>Revisar pedidos pendientes ({catalogo.pedidos_pendientes.length}) y reservas activas ({catalogo.reservas_activas})</summary>
+        {!soloMp && <details open={pedidoVisto} onToggle={e => setPedidoVisto(e.currentTarget.open)}><summary>Revisar pedidos pendientes ({catalogo.pedidos_pendientes.length}) y reservas activas ({catalogo.reservas_activas})</summary>
           <p>Comprueba sus estados en Pedidos y libera reservas desde Despachos antes de aplicar. Esta pantalla no cambia estados ni borra pedidos.</p>
           <div className="ao-tabla"><table><thead><tr><th>Pedido</th><th>Entrega</th><th>Estado</th><th>Unidades</th></tr></thead><tbody>{catalogo.pedidos_pendientes.map(p => <tr key={p.id}><td>{p.numero_pedido_cliente || p.id}</td><td>{p.fecha_entrega}</td><td>{p.estado}</td><td>{n(p.total_unidades)}</td></tr>)}</tbody></table></div>
-        </details>
+        </details>}
         <button className="ao-principal" onClick={() => void previsualizar()}>Revisar vista previa del corte</button>
       </fieldset>
       {preparado && !pendientes.length && <section className="ao-vista"><h3>Vista previa: aún no se aplicó</h3><p>Inventario al cierre del {preparado.vista.fecha_cierre}. Operación desde el {preparado.vista.fecha_inicio}.</p>
         {preparado.vista.avisos.map((a, i) => <p className="ao-aviso" key={i}>{a}</p>)}{preparado.vista.bloqueos.map((a, i) => <p className="ao-error" key={i}>{a}</p>)}
         <div className="ao-tabla"><table><thead><tr><th>Grupo</th><th>Artículo</th><th>Físico sistema</th><th>Kardex anterior</th><th>Conteo</th><th>Diferencia física</th><th>Unidad</th></tr></thead><tbody>{preparado.vista.lineas.map(l => <tr key={l.grupo + l.id}><td>{l.grupo.toUpperCase()}</td><td>{l.codigo} · {l.nombre}</td><td>{n(l.sistema)}</td><td>{n(l.kardex)}</td><td>{n(l.conteo)}</td><td>{n(l.diferencia)}</td><td>{l.unidad}</td></tr>)}</tbody></table></div>
-        <p>El conteo reemplaza la disponibilidad de {soloPt ? "los lotes de producto terminado" : "los lotes incluidos en el corte"}. El Kardex registra la diferencia y conserva el historial.</p>
-        <label className="ao-check"><input type="checkbox" checked={confirmaConteo} disabled={ocupado} onChange={e => setConfirmaConteo(e.target.checked)} />Confirmo el conteo completo, sus ceros explícitos, lotes, fechas y que no hay operaciones físicas sin registrar entre conteo y arranque.</label>
-        <label className="ao-check"><input type="checkbox" checked={confirmaPedidos} disabled={ocupado} onChange={e => setConfirmaPedidos(e.target.checked)} />Revisé cuáles pedidos siguen realmente pendientes; las reservas anteriores están liberadas.</label>
-        <button className="ao-principal" disabled={ocupado || !confirmaConteo || !confirmaPedidos || !preparado.vista.puede_aplicar || !!errorLocal} onClick={() => void aplicar()}>{soloPt ? "Confirmar saldo inicial de producto terminado" : "Aplicar inventario del arranque una sola vez"}</button>
+        <p>El Kardex registra la diferencia entre el saldo anterior y el conteo físico, y conserva el historial.</p>
+        <label className="ao-check"><input type="checkbox" checked={confirmaConteo} disabled={ocupado} onChange={e => setConfirmaConteo(e.target.checked)} />Confirmo el conteo completo, sus ceros explícitos{!soloMp && ", lotes y fechas"}, y que no hay operaciones físicas sin registrar entre conteo y arranque.</label>
+        {!soloMp && <label className="ao-check"><input type="checkbox" checked={confirmaPedidos} disabled={ocupado} onChange={e => setConfirmaPedidos(e.target.checked)} />Revisé cuáles pedidos siguen realmente pendientes; las reservas anteriores están liberadas.</label>}
+        <button className="ao-principal" disabled={ocupado || !confirmaConteo || (!soloMp && !confirmaPedidos) || !preparado.vista.puede_aplicar || !!errorLocal} onClick={() => void aplicar()}>{soloMp ? "Confirmar saldo inicial de materias primas y empaques" : soloPt ? "Confirmar saldo inicial de producto terminado" : "Aplicar inventario del arranque una sola vez"}</button>
       </section>}
     </>}
   </section>
