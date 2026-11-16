@@ -11,7 +11,8 @@ export type BaseCostosCotizacion = {
   manoObra: number
   cif: number
   transporte: number
-  gastos: number
+  gastosGenerales: number
+  gastosEspecificos: number
 }
 
 const cuentasTransporte = new Set(["6.1.01.2.13.01", "6.1.01.2.13.02"])
@@ -87,7 +88,7 @@ export async function obtenerBaseCostosCotizacion(): Promise<BaseCostosCotizacio
     const [produccion, ventas, rubros, balance] = await Promise.all([
       obtenerResumenProduccionesRangoDb(periodo, hasta, true),
       obtenerVentasDiariasRangoDb(periodo, hasta),
-      supabase.from("fin_vw_costos_gastos_rubros_mensual").select("cuenta_codigo,valor")
+      supabase.from("fin_vw_costos_gastos_rubros_mensual").select("clasificacion_gerencial,valor")
         .eq("periodo", periodo).in("cuenta_codigo", [...cuentasTransporte])
         .in("clasificacion_gerencial", ["GASTO_ESPECIFICO_CLIENTE", "GASTO_GENERAL"])
         .eq("impacta_ebitda", true).eq("incluida_costo_venta_contable", false),
@@ -108,12 +109,19 @@ export async function obtenerBaseCostosCotizacion(): Promise<BaseCostosCotizacio
     const unidadesVendidas = ventas.reduce((total, venta) => total + Number(venta.cantidad ?? 0), 0)
     if (unidadesProducidas <= 0 || unidadesVendidas <= 0) continue
 
-    const transporte = (rubros.data ?? []).reduce((total, rubro) => total + Number(rubro.valor), 0)
-    const gastos = Number(fila.gasto_especifico_cliente) + Number(fila.gasto_general) - transporte
+    const transporteGeneral = (rubros.data ?? [])
+      .filter((rubro) => rubro.clasificacion_gerencial === "GASTO_GENERAL")
+      .reduce((total, rubro) => total + Number(rubro.valor), 0)
+    const transporteEspecifico = (rubros.data ?? [])
+      .filter((rubro) => rubro.clasificacion_gerencial === "GASTO_ESPECIFICO_CLIENTE")
+      .reduce((total, rubro) => total + Number(rubro.valor), 0)
+    const transporte = transporteGeneral + transporteEspecifico
+    const gastosGenerales = Number(fila.gasto_general) - transporteGeneral
+    const gastosEspecificos = Number(fila.gasto_especifico_cliente) - transporteEspecifico
     const manoObra = mod.reduce((total, registro) => total + Number(registro.costo_empresa), 0)
     const cif = Number(fila.cif_total_informativo)
-    if (![manoObra, cif, transporte, gastos].every(Number.isFinite)) continue
-    return { periodo, archivos, unidadesProducidas, unidadesVendidas, manoObra, cif, transporte, gastos }
+    if (![manoObra, cif, transporte, gastosGenerales, gastosEspecificos].every(Number.isFinite)) continue
+    return { periodo, archivos, unidadesProducidas, unidadesVendidas, manoObra, cif, transporte, gastosGenerales, gastosEspecificos }
   }
   return null
 }

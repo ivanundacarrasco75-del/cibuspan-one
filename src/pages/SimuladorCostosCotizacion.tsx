@@ -25,7 +25,6 @@ type Producto = { id: string; codigo: string; nombre: string }
 const moneda = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" })
 const monedaUnidad = new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD", maximumFractionDigits: 4 })
 const porcentaje = new Intl.NumberFormat("es-EC", { style: "percent", maximumFractionDigits: 2 })
-const numero = new Intl.NumberFormat("es-EC")
 const mesBalance = new Intl.DateTimeFormat("es-EC", { month: "long", year: "numeric", timeZone: "UTC" })
 
 function importe(texto: string | undefined, esPrecio = false) {
@@ -39,12 +38,6 @@ function importe(texto: string | undefined, esPrecio = false) {
 function tasa(texto: string | undefined) {
   const valor = importe(texto)
   return valor !== null && valor <= 100 ? valor / 100 : null
-}
-
-function mostrarLimite(limite: number | null) {
-  if (limite === null) return "—"
-  if (limite < -1e-10) return "No alcanza el margen mínimo"
-  return porcentaje.format(Math.floor(Math.max(0, limite) * 10000 + 1e-8) / 10000)
 }
 
 export default function SimuladorCostosCotizacion() {
@@ -201,7 +194,6 @@ export default function SimuladorCostosCotizacion() {
     ? (base ? base.transporte / base.unidadesVendidas : null)
     : (fleteCliente?.datos ? fleteCliente.datos.total / fleteCliente.datos.unidades : null)
   const origenFlete = cliente ? `Libro Mayor · ${cliente.nombre}` : "promedio general del balance"
-  const gastosUnidad = base ? base.gastos / base.unidadesVendidas : null
   const precioSucursal = sucursal ? Number(sucursal.precio) : null
   const referenciaPrecio = precioFacturado?.clienteId === clienteId && precioFacturado.productoId === productoId
     ? precioFacturado : null
@@ -216,39 +208,28 @@ export default function SimuladorCostosCotizacion() {
   const transporteBalance = unidadesValidas && transporteUnidad !== null
     ? transporteUnidad * unidades : null
   const transportePedido = valores.transporte?.trim() ? importe(valores.transporte) : transporteBalance
+  const materialesPedido = unidadesValidas && materiales !== null ? materiales * unidades : null
+  const cifPedido = unidadesValidas && cifUnidad !== null ? cifUnidad * unidades : null
   const manoObraPedido = unidadesValidas && modUnidad !== null ? modUnidad * unidades : null
-  const costoProduccion = unidadesValidas && materiales !== null && modUnidad !== null && cifUnidad !== null
-    ? (materiales + modUnidad + cifUnidad) * unidades
-    : null
-  const otrosGastosPedido = unidadesValidas && gastosUnidad !== null ? gastosUnidad * unidades : null
-  const gastosTotales = transportePedido !== null && otrosGastosPedido !== null
-    ? transportePedido + otrosGastosPedido : null
-  const costoTotal = costoProduccion !== null && gastosTotales !== null ? costoProduccion + gastosTotales : null
-  const costoUnitario = costoTotal !== null && unidadesValidas ? costoTotal / unidades : null
+  const gastosGeneralesPedido = unidadesValidas && base
+    ? base.gastosGenerales / base.unidadesVendidas * unidades : null
+  const gastosEspecificosPedido = unidadesValidas && base && transportePedido !== null
+    ? base.gastosEspecificos / base.unidadesVendidas * unidades + transportePedido : null
+  const rubros = [materialesPedido, cifPedido, manoObraPedido, gastosGeneralesPedido, gastosEspecificosPedido]
+  const costoTotal = rubros.every((rubro) => rubro !== null)
+    ? rubros.reduce<number>((total, rubro) => total + (rubro ?? 0), 0) : null
   const factorNeto = descuento !== null && devolucion !== null ? (1 - descuento) * (1 - devolucion) : null
   const venta = precio !== null && unidadesValidas ? precio * unidades : null
   const ventaNeta = venta !== null && factorNeto !== null ? venta * factorNeto : null
-  const precioEquilibrio = costoUnitario !== null && factorNeto !== null && factorNeto > 0
-    ? costoUnitario / factorNeto : null
   const utilidad = ventaNeta !== null && costoTotal !== null ? ventaNeta - costoTotal : null
   const margen = utilidad !== null && ventaNeta !== null && ventaNeta > 0 ? utilidad / ventaNeta : null
-  const ingresoMinimo = costoTotal !== null && objetivo !== null && objetivo < 1 ? costoTotal / (1 - objetivo) : null
-  const antesDescuento = venta !== null && devolucion !== null ? venta * (1 - devolucion) : null
-  const antesDevolucion = venta !== null && descuento !== null ? venta * (1 - descuento) : null
-  const maxDescuento = ingresoMinimo !== null && antesDescuento !== null && antesDescuento > 0
-    ? 1 - ingresoMinimo / antesDescuento : null
-  const maxDevolucion = ingresoMinimo !== null && antesDevolucion !== null && antesDevolucion > 0
-    ? 1 - ingresoMinimo / antesDevolucion : null
-  const resultados: [string, number | null, Intl.NumberFormat][] = [
-    ["Ventas al precio propuesto", venta, moneda],
-    ["Ventas netas después de descuento y devoluciones", ventaNeta, moneda],
-    ["Costo total de producción", costoProduccion, moneda],
-    ["Transporte aplicado al pedido", transportePedido, moneda],
-    ["Otros gastos asignados al pedido", otrosGastosPedido, moneda],
-    ["Costo total con gastos", costoTotal, moneda],
-    ["Costo por unidad", costoUnitario, monedaUnidad],
-    ["Precio de equilibrio por unidad con los ajustes", precioEquilibrio, monedaUnidad],
-    ["Utilidad estimada", utilidad, moneda],
+  const costos: [string, number | null][] = [
+    ["Costo de MP y empaque", materialesPedido],
+    ["CIF", cifPedido],
+    ["MOD", manoObraPedido],
+    ["Gastos generales", gastosGeneralesPedido],
+    ["Gastos específicos", gastosEspecificosPedido],
+    ["Costo total", costoTotal],
   ]
 
   return (
@@ -340,41 +321,26 @@ export default function SimuladorCostosCotizacion() {
           )
         })}
       </div>
-      <div className="cotizacion-margen" aria-live="polite">
-        <div><span>Margen estimado sobre ventas netas</span>
-          <strong className={margen !== null && margen < 0 ? "cotizacion-perdida" : undefined}>{margen === null ? "—" : porcentaje.format(margen)}</strong>
-          {margen !== null && objetivo !== null && objetivo < 1 && <small>{margen + 1e-10 >= objetivo ? "Alcanza el margen mínimo" : "Por debajo del margen mínimo"}</small>}
-        </div>
-        <div><span>Descuento máximo</span><strong>{mostrarLimite(maxDescuento)}</strong><small>Con las devoluciones ingresadas</small></div>
-        <div><span>Devolución máxima</span><strong>{mostrarLimite(maxDevolucion)}</strong><small>Con el descuento ingresado</small></div>
-      </div>
-      <p>Las devoluciones se valoran al precio con descuento. Se conserva el costo de todas las unidades del pedido. Con un margen mínimo de 0 %, los máximos indican el punto de equilibrio.</p>
       {estadoBase && <p role="status">{estadoBase}</p>}
-      {base && <section className="cotizacion-base">
-        <h3>Base contable de {mesBalance.format(new Date(base.periodo + "T00:00:00Z"))}</h3>
-        <p>Balance importado: {base.archivos.length ? base.archivos.join(", ") : "nombre del archivo no disponible"}. Mano de obra tomada de los roles de pago del mismo mes.</p>
-        <p>Mano de obra: {moneda.format(base.manoObra)} ÷ {numero.format(base.unidadesProducidas)} unidades producidas.
-          {manoObraPedido !== null && ` Al pedido se le asignan ${moneda.format(manoObraPedido)} a esa misma tarifa.`}
-          {" "}El CIF usa las mismas unidades producidas. Los otros gastos usan {numero.format(base.unidadesVendidas)} unidades facturadas del negocio.</p>
-        {fleteCliente?.datos && <p>Transporte clasificado de {cliente?.nombre} en el Libro Mayor.
-          {" "}{moneda.format(fleteCliente.datos.total)} ÷ {numero.format(fleteCliente.datos.unidades)} unidades facturadas del cliente.</p>}
-        <dl className="cotizacion-resultados">
-          {([
-            ["Mano de obra directa por unidad", modUnidad],
-            ["CIF por unidad", cifUnidad],
-            ["Flete sugerido por unidad", transporteUnidad],
-            ["Otros gastos por unidad", gastosUnidad],
-          ] as const).map(([etiqueta, costo]) => (
-            <div key={etiqueta}><dt>{etiqueta}</dt><dd>{costo === null ? "—" : monedaUnidad.format(costo)}</dd></div>
-          ))}
-        </dl>
-      </section>}
+      <h3>Resumen del pedido</h3>
+      {base && <small>Base contable de {mesBalance.format(new Date(base.periodo + "T00:00:00Z"))}
+        {base.archivos.length > 0 && (" · " + base.archivos.join(", "))}</small>}
       <dl className="cotizacion-resultados" aria-live="polite">
-        {resultados.map(([etiqueta, valor, formato]) => (
+        {costos.map(([etiqueta, valor]) => (
           <div key={etiqueta}><dt>{etiqueta}</dt>
-            <dd>{valor !== null && Number.isFinite(valor) ? formato.format(valor) : "—"}</dd>
+            <dd>{valor === null ? "—" : moneda.format(valor)}</dd>
+            {etiqueta === "Gastos específicos" && transportePedido !== null && <small>Flete aplicado {moneda.format(transportePedido)}</small>}
+            {etiqueta === "Costo total" && valor !== null && unidadesValidas && <small>{monedaUnidad.format(valor / unidades)} por unidad</small>}
           </div>
         ))}
+        <div><dt>Margen</dt>
+          <dd className={margen !== null && margen < 0 ? "cotizacion-perdida" : undefined}>
+            {margen === null ? "—" : porcentaje.format(margen)}
+          </dd>
+          {margen !== null && objetivo !== null && objetivo < 1 && <small>
+            {margen + 1e-10 >= objetivo ? "Alcanza el margen mínimo" : "Por debajo del margen mínimo"}
+          </small>}
+        </div>
       </dl>
     </section>
   )
@@ -389,9 +355,5 @@ const estilos = `
   .cotizacion [aria-invalid=true]{border-color:#b91c1c}.cotizacion small{font-weight:400}
   .cotizacion-resultados{margin:20px 0 0}.cotizacion-resultados>div{padding:12px;border-radius:8px;background:#f8f5f3}
   .cotizacion-resultados dt{font-size:12px}.cotizacion-resultados dd{margin:4px 0 0;font-size:20px;font-weight:750;color:#8f1d24}
-  .cotizacion-margen{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px;margin-top:20px}
-  .cotizacion-margen>div{display:grid;align-content:start;gap:5px;background:#faf1ef;border:1px solid #e5dad4;border-radius:8px;padding:14px;text-align:left}
-  .cotizacion-margen strong{font-size:20px}.cotizacion-margen>div:first-child strong{font-size:32px;color:#166534}
-  .cotizacion-margen>div:first-child .cotizacion-perdida{color:#a11f29}
-  .cotizacion-base{border-top:1px solid #e5dad4;padding-top:12px;margin-top:16px}.cotizacion-base h3{margin:0}
+  .cotizacion-resultados .cotizacion-perdida{color:#a11f29}
 `
