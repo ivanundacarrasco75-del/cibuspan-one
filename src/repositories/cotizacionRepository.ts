@@ -13,9 +13,70 @@ export type BaseCostosCotizacion = {
   transporte: number
   gastosGenerales: number
   gastosEspecificos: number
+  gastosEspecificosPorCliente: Map<string, number>
+  unidadesPorCliente: Map<string, number>
 }
 
 const cuentasTransporte = new Set(["6.1.01.2.13.01", "6.1.01.2.13.02"])
+
+export async function obtenerMaterialesCotizacion(productoId: string) {
+  const [costos, empaques] = await Promise.all([
+    supabase.from("fm_vw_productos_costo_completo")
+      .select("formula_version_id,panes_por_batch,rendimiento_unidades,costo_materia_prima_unidad,costo_materiales_unidad,items_sin_costo")
+      .eq("producto_id", productoId),
+    supabase.from("fm_vw_empaques_producto_costeados").select("producto_id")
+      .eq("producto_id", productoId).limit(1),
+  ])
+  if (costos.error) throw costos.error
+  if (empaques.error) throw empaques.error
+  const ids = costos.data.flatMap((fila) => fila.formula_version_id ? [fila.formula_version_id] : [])
+  if (ids.length === 0) return null
+
+  const { data: versiones, error } = await supabase.from("fm_formula_versiones").select("id")
+    .in("id", ids).eq("estado", "VIGENTE")
+  if (error) throw error
+  const vigentes = new Set(versiones.map(({ id }) => id))
+  const filas = costos.data.filter((fila) => vigentes.has(fila.formula_version_id))
+  if (filas.length !== 1) return null
+  const [fila] = filas
+  if (fila.costo_materia_prima_unidad == null || fila.costo_materiales_unidad == null ||
+    fila.items_sin_costo == null || Number(fila.items_sin_costo) !== 0) return null
+  const costo = Number(fila.costo_materiales_unidad)
+  if (!Number.isFinite(costo) || costo < 0) return null
+
+  const panes = Number(fila.panes_por_batch)
+  const rendimiento = Number(fila.rendimiento_unidades ?? fila.panes_por_batch)
+  return {
+    costo,
+    panesPorUnidad: panes > 0 && rendimiento > 0 ? panes / rendimiento : null,
+    tieneEmpaque: empaques.data.length > 0,
+  }
+}
+
+async function obtenerGastosEspecificosPorCliente(periodo: string) {
+  const gastos = new Map<string, number>()
+  const limite = 1000
+  for (let inicio = 0; ; inicio += limite) {
+    const { data, error } = await supabase.from("fin_vw_resultado_clasificacion_detalle")
+      .select("cuenta_codigo,valor,clientes")
+      .eq("periodo", periodo).eq("clasificacion_gerencial", "GASTO_ESPECIFICO_CLIENTE")
+      .order("id").range(inicio, inicio + limite - 1)
+    if (error) throw error
+
+    for (const fila of data) {
+      if (cuentasTransporte.has(fila.cuenta_codigo) || !Array.isArray(fila.clientes)) continue
+      for (const asignacion of fila.clientes) {
+        if (!asignacion.cliente_id) continue
+        const valor = asignacion.valor_asignado == null
+          ? Number(fila.valor) * Number(asignacion.porcentaje) / 100
+          : Number(asignacion.valor_asignado)
+        if (!Number.isFinite(valor)) throw new Error("El gasto específico asignado no es válido.")
+        gastos.set(asignacion.cliente_id, (gastos.get(asignacion.cliente_id) ?? 0) + valor)
+      }
+    }
+    if (data.length < limite) return gastos
+  }
+}
 
 type PrecioSucursal = {
   precio: number
@@ -121,7 +182,16 @@ export async function obtenerBaseCostosCotizacion(): Promise<BaseCostosCotizacio
     const manoObra = mod.reduce((total, registro) => total + Number(registro.costo_empresa), 0)
     const cif = Number(fila.cif_total_informativo)
     if (![manoObra, cif, transporte, gastosGenerales, gastosEspecificos].every(Number.isFinite)) continue
-    return { periodo, archivos, unidadesProducidas, unidadesVendidas, manoObra, cif, transporte, gastosGenerales, gastosEspecificos }
+    const unidadesPorCliente = new Map<string, number>()
+    for (const venta of ventas) {
+      if (!venta.cliente_id) continue
+      unidadesPorCliente.set(venta.cliente_id, (unidadesPorCliente.get(venta.cliente_id) ?? 0) + Number(venta.cantidad ?? 0))
+    }
+    const gastosEspecificosPorCliente = await obtenerGastosEspecificosPorCliente(periodo)
+    return {
+      periodo, archivos, unidadesProducidas, unidadesVendidas, manoObra, cif,
+      transporte, gastosGenerales, gastosEspecificos, gastosEspecificosPorCliente, unidadesPorCliente,
+    }
   }
   return null
 }

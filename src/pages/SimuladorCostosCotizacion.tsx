@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 import {
   obtenerBaseCostosCotizacion,
+  obtenerMaterialesCotizacion,
   obtenerPrecioFacturadoCotizacion,
   obtenerPreciosSucursalCotizacion,
   obtenerTransporteClienteCotizacion,
@@ -62,7 +63,11 @@ export default function SimuladorCostosCotizacion() {
     error?: boolean
   } | null>(null)
   const [aviso, setAviso] = useState("")
-  const [referencia, setReferencia] = useState<{ productoId: string; costo: number | null } | null>(null)
+  const [referencia, setReferencia] = useState<{
+    productoId: string
+    datos: Awaited<ReturnType<typeof obtenerMaterialesCotizacion>>
+    error?: boolean
+  } | null>(null)
   const [valores, setValores] = useState<Partial<Record<Campo, string>>>({
     descuento: "0", devolucion: "0", objetivo: "0",
   })
@@ -172,20 +177,16 @@ export default function SimuladorCostosCotizacion() {
   useEffect(() => {
     if (!productoId) return
     let vigente = true
-    async function cargarCosto() {
-      const { data, error } = await supabase.from("fm_vw_productos_costo_completo")
-        .select("costo_materiales_unidad,items_sin_costo").eq("producto_id", productoId).maybeSingle()
-      if (!vigente) return
-      const costo = !error && data?.costo_materiales_unidad != null && Number(data.items_sin_costo) === 0
-        ? Number(data.costo_materiales_unidad)
-        : null
-      setReferencia({ productoId, costo: costo !== null && Number.isFinite(costo) && costo >= 0 ? costo : null })
-    }
-    void cargarCosto()
+    obtenerMaterialesCotizacion(productoId).then((datos) => {
+      if (vigente) setReferencia({ productoId, datos })
+    }).catch(() => {
+      if (vigente) setReferencia({ productoId, datos: null, error: true })
+    })
     return () => { vigente = false }
   }, [productoId])
 
-  const costoCatalogo = referencia?.productoId === productoId ? referencia.costo : null
+  const materialesCatalogo = referencia?.productoId === productoId ? referencia.datos : null
+  const costoCatalogo = materialesCatalogo?.costo ?? null
   const materiales = importe(valores.materiales) ?? (!valores.materiales?.trim() ? costoCatalogo : null)
   const modUnidad = base ? base.manoObra / base.unidadesProducidas : null
   const cifUnidad = base ? base.cif / base.unidadesProducidas : null
@@ -213,8 +214,16 @@ export default function SimuladorCostosCotizacion() {
   const manoObraPedido = unidadesValidas && modUnidad !== null ? modUnidad * unidades : null
   const gastosGeneralesPedido = unidadesValidas && base
     ? base.gastosGenerales / base.unidadesVendidas * unidades : null
-  const gastosEspecificosPedido = unidadesValidas && base && transportePedido !== null
-    ? base.gastosEspecificos / base.unidadesVendidas * unidades + transportePedido : null
+  const gastosAsignados = clienteId ? base?.gastosEspecificosPorCliente.get(clienteId) ?? 0 : 0
+  const ventasCliente = clienteId ? base?.unidadesPorCliente.get(clienteId) ?? 0 : 0
+  const gastosEspecificosUnidad = !base || clienteId === null ? null
+    : clienteId === "" ? base.gastosEspecificos / base.unidadesVendidas
+    : ventasCliente > 0 ? gastosAsignados / ventasCliente
+    : gastosAsignados === 0 ? 0 : null
+  const gastosEspecificosPedido = unidadesValidas && gastosEspecificosUnidad !== null && transportePedido !== null
+    ? gastosEspecificosUnidad * unidades + transportePedido : null
+  const gastosSinAsignar = base && clienteId
+    ? base.gastosEspecificos - [...base.gastosEspecificosPorCliente.values()].reduce((total, gasto) => total + gasto, 0) : 0
   const rubros = [materialesPedido, cifPedido, manoObraPedido, gastosGeneralesPedido, gastosEspecificosPedido]
   const costoTotal = rubros.every((rubro) => rubro !== null)
     ? rubros.reduce<number>((total, rubro) => total + (rubro ?? 0), 0) : null
@@ -305,10 +314,15 @@ export default function SimuladorCostosCotizacion() {
                   : "Consultando el precio unitario facturado…"}
               </small>}
               {clave === "materiales" && productoId && <small>
-                {referencia === null ? "Consultando el costo de materiales y empaque…" : costoCatalogo === null
+                {referencia === null ? "Consultando el costo de materiales y empaque…"
+                  : referencia.error ? "No se pudo consultar el costo de catálogo. Ingresa un importe."
+                  : costoCatalogo === null
                   ? "Costo de catálogo incompleto o no disponible. Ingresa un importe."
                   : `Costo de catálogo: ${monedaUnidad.format(costoCatalogo)}. Puedes reemplazarlo.`}
+                {materialesCatalogo && !materialesCatalogo.tieneEmpaque && " El SKU no tiene empaque registrado."}
               </small>}
+              {clave === "unidades" && materialesCatalogo?.panesPorUnidad != null && materialesCatalogo.panesPorUnidad > 1 &&
+                <small>Cada unidad cotizada corresponde a {materialesCatalogo.panesPorUnidad.toLocaleString("es-EC")} panes según la fórmula.</small>}
               {clave === "transporte" && <small>
                 {transporteBalance !== null
                   ? `Sugerido según ${origenFlete}: ${moneda.format(transporteBalance)}. Puedes reemplazarlo, incluso por 0.`
@@ -322,6 +336,12 @@ export default function SimuladorCostosCotizacion() {
         })}
       </div>
       {estadoBase && <p role="status">{estadoBase}</p>}
+      {Math.abs(gastosSinAsignar) > 0.05 && <p role="status">
+        Los gastos específicos del balance difieren en {moneda.format(Math.abs(gastosSinAsignar))} de los asignados en el Libro Mayor.
+      </p>}
+      {clienteId && gastosAsignados !== 0 && ventasCliente <= 0 && <p role="status">
+        El cliente tiene gastos específicos asignados y faltan unidades facturadas para repartirlos.
+      </p>}
       <h3>Resumen del pedido</h3>
       {base && <small>Base contable de {mesBalance.format(new Date(base.periodo + "T00:00:00Z"))}
         {base.archivos.length > 0 && (" · " + base.archivos.join(", "))}</small>}
@@ -334,9 +354,13 @@ export default function SimuladorCostosCotizacion() {
           </div>
         ))}
         <div><dt>Margen</dt>
-          <dd className={margen !== null && margen < 0 ? "cotizacion-perdida" : undefined}>
-            {margen === null ? "—" : porcentaje.format(margen)}
+          <dd className={utilidad !== null && utilidad < 0 ? "cotizacion-perdida" : undefined}>
+            {utilidad === null ? "—" : moneda.format(utilidad)}
           </dd>
+          <small>
+            {margen === null ? "—" : porcentaje.format(margen)}
+            {" sobre ventas netas"}
+          </small>
           {margen !== null && objetivo !== null && objetivo < 1 && <small>
             {margen + 1e-10 >= objetivo ? "Alcanza el margen mínimo" : "Por debajo del margen mínimo"}
           </small>}
