@@ -120,7 +120,11 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
               <colgroup>{columnas.map(([campo]) => <col key={campo} className={`compras-sri-col-${campo}`} />)}</colgroup>
               <thead><tr>{columnas.map(([campo, etiqueta]) => <th key={campo} scope="col">{etiqueta}</th>)}</tr></thead>
               <tbody>
-                {documentos.length === 0 && <tr><td colSpan={columnas.length}>No hay documentos en esta página.</td></tr>}
+                {documentos.length === 0 && <tr><td colSpan={columnas.length}>
+                  {tipo === "noDeducibles" && pagina === 0
+                    ? "Todavía no hay gastos no deducibles ingresados manualmente."
+                    : "No hay documentos en esta página."}
+                </td></tr>}
                 {documentos.slice(0, porPagina).map(documento => (
                   <Fragment key={documento.id}>
                     <tr>

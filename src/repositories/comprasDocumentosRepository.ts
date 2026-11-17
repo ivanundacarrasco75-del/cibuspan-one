@@ -32,6 +32,22 @@ export type DocumentoCompra = {
 }
 
 export async function listarDocumentosCompra(tipo: TipoCompraManual, inicio: number, limite: number) {
+  if (tipo === "NO_DEDUCIBLE") {
+    const { data, error } = await supabase.from("compras_documentos_manuales")
+      .select("id,fecha_documento,numero_documento,proveedor,concepto,subtotal,iva,retencion,total,observaciones")
+      .eq("tipo", tipo)
+      .order("fecha_documento", { ascending: false })
+      .order("id")
+      .range(inicio, inicio + limite - 1)
+    if (error) throw error
+    return (data ?? []).map((fila): DocumentoCompra => ({
+      ...fila,
+      periodo: `${fila.fecha_documento.slice(0, 7)}-01`,
+      cuenta_codigo: null,
+      origen: "MANUAL_COMPRAS",
+    }))
+  }
+
   const { data, error } = await supabase.from("compras_vw_documentos")
     .select("id,periodo,fecha_documento,numero_documento,proveedor,concepto,subtotal,iva,retencion,total,observaciones,cuenta_codigo,origen")
     .eq("tipo", tipo)

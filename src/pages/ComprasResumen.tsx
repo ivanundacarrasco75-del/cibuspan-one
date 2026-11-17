@@ -25,7 +25,7 @@ const tarjetasCompras: Tarjeta[] = [
 const tarjetasFacturas: Tarjeta[] = [
   { nombre: "Facturas SRI", ruta: PANTALLA_FACTURAS_SRI, descripcion: "Gestiona los XML y los RIDE de las facturas recibidas.", icono: iconoFactura },
   { nombre: "Notas de venta", ruta: PANTALLA_NOTAS_VENTA, descripcion: "Consulta las notas de venta registradas en contabilidad.", icono: "M5 3h14v18l-3-2-4 2-4-2-3 2zM8 8h8m-8 4h8m-8 4h4" },
-  { nombre: "Gastos no deducibles", ruta: PANTALLA_NO_DEDUCIBLES, descripcion: "Consulta los movimientos de la cuenta de gastos no deducibles.", icono: "M5 4h14v16H5zM9 4v16m3-11h4m-4 5h4" },
+  { nombre: "Gastos no deducibles", ruta: PANTALLA_NO_DEDUCIBLES, descripcion: "Ingresa y consulta los gastos que registras manualmente.", icono: "M5 4h14v16H5zM9 4v16m3-11h4m-4 5h4" },
 ]
 
 export default function ComprasResumen({ facturas, puedeAcceder, cambiarPantalla }: {
