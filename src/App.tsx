@@ -6,7 +6,6 @@ import { supabase } from "./lib/supabase"
 import Layout from "./components/layout/Layout"
 import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
-import InstalarApp from "./components/InstalarApp"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
 import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
@@ -581,7 +580,6 @@ function App() {
       <Suspense fallback={<CargandoModulo />}>
         {puedeAcceder(pantalla) ? renderPantalla() : <section style={{ padding: 24 }}><p role="alert">No tienes acceso a esta pantalla. Solicita al administrador los permisos correspondientes.</p></section>}
       </Suspense>
-      <InstalarApp />
     </Layout>
   )
 }
