@@ -15,7 +15,6 @@ export default function InstalarApp() {
   const dialogo = useRef<HTMLDialogElement>(null)
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  const android = /Android/i.test(navigator.userAgent)
 
   useEffect(() => {
     const nodo = dialogo.current
@@ -69,7 +68,10 @@ export default function InstalarApp() {
 
   return (
     <div className="c1-instalacion">
-      <button type="button" style={boton} onClick={() => setAyuda(true)}>
+      <button type="button" style={boton} disabled={procesando} onClick={() => {
+        if (evento) void instalar()
+        else setAyuda(true)
+      }}>
         <span style={icono} aria-hidden="true">↓</span>
         Instalar CIBUSPAN ONE
       </button>
@@ -87,12 +89,9 @@ export default function InstalarApp() {
         </> : ios ? <>
           <p>En tu iPhone o iPad</p>
           <ol><li>Abre este enlace en Safari.</li><li>Pulsa <strong>Compartir</strong>.</li><li>Elige <strong>Añadir a pantalla de inicio</strong> y confirma <strong>Añadir</strong>.</li></ol>
-        </> : android ? <>
-          <p>En tu teléfono Android</p>
-          <ol><li>Abre este enlace en Chrome.</li><li>Abre el menú de tres puntos.</li><li>Busca <strong>Instalar aplicación</strong> o <strong>Agregar a pantalla principal</strong> y confirma.</li></ol>
         </> : <>
-          <p>En tu computadora</p>
-          <ol><li>Abre este enlace en Chrome o Microsoft Edge.</li><li>Pulsa el ícono de instalación de la barra de direcciones o busca <strong>Instalar</strong> en el menú del navegador.</li><li>Confirma la instalación de CIBUSPAN ONE.</li></ol>
+          <p role="status">Esperando la opción de instalación del navegador…</p>
+          <p>Abre el enlace en Chrome o Microsoft Edge. Cuando la instalación esté disponible, aquí aparecerá el botón para confirmarla.</p>
         </>}
         {!evento && <p>Si abriste el enlace dentro de WhatsApp, correo u otra aplicación, usa su menú para abrirlo en el navegador.</p>}
         {mensaje && <p role="status">{mensaje}</p>}
