@@ -185,4 +185,41 @@
   padding: 7px 4px;
 }
 
+.compras-sri-pagina .compras-sri-alta {
+  background: #e6f6f5;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.compras-sri-formulario-manual {
+  margin-bottom: 10px;
+  border: 1px solid #bcccd8;
+  background: white;
+  font-size: 12px;
+}
+
+.compras-sri-formulario-manual fieldset {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  align-items: end;
+  gap: 8px;
+}
+
+.compras-sri-formulario-manual label { display: grid; gap: 3px; min-width: 0; }
+.compras-sri-formulario-manual input { width: 100%; min-width: 0; font: inherit; }
+.compras-sri-formulario-manual p { padding: 0 8px; color: #8b1f16; }
+.compras-sri-tabla-documentos { min-width: 880px; }
+.compras-sri-col-detalle { width: 62px; }
+.compras-sri-tabla-documentos td:not(.compras-sri-detalle) {
+  height: 27px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .compras-sri-error { background: #fff1ee; color: #8b1f16; }

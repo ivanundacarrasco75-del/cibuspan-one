@@ -79,8 +79,6 @@
 .compras-aviso summary { width: fit-content; cursor: pointer; color: #086d71; font-size: .84rem; font-weight: 700; padding-block: 4px; }
 .compras-aviso details p { font-size: .83rem; margin: 4px 0; max-width: 75ch; }
 .compras-resumen .compras-boton { min-height: 40px; margin-top: 10px; padding: 6px 12px; color: #07666b; background: #fff; border: 1px solid #9bcfd2; border-radius: 8px; cursor: pointer; font-weight: 700; }
-.compras-paginacion { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; font-size: .85rem; }
-.compras-paginacion .compras-boton { margin-top: 0; }
 
 .compras-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
 .compras-resumen .compras-tarjeta {
