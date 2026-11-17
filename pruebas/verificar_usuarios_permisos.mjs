@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+import * as catalogo from '../supabase/functions/_shared/catalogoPermisos.ts'
+import * as utilPermisos from '../src/utils/permisosAplicacion.ts'
 import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI, PANTALLA_MENU_COMPRAS,
   PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla, permisoDePantalla, filtrarModulosPermitidos, permisosCoinciden,
@@ -50,6 +52,35 @@ test('Facturas de compras agrupa documentos sin ampliar el acceso al SRI', () =>
   assert.deepEqual(accesos('ADMINISTRADOR', []), [PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI])
   assert.deepEqual(accesos('GERENTE', ['Administración']), [PANTALLA_FACTURAS_COMPRAS, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES])
   assert.deepEqual(accesos('BODEGUERO', ['Materias primas']), [])
+})
+
+test('Un permiso exacto abre su opción sin conceder los menús hermanos', () => {
+  const permitidas = ['Compras · Notas de venta']
+  const puede = (ruta) => puedeAbrirPantalla(ruta, 'GERENTE', permitidas)
+  assert.equal(puede(PANTALLA_NOTAS_VENTA), true)
+  assert.equal(puede(PANTALLA_MENU_COMPRAS), true)
+  assert.equal(puede(PANTALLA_FACTURAS_COMPRAS), true)
+  assert.equal(puede(PANTALLA_NO_DEDUCIBLES), false)
+  assert.equal(puede('Administración · Configuración'), false)
+  assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_SRI, 'GERENTE', [PANTALLA_FACTURAS_SRI]), false)
+})
+
+test('La denegación exacta prevalece sobre el permiso anterior y los aliases', () => {
+  assert.equal(puedeAbrirPantalla('Comercial · Pedidos', 'GERENTE', ['Pedidos'], ['Comercial · Pedidos']), false)
+  assert.equal(puedeAbrirPantalla('Pedidos', 'GERENTE', ['Pedidos'], ['Comercial · Pedidos']), false)
+  assert.equal(puedeAbrirPantalla('Producción · Pedidos', 'GERENTE', ['Pedidos'], ['Comercial · Pedidos']), true)
+  assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_SRI, 'ADMINISTRADOR', [], [PANTALLA_FACTURAS_SRI]), false)
+  assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'ADMINISTRADOR', [], [PANTALLA_MENU_COMPRAS]), false)
+  const todas = [...catalogo.RUTAS_PERMISOS]
+  assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'ADMINISTRADOR', [], todas), false)
+  assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'GERENTE', [PANTALLA_NOTAS_VENTA], [PANTALLA_MENU_COMPRAS, PANTALLA_FACTURAS_COMPRAS]), true)
+})
+
+test('El catálogo cubre las rutas del menú y las pantallas antiguas', () => {
+  for (const [, ruta] of leer('src/App.tsx').matchAll(/case "([^"]+)":/g)) {
+    assert.ok(catalogo.RUTAS_PERMISOS.includes(catalogo.ALIASES_PERMISOS[ruta] ?? ruta), ruta)
+  }
+  assert.equal(new Set(catalogo.RUTAS_PERMISOS).size, catalogo.RUTAS_PERMISOS.length)
 })
 
 function servicio(responder, error = null) {
@@ -151,7 +182,7 @@ function servidor({ fallaEscritura = false, fallaPerfil = false } = {}) {
   vm.runInNewContext(compilar(leer('supabase/functions/admin-users/index.ts')), {
     exports: {},
     Deno: { env: { get: (name) => name }, serve: (f) => handler = f }, Error, Response,
-    require: () => ({ createClient: (_, key) => key === 'SUPABASE_SERVICE_ROLE_KEY' ? admin : auth }),
+    require: (name) => name.includes('catalogoPermisos') ? catalogo : ({ createClient: (_, key) => key === 'SUPABASE_SERVICE_ROLE_KEY' ? admin : auth }),
   })
   return {
     llamar: (body) => handler(new Request('https://example.com', { method: 'POST', headers: { Authorization: 'Bearer prueba', 'Content-Type': 'application/json' }, body: JSON.stringify(body) })),
@@ -172,6 +203,21 @@ test('El servidor admite Descuentos y confirma los permisos realmente guardados'
   const response = await s.llamar({ action: 'permissions', userId: 'target', permisos })
   assert.equal(response.status, 200)
   assert.equal(permisosCoinciden(permisos, (await response.json()).data), true)
+})
+
+test('El servidor persiste opciones anidadas permitidas y denegadas', async () => {
+  const s = servidor()
+  const permisos = [
+    { pantalla: 'Compras · Resumen', permitido: false },
+    { pantalla: 'Compras · Facturas de compras', permitido: false },
+    { pantalla: 'Compras · Notas de venta', permitido: true },
+    { pantalla: 'Compras · Gastos no deducibles', permitido: false },
+  ]
+  const response = await s.llamar({ action: 'permissions', userId: 'target', permisos })
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(permisosCoinciden(permisos, body.data), true)
+  assert.equal(permisosCoinciden(permisos, s.permisos()), true)
 })
 
 test('Una escritura fallida conserva los permisos anteriores y devuelve el error real', async () => {
@@ -206,7 +252,9 @@ function editor({ recargar = async () => [], guardar = async () => [] } = {}) {
         return [estados[i], (value) => { estados[i] = typeof value === 'function' ? value(estados[i]) : value }]
       },
       useMemo: (fn) => fn(),
-    } : { ...servicio(() => {}), guardarPermisosUsuario: guardar },
+    } : name.includes('catalogoPermisos') ? catalogo
+      : name.includes('permisosAplicacion') ? utilPermisos
+      : { ...servicio(() => {}), guardarPermisosUsuario: guardar },
   })
   const props = { usuario, guardando: false, error: '', mensaje: '', recargar,
     onGuardando: (value) => { if (!value) terminar() },
@@ -232,10 +280,10 @@ test('El formulario muestra el error dentro del modal y no anuncia éxito si fal
 
 test('Restaurar permisos borra cambios locales incluso si el usuario ya tenía los valores del rol', async () => {
   const e = editor()
-  const checkbox = e.render().find((n) => n.type === 'label' && n.props.children?.[1]?.props.children === 'KPI KAM').props.children[0]
-  checkbox.props.onChange()
-  assert.equal(e.render().find((n) => n.type === 'label' && n.props.children?.[1]?.props.children === 'KPI KAM').props.children[0].props.checked, false)
+  const arbol = () => e.render().find((n) => typeof n.props?.cambiar === 'function' && n.props?.seleccionadas)
+  arbol().props.cambiar(['Comercial · KPI KAM'], false)
+  assert.equal(arbol().props.seleccionadas.has('Comercial · KPI KAM'), false)
   e.render().find((n) => n.type === 'button' && n.props.children === 'Restaurar permisos del rol').props.onClick()
   await e.terminado
-  assert.equal(e.render().find((n) => n.type === 'label' && n.props.children?.[1]?.props.children === 'KPI KAM').props.children[0].props.checked, true)
+  assert.equal(arbol().props.seleccionadas.has('Comercial · KPI KAM'), true)
 })

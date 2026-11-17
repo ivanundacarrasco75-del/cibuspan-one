@@ -1,3 +1,5 @@
+import { ALIASES_PERMISOS, ARBOL_PERMISOS, rutasDeNodo, RUTAS_SOLO_ADMIN } from "../../supabase/functions/_shared/catalogoPermisos.ts"
+
 export const PANTALLA_MENU_COMPRAS = "Compras · Resumen"
 export const PANTALLA_ANTICIPAR_COMPRAS = "Compras · Compras por anticipar"
 export const PANTALLA_FACTURAS_COMPRAS = "Compras · Facturas de compras"
@@ -40,7 +42,21 @@ export function permisoDePantalla(pantalla: string): string {
   return pantalla
 }
 
-export function puedeAbrirPantalla(pantalla: string, rol: string, permitidas: readonly string[]): boolean {
+export function puedeAbrirPantalla(
+  pantalla: string, rol: string, permitidas: readonly string[], denegadas: readonly string[] = [],
+): boolean {
+  const ruta = ALIASES_PERMISOS[pantalla] ?? pantalla
+  if (ruta === "Administración · Usuarios y Permisos") return rol === "ADMINISTRADOR"
+  if (RUTAS_SOLO_ADMIN.includes(ruta) && rol !== "ADMINISTRADOR") return false
+  const menus: Record<string, string[]> = {
+    [PANTALLA_MENU_COMPRAS]: rutasDeNodo(ARBOL_PERMISOS[4]).filter((item) => item !== PANTALLA_MENU_COMPRAS),
+    [PANTALLA_FACTURAS_COMPRAS]: PANTALLAS_DOCUMENTOS_COMPRAS,
+    [PANTALLA_MENU_FINANZAS]: rutasDeNodo(ARBOL_PERMISOS[5]).filter((item) => item !== PANTALLA_MENU_FINANZAS),
+  }
+  if (menus[ruta]?.some((hijo) => permitidas.includes(hijo) && !denegadas.includes(hijo) &&
+    (!RUTAS_SOLO_ADMIN.includes(hijo) || rol === "ADMINISTRADOR"))) return true
+  if (denegadas.includes(ruta)) return false
+  if (permitidas.includes(ruta)) return true
   if (pantalla === PANTALLA_MENU_FINANZAS) {
     return rol === "ADMINISTRADOR" || permitidas.includes("Administración") || permitidas.includes("Reportes")
   }

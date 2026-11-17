@@ -123,12 +123,14 @@ function App() {
   const [cargandoSesion, setCargandoSesion] = useState(true)
   const [perfil, setPerfil] = useState<PerfilAplicacion | null>(null)
   const [pantallasPermitidas, setPantallasPermitidas] = useState<string[]>([])
+  const [pantallasDenegadas, setPantallasDenegadas] = useState<string[]>([])
   const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
   const usuarioConPerfilRef = useRef<string | null>(null)
   const puedeAcceder = useCallback((destino: string) => !!perfil?.activo &&
-    puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas), [perfil, pantallasPermitidas])
+    puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas, pantallasDenegadas),
+    [perfil, pantallasPermitidas, pantallasDenegadas])
 
   useEffect(() => {
     if (!cargandoPerfil && perfil?.activo && !puedeAcceder(pantalla)) {
@@ -160,11 +162,13 @@ function App() {
           const acceso = await obtenerAccesoActual(session.user.id)
           setPerfil(acceso.perfil)
           setPantallasPermitidas(acceso.pantallasPermitidas)
+          setPantallasDenegadas(acceso.pantallasDenegadas)
           setErrorAcceso("")
           usuarioConPerfilRef.current = session.user.id
         } catch (err) {
           setPerfil(null)
           setPantallasPermitidas([])
+          setPantallasDenegadas([])
           setErrorAcceso(err instanceof Error ? err.message : "No se pudo verificar el acceso.")
           usuarioConPerfilRef.current = session.user.id
         }
@@ -182,6 +186,7 @@ function App() {
       if (!session) {
         setPerfil(null)
         setPantallasPermitidas([])
+        setPantallasDenegadas([])
         setErrorAcceso("")
         usuarioConPerfilRef.current = null
         setCargandoPerfil(false)
@@ -196,12 +201,14 @@ function App() {
             .then((acceso) => {
               setPerfil(acceso.perfil)
               setPantallasPermitidas(acceso.pantallasPermitidas)
+              setPantallasDenegadas(acceso.pantallasDenegadas)
               setErrorAcceso("")
               usuarioConPerfilRef.current = session.user.id
             })
             .catch((err) => {
               setPerfil(null)
               setPantallasPermitidas([])
+              setPantallasDenegadas([])
               setErrorAcceso(err instanceof Error ? err.message : "No se pudo verificar el acceso.")
               usuarioConPerfilRef.current = session.user.id
             })
@@ -229,6 +236,7 @@ function App() {
         if (!vigente) return
         setPerfil(acceso.perfil)
         setPantallasPermitidas(acceso.pantallasPermitidas)
+        setPantallasDenegadas(acceso.pantallasDenegadas)
         setErrorAcceso("")
       } catch (err) {
         if (vigente) setErrorAcceso(err instanceof Error ? err.message : "No se pudo actualizar el acceso.")
@@ -465,15 +473,13 @@ function App() {
       case "Materias primas":
         return <MateriasPrimas />
 
-      case "Compras · Facturas":
-        return <PagosGastos />
-
       case PANTALLA_FACTURAS_SRI:
         return <ComprasSri />
 
       case PANTALLA_MENU_COMPRAS:
+      case "Compras · Facturas":
       case PANTALLA_FACTURAS_COMPRAS:
-        return <ComprasResumen facturas={pantalla === PANTALLA_FACTURAS_COMPRAS} puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+        return <ComprasResumen facturas={pantalla !== PANTALLA_MENU_COMPRAS} puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
 
       case PANTALLA_NOTAS_VENTA:
         return <ComprasDocumentos key={pantalla} tipo="notas" />

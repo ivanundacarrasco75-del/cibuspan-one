@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
+import ArbolPermisos from "../components/ArbolPermisos"
+import { RUTAS_PERMISOS } from "../../supabase/functions/_shared/catalogoPermisos"
+import { puedeAbrirPantalla } from "../utils/permisosAplicacion"
 import {
   ETIQUETAS_ROL,
   PANTALLAS_APLICACION,
@@ -10,7 +13,6 @@ import {
   listarUsuarios,
   restablecerPassword,
   type AppRole,
-  type PantallaAplicacion,
   type RegistroAuditoria,
   type UsuarioAdministrable,
 } from "../services/usuarioService"
@@ -256,20 +258,24 @@ function EditorUsuario({
   const [activo, setActivo] = useState(usuario.activo)
   const [password, setPassword] = useState("")
   const permisosIniciales = useMemo(() => {
-    const porDefecto = new Set(PERMISOS_PREDETERMINADOS[usuario.rol])
+    const porDefecto = new Set<string>(PERMISOS_PREDETERMINADOS[usuario.rol])
     for (const permiso of usuario.permisos_personalizados) {
       if (permiso.permitido) porDefecto.add(permiso.pantalla)
       else porDefecto.delete(permiso.pantalla)
     }
-    return porDefecto
+    const negadas = usuario.permisos_personalizados.filter((permiso) => !permiso.permitido).map((permiso) => permiso.pantalla)
+    const rutas = RUTAS_PERMISOS.filter((ruta) => puedeAbrirPantalla(ruta, usuario.rol, [...porDefecto], negadas))
+    return new Set([...porDefecto, ...rutas])
   }, [usuario])
-  const [permisos, setPermisos] = useState<Set<PantallaAplicacion>>(permisosIniciales)
+  const [permisos, setPermisos] = useState<Set<string>>(permisosIniciales)
 
-  function alternar(pantalla: PantallaAplicacion) {
+  function alternar(rutas: string[], permitir: boolean) {
     setPermisos((actuales) => {
       const copia = new Set(actuales)
-      if (copia.has(pantalla)) copia.delete(pantalla)
-      else copia.add(pantalla)
+      for (const ruta of rutas) {
+        if (permitir) copia.add(ruta)
+        else copia.delete(ruta)
+      }
       return copia
     })
   }
@@ -315,7 +321,8 @@ function EditorUsuario({
             onChange={(e) => {
               const nuevoRol = e.target.value as AppRole
               setRol(nuevoRol)
-              setPermisos(new Set(PERMISOS_PREDETERMINADOS[nuevoRol]))
+              const base = PERMISOS_PREDETERMINADOS[nuevoRol]
+              setPermisos(new Set([...base, ...RUTAS_PERMISOS.filter((ruta) => puedeAbrirPantalla(ruta, nuevoRol, base))]))
             }}
           >
             {ROLES.map((item) => <option key={item} value={item}>{ETIQUETAS_ROL[item]}</option>)}
@@ -340,24 +347,10 @@ function EditorUsuario({
 
       <div style={separador} />
       <div>
-        <h3 style={subtituloSeccion}>Acceso por módulo</h3>
-        <p style={textoSuave}>Puedes ajustar estos permisos exclusivamente para este usuario.</p>
+        <h3 style={subtituloSeccion}>Acceso por módulo y submenú</h3>
+        <p style={textoSuave}>Despliega cada módulo para elegir sus opciones. La casilla del módulo selecciona todas sus opciones disponibles.</p>
       </div>
-      <div style={permisosGrid}>
-        {PANTALLAS_APLICACION.map((pantalla) => (
-          <label key={pantalla} style={permisoItem}>
-            <input
-              type="checkbox"
-              checked={pantalla === "Usuarios y permisos"
-                ? rol === "ADMINISTRADOR"
-                : permisos.has(pantalla)}
-              disabled={pantalla === "Usuarios y permisos"}
-              onChange={() => alternar(pantalla)}
-            />
-            <span>{pantalla === "Campo comercial" ? "Visitas y rotación" : pantalla}</span>
-          </label>
-        ))}
-      </div>
+      <ArbolPermisos seleccionadas={permisos} rol={rol} cambiar={alternar} />
       <div style={accionesFila}>
         <button
           style={botonSecundario}
@@ -367,7 +360,8 @@ function EditorUsuario({
               async () => {
                 await guardarDatosPendientes()
                 await guardarPermisosUsuario(usuario.user_id, [])
-                setPermisos(new Set(PERMISOS_PREDETERMINADOS[rol]))
+                const base = PERMISOS_PREDETERMINADOS[rol]
+                setPermisos(new Set([...base, ...RUTAS_PERMISOS.filter((ruta) => puedeAbrirPantalla(ruta, rol, base))]))
               },
               "Se restauraron los permisos predeterminados del rol.",
             )
@@ -381,7 +375,7 @@ function EditorUsuario({
           onClick={() => void ejecutar(
             async () => { await guardarDatosPendientes(); return guardarPermisosUsuario(
               usuario.user_id,
-              PANTALLAS_APLICACION.map((pantalla) => ({
+              [...new Set<string>([...PANTALLAS_APLICACION, ...RUTAS_PERMISOS])].map((pantalla) => ({
                 pantalla,
                 permitido: pantalla === "Usuarios y permisos"
                   ? rol === "ADMINISTRADOR"
@@ -508,6 +502,4 @@ const dosColumnas: React.CSSProperties = { display: "grid", gridTemplateColumns:
 const interruptorFila: React.CSSProperties = { display: "flex", alignItems: "center", gap: 9, fontWeight: 700, minHeight: 42 }
 const separador: React.CSSProperties = { height: 1, background: "#e5e7eb", margin: "4px 0" }
 const subtituloSeccion: React.CSSProperties = { margin: "0 0 4px", color: "#2b2021" }
-const permisosGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 9 }
-const permisoItem: React.CSSProperties = { display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 9, background: "#fafafa" }
 const accionesFila: React.CSSProperties = { display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }

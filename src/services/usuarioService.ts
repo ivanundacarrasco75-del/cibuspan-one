@@ -89,7 +89,7 @@ export type PerfilAplicacion = {
 }
 
 export type PermisoUsuario = {
-  pantalla: PantallaAplicacion
+  pantalla: string
   permitido: boolean
 }
 
@@ -160,6 +160,8 @@ export async function obtenerAccesoActual(
   return {
     perfil: perfil as PerfilAplicacion,
     pantallasPermitidas: perfil.activo ? pantallasPermitidas : [],
+    pantallasDenegadas: (permisos ?? []).filter((item: { permitido: boolean }) => !item.permitido)
+      .map((item: { pantalla: string }) => item.pantalla),
   }
 }
 
@@ -278,7 +280,7 @@ export async function actualizarUsuario(
 
 export async function guardarPermisosUsuario(
   userId: string,
-  permisos: PermisoUsuario[],
+  permisos: Array<{ pantalla: string; permitido: boolean }>,
 ) {
   const respuesta = await invocarAdministracion<
     PermisoUsuario[]
