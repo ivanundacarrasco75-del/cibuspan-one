@@ -26,6 +26,14 @@
 
 .fin-pagos-filtros input[type="search"] { width: min(238px, 54vw); }
 .fin-pagos .fin-pagos-tabla { table-layout: auto; min-width: 1110px; }
+.fin-pagos .fin-pagos-cuentas-scroll {
+  --fin-pagos-cabecera: 28px;
+  --fin-pagos-fila: 27px;
+  max-block-size: calc(2px + var(--fin-pagos-cabecera) + 10 * var(--fin-pagos-fila) + var(--fin-pagos-barra-horizontal, 0px));
+  scrollbar-gutter: stable;
+}
+.fin-pagos-cuentas-scroll .fin-pagos-tabla th { height: var(--fin-pagos-cabecera); }
+.fin-pagos-cuentas-scroll .fin-pagos-tabla td:not(.compras-sri-detalle) { height: var(--fin-pagos-fila); }
 .fin-pagos-tabla td { height: 25px; }
 .fin-pagos-tabla td:not(.compras-sri-detalle) {
   max-width: 200px;

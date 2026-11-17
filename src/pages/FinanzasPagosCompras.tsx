@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react"
+import { Fragment, useEffect, useRef, useState, type FormEvent, type UIEvent } from "react"
 import {
-  CUENTAS_POR_PAGINA, listarComprasProgramadas, listarCuentasCompra, pagarCompra,
+  listarComprasProgramadas, listarCuentasCompra, pagarCompra,
   programarCompras, quitarCompraProgramada, type CompraProgramada, type CuentaCompra, type TipoCuentaCompra,
 } from "../repositories/finanzasComprasRepository"
 import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES } from "../utils/permisosAplicacion"
@@ -40,13 +40,30 @@ type Acciones = {
   ocupado: boolean
 }
 
-function TablaCompras({ filas, titulo, modo, acciones }: {
+function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   filas: Fila[]; titulo: string; modo: "cuentas" | "seleccion" | "semana"; acciones: Acciones
+  alDesplazar?: (evento: UIEvent<HTMLDivElement>) => void
 }) {
   const [detalle, setDetalle] = useState<string | null>(null)
+  const contenedor = useRef<HTMLDivElement>(null)
   const columnas = 13 + (modo === "semana" ? 2 : 1)
+
+  useEffect(() => {
+    const elemento = contenedor.current
+    if (!elemento || modo !== "cuentas") return
+    const medir = () => {
+      const barraHorizontal = Math.max(0, elemento.offsetHeight - elemento.clientHeight - 2)
+      elemento.style.setProperty("--fin-pagos-barra-horizontal", `${barraHorizontal}px`)
+    }
+    medir()
+    const observador = new ResizeObserver(medir)
+    observador.observe(elemento)
+    return () => observador.disconnect()
+  }, [modo])
+
   return (
-    <div className="compras-sri-contenedor" tabIndex={0} role="region" aria-label={titulo}>
+    <div ref={contenedor} className={`compras-sri-contenedor${modo === "cuentas" ? " fin-pagos-cuentas-scroll" : ""}`}
+      tabIndex={0} role="region" aria-label={titulo} onScroll={alDesplazar}>
       <table className="compras-sri-tabla fin-pagos-tabla" aria-label={titulo}>
         <thead><tr>
           {modo === "cuentas" && <th scope="col">Elegir</th>}
@@ -134,16 +151,18 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
   const [tipo, setTipo] = useState("")
   const [buscar, setBuscar] = useState("")
   const [pendientes, setPendientes] = useState(false)
-  const [pagina, setPagina] = useState(0)
   const [total, setTotal] = useState(0)
   const [revision, setRevision] = useState(0)
   const [cargando, setCargando] = useState(true)
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [errorCargaMas, setErrorCargaMas] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState("")
   const [aviso, setAviso] = useState("")
   const [pago, setPago] = useState<Pago | null>(null)
   const [intentoPago, setIntentoPago] = useState<Parameters<typeof pagarCompra>[0] | null>(null)
   const bloqueo = useRef(false)
+  const consultaCuentas = useRef<{ pagina: number; enCurso: boolean; agotada: boolean } | null>(null)
   const dialogo = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -152,7 +171,11 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
 
   useEffect(() => {
     let vigente = true
+    const consulta = { pagina: 1, enCurso: false, agotada: false }
+    consultaCuentas.current = semanal ? null : consulta
     setCargando(true)
+    setCargandoMas(false)
+    setErrorCargaMas("")
     setError("")
     const demora = setTimeout(async () => {
       try {
@@ -160,7 +183,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
           const filas = await listarComprasProgramadas(semana)
           if (vigente) setProgramadas(filas)
         } else {
-          const resultado = await listarCuentasCompra(pagina, tipo, buscar.trim(), pendientes)
+          const resultado = await listarCuentasCompra(0, tipo, buscar.trim(), pendientes)
           if (vigente) {
             setCuentas(resultado.cuentas)
             setTotal(resultado.total)
@@ -177,8 +200,42 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
         if (vigente) setCargando(false)
       }
     }, semanal ? 0 : 180)
-    return () => { vigente = false; clearTimeout(demora) }
-  }, [semanal, semana, pagina, tipo, buscar, pendientes, revision])
+    return () => {
+      vigente = false
+      if (consultaCuentas.current === consulta) consultaCuentas.current = null
+      clearTimeout(demora)
+    }
+  }, [semanal, semana, tipo, buscar, pendientes, revision])
+
+  async function cargarMas() {
+    const consulta = consultaCuentas.current
+    if (!consulta || consulta.enCurso || consulta.agotada || cargando || cuentas.length >= total) return
+    consulta.enCurso = true
+    setCargandoMas(true)
+    setErrorCargaMas("")
+    try {
+      const resultado = await listarCuentasCompra(consulta.pagina, tipo, buscar.trim(), pendientes)
+      if (consultaCuentas.current !== consulta) return
+      consulta.pagina += 1
+      consulta.agotada = resultado.cuentas.length === 0
+      setCuentas(anteriores => {
+        const unicas = new Map(anteriores.map(cuenta => [cuenta.id, cuenta]))
+        for (const cuenta of resultado.cuentas) unicas.set(cuenta.id, cuenta)
+        return Array.from(unicas.values())
+      })
+      setTotal(resultado.total)
+    } catch (fallo) {
+      if (consultaCuentas.current === consulta) setErrorCargaMas(mensajeError(fallo))
+    } finally {
+      consulta.enCurso = false
+      if (consultaCuentas.current === consulta) setCargandoMas(false)
+    }
+  }
+
+  function cargarAlDesplazar(evento: UIEvent<HTMLDivElement>) {
+    const { scrollHeight, scrollTop, clientHeight } = evento.currentTarget
+    if (!errorCargaMas && scrollHeight - scrollTop - clientHeight <= 54) void cargarMas()
+  }
 
   async function guardar(operacion: () => Promise<void>) {
     if (bloqueo.current) return
@@ -293,26 +350,28 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
         <>
           <div className="fin-pagos-filtros">
             <label>Tipo <select value={tipo} disabled={guardando || pago !== null}
-              onChange={evento => { setTipo(evento.target.value); setPagina(0) }}>
+              onChange={evento => setTipo(evento.target.value)}>
               <option value="">Todos</option>
               {Object.entries(tipos).map(([codigo, nombre]) => <option key={codigo} value={codigo}>{nombre}</option>)}
             </select></label>
             <label>Buscar <input type="search" value={buscar} disabled={guardando || pago !== null}
-              placeholder="Proveedor, documento o descripción" onChange={evento => { setBuscar(evento.target.value); setPagina(0) }} /></label>
+              placeholder="Proveedor, documento o descripción" onChange={evento => setBuscar(evento.target.value)} /></label>
             <label><input type="checkbox" checked={pendientes} disabled={guardando || pago !== null}
-              onChange={evento => { setPendientes(evento.target.checked); setPagina(0) }} /> Solo con saldo</label>
+              onChange={evento => setPendientes(evento.target.checked)} /> Solo con saldo</label>
           </div>
-          <div aria-busy={cargando}>
+          <div aria-busy={cargando || cargandoMas}>
             {cargando ? <p role="status">Cargando documentos…</p> :
               <TablaCompras filas={cuentas.map(cuenta => ({ cuenta }))} titulo="Cuentas por pagar consolidadas" modo="cuentas"
-                acciones={{ ...acciones, seleccionar }} />}
+                acciones={{ ...acciones, seleccionar }} alDesplazar={cargarAlDesplazar} />}
           </div>
-          <nav className="compras-sri-paginas" aria-label="Páginas de cuentas por pagar">
-            <button type="button" disabled={ocupado || pagina === 0} onClick={() => setPagina(valor => valor - 1)}>Anterior</button>
-            <span>Página {pagina + 1} · {total} documentos</span>
-            <button type="button" disabled={ocupado || (pagina + 1) * CUENTAS_POR_PAGINA >= total}
-              onClick={() => setPagina(valor => valor + 1)}>Siguiente</button>
-          </nav>
+          <div className="compras-sri-paginas">
+            {!cargando && <span>{total} documentos</span>}
+            {cargandoMas && <span role="status">Cargando más documentos…</span>}
+            {errorCargaMas && <>
+              <span role="alert">{errorCargaMas}</span>
+              <button type="button" onClick={() => void cargarMas()}>Reintentar</button>
+            </>}
+          </div>
           <section className="fin-pagos-seleccion" aria-labelledby="pagos-seleccionados">
             <h2 id="pagos-seleccionados">Documentos seleccionados</h2>
             <form onSubmit={enviarSeleccion}>

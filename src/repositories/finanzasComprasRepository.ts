@@ -25,7 +25,7 @@ export type CompraProgramada = { documento_id: string; monto: number; pagado: nu
 export type SeleccionCompra = { id: string; monto: string; verificado: boolean }
 
 const vistaCuentas = "fin_vw_cuentas_por_pagar_compras"
-export const CUENTAS_POR_PAGINA = 40
+const CUENTAS_POR_PAGINA = 40
 
 export async function listarCuentasCompra(pagina: number, tipo: string, busqueda: string, pendientes: boolean) {
   const inicio = pagina * CUENTAS_POR_PAGINA
