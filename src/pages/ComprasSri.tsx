@@ -78,18 +78,23 @@ export default function ComprasSri() {
   }
 
   return (
-    <section>
-      <h1>Facturas de compra del SRI</h1>
-      <p><a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a></p>
-      <label>
-        Importar XML y PDF del SRI{" "}
-        <input type="file" accept=".xml,.pdf" multiple disabled={importando}
-          onChange={(evento) => {
-            const archivos = Array.from(evento.currentTarget.files ?? [])
-            evento.currentTarget.value = ""
-            if (archivos.length) void importar(archivos)
-          }} />
-      </label>
+    <section className="compras-sri-pagina">
+      <header className="compras-sri-cabecera">
+        <h1>Facturas de compra del SRI</h1>
+        <div className="compras-sri-herramientas">
+          <a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a>
+          <label className="compras-sri-importar">
+            <input type="file" accept=".xml,.pdf" multiple disabled={importando}
+              aria-label="Importar XML y PDF del SRI"
+              onChange={(evento) => {
+                const archivos = Array.from(evento.currentTarget.files ?? [])
+                evento.currentTarget.value = ""
+                if (archivos.length) void importar(archivos)
+              }} />
+            <span aria-hidden="true">Importar XML o PDF</span>
+          </label>
+        </div>
+      </header>
       {importando && <p role="status">Procesando documentos…</p>}
       {resultados.length > 0 && (
         <ul aria-label="Resultado de los archivos" aria-live="polite">
@@ -101,7 +106,7 @@ export default function ComprasSri() {
       {!cargando && !errorTabla && !compras.length && <p>Todavía no hay facturas registradas.</p>}
       {!cargando && !errorTabla && compras.length > 0 && <ComprasSriTabla compras={compras} />}
       {(pagina > 0 || haySiguiente) && !errorTabla && (
-        <nav aria-label="Páginas de facturas">
+        <nav className="compras-sri-paginas" aria-label="Páginas de facturas">
           <button type="button" disabled={pagina === 0 || cargando} onClick={() => setPagina(pagina - 1)}>Anterior</button>
           {" "}Página {pagina + 1}{" "}
           <button type="button" disabled={!haySiguiente || cargando} onClick={() => setPagina(pagina + 1)}>Siguiente</button>

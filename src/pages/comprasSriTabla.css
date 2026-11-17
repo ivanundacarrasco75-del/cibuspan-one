@@ -1,3 +1,80 @@
+.compras-sri-pagina {
+  min-width: 0;
+  padding: 12px clamp(8px, 1vw, 14px);
+  color: #152536;
+  text-align: left;
+}
+
+.compras-sri-cabecera,
+.compras-sri-herramientas,
+.compras-sri-paginas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.compras-sri-cabecera {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.compras-sri-cabecera h1 {
+  margin: 0;
+  color: #102646;
+  font-size: clamp(17px, 2vw, 23px);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.compras-sri-herramientas {
+  font-size: 12px;
+}
+
+.compras-sri-herramientas a,
+.compras-sri-importar {
+  padding: 5px 9px;
+  border: 1px solid #bcccd8;
+  border-radius: 5px;
+  background: #fff;
+  color: #102646;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.compras-sri-importar {
+  position: relative;
+  border-color: #97cfcd;
+  background: #e6f6f5;
+  cursor: pointer;
+}
+
+.compras-sri-importar input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.compras-sri-importar:focus-within,
+.compras-sri-contenedor:focus-visible {
+  outline: 2px solid #2371ab;
+  outline-offset: 2px;
+}
+
+.compras-sri-paginas {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.compras-sri-pagina > p,
+.compras-sri-pagina > ul {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
 .compras-sri-contenedor {
   overflow: auto;
   max-height: 72vh;
@@ -5,18 +82,20 @@
 }
 
 .compras-sri-tabla {
-  width: 100%;
-  min-width: 1210px;
+  width: calc(100% - 1px);
+  min-width: 1048px;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   background: #fff;
   color: #152536;
-  font-size: 0.83rem;
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .compras-sri-tabla th,
 .compras-sri-tabla td {
-  padding: 3px 5px;
+  padding: 2px 4px;
   border-bottom: 1px solid #bac5d1;
   border-right: 1px solid #bac5d1;
   text-align: left;
@@ -28,44 +107,75 @@
   z-index: 1;
   background: #e9eff4;
   white-space: nowrap;
+  padding-block: 5px;
 }
 
 .compras-sri-tabla td > input {
   box-sizing: border-box;
   width: 100%;
-  min-width: 66px;
+  min-width: 0;
+  height: 22px;
   border: 1px solid transparent;
   border-radius: 0;
-  padding: 3px 2px;
-  background: transparent;
+  padding: 1px 2px;
+  background-color: transparent !important;
   color: inherit;
   font: inherit;
+}
+
+.compras-sri-tabla td > input:not(:focus) {
+  text-overflow: ellipsis;
 }
 
 .compras-sri-tabla td > input:focus {
   outline: 2px solid #2371ab;
   outline-offset: -1px;
-  background: white;
+  background-color: white !important;
   color: #152536;
 }
 
-.compras-sri-celda-proveedor { min-width: 185px; }
-.compras-sri-celda-descripcion { min-width: 235px; }
-.compras-sri-celda-serie { min-width: 130px; }
-.compras-sri-celda-fecha { min-width: 116px; }
+.compras-sri-col-fecha { width: 104px; }
+.compras-sri-col-serie { width: 128px; }
+.compras-sri-col-proveedor { width: 136px; }
+.compras-sri-col-subtotal,
+.compras-sri-col-retencion,
+.compras-sri-col-total { width: 66px; }
+.compras-sri-col-iva { width: 52px; }
+.compras-sri-col-documento { width: 94px; }
+.compras-sri-col-estado { width: 70px; }
+.compras-sri-col-acciones { width: 136px; }
 
 .compras-sri-celda-subtotal > input,
 .compras-sri-celda-iva > input,
+.compras-sri-celda-retencion > input,
 .compras-sri-celda-total > input,
-.compras-sri-tabla .compras-sri-monto { text-align: right; }
+.compras-sri-tabla .compras-sri-monto { text-align: right; font-variant-numeric: tabular-nums; }
 
 .compras-sri-tabla .compras-sri-pagada > td { background: #9edbfa; color: #10304b; }
 .compras-sri-tabla .compras-sri-saldo > td { background: #fff; font-weight: 650; }
 .compras-sri-movimiento { font-variant-numeric: tabular-nums; }
 .compras-sri-estado { white-space: nowrap; }
-.compras-sri-acciones button { margin: 2px; white-space: nowrap; }
-.compras-sri-acciones summary { cursor: pointer; }
-.compras-sri-acciones details { overflow-wrap: anywhere; }
+.compras-sri-acciones > div { display: flex; gap: 3px; }
+.compras-sri-pagina button {
+  min-height: 22px;
+  padding: 2px 4px;
+  border: 1px solid #c9d7e1;
+  border-radius: 3px;
+  background: #fff;
+  color: #102646;
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.compras-sri-pagina button:disabled { opacity: .55; cursor: default; }
+.compras-sri-pagina button:hover:not(:disabled) { background: #e6f6f5; }
+.compras-sri-tabla .compras-sri-detalle {
+  padding: 8px 10px;
+  background: #f4f8fb;
+  overflow-wrap: anywhere;
+}
+.compras-sri-detalle ul { margin: 4px 0; padding-left: 18px; }
 
 .compras-sri-formulario {
   display: flex;

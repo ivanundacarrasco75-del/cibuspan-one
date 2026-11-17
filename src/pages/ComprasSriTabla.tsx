@@ -28,6 +28,7 @@ function FilaCompra({ compra }: { compra: CompraGuardada }) {
   const [control, setControl] = useState<ControlCompra>({ edicion: compra.edicion, abonos: compra.abonos })
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
+  const [detalleAbierto, setDetalleAbierto] = useState(false)
   const [modo, setModo] = useState<"abono" | "pago" | null>(null)
   const ocupado = useRef(false)
   const idAbono = useRef("")
@@ -100,14 +101,20 @@ function FilaCompra({ compra }: { compra: CompraGuardada }) {
         })}
         <td className="compras-sri-estado">{liquidada ? "Pagada" : saldo === 0 ? "Sin saldo" : pagado ? "Abonada" : "Pendiente"}</td>
         <td className="compras-sri-acciones">
-          {saldo > 0 && (
-            <>
-              <button type="button" disabled={guardando || modo !== null} onClick={() => abrirPago("abono")}>Abonar</button>
-              <button type="button" disabled={guardando || modo !== null} onClick={() => abrirPago("pago")}>Registrar pago</button>
-            </>
-          )}
-          <details>
-            <summary>Detalle</summary>
+          <div>
+            {saldo > 0 && (
+              <>
+                <button type="button" disabled={guardando || modo !== null} onClick={() => abrirPago("abono")}>Abonar</button>
+                <button type="button" title="Registrar pago del saldo" disabled={guardando || modo !== null} onClick={() => abrirPago("pago")}>Pagar</button>
+              </>
+            )}
+            <button type="button" aria-expanded={detalleAbierto} onClick={() => setDetalleAbierto(abierto => !abierto)}>Detalle</button>
+          </div>
+        </td>
+      </tr>
+      {detalleAbierto && (
+        <tr>
+          <td colSpan={totalColumnas} className="compras-sri-detalle">
             <div>RUC {datos.ruc} · RIDE {ride_leido ? "vinculado" : "pendiente"}</div>
             <div>{datos.estadoXml}</div>
             <div>Autorización {datos.autorizacion}</div>
@@ -118,9 +125,9 @@ function FilaCompra({ compra }: { compra: CompraGuardada }) {
             {datos.pagos.map((pago, indice) => (
               <div key={indice}>Forma de pago XML {pago.forma} · {pago.total} · {pago.plazo} {pago.unidad}</div>
             ))}
-          </details>
-        </td>
-      </tr>
+          </td>
+        </tr>
+      )}
       {control.abonos.map((abono) => (
         <tr className="compras-sri-pagada compras-sri-movimiento" key={abono.id}>
           <td>{abono.fecha}</td><td colSpan={6}>Pago de {campos.serie}</td>
@@ -164,8 +171,13 @@ function FilaCompra({ compra }: { compra: CompraGuardada }) {
 
 export default function ComprasSriTabla({ compras }: { compras: CompraGuardada[] }) {
   return (
-    <div className="compras-sri-contenedor">
+    <div className="compras-sri-contenedor" tabIndex={0} role="region" aria-label="Tabla desplazable de facturas">
       <table className="compras-sri-tabla" aria-label="Facturas de compra">
+        <colgroup>
+          {columnas.map(({ campo }) => <col key={campo} className={`compras-sri-col-${campo}`} />)}
+          <col className="compras-sri-col-estado" />
+          <col className="compras-sri-col-acciones" />
+        </colgroup>
         <thead><tr>
           {columnas.map(({ campo, titulo }) => <th key={campo} scope="col">{titulo}</th>)}
           <th scope="col">Estado</th>
