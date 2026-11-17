@@ -52,17 +52,29 @@ test('Facturas de compras agrupa documentos sin ampliar el acceso al SRI', () =>
   assert.deepEqual(accesos('BODEGUERO', ['Materias primas']), [])
 })
 
-function servicio(responder) {
+function servicio(responder, error = null) {
   const module = { exports: {} }; const eventos = []
   vm.runInNewContext(compilar(leer('src/services/usuarioService.ts')), {
     module, exports: module.exports, Error, Event,
     window: { dispatchEvent: (event) => eventos.push(event.type) },
     require: (name) => name.includes('permisosAplicacion') ? { permisosCoinciden } : {
-      supabase: { functions: { invoke: async (_, { body }) => ({ data: await responder(body), error: null }) } },
+      supabase: { functions: { invoke: async (_, { body }) => ({ data: await responder(body), error }) } },
     },
   })
   return { ...module.exports, eventos }
 }
+
+test('Un fallo de red conserva su mensaje cuando el contexto no es Response', async () => {
+  const api = servicio(() => null, { message: 'No se pudo conectar con usuarios', context: new Error('red') })
+  await assert.rejects(api.listarUsuarios(), /No se pudo conectar con usuarios/)
+})
+
+test('La administración muestra el error JSON del servidor y tolera cuerpos ilegibles', async () => {
+  const api = servicio(() => null, { message: 'HTTP 403', context: { clone: () => ({ json: async () => ({ error: 'Solo administrador' }) }) } })
+  await assert.rejects(api.listarUsuarios(), /Solo administrador/)
+  const ilegible = servicio(() => null, { message: 'HTTP 502', context: { clone: () => ({ json: async () => { throw new Error('JSON inválido') } }) } })
+  await assert.rejects(ilegible.listarUsuarios(), /HTTP 502/)
+})
 
 test('Todas las rutas existentes mantienen una categoría de permisos, sin alterar Dashboard ni Roles de pago', () => {
   const { PANTALLAS_APLICACION } = servicio(() => {})

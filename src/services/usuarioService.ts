@@ -187,11 +187,12 @@ async function invocarAdministracion<T>(
     const contexto =
       (
         error as {
-          context?: Response
+          context?: { clone?: () => Response }
         }
       ).context
 
-    if (contexto) {
+    let detalleError = ""
+    if (typeof contexto?.clone === "function") {
       try {
         const body =
           await contexto
@@ -200,23 +201,14 @@ async function invocarAdministracion<T>(
               error?: string
             }
 
-        if (body.error) {
-          throw new Error(body.error)
-        }
-      } catch (contextError) {
-        if (
-          contextError instanceof Error &&
-          !contextError.name.includes(
-            "Syntax",
-          )
-        ) {
-          throw contextError
-        }
+        if (typeof body.error === "string") detalleError = body.error
+      } catch {
+        // Conservar el error original si la respuesta no contiene JSON legible.
       }
     }
 
     throw new Error(
-      error.message ||
+      detalleError || error.message ||
         "No fue posible completar la operación.",
     )
   }
