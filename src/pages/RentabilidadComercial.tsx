@@ -1084,7 +1084,7 @@ const encabezado = {
 } as const
 
 const eyebrow = {
-  color: "#F7931E",
+  color: "#006c65",
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: ".05em",
@@ -1092,7 +1092,7 @@ const eyebrow = {
 
 const titulo = {
   margin: "4px 0 0",
-  color: "#8F1D24",
+  color: "#051142",
   fontSize: 28,
 } as const
 
@@ -1122,8 +1122,8 @@ const vistaBoton = {
 } as const
 
 const vistaBotonActivo = {
-  borderColor: "#8F1D24",
-  background: "#8F1D24",
+  borderColor: "#051142",
+  background: "#051142",
   color: "#fff",
 } as const
 

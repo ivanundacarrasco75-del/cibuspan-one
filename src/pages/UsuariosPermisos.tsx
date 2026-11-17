@@ -17,8 +17,8 @@ import {
   type UsuarioAdministrable,
 } from "../services/usuarioService"
 
-const COLOR_VINO = "#8F1D24"
-const COLOR_NARANJA = "#F7931E"
+const COLOR_VINO = "#051142"
+const COLOR_NARANJA = "#006c65"
 
 type Vista = "USUARIOS" | "AUDITORIA"
 

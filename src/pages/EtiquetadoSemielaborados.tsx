@@ -653,7 +653,7 @@ export default function EtiquetadoSemielaborados() {
                 ...campo,
                 background: "#f4f5f7",
                 fontWeight: "bold",
-                color: "#8f1d24",
+                color: "#051142",
               }}
             />
           </div>
@@ -1041,7 +1041,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -1081,7 +1081,7 @@ const datoTitulo = {
 }
 
 const valorResumen = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "30px",
 }
 
@@ -1159,7 +1159,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1167,10 +1167,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -1179,7 +1179,7 @@ const contador = {
   minWidth: "36px",
   padding: "7px 11px",
   borderRadius: "999px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   textAlign: "center" as const,
   fontWeight: "bold",
@@ -1220,10 +1220,10 @@ const celdaNumero = {
 
 const botonEditarLote = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -1257,7 +1257,7 @@ const formularioModal = {
 
 const avisoEdicion = {
   padding: "12px 14px",
-  borderLeft: "4px solid #8f1d24",
+  borderLeft: "4px solid #051142",
   borderRadius: "8px",
   background: "#f9f2f2",
   color: "#5f1a1f",

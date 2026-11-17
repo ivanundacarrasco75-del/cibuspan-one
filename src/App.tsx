@@ -98,7 +98,7 @@ function PantallaEnConstruccion({
         <p
           style={{
             margin: "0 0 6px",
-            color: "#F7931E",
+            color: "#006c65",
             fontSize: "12px",
             fontWeight: 800,
             textTransform: "uppercase",
@@ -107,7 +107,7 @@ function PantallaEnConstruccion({
         >
           CIBUSPAN ONE · Navegación V2
         </p>
-        <h1 style={{ margin: "0 0 10px", color: "#8F1D24" }}>{titulo}</h1>
+        <h1 style={{ margin: "0 0 10px", color: "#051142" }}>{titulo}</h1>
         <p style={{ margin: 0, color: "#6b625f", lineHeight: 1.55 }}>
           {detalle ??
             "La ubicación ya quedó creada dentro de la nueva arquitectura. La función se integrará en las siguientes fases sin afectar los módulos actuales."}

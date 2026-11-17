@@ -1117,7 +1117,7 @@ export default function InventarioV2() {
                   ...campo,
                   background: "#f4f5f7",
                   fontWeight: "bold",
-                  color: "#8f1d24",
+                  color: "#051142",
                 }}
               />
             </div>
@@ -2192,7 +2192,7 @@ const accionesCabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -2230,7 +2230,7 @@ const botonModulo = {
 }
 
 const botonModuloActivo = {
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   boxShadow:
     "0 2px 8px rgba(15, 23, 42, 0.10)",
@@ -2260,7 +2260,7 @@ const datoTitulo = {
 }
 
 const valorIndicador = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "28px",
 }
 
@@ -2283,7 +2283,7 @@ const panel = {
 
 const panelFormulario = {
   ...panel,
-  borderTop: "4px solid #8f1d24",
+  borderTop: "4px solid #051142",
 }
 
 const tituloPanel = {
@@ -2394,7 +2394,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -2402,10 +2402,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2421,10 +2421,10 @@ const botonCerrar = {
 
 const botonEditar = {
   padding: "7px 10px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   cursor: "pointer",
 }
 
@@ -2446,7 +2446,7 @@ const contador = {
   minWidth: "36px",
   padding: "7px 11px",
   borderRadius: "999px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   textAlign: "center" as const,
   fontWeight: "bold",
@@ -2533,7 +2533,7 @@ const botonPestana = {
 
 const botonPestanaActiva = {
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   boxShadow:
     "0 2px 8px rgba(15, 23, 42, 0.08)",
 }
@@ -2555,10 +2555,10 @@ const filaClickeable = {
 
 const botonVerLotes = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2686,9 +2686,9 @@ const campoObservaciones = {
 
 const inventarioResponsiveCss = `
   .c1-inventory {
-    --c1-vino: #8F1D24;
-    --c1-vino-oscuro: #68151A;
-    --c1-naranja: #F7931E;
+    --c1-vino: #051142;
+    --c1-vino-oscuro: #051142;
+    --c1-naranja: #006c65;
     --c1-crema: #F8F5F1;
     width: 100% !important;
     max-width: none !important;
@@ -2723,13 +2723,13 @@ const inventarioResponsiveCss = `
   .c1-inventory select:focus,
   .c1-inventory textarea:focus {
     outline: none;
-    border-color: #F7931E !important;
+    border-color: #006c65 !important;
     box-shadow: 0 0 0 3px rgba(247,147,30,.13);
   }
 
   .c1-inventory .inventory-header-actions button:last-child,
   .c1-inventory .inventory-form-actions button:last-child {
-    background: linear-gradient(90deg,#F7931E,#FF7900) !important;
+    background: linear-gradient(90deg,#006c65,#FF7900) !important;
     color: white !important;
     border-color: transparent !important;
     box-shadow: 0 8px 20px rgba(247,147,30,.18);

@@ -710,7 +710,7 @@ const css = `
   .promo-selected-head > div:first-child > span {
     display:block;
     margin-bottom:5px;
-    color:#8F1D24;
+    color:#051142;
     font-size:11px;
     font-weight:900;
     letter-spacing:.08em;
@@ -731,10 +731,10 @@ const css = `
   .promo-header button {
     min-height:38px;
     padding:8px 14px;
-    border:1px solid #8F1D24;
+    border:1px solid #051142;
     border-radius:9px;
     background:white;
-    color:#8F1D24;
+    color:#051142;
     font-weight:800;
     cursor:pointer;
   }

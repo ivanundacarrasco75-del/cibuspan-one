@@ -455,8 +455,8 @@ export default function Formulas() {
           <style>
             @page { size: A4; margin: 15mm; }
             body { margin: 0; color: #1f2937; font-family: Arial, sans-serif; }
-            header { padding-bottom: 14px; border-bottom: 3px solid #8f1d24; }
-            .marca { color: #8f1d24; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+            header { padding-bottom: 14px; border-bottom: 3px solid #051142; }
+            .marca { color: #051142; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
             h1 { margin: 7px 0 4px; font-size: 24px; }
             p { margin: 0; color: #4b5563; }
             table { width: 100%; margin-top: 20px; border-collapse: collapse; }
@@ -910,7 +910,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -940,7 +940,7 @@ const botonPestana = {
 }
 
 const botonPestanaActivo = {
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
 }
 
@@ -1006,7 +1006,7 @@ const etiquetaResumen = {
   textTransform: "uppercase" as const,
 }
 
-const valorResumen = { color: "#8f1d24", fontSize: "23px" }
+const valorResumen = { color: "#051142", fontSize: "23px" }
 
 const encabezadoTablaBloque = {
   display: "flex",
@@ -1037,7 +1037,7 @@ const celdaNumero = { ...celda, textAlign: "right" as const }
 const detalleIngrediente = {
   display: "block",
   marginTop: "4px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "11px",
 }
 
@@ -1055,7 +1055,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1063,10 +1063,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }

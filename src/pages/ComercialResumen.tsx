@@ -46,8 +46,8 @@ type ResumenSemana = {
   lineasSinPrecio: number
 }
 
-const VINO = "#8F1D24"
-const NARANJA = "#F7931E"
+const VINO = "#051142"
+const NARANJA = "#006c65"
 const VERDE = "#15803d"
 const ROJO = "#b42318"
 

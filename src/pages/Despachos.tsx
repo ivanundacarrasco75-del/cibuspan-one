@@ -567,7 +567,7 @@ const botonPrincipal = {
   padding: "12px 20px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -575,19 +575,19 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "6px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   cursor: "pointer",
 }
 
 const botonLiberar = {
   padding: "12px 20px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }

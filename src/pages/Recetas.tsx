@@ -818,7 +818,7 @@ export default function Recetas() {
                     ...tarjetaReceta,
                     borderColor:
                       recetaId === receta.id
-                        ? "#8f1d24"
+                        ? "#051142"
                         : "#e2e5e9",
                   }}
                 >
@@ -1749,7 +1749,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -1787,7 +1787,7 @@ const botonPestana = {
 }
 
 const botonPestanaActivo = {
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
 }
 
@@ -1857,7 +1857,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1865,10 +1865,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -1895,7 +1895,7 @@ const contador = {
   minWidth: "36px",
   padding: "7px 11px",
   borderRadius: "999px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   textAlign: "center" as const,
   fontWeight: "bold",
@@ -1921,7 +1921,7 @@ const tarjetaReceta = {
 }
 
 const tipoReceta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "11px",
   fontWeight: "bold",
   letterSpacing: "0.8px",
@@ -1942,7 +1942,7 @@ const botonAbrir = {
   padding: "10px 16px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1983,10 +1983,10 @@ const celdaNumero = {
 
 const botonEditar = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2041,6 +2041,6 @@ const etiquetaCosto = {
 }
 
 const valorCosto = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "26px",
 }

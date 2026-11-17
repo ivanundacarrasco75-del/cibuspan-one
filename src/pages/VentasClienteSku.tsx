@@ -1098,7 +1098,7 @@ function GraficoVentas({ datos, escala }: { datos: PuntoTemporal[]; escala: Esca
         <polyline
           points={puntosVenta}
           fill="none"
-          stroke="#8f1d24"
+          stroke="#051142"
           strokeWidth="4"
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -1106,7 +1106,7 @@ function GraficoVentas({ datos, escala }: { datos: PuntoTemporal[]; escala: Esca
         <polyline
           points={puntosDevolucion}
           fill="none"
-          stroke="#f7931e"
+          stroke="#006c65"
           strokeWidth="3"
           strokeDasharray="8 5"
           strokeLinejoin="round"
@@ -1115,11 +1115,11 @@ function GraficoVentas({ datos, escala }: { datos: PuntoTemporal[]; escala: Esca
 
         {datos.map((item, indice) => (
           <g key={item.clave}>
-            <circle cx={x(indice)} cy={y(item.venta)} r="4.5" fill="#8f1d24">
+            <circle cx={x(indice)} cy={y(item.venta)} r="4.5" fill="#051142">
               <title>{item.etiqueta} · Facturación: {moneda(item.venta)}</title>
             </circle>
             {item.devolucion > 0 && (
-              <circle cx={x(indice)} cy={y(item.devolucion)} r="4" fill="#f7931e">
+              <circle cx={x(indice)} cy={y(item.devolucion)} r="4" fill="#006c65">
                 <title>{item.etiqueta} · Devolución estimada: {moneda(item.devolucion)}</title>
               </circle>
             )}
@@ -1205,7 +1205,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: 900,
   letterSpacing: ".7px",
@@ -1304,7 +1304,7 @@ const tarjetaEtiqueta = {
 }
 
 const tarjetaValor = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "clamp(17px, 2vw, 21px)",
   lineHeight: 1.15,
   overflowWrap: "anywhere" as const,
@@ -1415,7 +1415,7 @@ const barraFondo = {
 const barraValor = {
   height: "100%",
   borderRadius: "999px",
-  background: "linear-gradient(90deg, #8f1d24, #f7931e)",
+  background: "linear-gradient(90deg, #051142, #006c65)",
 }
 
 const estilosResponsive = `
@@ -1492,8 +1492,8 @@ const estilosResponsive = `
     border-radius: 999px;
   }
 
-  .c1-ventas .ventas-chart-legend i.venta { background: #8f1d24; }
-  .c1-ventas .ventas-chart-legend i.devolucion { background: #f7931e; }
+  .c1-ventas .ventas-chart-legend i.venta { background: #051142; }
+  .c1-ventas .ventas-chart-legend i.devolucion { background: #006c65; }
 
   .c1-ventas .ventas-chart svg {
     display: block;

@@ -103,8 +103,8 @@ type DetalleRubro = {
 }
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-const VINO = "#8F1D24"
-const NARANJA = "#F7931E"
+const VINO = "#051142"
+const NARANJA = "#006c65"
 const CUENTA_PRODUCTO_TERMINADO = "5.2.01.1.01.02"
 
 function compararProductoTerminado(costoAnterior: number, costoActual: number, unidadesAnteriores: number, unidadesActuales: number) {

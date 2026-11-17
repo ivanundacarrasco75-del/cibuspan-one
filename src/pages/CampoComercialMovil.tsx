@@ -41,7 +41,7 @@ function periodoActual() {
 
 const css = `
 .campo-movil-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
-.campo-movil-nav button{padding:8px 12px;border:1px solid #8f1d24;border-radius:9px;background:white;color:#78191f;font:inherit;font-weight:700}
-.campo-movil-nav button[aria-pressed="true"]{background:#78191f;color:white}
+.campo-movil-nav button{padding:8px 12px;border:1px solid #051142;border-radius:9px;background:white;color:#051142;font:inherit;font-weight:700}
+.campo-movil-nav button[aria-pressed="true"]{background:#051142;color:white}
 .campo-movil-page{min-height:100vh;background:var(--cibuspan-fondo)}.campo-movil-page>header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;background:var(--cibuspan-azul);color:#fff;box-shadow:0 3px 14px rgba(5,17,66,.2)}.campo-movil-page>header>div{display:grid;min-width:0}.campo-movil-page>header small{margin-top:2px;color:var(--cibuspan-turquesa-claro)}.campo-movil-page>header button{border:1px solid rgba(255,255,255,.4);border-radius:9px;background:transparent;color:#fff;padding:8px 12px;font-weight:900}.campo-movil-contenido{max-width:1100px;margin:0 auto;padding:14px}.campo-movil-page>footer{padding:14px;text-align:center;color:#8a7d77;font-size:11px}@media(max-width:600px){.campo-movil-contenido{padding:10px}}
 `

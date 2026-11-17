@@ -2441,7 +2441,7 @@ function GraficoSemanal({ datos }: { datos: PuntoSemana[] }) {
         <path
           d={crearRuta("pedidas")}
           fill="none"
-          stroke="#8F1D24"
+          stroke="#051142"
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -2449,7 +2449,7 @@ function GraficoSemanal({ datos }: { datos: PuntoSemana[] }) {
         <path
           d={crearRuta("despachadas")}
           fill="none"
-          stroke="#F7931E"
+          stroke="#006c65"
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -2469,13 +2469,13 @@ function GraficoSemanal({ datos }: { datos: PuntoSemana[] }) {
               cx={x(indice)}
               cy={y(punto.pedidas)}
               r="3"
-              fill="#8F1D24"
+              fill="#051142"
             />
             <circle
               cx={x(indice)}
               cy={y(punto.despachadas)}
               r="3"
-              fill="#F7931E"
+              fill="#006c65"
             />
             <circle
               cx={x(indice)}
@@ -2549,7 +2549,7 @@ const boton = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -2557,10 +2557,10 @@ const boton = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2590,7 +2590,7 @@ const tituloTarjeta = {
 }
 
 const valorTarjeta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "27px",
 }
 
@@ -2621,9 +2621,9 @@ const celda = {
 
 const reportesResponsiveCss = `
   .c1-reportes {
-    --c1-vino: #8F1D24;
-    --c1-vino-oscuro: #68151A;
-    --c1-naranja: #F7931E;
+    --c1-vino: #051142;
+    --c1-vino-oscuro: #051142;
+    --c1-naranja: #006c65;
     --c1-crema: #F8F5F1;
     width: 100% !important;
     max-width: none !important;
@@ -2875,11 +2875,11 @@ const reportesResponsiveCss = `
   }
 
   .c1-reportes .reports-legend-orders {
-    background: #8F1D24;
+    background: #051142;
   }
 
   .c1-reportes .reports-legend-dispatch {
-    background: #F7931E;
+    background: #006c65;
   }
 
   .c1-reportes .reports-legend-returns {
@@ -3005,14 +3005,14 @@ const reportesResponsiveCss = `
 
   .c1-reportes .commercial-line.dispatch { stroke: #159447; }
   .c1-reportes .commercial-line.returns { stroke: #d33d3d; }
-  .c1-reportes .commercial-line.rate { stroke: #F7931E; }
+  .c1-reportes .commercial-line.rate { stroke: #006c65; }
   .c1-reportes .commercial-dot { stroke: white; stroke-width: 2; }
   .c1-reportes .commercial-dot.dispatch { fill: #159447; }
   .c1-reportes .commercial-dot.returns { fill: #d33d3d; }
   .c1-reportes .commercial-dot.rate.good { fill: #159447; }
   .c1-reportes .commercial-dot.rate.bad { fill: #d33d3d; }
-  .c1-reportes .commercial-target-line { stroke: #8F1D24; stroke-width: 1.3; stroke-dasharray: 6 5; }
-  .c1-reportes .commercial-target-label { fill: #8F1D24; font-size: 9px; font-weight: 800; }
+  .c1-reportes .commercial-target-line { stroke: #051142; stroke-width: 1.3; stroke-dasharray: 6 5; }
+  .c1-reportes .commercial-target-label { fill: #051142; font-size: 9px; font-weight: 800; }
   .c1-reportes .commercial-bar.positive { fill: #159447; }
   .c1-reportes .commercial-bar.negative { fill: #d33d3d; }
   .c1-reportes .commercial-bar.pending { fill: #eadfd9; opacity: .55; }
@@ -3031,8 +3031,8 @@ const reportesResponsiveCss = `
   .c1-reportes .commercial-chart-legend .positive { color: #159447; }
   .c1-reportes .commercial-chart-legend .returns,
   .c1-reportes .commercial-chart-legend .negative { color: #d33d3d; }
-  .c1-reportes .commercial-chart-legend .rate { color: #F7931E; }
-  .c1-reportes .commercial-chart-legend .target { color: #8F1D24; }
+  .c1-reportes .commercial-chart-legend .rate { color: #006c65; }
+  .c1-reportes .commercial-chart-legend .target { color: #051142; }
   .c1-reportes .commercial-chart-legend .pending { color: #9b8e88; }
 
   @media (max-width: 1180px) {

@@ -2107,7 +2107,7 @@ const css = `
 
   .gross-header > div > span,
   .gross-panel > header span {
-    color: #8F1D24;
+    color: #051142;
     font-size: 8px;
     font-weight: 950;
     letter-spacing: .08em;
@@ -2132,7 +2132,7 @@ const css = `
     padding: 0 14px;
     border: 0;
     border-radius: 8px;
-    background: #8F1D24;
+    background: #051142;
     color: white;
     font-size: 9px;
     font-weight: 900;
@@ -2211,7 +2211,7 @@ const css = `
   }
 
   .gross-warning {
-    border-left: 4px solid #F7931E;
+    border-left: 4px solid #006c65;
     background: #fff7ed;
     color: #9a3412;
   }
@@ -2231,7 +2231,7 @@ const css = `
     gap: 5px;
     padding: 13px;
     border: 1px solid #e7ddd8;
-    border-top: 3px solid #F7931E;
+    border-top: 3px solid #006c65;
     border-radius: 9px;
     background: white;
   }
@@ -2244,7 +2244,7 @@ const css = `
   }
 
   .gross-kpis strong {
-    color: #8F1D24;
+    color: #051142;
     font-size: 18px;
     overflow-wrap: anywhere;
   }
@@ -2294,7 +2294,7 @@ const css = `
   }
 
   .gross-dimension button.active {
-    background: #8F1D24;
+    background: #051142;
     color: white;
   }
 

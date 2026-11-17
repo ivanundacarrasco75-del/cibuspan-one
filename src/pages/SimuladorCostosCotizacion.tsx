@@ -378,6 +378,6 @@ const estilos = `
   .cotizacion input,.cotizacion select{min-height:40px;width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #d9d0cc;border-radius:7px;background:white;color:inherit;font:inherit}
   .cotizacion [aria-invalid=true]{border-color:#b91c1c}.cotizacion small{font-weight:400}
   .cotizacion-resultados{margin:20px 0 0}.cotizacion-resultados>div{padding:12px;border-radius:8px;background:#f8f5f3}
-  .cotizacion-resultados dt{font-size:12px}.cotizacion-resultados dd{margin:4px 0 0;font-size:20px;font-weight:750;color:#8f1d24}
+  .cotizacion-resultados dt{font-size:12px}.cotizacion-resultados dd{margin:4px 0 0;font-size:20px;font-weight:750;color:#051142}
   .cotizacion-resultados .cotizacion-perdida{color:#a11f29}
 `

@@ -659,8 +659,8 @@ function dinero(valor: number) {
   return new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(valor || 0)
 }
 
-const VINO = "#8F1D24"
-const NARANJA = "#F7931E"
+const VINO = "#051142"
+const NARANJA = "#006c65"
 const pagina = { maxWidth: 1380, margin: "0 auto", padding: "26px 28px 44px" }
 const encabezadoPagina = { display: "flex", justifyContent: "space-between", gap: 20, alignItems: "flex-start", marginBottom: 20 }
 const kicker = { color: NARANJA, fontSize: 11, fontWeight: 900, letterSpacing: ".06em" }

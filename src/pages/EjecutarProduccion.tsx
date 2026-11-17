@@ -249,7 +249,7 @@ export default function EjecutarProduccion() {
               padding: "12px 22px",
               border: "none",
               borderRadius: "8px",
-              background: "#8f1d24",
+              background: "#051142",
               color: "white",
               fontWeight: "bold",
               cursor: "pointer",

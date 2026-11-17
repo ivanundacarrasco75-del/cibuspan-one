@@ -374,7 +374,7 @@ export default function ImportacionMasivaDevoluciones({
 
 const css = `
   .bulk-returns { padding: 20px; border: 1px solid #eadfd9; border-radius: 14px; background: #fff; box-shadow: 0 5px 18px rgba(72,42,32,.045); }
-  .bulk-returns > header span { color: #F7931E; font-size: 10px; font-weight: 950; letter-spacing: 1px; }
+  .bulk-returns > header span { color: #006c65; font-size: 10px; font-weight: 950; letter-spacing: 1px; }
   .bulk-returns h2 { margin: 4px 0; color: #4f2728; }
   .bulk-returns header p { max-width: 760px; margin: 0; color: #786b66; font-size: 12px; line-height: 1.5; }
   .bulk-upload-box { display: flex; align-items: center; gap: 14px; margin: 18px 0; padding: 17px; border: 2px dashed #d9c8c0; border-radius: 11px; background: #fffaf7; }
@@ -382,14 +382,14 @@ const css = `
   .bulk-upload-box div { display: flex; flex-direction: column; }
   .bulk-upload-box strong { color: #5b3031; }
   .bulk-upload-box small { color: #91847e; }
-  .bulk-upload-box b { margin-left: auto; color: #8F1D24; }
+  .bulk-upload-box b { margin-left: auto; color: #051142; }
   .bulk-message { margin: 14px 0; padding: 11px 13px; border-radius: 8px; font-size: 12px; font-weight: 750; }
   .bulk-message.success { background: #ecf9f0; color: #166534; }
   .bulk-message.error { background: #fff0f0; color: #a51f2a; }
   .bulk-kpis { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 14px; }
-  .bulk-kpis article { padding: 14px; border: 1px solid #e9dfda; border-top: 3px solid #F7931E; border-radius: 9px; background: #fff; }
+  .bulk-kpis article { padding: 14px; border: 1px solid #e9dfda; border-top: 3px solid #006c65; border-radius: 9px; background: #fff; }
   .bulk-kpis span { display: block; color: #7b6d67; font-size: 9px; font-weight: 900; text-transform: uppercase; }
-  .bulk-kpis strong { display: block; margin: 6px 0 3px; color: #8F1D24; font-size: 22px; }
+  .bulk-kpis strong { display: block; margin: 6px 0 3px; color: #051142; font-size: 22px; }
   .bulk-kpis small { color: #998b85; font-size: 9px; }
   .bulk-validation { margin-bottom: 14px; padding: 12px 14px; border-radius: 9px; background: #f8f5f1; }
   .bulk-validation p { margin: 4px 0; font-size: 11px; font-weight: 750; }
@@ -402,7 +402,7 @@ const css = `
   .bulk-table-wrap td { padding: 9px 10px; border-top: 1px solid #eee6e2; color: #4f4541; font-size: 11px; }
   .bulk-table-wrap th:nth-child(n+3), .bulk-table-wrap td:nth-child(n+3) { text-align: right; }
   .bulk-actions { display: flex; justify-content: flex-end; margin-top: 15px; }
-  .bulk-actions button { min-height: 43px; padding: 10px 18px; border: 0; border-radius: 8px; background: #8F1D24; color: #fff; font-weight: 850; cursor: pointer; }
+  .bulk-actions button { min-height: 43px; padding: 10px 18px; border: 0; border-radius: 8px; background: #051142; color: #fff; font-weight: 850; cursor: pointer; }
   .bulk-actions button:disabled { opacity: .5; cursor: not-allowed; }
   @media (max-width: 800px) { .bulk-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } .bulk-upload-box { align-items: flex-start; flex-direction: column; } .bulk-upload-box b { margin-left: 0; } }
 `

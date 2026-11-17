@@ -1579,7 +1579,7 @@ export default function DespachosV2() {
             borderRadius: "9px",
             background:
               vistaDespachos === "OPERACION"
-                ? "#8F1D24"
+                ? "#051142"
                 : "#F8F5F1",
             color:
               vistaDespachos === "OPERACION"
@@ -1604,7 +1604,7 @@ export default function DespachosV2() {
             borderRadius: "9px",
             background:
               vistaDespachos === "HISTORIAL"
-                ? "#8F1D24"
+                ? "#051142"
                 : "#F8F5F1",
             color:
               vistaDespachos === "HISTORIAL"
@@ -1729,7 +1729,7 @@ export default function DespachosV2() {
                                   ...tarjetaPedido,
                                   borderColor:
                                     seleccionado
-                                      ? "#8f1d24"
+                                      ? "#051142"
                                       : "#e2e5e9",
                                   background:
                                     seleccionado
@@ -1937,7 +1937,7 @@ export default function DespachosV2() {
                             ...tarjetaPedido,
                             borderColor:
                               seleccionado
-                                ? "#8f1d24"
+                                ? "#051142"
                                 : "#e2e5e9",
                             background:
                               seleccionado
@@ -2099,7 +2099,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -2117,10 +2117,10 @@ const subtitulo = {
 
 const botonActualizar = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2149,7 +2149,7 @@ const datoTitulo = {
 }
 
 const valorIndicador = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "28px",
 }
 
@@ -2194,7 +2194,7 @@ const contador = {
   minWidth: "34px",
   padding: "6px 10px",
   borderRadius: "999px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   textAlign: "center" as const,
   fontWeight: "bold",
@@ -2256,7 +2256,7 @@ const datosPedidoLista = {
 }
 
 const unidadesPedido = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "13px",
   fontWeight: "bold",
 }
@@ -2279,7 +2279,7 @@ const iconoVacio = {
   justifyContent: "center",
   marginBottom: "10px",
   borderRadius: "14px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
 }
@@ -2368,7 +2368,7 @@ const botonPreparar = {
   padding: "12px 20px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -2376,10 +2376,10 @@ const botonPreparar = {
 
 const botonLiberar = {
   padding: "12px 20px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2446,9 +2446,9 @@ const badgePreparado = {
 
 const despachosResponsiveCss = `
   .c1-dispatch {
-    --c1-vino: #8F1D24;
-    --c1-vino-oscuro: #68151A;
-    --c1-naranja: #F7931E;
+    --c1-vino: #051142;
+    --c1-vino-oscuro: #051142;
+    --c1-naranja: #006c65;
     --c1-crema: #F8F5F1;
     width: 100% !important;
     max-width: none !important;
@@ -2524,10 +2524,10 @@ const despachosResponsiveCss = `
   .c1-dispatch .dispatch-history-all-button {
     min-height: 41px;
     padding: 8px 12px;
-    border: 1px solid #8F1D24;
+    border: 1px solid #051142;
     border-radius: 8px;
     background: #fff;
-    color: #8F1D24;
+    color: #051142;
     font-weight: 800;
     cursor: pointer;
   }
@@ -2774,14 +2774,14 @@ const despachosResponsiveCss = `
     padding: 10px 22px;
     border: 0;
     border-radius: 9px;
-    background: #8F1D24;
+    background: #051142;
     color: white;
     font-weight: 800;
     cursor: pointer;
   }
 
   .c1-dispatch .dispatch-alert-box button:hover {
-    background: #68151A;
+    background: #051142;
   }
 
 
@@ -2793,7 +2793,7 @@ const despachosResponsiveCss = `
     margin: 12px 0 16px;
     padding: 14px 16px;
     border: 1px solid #eadfd9;
-    border-left: 4px solid #F7931E;
+    border-left: 4px solid #006c65;
     border-radius: 12px;
     background: #fffaf6;
   }
@@ -2844,17 +2844,17 @@ const despachosResponsiveCss = `
   }
 
   .c1-dispatch .dispatch-invoice-controls input:focus {
-    border-color: #F7931E;
+    border-color: #006c65;
     box-shadow: 0 0 0 3px rgba(247,147,30,.12);
   }
 
   .c1-dispatch .dispatch-invoice-controls button {
     min-height: 42px;
     padding: 0 14px;
-    border: 1px solid #8F1D24;
+    border: 1px solid #051142;
     border-radius: 8px;
     background: white;
-    color: #8F1D24;
+    color: #051142;
     font-size: 10px;
     font-weight: 900;
     cursor: pointer;
