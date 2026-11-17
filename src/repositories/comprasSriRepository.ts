@@ -41,16 +41,6 @@ export async function editarCompraSri(clave: string, campo: CampoCompra, valor: 
   return data as ControlCompra
 }
 
-export async function abonarCompraSri(
-  clave: string, id: string, valor: string | null, fecha: string, documento: string,
-) {
-  const { data, error } = await supabase.rpc("compras_sri_abonar", {
-    p_clave: clave, p_id: id, p_valor: valor, p_fecha: fecha, p_documento: documento,
-  })
-  if (error) throw error
-  return data as ControlCompra
-}
-
 export async function guardarCompraSri(datos: FacturaSri, xml: string) {
   const { data, error } = await supabase.from("compras_sri").upsert({
     clave_acceso: datos.clave,

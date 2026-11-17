@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Facturas SRI solo con Detalle, 17/11/2026. Se retiran los botones Abonar y Pagar, y su formulario, también de la tabla de Facturas SRI. La última columna se llama «Detalle». Los pagos y abonos históricos y sus saldos se siguen mostrando. Se conserva el filtro de proveedor. Cambio de frontend pendiente de publicación, sin SQL nuevo.
+
 Filtro de proveedor en Facturas SRI, 17/11/2026. La cabecera «Proveedor» abre una búsqueda por primeras letras sin distinguir mayúsculas ni tildes. Al elegir una opción se filtra por el nombre exacto que muestra la factura, teniendo en cuenta las ediciones, y la paginación se aplica al resultado completo. Se puede quitar el filtro. La migración `202611170002_compras_sri_filtro_proveedor.sql` añade dos consultas de lectura y un índice conservando los permisos del SRI. Pasaron `npm run build`, las pruebas SQL del filtro y de alta manual, y la prueba en Chrome con Supabase simulado de selección, paginación, nombres editados y móvil.
 
 Ingreso manual y filtro de proveedor publicados el 17/11/2026 desde `ae983fb` en `main`, despliegue `3d47114e`. Las migraciones `202611170001` y `202611170002` se aplicaron y registraron en el Supabase operativo. En una transacción de solo lectura se verificaron ambos tipos de documento, la búsqueda, el filtro exacto y el bloqueo de sesiones sin permisos. La API respondió HTTP 401 a las consultas anónimas. Pasó `npm run build` y se verificaron por SHA-256 el índice, los dos módulos de Compras y sus estilos servidos por el dominio público.

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import {
-  abonarCompraSri, editarCompraSri,
+  editarCompraSri,
   type CampoCompra, type CompraGuardada, type ControlCompra,
 } from "../repositories/comprasSriRepository"
 import ComprasSriFiltroProveedor from "./ComprasSriFiltroProveedor"
@@ -21,7 +21,6 @@ const columnas: { campo: CampoCompra; titulo: string; tipo?: "date" | "importe" 
 const formato = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const moneda = (centavos: number) => formato.format(centavos / 100)
 const centavos = (valor: string) => Math.round(Number(valor) * 100)
-const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaquil" }).format()
 const totalColumnas = columnas.length + 2
 
 function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; alCambiarProveedor: () => void }) {
@@ -30,9 +29,7 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
   const [error, setError] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [detalleAbierto, setDetalleAbierto] = useState(false)
-  const [modo, setModo] = useState<"abono" | "pago" | null>(null)
   const ocupado = useRef(false)
-  const idAbono = useRef("")
   const iva = datos.impuestos.filter((impuesto) => impuesto.codigo === "2")
     .reduce((acumulado, impuesto) => acumulado + centavos(impuesto.valor), 0)
   const campos = {
@@ -51,13 +48,13 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
   const saldo = Math.max(0, centavos(campos.total) - pagado)
   const liquidada = saldo === 0 && pagado > 0
 
-  async function guardar(operacion: () => Promise<ControlCompra>) {
+  async function guardar(campo: CampoCompra, valor: string) {
     if (ocupado.current) return false
     ocupado.current = true
     setGuardando(true)
     setError("")
     try {
-      setControl(await operacion())
+      setControl(await editarCompraSri(datos.clave, campo, valor))
       return true
     } catch (fallo) {
       setError(typeof fallo === "object" && fallo && "message" in fallo
@@ -67,12 +64,6 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
       ocupado.current = false
       setGuardando(false)
     }
-  }
-
-  function abrirPago(tipo: "abono" | "pago") {
-    idAbono.current = crypto.randomUUID()
-    setModo(tipo)
-    setError("")
   }
 
   return (
@@ -89,7 +80,7 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
                   const nuevo = input.value.trim()
                   const normalizado = tipo === "importe" ? nuevo.replace(",", ".") : nuevo
                   if (normalizado === valor) return
-                  void guardar(() => editarCompraSri(datos.clave, campo, normalizado)).then((ok) => {
+                  void guardar(campo, normalizado).then((ok) => {
                     if (ok) {
                       input.value = normalizado
                       if (campo === "proveedor") alCambiarProveedor()
@@ -104,16 +95,8 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
           )
         })}
         <td className="compras-sri-estado">{liquidada ? "Pagada" : saldo === 0 ? "Sin saldo" : pagado ? "Abonada" : "Pendiente"}</td>
-        <td className="compras-sri-acciones">
-          <div>
-            {saldo > 0 && (
-              <>
-                <button type="button" disabled={guardando || modo !== null} onClick={() => abrirPago("abono")}>Abonar</button>
-                <button type="button" title="Registrar pago del saldo" disabled={guardando || modo !== null} onClick={() => abrirPago("pago")}>Pagar</button>
-              </>
-            )}
-            <button type="button" aria-expanded={detalleAbierto} onClick={() => setDetalleAbierto(abierto => !abierto)}>Detalle</button>
-          </div>
+        <td>
+          <button type="button" aria-expanded={detalleAbierto} onClick={() => setDetalleAbierto(abierto => !abierto)}>Detalle</button>
         </td>
       </tr>
       {detalleAbierto && (
@@ -145,29 +128,6 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
           <td className="compras-sri-monto">{moneda(saldo)}</td><td colSpan={3} />
         </tr>
       )}
-      {modo && (
-        <tr>
-          <td colSpan={totalColumnas}>
-            <form className="compras-sri-formulario" onSubmit={(evento) => {
-              evento.preventDefault()
-              const formulario = new FormData(evento.currentTarget)
-              const valor = modo === "abono" ? String(formulario.get("valor")) : null
-              const fecha = String(formulario.get("fecha"))
-              const documento = String(formulario.get("documento"))
-              void guardar(() => abonarCompraSri(datos.clave, idAbono.current, valor, fecha, documento))
-                .then((ok) => { if (ok) setModo(null) })
-            }}>
-              {modo === "abono"
-                ? <label>Abono <input name="valor" type="number" min="0.01" max={(saldo / 100).toFixed(2)} step="0.01" required /></label>
-                : <strong>Pago del saldo de {moneda(saldo)}</strong>}
-              <label>Fecha de pago <input name="fecha" type="date" defaultValue={hoy()} required /></label>
-              <label>N.º documento <input name="documento" maxLength={500} /></label>
-              <button type="submit" disabled={guardando}>{guardando ? "Guardando…" : "Guardar pago"}</button>
-              <button type="button" disabled={guardando} onClick={() => { setModo(null); setError("") }}>Cancelar</button>
-            </form>
-          </td>
-        </tr>
-      )}
       {error && <tr><td colSpan={totalColumnas} role="alert" className="compras-sri-error">{error}</td></tr>}
     </>
   )
@@ -185,14 +145,14 @@ export default function ComprasSriTabla({ compras, proveedor, elegirProveedor, a
         <colgroup>
           {columnas.map(({ campo }) => <col key={campo} className={`compras-sri-col-${campo}`} />)}
           <col className="compras-sri-col-estado" />
-          <col className="compras-sri-col-acciones" />
+          <col className="compras-sri-col-detalle" />
         </colgroup>
         <thead><tr>
           {columnas.map(({ campo, titulo }) => <th key={campo} scope="col">
             {campo === "proveedor" ? <ComprasSriFiltroProveedor proveedor={proveedor} elegir={elegirProveedor} /> : titulo}
           </th>)}
           <th scope="col">Estado</th>
-          <th scope="col">Pagos</th>
+          <th scope="col">Detalle</th>
         </tr></thead>
         <tbody>{compras.map((compra) => <FilaCompra key={compra.datos.clave} compra={compra} alCambiarProveedor={alCambiarProveedor} />)}</tbody>
       </table>

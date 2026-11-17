@@ -143,7 +143,6 @@
 .compras-sri-col-iva { width: 52px; }
 .compras-sri-col-documento { width: 94px; }
 .compras-sri-col-estado { width: 70px; }
-.compras-sri-col-acciones { width: 136px; }
 
 .compras-sri-celda-subtotal > input,
 .compras-sri-celda-iva > input,
@@ -155,7 +154,6 @@
 .compras-sri-tabla .compras-sri-saldo > td { background: #fff; font-weight: 650; }
 .compras-sri-movimiento { font-variant-numeric: tabular-nums; }
 .compras-sri-estado { white-space: nowrap; }
-.compras-sri-acciones > div { display: flex; gap: 3px; }
 .compras-sri-pagina button {
   min-height: 22px;
   padding: 2px 4px;
