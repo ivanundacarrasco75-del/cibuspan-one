@@ -28,30 +28,28 @@ export type DocumentoCompra = {
   total: number | null
   observaciones: string | null
   cuenta_codigo: string | null
-  origen: "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS"
+  origen: "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS" | "EXCEL"
+  pagado_excel?: number | null
+  saldo_excel?: number | null
 }
 
 export async function listarDocumentosCompra(tipo: TipoCompraManual, inicio: number, limite: number) {
   if (tipo === "NO_DEDUCIBLE") {
-    const { data, error } = await supabase.from("compras_documentos_manuales")
-      .select("id,fecha_documento,numero_documento,proveedor,concepto,subtotal,iva,retencion,total,observaciones")
+    const { data, error } = await supabase.from("compras_vw_documentos_tabla")
+      .select("*")
       .eq("tipo", tipo)
-      .order("fecha_documento", { ascending: false })
+      .in("origen", ["MANUAL_COMPRAS", "EXCEL"])
+      .order("fecha_documento", { ascending: false, nullsFirst: false })
       .order("id")
       .range(inicio, inicio + limite - 1)
     if (error) throw error
-    return (data ?? []).map((fila): DocumentoCompra => ({
-      ...fila,
-      periodo: `${fila.fecha_documento.slice(0, 7)}-01`,
-      cuenta_codigo: null,
-      origen: "MANUAL_COMPRAS",
-    }))
+    return (data ?? []) as DocumentoCompra[]
   }
 
-  const { data, error } = await supabase.from("compras_vw_documentos")
-    .select("id,periodo,fecha_documento,numero_documento,proveedor,concepto,subtotal,iva,retencion,total,observaciones,cuenta_codigo,origen")
+  const { data, error } = await supabase.from("compras_vw_documentos_tabla")
+    .select("*")
     .eq("tipo", tipo)
-    .order("periodo", { ascending: false })
+    .order("periodo", { ascending: false, nullsFirst: false })
     .order("fecha_documento", { ascending: false, nullsFirst: false })
     .order("id")
     .range(inicio, inicio + limite - 1)

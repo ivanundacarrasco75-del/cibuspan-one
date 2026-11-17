@@ -38,14 +38,15 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
     proveedor: datos.proveedor,
     descripcion: datos.items.map((item) => item.descripcion).join(" · ").slice(0, 500),
     subtotal: datos.subtotal,
-    iva: (iva / 100).toFixed(2),
+    iva: datos.clave.startsWith("excel:") && datos.impuestos.length === 0 ? "" : (iva / 100).toFixed(2),
     retencion: "",
     total: datos.total,
-    documento: "",
+    documento: compra.documento_excel ?? "",
     ...control.edicion,
   }
   const pagado = control.abonos.reduce((suma, abono) => suma + centavos(abono.valor), 0)
-  const saldo = Math.max(0, centavos(campos.total) - pagado)
+  const neto = compra.origen_excel ? compra.neto_excel : Number(campos.total)
+  const saldo = neto === null || neto === undefined ? null : Math.max(0, Math.round(neto * 100) - pagado)
   const liquidada = saldo === 0 && pagado > 0
 
   async function guardar(campo: CampoCompra, valor: string) {
@@ -54,7 +55,8 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
     setGuardando(true)
     setError("")
     try {
-      setControl(await editarCompraSri(datos.clave, campo, valor))
+      const resultado = await editarCompraSri(datos.clave, campo, valor)
+      setControl(compra.origen_excel ? { ...resultado, abonos: compra.abonos } : resultado)
       return true
     } catch (fallo) {
       setError(typeof fallo === "object" && fallo && "message" in fallo
@@ -75,7 +77,8 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
             <td key={campo} className={`compras-sri-celda-${campo}`}>
               <input key={valor} aria-label={`${titulo} de ${campos.serie}`} defaultValue={valor} title={valor}
                 type={tipo === "date" ? "date" : "text"} inputMode={tipo === "importe" ? "decimal" : undefined}
-                maxLength={500} readOnly={guardando} onBlur={(evento) => {
+                maxLength={500} readOnly={guardando || datos.clave.startsWith("excel:")} onBlur={(evento) => {
+                  if (datos.clave.startsWith("excel:")) return
                   const input = evento.currentTarget
                   const nuevo = input.value.trim()
                   const normalizado = tipo === "importe" ? nuevo.replace(",", ".") : nuevo
@@ -94,7 +97,7 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
             </td>
           )
         })}
-        <td className="compras-sri-estado">{liquidada ? "Pagada" : saldo === 0 ? "Sin saldo" : pagado ? "Abonada" : "Pendiente"}</td>
+        <td className="compras-sri-estado">{saldo === null ? "Por revisar" : liquidada ? "Pagada" : saldo === 0 ? "Sin saldo" : pagado ? "Abonada" : "Pendiente"}</td>
         <td>
           <button type="button" aria-expanded={detalleAbierto} onClick={() => setDetalleAbierto(abierto => !abierto)}>Detalle</button>
         </td>
@@ -102,13 +105,17 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
       {detalleAbierto && (
         <tr>
           <td colSpan={totalColumnas} className="compras-sri-detalle">
-            <div>RUC {datos.ruc} · RIDE {ride_leido ? "vinculado" : "pendiente"}</div>
+            {compra.origen_excel && <div>
+              <div>{compra.observaciones_excel}</div>
+              <div>Neto del Excel: {neto === null || neto === undefined ? "Pendiente de completar" : moneda(Math.round(neto * 100))}</div>
+            </div>}
+            <div>RUC {datos.ruc || "pendiente"} · RIDE {ride_leido ? "vinculado" : "pendiente"}</div>
             <div>{datos.estadoXml}</div>
             <div>Autorización {datos.autorizacion}</div>
-            <ul>{datos.items.map((item, indice) => (
+            {datos.clave.startsWith("excel:") ? <div>{campos.descripcion}</div> : <ul>{datos.items.map((item, indice) => (
               <li key={indice}>{item.codigo} · {item.descripcion} · {item.cantidad} × {item.precio}
                 {" · Subtotal "}{moneda(centavos(item.subtotal))}</li>
-            ))}</ul>
+            ))}</ul>}
             {datos.pagos.map((pago, indice) => (
               <div key={indice}>Forma de pago XML {pago.forma} · {pago.total} · {pago.plazo} {pago.unidad}</div>
             ))}
@@ -117,12 +124,12 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
       )}
       {control.abonos.map((abono) => (
         <tr className="compras-sri-pagada compras-sri-movimiento" key={abono.id}>
-          <td>{abono.fecha}</td><td colSpan={6}>Pago de {campos.serie}</td>
+          <td>{abono.fecha || "Fecha pendiente"}</td><td colSpan={6}>Pago de {campos.serie}</td>
           <td className="compras-sri-monto">{moneda(centavos(abono.valor))}</td>
           <td>{abono.documento}</td><td colSpan={2}>Pagado</td>
         </tr>
       ))}
-      {control.abonos.length > 0 && saldo > 0 && (
+      {control.abonos.length > 0 && saldo !== null && saldo > 0 && (
         <tr className="compras-sri-saldo">
           <td colSpan={7}>Saldo pendiente de {campos.serie}</td>
           <td className="compras-sri-monto">{moneda(saldo)}</td><td colSpan={3} />

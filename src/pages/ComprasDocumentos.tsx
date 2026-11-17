@@ -10,7 +10,7 @@ const periodo = new Intl.DateTimeFormat("es-EC", { month: "short", year: "numeri
 const columnas = [
   ["fecha", "Fecha emisión"], ["serie", "N.º documento"], ["proveedor", "Proveedor"],
   ["descripcion", "Descripción"], ["subtotal", "Subtotal"], ["iva", "IVA"], ["retencion", "Retención"],
-  ["total", "Total"], ["detalle", "Detalle"],
+  ["total", "Total"], ["estado", "Estado"], ["detalle", "Detalle"],
 ]
 const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaquil" }).format()
 const importe = (valor: number | null) => valor === null ? "—" : moneda.format(valor)
@@ -127,7 +127,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
                 </td></tr>}
                 {documentos.slice(0, porPagina).map(documento => (
                   <Fragment key={documento.id}>
-                    <tr>
+                    <tr className={documento.origen === "EXCEL" && documento.saldo_excel === 0 ? "compras-sri-pagada" : undefined}>
                       <td>{documento.fecha_documento ? fecha.format(new Date(documento.fecha_documento)) : "—"}</td>
                       <td title={documento.numero_documento ?? undefined}>{documento.numero_documento || "—"}</td>
                       <td title={documento.proveedor ?? undefined}>{documento.proveedor || "—"}</td>
@@ -136,10 +136,15 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
                       <td className="compras-sri-monto">{importe(documento.iva)}</td>
                       <td className="compras-sri-monto">{importe(documento.retencion)}</td>
                       <td className="compras-sri-monto">{importe(documento.total)}</td>
+                      <td className="compras-sri-estado">{documento.origen !== "EXCEL" ? "Registrado"
+                        : documento.saldo_excel === null ? "Por revisar"
+                        : documento.saldo_excel === 0 ? "Pagada"
+                        : Number(documento.pagado_excel) > 0 ? "Abonada" : "Pendiente"}</td>
                       <td><button type="button" aria-expanded={detalle === documento.id} onClick={() => setDetalle(detalle === documento.id ? null : documento.id)}>Detalle</button></td>
                     </tr>
                     {detalle === documento.id && <tr><td colSpan={columnas.length} className="compras-sri-detalle">
-                      <div>{documento.origen === "MANUAL_COMPRAS" ? "Registro manual de Compras" : "Clasificación de gastos"} · {periodo.format(new Date(documento.periodo))}</div>
+                      <div>{documento.origen === "EXCEL" ? "Importado desde Excel" : documento.origen === "MANUAL_COMPRAS" ? "Registro manual de Compras" : "Clasificación de gastos"} · {documento.periodo ? periodo.format(new Date(documento.periodo)) : "Fecha por completar"}</div>
+                      {documento.origen === "EXCEL" && <div>Pagado: {importe(documento.pagado_excel ?? null)} · Pendiente: {importe(documento.saldo_excel ?? null)}</div>}
                       {documento.cuenta_codigo && <div>Cuenta {documento.cuenta_codigo}</div>}
                       <div>{documento.numero_documento} {documento.proveedor}</div>
                       <div>{documento.concepto}</div>

@@ -4,7 +4,7 @@ export type TipoCuentaCompra = "SRI" | "NOTA_VENTA" | "NO_DEDUCIBLE"
 export type CuentaCompra = {
   id: string
   tipo: TipoCuentaCompra
-  origen: "SRI" | "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS"
+  origen: "SRI" | "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS" | "EXCEL"
   fecha_documento: string | null
   numero_documento: string | null
   proveedor: string | null
@@ -14,7 +14,7 @@ export type CuentaCompra = {
   retencion: number | null
   total: number | null
   pagado: number
-  saldo: number
+  saldo: number | null
   ruc: string | null
   observaciones: string | null
   semana_activa: string | null

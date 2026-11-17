@@ -10,7 +10,7 @@ import "./finanzasPagosCompras.css"
 const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const importe = (valor: number | string | null) => valor === null ? "—" : moneda.format(Number(valor))
-const centavos = (valor: number | string) => Math.round(Number(valor) * 100)
+const centavos = (valor: number | string | null) => Math.round(Number(valor) * 100)
 const monto = (valor: number) => (valor / 100).toFixed(2)
 const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaquil" }).format()
 const historica = (cuenta: CuentaCompra) => cuenta.origen === "CLASIFICACION_GASTOS"
@@ -87,16 +87,17 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
           const elegida = acciones.seleccion.get(cuenta.id)
           const nombre = cuenta.numero_documento || cuenta.proveedor || tipos[cuenta.tipo]
           const restante = plan ? centavos(plan.monto) - centavos(plan.pagado) : centavos(cuenta.saldo)
-          const puedePagar = restante > 0 && (plan ? restante <= centavos(cuenta.saldo) : !cuenta.semana_activa)
+          const puedePagar = cuenta.saldo !== null && restante > 0 && (plan ? restante <= centavos(cuenta.saldo) : !cuenta.semana_activa)
           let estado = cuenta.pagado > 0 ? "Abonada" : "Pendiente"
-          if (cuenta.saldo <= 0) estado = cuenta.pagado > 0 ? "Pagada" : "Sin saldo"
+          if (cuenta.saldo === null) estado = "Importe por completar"
+          else if (cuenta.saldo <= 0) estado = cuenta.pagado > 0 ? "Pagada" : "Sin saldo"
           else if (historica(cuenta) && cuenta.pagado === 0) estado = "Verificar saldo"
           if (cuenta.semana_activa) estado = `Semana ${cuenta.semana_activa}`
           if (plan) estado = restante === 0 ? "Ejecutado" : puedePagar ? "Programado" : "Revisar saldo"
           return <Fragment key={cuenta.id}>
             <tr className={restante === 0 && (plan || cuenta.pagado > 0) ? "compras-sri-pagada" : elegida ? "fin-pagos-elegida" : undefined}>
               {modo === "cuentas" && <td><input type="checkbox" aria-label={`Seleccionar ${nombre}`} checked={Boolean(elegida)}
-                disabled={acciones.ocupado || (!elegida && (cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
+                disabled={acciones.ocupado || (!elegida && (cuenta.saldo === null || cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
                 onChange={evento => acciones.seleccionar?.(cuenta, evento.target.checked)} /></td>}
               <td>{cuenta.fecha_documento || "—"}</td><td>{tipos[cuenta.tipo]}</td>
               <td>{cuenta.numero_documento || "—"}</td><td title={cuenta.proveedor ?? undefined}>{cuenta.proveedor || "—"}</td>
