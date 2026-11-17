@@ -1,5 +1,9 @@
 # Continuidad de CIBUSPAN ONE
 
+Pagos y Finanzas en tarjetas, 17/11/2026. Cuentas por pagar reúne Facturas SRI, Notas de venta y Gastos no deducibles en una grilla compacta. Las casillas alimentan la tabla inferior, donde se revisan los montos antes de guardar la semana y abrir Pagos semanales. Se pueden registrar pagos y abonos con fecha y referencia. Cada documento conserva su saldo y los abonos SRI se registran con la función existente. El plan compartido y los pagos requieren un administrador activo, igual que la bandeja SRI. Los históricos de Clasificación de gastos requieren verificar el saldo. El registro anterior de facturas, pagos e importaciones Excel sigue accesible desde su tarjeta. Las acciones registran pagos efectuados.
+
+Verificado con PostgreSQL local y Chrome con Supabase simulado. Antes de publicar, instalar y registrar únicamente la migración `202611170003_fin_cuentas_por_pagar_compras.sql` en el Supabase operativo. Tanto la instalación como la publicación están pendientes.
+
 Facturas SRI solo con Detalle, 17/11/2026. Se retiran los botones Abonar y Pagar, y su formulario, también de la tabla de Facturas SRI. La última columna se llama «Detalle». Los pagos y abonos históricos y sus saldos se siguen mostrando. Se conserva el filtro de proveedor. En Chrome con datos simulados se verificaron Detalle, el historial, el filtro y la paginación.
 
 La corrección se publicó el 17/11/2026 desde `77758e1` en `main`, despliegue `e8f37efc`. Pasó `npm run build` con el Supabase operativo, y se verificó en el dominio público el módulo SRI sin las acciones de pago, su hoja de estilos y la configuración de R2 y firma. Cambio de frontend sin SQL nuevo.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
+import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLA_MENU_FINANZAS, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
 import LogoCibuspan from "../LogoCibuspan"
 
 type LayoutProps = {
@@ -118,22 +118,8 @@ const modulos: Modulo[] = [
     id: "Pagos y Finanzas",
     etiqueta: "Pagos y Finanzas",
     icono: "finanzas",
-    entrada: "Pagos y Finanzas · Resumen",
-    items: [
-      { pantalla: "Pagos y Finanzas · Resumen", etiqueta: "Resumen" },
-      { pantalla: "Pagos y Finanzas · Cuentas por Cobrar", etiqueta: "Cuentas por Cobrar" },
-      { pantalla: "Pagos y Finanzas · Cobros y Conciliación", etiqueta: "Cobros y Conciliación" },
-      { pantalla: "Pagos y Finanzas · Cuentas por Pagar", etiqueta: "Cuentas por Pagar" },
-      { pantalla: "Pagos y Finanzas · Pagos", etiqueta: "Pagos" },
-      { pantalla: "Pagos y Finanzas · Roles de pago", etiqueta: "Roles de pago" },
-      { pantalla: "Pagos y Finanzas · Tesorería", etiqueta: "Tesorería" },
-      { pantalla: "Pagos y Finanzas · Resultados", etiqueta: "Resultados" },
-      { pantalla: "Pagos y Finanzas · Importación contable", etiqueta: "Importación contable" },
-      { pantalla: "Pagos y Finanzas · Clasificación de gastos", etiqueta: "Clasificación" },
-      { pantalla: "Pagos y Finanzas · Rentabilidad", etiqueta: "Rentabilidad" },
-      { pantalla: "Pagos y Finanzas · Historial", etiqueta: "Historial" },
-      { pantalla: "Pagos y Finanzas · Análisis", etiqueta: "Análisis" },
-    ],
+    entrada: PANTALLA_MENU_FINANZAS,
+    items: [],
   },
   {
     id: "Administración",
@@ -310,7 +296,14 @@ export default function Layout({
             </button>
           </nav>
         )}
-        {moduloActual && moduloActual.items.length > 0 && (
+          {moduloActualId === "Pagos y Finanzas" && pantalla !== PANTALLA_MENU_FINANZAS && puedeAcceder(PANTALLA_MENU_FINANZAS) && (
+            <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Pagos y Finanzas">
+              <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_FINANZAS)}>
+                <span aria-hidden="true">← </span>Volver a Pagos y Finanzas
+              </button>
+            </nav>
+          )}
+          {moduloActual && moduloActual.items.length > 0 && (
           <div className="c1-subnav-shell">
             <div className="c1-module-title">{moduloActual.etiqueta}</div>
             <nav className="c1-subnav" aria-label={`Opciones de ${moduloActual.etiqueta}`}>

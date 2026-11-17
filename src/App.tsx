@@ -11,6 +11,7 @@ import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioSe
 import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
   PANTALLA_MENU_COMPRAS, PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla,
+  PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
 } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
@@ -19,6 +20,8 @@ import {
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
+const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
+const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
 const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
 const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
@@ -502,9 +505,16 @@ function App() {
       case "Pagos y Finanzas · Importación contable":
         return <ImportacionContable cambiarPantalla={setPantalla} />
 
-      case "Pagos y Finanzas · Resumen":
-      case "Pagos y Finanzas · Cuentas por Pagar":
-      case "Pagos y Finanzas · Pagos":
+      case PANTALLA_MENU_FINANZAS:
+        return <FinanzasResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
+      case PANTALLA_CUENTAS_POR_PAGAR:
+      case PANTALLA_PAGOS_SEMANALES:
+      case PANTALLA_PAGOS_ANTERIOR:
+        if (!puedeAcceder(PANTALLA_PAGOS_SEMANALES)) return <PagosGastos />
+        return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR}
+          cambiarPantalla={setPantalla} />
+
       case "Pagos y Finanzas · Historial":
       case "Pagos y gastos":
         return <PagosGastos />

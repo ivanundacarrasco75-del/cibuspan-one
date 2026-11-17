@@ -4,7 +4,7 @@ import {
 } from "../utils/permisosAplicacion"
 import "./comprasResumen.css"
 
-type Tarjeta = { nombre: string; ruta: string; descripcion?: string; pendiente?: boolean; icono: string }
+export type Tarjeta = { nombre: string; ruta: string; descripcion?: string; pendiente?: boolean; icono: string }
 
 const iconoFactura = "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7"
 const secciones = [
@@ -36,12 +36,20 @@ export default function ComprasResumen({ facturas, puedeAcceder, cambiarPantalla
   const titulo = facturas ? "Facturas de compras" : "Compras"
   const tarjetas = (facturas ? tarjetasFacturas : tarjetasCompras).filter(seccion => puedeAcceder(seccion.ruta))
 
+  return <MenuTarjetas titulo={titulo} tarjetas={tarjetas} cambiarPantalla={cambiarPantalla} />
+}
+
+export function MenuTarjetas({ titulo, tarjetas, cambiarPantalla }: {
+  titulo: string
+  tarjetas: Tarjeta[]
+  cambiarPantalla: (pantalla: string) => void
+}) {
   return (
     <div className="compras-resumen">
       <header className="compras-cabecera">
         <h1>{titulo}</h1>
       </header>
-      <nav className="compras-tarjetas" aria-label={facturas ? "Opciones de facturas de compras" : "Secciones de compras"}>
+      <nav className="compras-tarjetas" aria-label={`Secciones de ${titulo}`}>
         {tarjetas.map(({ ruta, nombre, descripcion, pendiente, icono }) => (
           <button key={ruta} type="button" className="compras-tarjeta" onClick={() => cambiarPantalla(ruta)}>
             <span className="compras-icono"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={icono} /></svg></span>

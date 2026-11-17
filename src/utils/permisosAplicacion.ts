@@ -4,6 +4,10 @@ export const PANTALLA_FACTURAS_COMPRAS = "Compras · Facturas de compras"
 export const PANTALLA_FACTURAS_SRI = "Compras · Facturas del SRI"
 export const PANTALLA_NOTAS_VENTA = "Compras · Notas de venta"
 export const PANTALLA_NO_DEDUCIBLES = "Compras · Gastos no deducibles"
+export const PANTALLA_MENU_FINANZAS = "Pagos y Finanzas · Resumen"
+export const PANTALLA_CUENTAS_POR_PAGAR = "Pagos y Finanzas · Cuentas por Pagar"
+export const PANTALLA_PAGOS_SEMANALES = "Pagos y Finanzas · Pagos semanales"
+export const PANTALLA_PAGOS_ANTERIOR = "Pagos y Finanzas · Pagos"
 
 export const PANTALLAS_DOCUMENTOS_COMPRAS = [PANTALLA_FACTURAS_SRI, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES]
 
@@ -37,6 +41,11 @@ export function permisoDePantalla(pantalla: string): string {
 }
 
 export function puedeAbrirPantalla(pantalla: string, rol: string, permitidas: readonly string[]): boolean {
+  if (pantalla === PANTALLA_MENU_FINANZAS) {
+    return rol === "ADMINISTRADOR" || permitidas.includes("Administración") || permitidas.includes("Reportes")
+  }
+  if (pantalla === PANTALLA_PAGOS_SEMANALES) return rol === "ADMINISTRADOR"
+  if ([PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_ANTERIOR].includes(pantalla) && rol === "ADMINISTRADOR") return true
   if (pantalla === PANTALLA_MENU_COMPRAS) {
     return permitidas.includes("Administración") || permitidas.includes("Materias primas") || rol === "ADMINISTRADOR"
   }
