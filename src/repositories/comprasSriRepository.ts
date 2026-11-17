@@ -12,12 +12,25 @@ export type CompraGuardada = ControlCompra & {
   ride_leido: boolean
 }
 
-export async function listarComprasSri(desde: number, limite: number) {
+export async function listarComprasSri(desde: number, limite: number, proveedor: string | null) {
+  if (proveedor !== null) {
+    const { data, error } = await supabase.rpc("compras_sri_listar_por_proveedor", {
+      p_proveedor: proveedor, p_desde: desde, p_limite: limite,
+    })
+    if (error) throw error
+    return (data ?? []) as CompraGuardada[]
+  }
   const { data, error } = await supabase.from("compras_sri")
     .select("datos,ride_leido,edicion,abonos").order("fecha_emision", { ascending: false })
     .order("clave_acceso").range(desde, desde + limite - 1)
   if (error) throw error
   return data as CompraGuardada[]
+}
+
+export async function buscarProveedoresSri(texto: string) {
+  const { data, error } = await supabase.rpc("compras_sri_buscar_proveedores", { p_texto: texto })
+  if (error) throw error
+  return ((data ?? []) as { proveedor: string }[]).map(fila => fila.proveedor)
 }
 
 export async function editarCompraSri(clave: string, campo: CampoCompra, valor: string) {

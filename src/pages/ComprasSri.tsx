@@ -17,6 +17,7 @@ function mensajeError(error: unknown) {
 export default function ComprasSri() {
   const [compras, setCompras] = useState<CompraGuardada[]>([])
   const [pagina, setPagina] = useState(0)
+  const [proveedor, setProveedor] = useState<string | null>(null)
   const [haySiguiente, setHaySiguiente] = useState(false)
   const [revision, setRevision] = useState(0)
   const [cargando, setCargando] = useState(true)
@@ -28,7 +29,7 @@ export default function ComprasSri() {
     let vigente = true
     setCargando(true)
     setErrorTabla("")
-    listarComprasSri(pagina * porPagina, porPagina + 1)
+    listarComprasSri(pagina * porPagina, porPagina + 1, proveedor)
       .then((filas) => {
         if (!vigente) return
         setCompras(filas.slice(0, porPagina))
@@ -41,7 +42,17 @@ export default function ComprasSri() {
         if (vigente) setCargando(false)
       })
     return () => { vigente = false }
-  }, [pagina, revision])
+  }, [pagina, revision, proveedor])
+
+  function elegirProveedor(nombre: string | null) {
+    if (nombre === proveedor && pagina === 0) {
+      if (errorTabla) setRevision(actual => actual + 1)
+      return
+    }
+    setCargando(true)
+    setPagina(0)
+    setProveedor(nombre)
+  }
 
   async function importar(archivos: File[]) {
     setImportando(true)
@@ -102,9 +113,14 @@ export default function ComprasSri() {
         </ul>
       )}
       {errorTabla && <p role="alert">No se pudieron consultar las compras. {errorTabla}</p>}
+      {proveedor !== null && <p className="compras-sri-filtro-activo">
+        <span>Proveedor: {proveedor}</span>
+        <button type="button" onClick={() => elegirProveedor(null)}>Quitar filtro</button>
+      </p>}
       {cargando && <p role="status">Cargando compras…</p>}
-      {!cargando && !errorTabla && !compras.length && <p>Todavía no hay facturas registradas.</p>}
-      {!cargando && !errorTabla && compras.length > 0 && <ComprasSriTabla compras={compras} />}
+      {!cargando && !errorTabla && !compras.length && <p>{proveedor === null ? "Todavía no hay facturas registradas." : "No hay facturas para el proveedor seleccionado."}</p>}
+      <ComprasSriTabla compras={cargando || errorTabla ? [] : compras} proveedor={proveedor} elegirProveedor={elegirProveedor}
+        alCambiarProveedor={() => { if (proveedor !== null) { setPagina(0); setRevision(actual => actual + 1) } }} />
       {(pagina > 0 || haySiguiente) && !errorTabla && (
         <nav className="compras-sri-paginas" aria-label="Páginas de facturas">
           <button type="button" disabled={pagina === 0 || cargando} onClick={() => setPagina(pagina - 1)}>Anterior</button>

@@ -3,6 +3,7 @@ import {
   abonarCompraSri, editarCompraSri,
   type CampoCompra, type CompraGuardada, type ControlCompra,
 } from "../repositories/comprasSriRepository"
+import ComprasSriFiltroProveedor from "./ComprasSriFiltroProveedor"
 import "./comprasSriTabla.css"
 
 const columnas: { campo: CampoCompra; titulo: string; tipo?: "date" | "importe" }[] = [
@@ -23,7 +24,7 @@ const centavos = (valor: string) => Math.round(Number(valor) * 100)
 const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaquil" }).format()
 const totalColumnas = columnas.length + 2
 
-function FilaCompra({ compra }: { compra: CompraGuardada }) {
+function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; alCambiarProveedor: () => void }) {
   const { datos, ride_leido } = compra
   const [control, setControl] = useState<ControlCompra>({ edicion: compra.edicion, abonos: compra.abonos })
   const [error, setError] = useState("")
@@ -89,7 +90,10 @@ function FilaCompra({ compra }: { compra: CompraGuardada }) {
                   const normalizado = tipo === "importe" ? nuevo.replace(",", ".") : nuevo
                   if (normalizado === valor) return
                   void guardar(() => editarCompraSri(datos.clave, campo, normalizado)).then((ok) => {
-                    if (ok) input.value = normalizado
+                    if (ok) {
+                      input.value = normalizado
+                      if (campo === "proveedor") alCambiarProveedor()
+                    }
                   })
                 }}
                 onKeyDown={(evento) => {
@@ -169,7 +173,12 @@ function FilaCompra({ compra }: { compra: CompraGuardada }) {
   )
 }
 
-export default function ComprasSriTabla({ compras }: { compras: CompraGuardada[] }) {
+export default function ComprasSriTabla({ compras, proveedor, elegirProveedor, alCambiarProveedor }: {
+  compras: CompraGuardada[]
+  proveedor: string | null
+  elegirProveedor: (nombre: string | null) => void
+  alCambiarProveedor: () => void
+}) {
   return (
     <div className="compras-sri-contenedor" tabIndex={0} role="region" aria-label="Tabla desplazable de facturas">
       <table className="compras-sri-tabla" aria-label="Facturas de compra">
@@ -179,11 +188,13 @@ export default function ComprasSriTabla({ compras }: { compras: CompraGuardada[]
           <col className="compras-sri-col-acciones" />
         </colgroup>
         <thead><tr>
-          {columnas.map(({ campo, titulo }) => <th key={campo} scope="col">{titulo}</th>)}
+          {columnas.map(({ campo, titulo }) => <th key={campo} scope="col">
+            {campo === "proveedor" ? <ComprasSriFiltroProveedor proveedor={proveedor} elegir={elegirProveedor} /> : titulo}
+          </th>)}
           <th scope="col">Estado</th>
           <th scope="col">Pagos</th>
         </tr></thead>
-        <tbody>{compras.map((compra) => <FilaCompra key={compra.datos.clave} compra={compra} />)}</tbody>
+        <tbody>{compras.map((compra) => <FilaCompra key={compra.datos.clave} compra={compra} alCambiarProveedor={alCambiarProveedor} />)}</tbody>
       </table>
     </div>
   )

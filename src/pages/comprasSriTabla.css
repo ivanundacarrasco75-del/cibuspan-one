@@ -170,6 +170,53 @@
 }
 .compras-sri-pagina button:disabled { opacity: .55; cursor: default; }
 .compras-sri-pagina button:hover:not(:disabled) { background: #e6f6f5; }
+.compras-sri-pagina .compras-sri-filtro-boton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  min-height: 0;
+  padding: 0 2px 0 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+.compras-sri-filtro {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  width: min(318px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid #bcccd8;
+  border-radius: 6px;
+  background: #fff;
+  color: #102646;
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 20px #10264629;
+}
+.compras-sri-filtro label { display: grid; gap: 4px; margin-bottom: 6px; }
+.compras-sri-filtro input { width: 100%; padding: 6px; border: 1px solid #bcccd8; border-radius: 3px; font: inherit; }
+.compras-sri-filtro ul { max-height: 160px; margin: 4px 0 0; padding: 0; overflow: auto; list-style: none; }
+.compras-sri-filtro li button,
+.compras-sri-pagina .compras-sri-filtro-todos {
+  width: 100%;
+  padding: 4px 6px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.compras-sri-filtro li button { border-color: transparent; }
+.compras-sri-filtro li button[aria-pressed="true"] { background: #e6f6f5; }
+.compras-sri-filtro > p { margin-top: 6px; }
+.compras-sri-filtro-activo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; overflow-wrap: anywhere; }
 .compras-sri-tabla .compras-sri-detalle {
   padding: 8px 10px;
   background: #f4f8fb;
