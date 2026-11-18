@@ -65,6 +65,9 @@ export function leerFacturaSri(xml: string) {
     codigoAuxiliar: valor(item, "codigoAuxiliar"),
     descripcion: valor(item, "descripcion"),
     cantidad: importe(item, "cantidad"),
+    unidad: valor(item, "unidadMedida") || Array.from(campo(item, "detallesAdicionales")?.children ?? [])
+      .find(adicional => /^(unidad|unidad de medida|unidadmedida|uom)$/i.test(adicional.getAttribute("nombre")?.trim() ?? ""))
+      ?.getAttribute("valor")?.trim() || "",
     precio: importe(item, "precioUnitario"),
     descuento: importe(item, "descuento"),
     subtotal: importe(item, "precioTotalSinImpuesto"),

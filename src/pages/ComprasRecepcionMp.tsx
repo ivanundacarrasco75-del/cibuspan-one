@@ -5,16 +5,17 @@ import {
   type EstadoRecepcion, type SolicitudRecepcion,
 } from "../repositories/comprasRecepcionRepository"
 import "./comprasRecepcionMp.css"
+import { cantidadRecibidaCompra, proponerRecepcionCompra } from "../utils/comprasRecepcionAutomatica"
 
 const mensaje = (e: unknown) => e && typeof e === "object" && "message" in e ? String(e.message) : "No se pudo consultar la recepción."
-type Linea = { articulo: string; cantidad: string }
+type Linea = { articulo: string; cantidad: string; explicacion: string }
 
-export default function ComprasRecepcionMp({ factura }: { factura: FacturaSri }) {
+export default function ComprasRecepcionMp({ factura, fechaFactura = factura.fecha }: { factura: FacturaSri; fechaFactura?: string }) {
   const [estado, setEstado] = useState<EstadoRecepcion | null>(null)
   const [error, setError] = useState("")
   const [revision, setRevision] = useState(0)
-  const [fecha, setFecha] = useState("")
-  const [lineas, setLineas] = useState<Linea[]>(() => factura.items.map(() => ({ articulo: "", cantidad: "" })))
+  const [fecha, setFecha] = useState(fechaFactura)
+  const [lineas, setLineas] = useState<Linea[]>(() => factura.items.map(() => ({ articulo: "", cantidad: "", explicacion: "" })))
   const [confirmado, setConfirmado] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [incierta, setIncierta] = useState<SolicitudRecepcion | null>(null)
@@ -23,7 +24,13 @@ export default function ComprasRecepcionMp({ factura }: { factura: FacturaSri })
   useEffect(() => {
     let vigente = true
     setError("")
-    void estadoRecepcionCompra(factura.clave).then(e => { if (vigente) setEstado(e) })
+    void estadoRecepcionCompra(factura.clave).then(e => {
+      if (vigente) {
+        setEstado(e)
+        setLineas(proponerRecepcionCompra(factura.items.map((item, i) => ({ ...item,
+          unidad: item.unidad || e.facturaXml?.items[i]?.unidad })), e.articulos))
+      }
+    })
       .catch(e => { if (vigente) setError(mensaje(e)) })
     return () => { vigente = false }
   }, [factura.clave, revision])
@@ -65,8 +72,8 @@ export default function ComprasRecepcionMp({ factura }: { factura: FacturaSri })
       </li>)}</ul>
     </> : estado && !estado.puede ? <p>Necesitas permiso de inventario de materias primas para registrar la recepción.</p>
       : estado && <>
-        <p>Relaciona cada material con su artículo del catálogo. Deja sin seleccionar los servicios y otros conceptos.
-          Indica lo recibido en KG o UNIDAD según el artículo; convierte sacos, cajas u otras presentaciones antes de confirmar.</p>
+        <p>La fecha parte de la factura. Los productos y las cantidades reconocidos se completan automáticamente.
+          Revisa la propuesta y corrige solo lo que cambie en la recepción. Los servicios y conceptos sin artículo seleccionado no ingresan al inventario.</p>
         {factura.clave.startsWith("excel:") && <p>El Excel no incluye cantidades físicas. Completa la cantidad real con el documento o la recepción de bodega.</p>}
         <fieldset disabled={guardando || !!incierta}>
           <label>Fecha de recepción <input aria-label="Fecha de recepción" type="date" value={fecha}
@@ -75,13 +82,19 @@ export default function ComprasRecepcionMp({ factura }: { factura: FacturaSri })
             <th>Detalle de factura</th><th>Cant. facturada</th><th>Artículo del Kardex</th><th>Cant. recibida</th><th>Unidad</th>
           </tr></thead><tbody>{factura.items.map((item, i) => {
             const articulo = estado.articulos.find(a => a.id === lineas[i].articulo)
-            return <tr key={i}><td>{item.descripcion}</td><td>{item.cantidad || "Pendiente"}</td>
-              <td><select aria-label={`Artículo de ${item.descripcion}`} value={lineas[i].articulo} onChange={e => cambiar(i, { articulo: e.target.value })}>
+            return <tr key={i}><td>{item.descripcion}</td><td>{item.cantidad
+              ? [item.cantidad, item.unidad || estado.facturaXml?.items[i]?.unidad].filter(Boolean).join(" ") : "Pendiente"}</td>
+              <td><select aria-label={`Artículo de ${item.descripcion}`} value={lineas[i].articulo} onChange={e => cambiar(i, {
+                articulo: e.target.value,
+                ...cantidadRecibidaCompra({ ...item, unidad: item.unidad || estado.facturaXml?.items[i]?.unidad },
+                  estado.articulos.find(a => a.id === e.target.value) ?? null),
+              })}>
                 <option value="">No ingresa al inventario</option>
                 {estado.articulos.map(a => <option key={a.id} value={a.id}>{a.codigo} · {a.nombre}{a.iniciado ? "" : " · Falta saldo inicial"}</option>)}
               </select></td>
               <td><input aria-label={`Cantidad recibida de ${item.descripcion}`} inputMode="decimal" value={lineas[i].cantidad}
-                disabled={!articulo} onChange={e => cambiar(i, { cantidad: e.target.value })} /></td>
+                disabled={!articulo} onChange={e => cambiar(i, { cantidad: e.target.value, explicacion: "Cantidad ajustada manualmente." })} />
+                <small>{lineas[i].explicacion}</small></td>
               <td>{articulo?.unidad ?? "—"}{articulo && !articulo.iniciado && <span> · Carga primero el saldo inicial en Kardex.</span>}</td></tr>
           })}</tbody></table></div>
           <label className="compras-recepcion-confirmar"><input type="checkbox" checked={confirmado} onChange={e => setConfirmado(e.target.checked)} />

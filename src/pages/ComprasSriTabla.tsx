@@ -120,7 +120,7 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
             {datos.pagos.map((pago, indice) => (
               <div key={indice}>Forma de pago XML {pago.forma} · {pago.total} · {pago.plazo} {pago.unidad}</div>
             ))}
-            <ComprasRecepcionMp factura={datos} />
+            <ComprasRecepcionMp factura={datos} fechaFactura={campos.fecha} />
           </td>
         </tr>
       )}

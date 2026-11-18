@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase"
+import { leerFacturaSri, type FacturaSri } from "../utils/comprasSri"
 
 export type ArticuloRecepcion = { id: string; codigo: string; nombre: string; unidad: string; iniciado: boolean }
 export type RecepcionCompra = {
@@ -7,6 +8,7 @@ export type RecepcionCompra = {
 }
 export type EstadoRecepcion = {
   version: string; puede: boolean; recepcion: RecepcionCompra | null; articulos: ArticuloRecepcion[]
+  facturaXml?: FacturaSri
 }
 export type SolicitudRecepcion = {
   p_clave: string; p_version: string; p_fecha: string; p_solicitud: string
@@ -16,7 +18,15 @@ export type SolicitudRecepcion = {
 export async function estadoRecepcionCompra(clave: string) {
   const { data, error } = await supabase.rpc("compras_recepcion_mp_estado", { p_clave: clave })
   if (error) throw error
-  return data as EstadoRecepcion
+  const estado = data as EstadoRecepcion
+  if (/^\d{49}$/.test(clave) && estado.puede && !estado.recepcion) {
+    // Los XML antiguos conservan su original aunque datos no incluya la unidad.
+    const original = await supabase.from("compras_sri").select("xml_original").eq("clave_acceso", clave).maybeSingle()
+    if (original.data?.xml_original) {
+      try { estado.facturaXml = leerFacturaSri(original.data.xml_original) } catch { /* Mantener los datos registrados si el XML no se puede releer. */ }
+    }
+  }
+  return estado
 }
 
 export async function confirmarRecepcionCompra(solicitud: SolicitudRecepcion) {
