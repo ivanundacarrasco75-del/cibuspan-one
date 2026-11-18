@@ -143,10 +143,10 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   )
 }
 
-export default function FinanzasPagosCompras({ semanal, cambiarPantalla, semanaInicial }: {
-  semanal: boolean; cambiarPantalla: (pantalla: string) => void; semanaInicial?: string
+export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
+  semanal: boolean; cambiarPantalla: (pantalla: string) => void
 }) {
-  const [semana, setSemana] = useState(() => semanaInicial ?? lunes(hoy()))
+  const [semana, setSemana] = useState(() => lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
   const [programadas, setProgramadas] = useState<FilaProgramada[]>([])
   const [seleccion, setSeleccion] = useState(new Map<string, Seleccion>())

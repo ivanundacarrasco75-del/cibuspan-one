@@ -32,7 +32,7 @@ const tarjetas: Tarjeta[] = [
   { nombre: "Cargar PDF", ruta: "IMPORTAR", descripcion: "Importa el reporte mensual de rubros.", icono: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7" },
   { nombre: "Resumen mensual", ruta: "RESUMEN", descripcion: "Consulta el costo laboral y las cargas mensuales.", icono: "M4 4v16h16M8 16v-4m4 4V8m4 8V5" },
   { nombre: "Empleados y áreas", ruta: "EMPLEADOS", descripcion: "Gestiona empleados, prestadores externos y su estado.", icono: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8m11 12v6m-3-3h6" },
-  { nombre: "Pagos nómina", ruta: "PAGOS", descripcion: "Prepara los pagos y cárgalos a la semana elegida.", icono: "M5 4h14v16H5zM8 2v4m8-4v4M5 9h14m-9 5 2 2 4-4" },
+  { nombre: "Pagos nómina", ruta: "PAGOS", descripcion: "Prepara las obligaciones y cárgalas a Cuentas por pagar.", icono: "M5 4h14v16H5zM8 2v4m8-4v4M5 9h14m-9 5 2 2 4-4" },
 ]
 
 function moneda(valor: number | null | undefined) {
@@ -57,7 +57,7 @@ function mesPeriodo(periodo: string) {
   }).format(new Date(Date.UTC(anio, mes - 1, 1)))
 }
 
-export default function RolesPago({ alCargarPagos }: { alCargarPagos: (semana: string) => void }) {
+export default function RolesPago({ alCargarPagos }: { alCargarPagos: () => void }) {
   const [vista, setVista] = useState<Vista>("MENU")
   const [empleados, setEmpleados] = useState<EmpleadoNominaDb[]>([])
   const [importaciones, setImportaciones] = useState<ImportacionNominaDb[]>([])

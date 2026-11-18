@@ -126,7 +126,6 @@ function App() {
   const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
-  const [semanaPagosNomina, setSemanaPagosNomina] = useState<string>()
   const usuarioConPerfilRef = useRef<string | null>(null)
   const puedeAcceder = useCallback((destino: string) => !!perfil?.activo &&
     puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas, pantallasDenegadas),
@@ -518,7 +517,7 @@ function App() {
       case PANTALLA_PAGOS_SEMANALES:
       case PANTALLA_PAGOS_ANTERIOR:
         if (!puedeAcceder(PANTALLA_PAGOS_SEMANALES)) return <PagosGastos />
-        return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR} semanaInicial={semanaPagosNomina}
+        return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR}
           cambiarPantalla={setPantalla} />
 
       case "Pagos y Finanzas · Historial":
@@ -527,10 +526,7 @@ function App() {
 
       case "Pagos y Finanzas · Roles de pago":
       case "Roles de pago":
-        return <RolesPago alCargarPagos={semana => {
-          setSemanaPagosNomina(semana)
-          setPantalla(PANTALLA_PAGOS_SEMANALES)
-        }} />
+        return <RolesPago alCargarPagos={() => setPantalla(PANTALLA_CUENTAS_POR_PAGAR)} />
 
       case "Costos indirectos":
         return <CostosIndirectos />

@@ -1,28 +1,22 @@
 import { useRef, useState, type FormEvent } from "react"
 import {
-  cargarNominaSemanal, CONCEPTOS_PAGO_NOMINA, type CargaNominaSemanal,
+  cargarNominaCuentas, CONCEPTOS_PAGO_NOMINA, type CargaNominaCuentas,
   type ConceptoPagoNomina, type EmpleadoNominaDb,
 } from "../repositories/nominaRepository"
 import { ETIQUETAS_AREA_NOMINA } from "../utils/rolesPagoPdf"
 import "./nominaGestion.css"
 
 const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaquil" }).format()
-function lunes(fecha: string) {
-  const fechaSemana = new Date(`${fecha}T12:00:00Z`)
-  fechaSemana.setUTCDate(fechaSemana.getUTCDate() - (fechaSemana.getUTCDay() + 6) % 7)
-  return fechaSemana.toISOString().slice(0, 10)
-}
 type Borrador = { elegidos: Set<string>; montos: Record<string, string> }
 
 export default function PagosNomina({ empleados, alCargar }: {
-  empleados: EmpleadoNominaDb[]; alCargar: (semana: string) => void
+  empleados: EmpleadoNominaDb[]; alCargar: () => void
 }) {
   const [mes, setMes] = useState(() => hoy().slice(0, 7))
   const [concepto, setConcepto] = useState<ConceptoPagoNomina>("PRIMERA_QUINCENA")
-  const [semana, setSemana] = useState(() => lunes(hoy()))
   const [borradores, setBorradores] = useState<Record<string, Borrador>>({})
   const [guardando, setGuardando] = useState(false)
-  const [pendiente, setPendiente] = useState<CargaNominaSemanal | null>(null)
+  const [pendiente, setPendiente] = useState<CargaNominaCuentas | null>(null)
   const [error, setError] = useState("")
   const bloqueo = useRef(false)
   const personas = empleados.filter(persona => persona.activo)
@@ -42,7 +36,7 @@ export default function PagosNomina({ empleados, alCargar }: {
     evento.preventDefault()
     if (bloqueo.current) return
     const solicitud = pendiente ?? {
-      periodo: `${mes}-01`, concepto, semana,
+      periodo: `${mes}-01`, concepto,
       filas: seleccionadas.map(persona => ({ empleado_id: persona.id, monto: valorPersona(persona.id) })),
     }
     if (solicitud.filas.length === 0) return
@@ -51,9 +45,9 @@ export default function PagosNomina({ empleados, alCargar }: {
     setError("")
     try {
       setPendiente(solicitud)
-      await cargarNominaSemanal(solicitud)
+      await cargarNominaCuentas(solicitud)
       setPendiente(null)
-      alCargar(solicitud.semana)
+      alCargar()
     } catch (fallo) {
       if (typeof fallo === "object" && fallo !== null && "cargaRechazada" in fallo && fallo.cargaRechazada) setPendiente(null)
       setError(typeof fallo === "object" && fallo && "message" in fallo ? String(fallo.message) : "No se pudo cargar la nómina.")
@@ -99,11 +93,9 @@ export default function PagosNomina({ empleados, alCargar }: {
       </div>
       {error && <p role="alert">{error}</p>}
       <div className="nom-gestion-filtros">
-        <label>Semana del <input type="date" required value={semana} disabled={bloqueado}
-          onChange={evento => evento.target.value && setSemana(lunes(evento.target.value))} /></label>
         <strong>{seleccionadas.length} personas · {total.toLocaleString("es-EC", { style: "currency", currency: "USD" })}</strong>
         <button type="submit" disabled={guardando || seleccionadas.length === 0}>
-          {guardando ? "Cargando…" : pendiente ? "Reintentar carga" : "Cargar a pagos semanales"}
+          {guardando ? "Cargando…" : pendiente ? "Reintentar carga" : "Cargar a cuentas por pagar"}
         </button>
       </div>
     </form>

@@ -83,13 +83,13 @@ export const CONCEPTOS_PAGO_NOMINA = {
   DECIMO_SEXTO: "Décimo sexto sueldo",
 } as const
 export type ConceptoPagoNomina = keyof typeof CONCEPTOS_PAGO_NOMINA
-export type CargaNominaSemanal = {
-  periodo: string; concepto: ConceptoPagoNomina; semana: string
+export type CargaNominaCuentas = {
+  periodo: string; concepto: ConceptoPagoNomina
   filas: { empleado_id: string; monto: string }[]
 }
-export async function cargarNominaSemanal(datos: CargaNominaSemanal) {
-  const { error, status } = await supabase.rpc("fin_cargar_nomina_semanal", {
-    p_periodo: datos.periodo, p_concepto: datos.concepto, p_semana: datos.semana, p_filas: datos.filas,
+export async function cargarNominaCuentas(datos: CargaNominaCuentas) {
+  const { error, status } = await supabase.rpc("fin_cargar_nomina_cuentas", {
+    p_periodo: datos.periodo, p_concepto: datos.concepto, p_filas: datos.filas,
   })
   if (error) throw Object.assign(error, { cargaRechazada: status >= 400 && status < 500 })
 }

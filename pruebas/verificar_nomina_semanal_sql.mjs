@@ -34,28 +34,34 @@ async function preparar(t) {
     "202608150110_roles_pago_mensuales"]) await db.exec(await leer(nombre))
   await db.exec(migracion)
   await db.exec(migracion)
+  const correccion = await leer("202611180002_nomina_cuentas_por_pagar")
+  await db.exec(correccion)
+  await db.exec(correccion)
   await db.exec("set role authenticated; set prueba.admin='si'")
   const guardar = (id, nombre, activo, tipo) => db.query(
     "select fin_guardar_personal($1,$2,'ADMINISTRACION',$3,$4)", [id, nombre, activo, tipo])
   await guardar(empleado, "Persona Uno", true, "NOMINA")
   await guardar(externo, "Persona Externa", true, "EXTERNO")
   await guardar(retirado, "Persona Retirada", false, "NOMINA")
-  const cargar = (filas, concepto = "PRIMERA_QUINCENA", periodo = "2026-11-01", fecha = semana) =>
-    db.query("select fin_cargar_nomina_semanal($1,$2,$3,$4)", [periodo, concepto, fecha, JSON.stringify(filas)])
+  const cargar = (filas, concepto = "PRIMERA_QUINCENA", periodo = "2026-11-01") =>
+    db.query("select fin_cargar_nomina_cuentas($1,$2,$3)", [periodo, concepto, JSON.stringify(filas)])
   return { db, guardar, cargar }
 }
 
-test("programa nómina y externos, reintenta sin duplicar y liquida por el flujo semanal existente", async t => {
+test("carga nómina y externos a cuentas por pagar y solo programa los documentos elegidos después", async t => {
   const { db, cargar } = await preparar(t)
   const filas = [{ empleado_id: empleado, monto: "300.00" }, { empleado_id: externo, monto: "125.50" }]
   await cargar(filas)
   await cargar(filas)
   assert.equal((await db.query("select count(*)::int as n from fin_nomina_obligaciones")).rows[0].n, 2)
-  assert.equal((await db.query("select count(*)::int as n from fin_programacion_compras")).rows[0].n, 2)
-  await assert.rejects(cargar([{ empleado_id: empleado, monto: "301" }]), /otro monto/)
-  await assert.rejects(cargar(filas, "PRIMERA_QUINCENA", "2026-11-01", "2026-11-23"), /ya está en la semana/)
+  assert.equal((await db.query("select count(*)::int as n from fin_programacion_compras")).rows[0].n, 0)
+  await db.query("select fin_cargar_nomina_semanal('2026-11-01','PRIMERA_QUINCENA',$1,$2)", [semana, JSON.stringify(filas)])
+  assert.equal((await db.query("select count(*)::int as n from fin_programacion_compras")).rows[0].n, 0)
   const cuenta = (await db.query("select id,saldo::text from fin_vw_cuentas_por_pagar_compras where proveedor='Persona Uno'")).rows[0]
   assert.equal(cuenta.saldo, "300.00")
+  await db.query("select fin_programar_compras($1,$2)", [semana, JSON.stringify([{ id: cuenta.id, monto: "100.00" }])])
+  assert.equal((await db.query("select count(*)::int as n from fin_programacion_compras")).rows[0].n, 1)
+  await assert.rejects(cargar([{ empleado_id: empleado, monto: "301" }]), /otro monto/)
   const pagar = id => db.query("select fin_pagar_compra($1,$2,100,'2026-11-18','DEP-1',$3,false)", [cuenta.id, id, semana])
   const pago = "11111111-1111-1111-1111-111111111111"
   await pagar(pago)
