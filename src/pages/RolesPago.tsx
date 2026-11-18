@@ -27,7 +27,7 @@ import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
 import PersonalNomina from "./PersonalNomina"
 import PagosNomina from "./PagosNomina"
 
-type Vista = "MENU" | "IMPORTAR" | "RESUMEN" | "EMPLEADOS" | "PAGOS"
+export type VistaRolesPago = "MENU" | "IMPORTAR" | "RESUMEN" | "EMPLEADOS" | "PAGOS"
 const tarjetas: Tarjeta[] = [
   { nombre: "Cargar PDF", ruta: "IMPORTAR", descripcion: "Importa el reporte mensual de rubros.", icono: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7" },
   { nombre: "Resumen mensual", ruta: "RESUMEN", descripcion: "Consulta el costo laboral y las cargas mensuales.", icono: "M4 4v16h16M8 16v-4m4 4V8m4 8V5" },
@@ -57,8 +57,11 @@ function mesPeriodo(periodo: string) {
   }).format(new Date(Date.UTC(anio, mes - 1, 1)))
 }
 
-export default function RolesPago({ alCargarPagos }: { alCargarPagos: () => void }) {
-  const [vista, setVista] = useState<Vista>("MENU")
+export default function RolesPago({ alCargarPagos, vista, setVista }: {
+  alCargarPagos: () => void
+  vista: VistaRolesPago
+  setVista: (vista: VistaRolesPago) => void
+}) {
   const [empleados, setEmpleados] = useState<EmpleadoNominaDb[]>([])
   const [importaciones, setImportaciones] = useState<ImportacionNominaDb[]>([])
   const [resumenMensual, setResumenMensual] = useState<NominaMensualAreaDb[]>([])
@@ -213,7 +216,7 @@ export default function RolesPago({ alCargarPagos }: { alCargarPagos: () => void
       />
 
       {vista === "MENU" ? <MenuTarjetas titulo="Roles de pago" tarjetas={tarjetas}
-        cambiarPantalla={destino => setVista(destino as Vista)} /> : <>
+        cambiarPantalla={destino => setVista(destino as VistaRolesPago)} /> : <>
       <header className="nom-header">
         <div>
           <span>CONTROL FINANCIERO · COSTO LABORAL</span>
@@ -224,8 +227,6 @@ export default function RolesPago({ alCargarPagos }: { alCargarPagos: () => void
           {cargando ? "Actualizando..." : "Actualizar"}
         </button>
       </header>
-
-      <nav className="nom-tabs"><button type="button" onClick={() => setVista("MENU")}>← Volver a Roles de pago</button></nav>
 
       {vista === "IMPORTAR" && (
         <section className="nom-panel">

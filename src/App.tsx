@@ -6,6 +6,7 @@ import { supabase } from "./lib/supabase"
 import Layout from "./components/layout/Layout"
 import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
+import type { VistaRolesPago } from "./pages/RolesPago"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
 import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
@@ -126,6 +127,12 @@ function App() {
   const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
+  const [vistaRolesPago, setVistaRolesPago] = useState<VistaRolesPago>("MENU")
+  const enRolesPago = pantalla === "Roles de pago" || pantalla === "Pagos y Finanzas · Roles de pago"
+
+  useEffect(() => {
+    setVistaRolesPago("MENU")
+  }, [pantalla])
   const usuarioConPerfilRef = useRef<string | null>(null)
   const puedeAcceder = useCallback((destino: string) => !!perfil?.activo &&
     puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas, pantallasDenegadas),
@@ -526,7 +533,7 @@ function App() {
 
       case "Pagos y Finanzas · Roles de pago":
       case "Roles de pago":
-        return <RolesPago alCargarPagos={() => setPantalla(PANTALLA_CUENTAS_POR_PAGAR)} />
+        return <RolesPago alCargarPagos={() => setPantalla(PANTALLA_CUENTAS_POR_PAGAR)} vista={vistaRolesPago} setVista={setVistaRolesPago} />
 
       case "Costos indirectos":
         return <CostosIndirectos />
@@ -576,6 +583,7 @@ function App() {
       cerrarSesion={cerrarSesion}
       usuario={sesion.user.email}
       puedeAcceder={puedeAcceder}
+      regresarRolesPago={enRolesPago && vistaRolesPago !== "MENU" ? () => setVistaRolesPago("MENU") : undefined}
     >
       <Suspense fallback={<CargandoModulo />}>
         {puedeAcceder(pantalla) ? renderPantalla() : <section style={{ padding: 24 }}><p role="alert">No tienes acceso a esta pantalla. Solicita al administrador los permisos correspondientes.</p></section>}

@@ -8,6 +8,7 @@ type LayoutProps = {
   cerrarSesion?: () => void | Promise<void>
   usuario?: string | null
   puedeAcceder: (pantalla: string) => boolean
+  regresarRolesPago?: () => void
   children: ReactNode
 }
 
@@ -196,6 +197,7 @@ export default function Layout({
   cerrarSesion,
   usuario,
   puedeAcceder,
+  regresarRolesPago,
   children,
 }: LayoutProps) {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
@@ -296,11 +298,18 @@ export default function Layout({
             </button>
           </nav>
         )}
-          {moduloActualId === "Pagos y Finanzas" && pantalla !== PANTALLA_MENU_FINANZAS && puedeAcceder(PANTALLA_MENU_FINANZAS) && (
+          {moduloActualId === "Pagos y Finanzas" && pantalla !== PANTALLA_MENU_FINANZAS && (puedeAcceder(PANTALLA_MENU_FINANZAS) || regresarRolesPago) && (
             <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Pagos y Finanzas">
+              {puedeAcceder(PANTALLA_MENU_FINANZAS) && (
               <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_FINANZAS)}>
                 <span aria-hidden="true">← </span>Volver a Pagos y Finanzas
               </button>
+              )}
+              {regresarRolesPago && (
+                <button type="button" className="c1-subnav-item" onClick={regresarRolesPago}>
+                  <span aria-hidden="true">← </span>Volver a Roles de pago
+                </button>
+              )}
             </nav>
           )}
           {moduloActual && moduloActual.items.length > 0 && (
