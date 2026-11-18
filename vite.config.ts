@@ -26,13 +26,13 @@ export default defineConfig({
         orientation: 'any',
         icons: [
           {
-            src: 'cibuspan-one-icon-192.png',
+            src: 'cibuspan-one-app-icon-turquesa-192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'cibuspan-one-icon-512.png',
+            src: 'cibuspan-one-app-icon-turquesa-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',

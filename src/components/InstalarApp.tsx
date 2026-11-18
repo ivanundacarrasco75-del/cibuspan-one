@@ -78,7 +78,7 @@ export default function InstalarApp() {
       <dialog ref={dialogo} className="c1-instalacion-dialogo" onClose={() => setAyuda(false)}
         aria-labelledby="c1-instalar-titulo">
         <header>
-          <img src={`${import.meta.env.BASE_URL}cibuspan-one-icon.png`} alt="" width={54} height={54} />
+          <img src={`${import.meta.env.BASE_URL}cibuspan-one-app-icon-turquesa.png`} alt="" width={54} height={54} />
           <h2 id="c1-instalar-titulo">Instalar CIBUSPAN ONE</h2>
         </header>
         {evento ? <>
