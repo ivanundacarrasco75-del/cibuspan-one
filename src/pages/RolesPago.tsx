@@ -8,7 +8,6 @@ import {
 
 import ModalMensaje from "../components/ModalMensaje"
 import {
-  actualizarAreaNominaDb,
   importarNominaPdfDb,
   obtenerEmpleadosNominaDb,
   obtenerImportacionesNominaDb,
@@ -24,8 +23,17 @@ import {
   type AnalisisRolesPdf,
   type AreaNomina,
 } from "../utils/rolesPagoPdf"
+import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
+import PersonalNomina from "./PersonalNomina"
+import PagosNomina from "./PagosNomina"
 
-type Vista = "IMPORTAR" | "RESUMEN" | "EMPLEADOS"
+type Vista = "MENU" | "IMPORTAR" | "RESUMEN" | "EMPLEADOS" | "PAGOS"
+const tarjetas: Tarjeta[] = [
+  { nombre: "Cargar PDF", ruta: "IMPORTAR", descripcion: "Importa el reporte mensual de rubros.", icono: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7" },
+  { nombre: "Resumen mensual", ruta: "RESUMEN", descripcion: "Consulta el costo laboral y las cargas mensuales.", icono: "M4 4v16h16M8 16v-4m4 4V8m4 8V5" },
+  { nombre: "Empleados y áreas", ruta: "EMPLEADOS", descripcion: "Gestiona empleados, prestadores externos y su estado.", icono: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8m11 12v6m-3-3h6" },
+  { nombre: "Pagos nómina", ruta: "PAGOS", descripcion: "Prepara los pagos y cárgalos a la semana elegida.", icono: "M5 4h14v16H5zM8 2v4m8-4v4M5 9h14m-9 5 2 2 4-4" },
+]
 
 function moneda(valor: number | null | undefined) {
   return Number(valor ?? 0).toLocaleString("es-EC", {
@@ -49,8 +57,8 @@ function mesPeriodo(periodo: string) {
   }).format(new Date(Date.UTC(anio, mes - 1, 1)))
 }
 
-export default function RolesPago() {
-  const [vista, setVista] = useState<Vista>("IMPORTAR")
+export default function RolesPago({ alCargarPagos }: { alCargarPagos: (semana: string) => void }) {
+  const [vista, setVista] = useState<Vista>("MENU")
   const [empleados, setEmpleados] = useState<EmpleadoNominaDb[]>([])
   const [importaciones, setImportaciones] = useState<ImportacionNominaDb[]>([])
   const [resumenMensual, setResumenMensual] = useState<NominaMensualAreaDb[]>([])
@@ -72,7 +80,7 @@ export default function RolesPago() {
     setError("")
     try {
       const [empleadosDb, importacionesDb, resumenDb] = await Promise.all([
-        obtenerEmpleadosNominaDb(),
+        obtenerEmpleadosNominaDb(true),
         obtenerImportacionesNominaDb(),
         obtenerNominaMensualAreaDb(),
       ])
@@ -160,24 +168,6 @@ export default function RolesPago() {
     }
   }
 
-  async function cambiarAreaEmpleado(empleado: EmpleadoNominaDb, area: AreaNomina) {
-    if (empleado.area === area) return
-    const anterior = empleado.area
-    setEmpleados((actuales) =>
-      actuales.map((item) => item.id === empleado.id ? { ...item, area } : item),
-    )
-    try {
-      await actualizarAreaNominaDb(empleado.id, area)
-      await cargarDatos()
-      setMensaje(`Área de ${empleado.nombre} actualizada en todo el historial.`)
-    } catch (err) {
-      setEmpleados((actuales) =>
-        actuales.map((item) => item.id === empleado.id ? { ...item, area: anterior } : item),
-      )
-      setError(err instanceof Error ? err.message : "No se pudo cambiar el área.")
-    }
-  }
-
   const empleadosAnalisis = useMemo(() => {
     if (!analisis) return []
     return analisis.empleados.map((empleado) => ({
@@ -206,7 +196,7 @@ export default function RolesPago() {
   const maximoArea = Math.max(1, ...areasPeriodo.map((item) => Number(item.costo_empresa)))
 
   return (
-    <main className="nom-page">
+    <main className={vista === "MENU" ? "nom-menu" : "nom-page"}>
       <style>{css}</style>
       <ModalMensaje
         abierto={Boolean(error)}
@@ -222,6 +212,8 @@ export default function RolesPago() {
         cierreAutomaticoMs={4500}
       />
 
+      {vista === "MENU" ? <MenuTarjetas titulo="Roles de pago" tarjetas={tarjetas}
+        cambiarPantalla={destino => setVista(destino as Vista)} /> : <>
       <header className="nom-header">
         <div>
           <span>CONTROL FINANCIERO · COSTO LABORAL</span>
@@ -233,17 +225,7 @@ export default function RolesPago() {
         </button>
       </header>
 
-      <nav className="nom-tabs">
-        {([
-          ["IMPORTAR", "Cargar PDF"],
-          ["RESUMEN", "Resumen mensual"],
-          ["EMPLEADOS", "Empleados y áreas"],
-        ] as [Vista, string][]).map(([id, etiqueta]) => (
-          <button key={id} type="button" className={vista === id ? "active" : ""} onClick={() => setVista(id)}>
-            {etiqueta}
-          </button>
-        ))}
-      </nav>
+      <nav className="nom-tabs"><button type="button" onClick={() => setVista("MENU")}>← Volver a Roles de pago</button></nav>
 
       {vista === "IMPORTAR" && (
         <section className="nom-panel">
@@ -349,12 +331,9 @@ export default function RolesPago() {
         </section>
       )}
 
-      {vista === "EMPLEADOS" && (
-        <section className="nom-panel">
-          <div className="nom-panel-head"><div><span>MAESTRO DE PERSONAL</span><h2>Empleados y áreas</h2><p>Un cambio de área actualiza automáticamente todo el historial del empleado.</p></div></div>
-          {empleados.length === 0 ? <div className="nom-empty">Los empleados aparecerán al instalar la migración o importar el primer rol.</div> : <div className="nom-table-wrap"><table><thead><tr><th>Empleado</th><th>Área vigente</th><th>Actualización</th></tr></thead><tbody>{empleados.map((empleado) => <tr key={empleado.id}><td data-label="Empleado"><strong>{empleado.nombre}</strong></td><td data-label="Área"><SelectorArea value={empleado.area} onChange={(area) => void cambiarAreaEmpleado(empleado, area)} /></td><td data-label="Actualización">{new Date(empleado.actualizado_en).toLocaleDateString("es-EC")}</td></tr>)}</tbody></table></div>}
-        </section>
-      )}
+      {vista === "EMPLEADOS" && <PersonalNomina empleados={empleados} alGuardar={cargarDatos} />}
+      {vista === "PAGOS" && !cargando && <PagosNomina empleados={empleados} alCargar={alCargarPagos} />}
+      </>}
     </main>
   )
 }

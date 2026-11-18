@@ -8,7 +8,7 @@ import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES } from "../utils/p
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
 
-const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible" }
+const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const importe = (valor: number | string | null) => valor === null ? "—" : moneda.format(Number(valor))
 const centavos = (valor: number | string | null) => Math.round(Number(valor) * 100)
@@ -143,10 +143,10 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   )
 }
 
-export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
-  semanal: boolean; cambiarPantalla: (pantalla: string) => void
+export default function FinanzasPagosCompras({ semanal, cambiarPantalla, semanaInicial }: {
+  semanal: boolean; cambiarPantalla: (pantalla: string) => void; semanaInicial?: string
 }) {
-  const [semana, setSemana] = useState(() => lunes(hoy()))
+  const [semana, setSemana] = useState(() => semanaInicial ?? lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
   const [programadas, setProgramadas] = useState<FilaProgramada[]>([])
   const [seleccion, setSeleccion] = useState(new Map<string, Seleccion>())

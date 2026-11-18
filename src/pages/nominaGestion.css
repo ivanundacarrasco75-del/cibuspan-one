@@ -1,0 +1,23 @@
+.nom-gestion { color: #152536; font-size: 12px; }
+.nom-gestion > header, .nom-gestion-filtros, .nom-personal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+}
+.nom-gestion > header { justify-content: space-between; }
+.nom-gestion h2 { margin: 0; font-size: 18px; color: #051142; }
+.nom-gestion label { display: inline-flex; align-items: center; gap: 5px; }
+.nom-gestion-scroll { overflow: auto; max-height: 440px; border: 1px solid #a6b5c3; }
+.nom-gestion table { width: 100%; min-width: 650px; border-collapse: separate; border-spacing: 0; background: #fff; }
+.nom-gestion th, .nom-gestion td { padding: 3px 5px; height: 27px; border-right: 1px solid #bac5d1; border-bottom: 1px solid #bac5d1; text-align: left; }
+.nom-gestion th { position: sticky; top: 0; background: #e9eff4; z-index: 1; }
+.nom-page .nom-gestion button, .nom-page .nom-gestion input, .nom-page .nom-gestion select {
+  min-height: 26px; padding: 3px 6px; border: 1px solid #bcccd8; border-radius: 3px;
+  font-size: 12px; color: #102646; background: #fff;
+}
+.nom-gestion input[type="number"] { width: 105px; text-align: right; }
+.nom-gestion input[type="checkbox"] { min-height: 0; width: 14px; height: 14px; }
+.nom-gestion .nom-importe { text-align: right; font-variant-numeric: tabular-nums; }
+.nom-gestion-filtros { margin-top: 12px; }
