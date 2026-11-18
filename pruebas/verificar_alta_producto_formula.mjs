@@ -34,11 +34,13 @@ test("Alta atómica con las vistas reales de costeo y catálogo disponible para 
     await db.exec(`create trigger validar_componente before insert or update on fm_preformulacion_componentes
       for each row execute function fm_validar_componente_preformulacion()`)
     for (const vista of ["materias_primas_costo_actual", "fm_vw_preformulacion_calculada", "fm_vw_componentes_costeados",
-      "fm_vw_costos_formula", "fm_vw_empaques_producto_costeados", "fm_vw_productos_costo_completo"]) {
+      "fm_vw_costos_formula", "fm_vw_empaques_producto_costeados", "fm_vw_productos_costo_completo",
+      "fm_vw_formula_final", "fm_vw_recetas_micro", "fm_vw_micros_costeados", "fm_vw_productos_costeados", "fm_vw_versiones_vigentes"]) {
       await db.exec(`create view public.${nombre(vista)} as ${esquema.vistas[vista]}`)
     }
     await db.exec(await readFile(new URL("../supabase/migrations/202611180004_alta_producto_formula.sql", import.meta.url), "utf8"))
     await db.exec(`
+      insert into fm_micros(id,codigo,nombre) values ('${id(15)}','MIC','Micro de ensayo');
       insert into materias_primas(id,codigo,nombre,unidad_base,es_empaque,costo_unitario_referencia) values
         ('${id(10)}','HAR','Harina','KG',false,2),
         ('${id(11)}','AGU','Agua','KG',false,1),
@@ -51,7 +53,7 @@ test("Alta atómica con las vistas reales de costeo y catálogo disponible para 
       panes: 20, rendimiento: 10, vida_util: 30, peso_batch_kg: 15, peso_final_g: 500,
       ingredientes: [
         { materia_prima_id: id(10), porcentaje: 100, harina_base: true, micro_id: null },
-        { materia_prima_id: id(11), porcentaje: 50, harina_base: false, micro_id: null },
+        { materia_prima_id: id(11), porcentaje: 50, harina_base: false, micro_id: id(15) },
       ],
       empaques: [{ materia_prima_id: id(12), cantidad: 1 }],
     }
@@ -120,6 +122,67 @@ test("Alta atómica con las vistas reales de costeo y catálogo disponible para 
       await db.exec("select set_config('ensayo.permitido','no',false)")
       await assert.rejects(guardar(id(103), { codigo: "DENEGADO" }), /Sin permiso/)
       assert.equal(await conteo(), 1)
+    })
+    await db.exec("select set_config('ensayo.permitido','si',false)")
+    // Regla instalada de protección de los componentes de versiones vigentes.
+    await db.exec(`
+      create function fm_bloquear_eliminacion_componente() returns trigger language plpgsql as $$
+      declare estado text; begin
+        select v.estado into estado from fm_formula_versiones v where id=old.formula_version_id;
+        if estado<>'BORRADOR' then raise exception 'Solo se eliminan componentes de borradores'; end if;
+        return old;
+      end $$;
+      create trigger bloquear_eliminacion before delete on fm_preformulacion_componentes
+        for each row execute function fm_bloquear_eliminacion_componente();
+    `)
+    await db.exec(await readFile(new URL("../supabase/migrations/202611180005_administracion_formulas.sql", import.meta.url), "utf8"))
+    const producto = await guardar(id(100))
+    const administrar = async (solicitud, accion, objeto) => (await db.query(
+      "select fm_administrar_catalogo($1,$2,$3) resultado", [solicitud, accion, objeto]
+    )).rows[0].resultado
+    await t.test("Bloquear oculta recetas, impresión y costos y desbloquear recupera el mismo costo", async () => {
+      await administrar(id(200), "BLOQUEAR", producto.formula_id)
+      for (const vista of ["fm_vw_preformulacion_calculada", "fm_vw_componentes_costeados", "fm_vw_costos_formula", "fm_vw_productos_costo_completo",
+        "fm_vw_formula_final", "fm_vw_recetas_micro", "fm_vw_micros_costeados", "fm_vw_productos_costeados", "fm_vw_versiones_vigentes"]) {
+        assert.equal((await db.query(`select count(*)::integer n from ${vista}`)).rows[0].n, 0)
+      }
+      assert.equal((await db.query("select activo from fm_formulas")).rows[0].activo, false)
+      assert.equal((await db.query("select estado from fm_formula_versiones")).rows[0].estado, "VIGENTE")
+      await administrar(id(201), "DESBLOQUEAR", producto.formula_id)
+      assert.equal(Number((await db.query("select costo_materiales_unidad from fm_vw_productos_costo_completo")).rows[0].costo_materiales_unidad), 3.6)
+    })
+    await t.test("Eliminar versión vigente retira sus ingredientes y el costo sin eliminar la fórmula", async () => {
+      const respuesta = await administrar(id(202), "ELIMINAR_VERSION", producto.version_id)
+      assert.equal(respuesta.version, 1)
+      assert.deepEqual(await administrar(id(202), "ELIMINAR_VERSION", producto.version_id), respuesta)
+      assert.equal((await db.query("select count(*)::integer n from fm_formula_versiones")).rows[0].n, 0)
+      assert.equal((await db.query("select count(*)::integer n from fm_preformulacion_componentes")).rows[0].n, 0)
+      assert.equal((await db.query("select count(*)::integer n from fm_formulas")).rows[0].n, 1)
+      assert.equal((await db.query("select count(*)::integer n from fm_vw_productos_costo_completo")).rows[0].n, 0)
+    })
+    await t.test("Una referencia externa impide el borrado completo y revierte las acciones parciales", async () => {
+      await db.exec(`create table referencia_externa(formula_id uuid references fm_formulas(id));
+        insert into referencia_externa values('${producto.formula_id}')`)
+      await assert.rejects(administrar(id(203), "ELIMINAR_FORMULA", producto.formula_id), /foreign key/)
+      assert.equal((await db.query("select count(*)::integer n from fm_formula_productos")).rows[0].n, 1)
+      assert.equal((await db.query("select count(*)::integer n from fm_acciones_catalogo where solicitud_id=$1", [id(203)])).rows[0].n, 0)
+      await db.exec("drop table referencia_externa")
+    })
+    await t.test("Eliminar fórmula completa es reintentable y un alta atrasada reconoce su eliminación", async () => {
+      const respuesta = await administrar(id(203), "ELIMINAR_FORMULA", producto.formula_id)
+      assert.deepEqual(await administrar(id(203), "ELIMINAR_FORMULA", producto.formula_id), respuesta)
+      assert.equal((await db.query("select count(*)::integer n from fm_formulas")).rows[0].n, 0)
+      assert.equal((await db.query("select count(*)::integer n from fm_formula_productos")).rows[0].n, 0)
+      await assert.rejects(guardar(id(100)), /fórmula se eliminó/)
+      assert.equal(await conteo(), 1)
+    })
+    await t.test("Las acciones respetan usuario, contenido y permisos, incluidos los reintentos", async () => {
+      await assert.rejects(administrar(id(203), "BLOQUEAR", producto.formula_id), /otros datos|solicitud/)
+      await db.exec(`select set_config('ensayo.usuario','${id(2)}',false)`)
+      await assert.rejects(administrar(id(203), "ELIMINAR_FORMULA", producto.formula_id), /otro usuario/)
+      await db.exec("select set_config('ensayo.permitido','no',false)")
+      await assert.rejects(administrar(id(203), "ELIMINAR_FORMULA", producto.formula_id), /Sin permiso/)
+      assert.equal((await db.query("select has_function_privilege('anon','fm_administrar_catalogo(uuid,text,uuid)','EXECUTE') permitido")).rows[0].permitido, false)
     })
   } finally {
     await db.close()

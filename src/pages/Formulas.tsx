@@ -17,14 +17,16 @@ import {
 import Preformulacion from "./Preformulacion"
 import FormulacionEditor from "./FormulacionEditor"
 import NuevoProductoFormula from "./NuevoProductoFormula"
+import CatalogoFormulas from "./CatalogoFormulas"
 import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
 import { agruparIngredientesImpresion, etiquetaVersionFormula, versionPreferidaFormula } from "../utils/formulacionVersion"
 import "./formulasOrganizacion.css"
 
 type Pestana = "SKU" | "MICROS"
-type Seccion = "MENU" | "FORMULACION" | "IMPRESION" | "NUEVO_PRODUCTO"
+type Seccion = "MENU" | "FORMULACION" | "IMPRESION" | "NUEVO_PRODUCTO" | "ADMINISTRACION"
 const tarjetasFormulas: Tarjeta[] = [
   { nombre: "Ingresar nuevo producto", ruta: "NUEVO_PRODUCTO", descripcion: "Crea el producto y su fórmula maestra seleccionando ingredientes y empaques, y calcula su costo.", icono: "M12 5v14M5 12h14" },
+  { nombre: "Administrar catálogo y versiones", ruta: "ADMINISTRACION", descripcion: "Consulta todas las fórmulas, bloquea o habilita su uso y elimina fórmulas o versiones.", icono: "M4 5h16M4 12h16M4 19h16M8 3v4m8 3v4m-8 3v4" },
   { nombre: "Formulación", ruta: "FORMULACION", descripcion: "Consulta la fórmula y guarda una nueva versión editando sus porcentajes panaderos.", icono: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7" },
   { nombre: "Impresión de fórmulas", ruta: "IMPRESION", descripcion: "Calcula e imprime cantidades para un SKU o para sus micros.", icono: "M6 8V3h12v5M6 17H3V8h18v9h-3M6 14h12v7H6z" },
 ]
@@ -504,7 +506,7 @@ export default function Formulas() {
             onClick={volverAlCalculo}
             style={botonSecundario}
           >
-            ← Volver a Formulación
+            ← Volver al catálogo de fórmulas
           </button>
         </div>
         <Preformulacion />
@@ -519,9 +521,14 @@ export default function Formulas() {
     <NuevoProductoFormula alGuardar={() => setRevisionDatos(actual => actual + 1)} />
   </>
 
+  if (seccion === "ADMINISTRACION") return <>
+    <nav className="fm-regreso" aria-label="Navegación de Fórmulas"><button type="button" className="fm-secundario" onClick={() => setSeccion("MENU")}>← Volver a Fórmulas</button></nav>
+    <CatalogoFormulas editar={() => setAdministrando(true)} alCambiar={() => setRevisionDatos(actual => actual + 1)} />
+  </>
+
   if (seccion === "FORMULACION") return <>
     <nav className="fm-regreso" aria-label="Navegación de Fórmulas"><button type="button" className="fm-secundario" onClick={() => setSeccion("MENU")}>← Volver a Fórmulas</button></nav>
-    <FormulacionEditor administrar={() => setAdministrando(true)} alGuardar={() => setRevisionDatos(actual => actual + 1)} />
+    <FormulacionEditor alGuardar={() => setRevisionDatos(actual => actual + 1)} />
   </>
 
   return (

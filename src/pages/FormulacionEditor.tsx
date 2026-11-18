@@ -6,7 +6,7 @@ import {
 import { guardarNuevaFormulacion } from "../services/formulacionService"
 import { etiquetaVersionFormula, fechaFormulacionHoy, versionPreferidaFormula } from "../utils/formulacionVersion"
 
-export default function FormulacionEditor({ administrar, alGuardar }: { administrar: () => void; alGuardar: () => void }) {
+export default function FormulacionEditor({ alGuardar }: { alGuardar: () => void }) {
   const [formulas, setFormulas] = useState<FormulaFmDb[]>([])
   const [formulaId, setFormulaId] = useState("")
   const [versiones, setVersiones] = useState<FormulaVersionFmDb[]>([])
@@ -132,6 +132,5 @@ export default function FormulacionEditor({ administrar, alGuardar }: { administ
           <button type="submit" className="fm-principal">{guardando ? "Guardando…" : guardado ? "Versión guardada" : "Guardar nueva versión"}</button>
         </fieldset>
       </form>}
-    <button type="button" className="fm-secundario" disabled={guardando || !!borradorId} onClick={administrar}>Administrar catálogo y versiones</button>
   </section>
 }
