@@ -4,6 +4,7 @@ import {
   type CampoCompra, type CompraGuardada, type ControlCompra,
 } from "../repositories/comprasSriRepository"
 import ComprasSriFiltroProveedor from "./ComprasSriFiltroProveedor"
+import ComprasRecepcionMp from "./ComprasRecepcionMp"
 import "./comprasSriTabla.css"
 
 const columnas: { campo: CampoCompra; titulo: string; tipo?: "date" | "importe" }[] = [
@@ -119,6 +120,7 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
             {datos.pagos.map((pago, indice) => (
               <div key={indice}>Forma de pago XML {pago.forma} · {pago.total} · {pago.plazo} {pago.unidad}</div>
             ))}
+            <ComprasRecepcionMp factura={datos} />
           </td>
         </tr>
       )}
