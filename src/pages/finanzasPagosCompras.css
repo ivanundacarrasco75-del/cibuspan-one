@@ -1,4 +1,5 @@
-.fin-pagos .fin-pagos-filtros {
+.fin-pagos .fin-pagos-filtros,
+.fin-pagos-dialogo .fin-pagos-filtros {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -72,6 +73,11 @@
 .fin-pagos button.fin-pagos-principal:hover:not(:disabled) { background: #1b5a74; }
 
 .fin-pagos-dialogo {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
   width: min(420px, calc(100vw - 32px));
   padding: 16px;
   border: 1px solid #a6b5c3;
@@ -87,3 +93,14 @@
   border: 0;
 }
 .fin-pagos-dialogo fieldset label { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.fin-pagos-dialogo button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #bcccd8;
+  border-radius: 3px;
+  background: #fff;
+  color: #102646;
+  cursor: pointer;
+}
+.fin-pagos-dialogo button:disabled { opacity: .55; cursor: default; }
+.fin-pagos-dialogo button.fin-pagos-principal { background: #0e3956; color: #fff; border-color: #0e3956; }

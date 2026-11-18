@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type UIEvent } from "react"
+import { createPortal } from "react-dom"
 import {
   listarComprasProgramadas, listarCuentasCompra, pagarCompra,
   programarCompras, quitarCompraProgramada, type CompraProgramada, type CuentaCompra, type TipoCuentaCompra,
@@ -167,8 +168,16 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
   const dialogo = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
-    if (pago) dialogo.current?.showModal()
+    if (pago && !dialogo.current?.open) dialogo.current?.showModal()
   }, [pago])
+
+  function cerrarPago() {
+    if (bloqueo.current) return
+    setPago(null)
+    setIntentoPago(null)
+    setError("")
+    setRevision(valor => valor + 1)
+  }
 
   useEffect(() => {
     let vigente = true
@@ -293,7 +302,14 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
     }
     void guardar(async () => {
       setIntentoPago(solicitud)
-      await pagarCompra(solicitud)
+      try {
+        await pagarCompra(solicitud)
+      } catch (fallo) {
+        if (typeof fallo === "object" && fallo !== null && "pagoRechazado" in fallo && fallo.pagoRechazado) {
+          setIntentoPago(null)
+        }
+        throw fallo
+      }
       seleccionar(pago.cuenta, false)
       setPago(null)
       setIntentoPago(null)
@@ -398,7 +414,9 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
           </section>
         </>
       )}
-      {pago && <dialog ref={dialogo} className="fin-pagos-dialogo" aria-labelledby="registrar-pago-compra" onCancel={evento => evento.preventDefault()}>
+      {pago && createPortal(<dialog ref={dialogo} className="fin-pagos-dialogo" aria-labelledby="registrar-pago-compra"
+        onClose={() => { if (!dialogo.current?.open) cerrarPago() }}
+        onCancel={evento => { evento.preventDefault(); cerrarPago() }}>
         <form onSubmit={registrarPago}>
           <h2 id="registrar-pago-compra">{pago.abono ? "Registrar abono" : "Registrar pago"}</h2>
           <p>{pago.cuenta.proveedor} · {pago.cuenta.numero_documento || tipos[pago.cuenta.tipo]}</p>
@@ -414,12 +432,10 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
             <button type="submit" className="fin-pagos-principal" disabled={guardando}>
               {guardando ? "Guardando…" : intentoPago ? "Reintentar" : "Confirmar registro"}
             </button>
-            <button type="button" disabled={guardando} onClick={() => {
-              setPago(null); setIntentoPago(null); setError(""); setRevision(valor => valor + 1)
-            }}>{intentoPago ? "Cerrar y actualizar" : "Cancelar"}</button>
+            <button type="button" disabled={guardando} onClick={cerrarPago}>{intentoPago ? "Cerrar y actualizar" : "Cancelar"}</button>
           </div>
         </form>
-      </dialog>}
+      </dialog>, document.body)}
     </main>
   )
 }

@@ -73,9 +73,9 @@ export async function quitarCompraProgramada(semana: string, id: string) {
 export async function pagarCompra(datos: {
   id: string; operacion: string; monto: string; fecha: string; referencia: string; semana: string | null; verificado: boolean
 }) {
-  const { error } = await supabase.rpc("fin_pagar_compra", {
+  const { error, status } = await supabase.rpc("fin_pagar_compra", {
     p_id: datos.id, p_operacion: datos.operacion, p_monto: datos.monto, p_fecha: datos.fecha,
     p_referencia: datos.referencia, p_semana: datos.semana, p_verificado: datos.verificado,
   })
-  if (error) throw error
+  if (error) throw Object.assign(error, { pagoRechazado: status >= 400 && status < 500 })
 }
