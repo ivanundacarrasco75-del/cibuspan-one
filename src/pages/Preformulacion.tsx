@@ -180,8 +180,6 @@ export default function Preformulacion() {
     useState("")
   const [rendimientoUnidades, setRendimientoUnidades] =
     useState("")
-  const [paradasPorBatch, setParadasPorBatch] =
-    useState("1")
   const [mermaPorcentaje, setMermaPorcentaje] =
     useState("0")
   const [observacionesVersion, setObservacionesVersion] =
@@ -675,10 +673,7 @@ export default function Preformulacion() {
             rendimientoUnidades === ""
               ? null
               : Number(rendimientoUnidades),
-          paradasPorBatch:
-            paradasPorBatch === ""
-              ? 1
-              : Number(paradasPorBatch),
+          paradasPorBatch: 1,
           mermaPorcentaje:
             Number(mermaPorcentaje || 0),
           observaciones:
@@ -694,7 +689,6 @@ export default function Preformulacion() {
       setPesoFinalG("")
       setPesoBatchKg("")
       setRendimientoUnidades("")
-      setParadasPorBatch("1")
       setMermaPorcentaje("0")
       setObservacionesVersion("")
 
@@ -1661,13 +1655,6 @@ export default function Preformulacion() {
                     etiqueta="Rendimiento de fundas"
                     valor={rendimientoUnidades}
                     cambiar={setRendimientoUnidades}
-                  />
-
-                  <CampoNumero
-                    etiqueta="Paradas por batch"
-                    valor={paradasPorBatch}
-                    cambiar={setParadasPorBatch}
-                    paso="1"
                   />
 
                   <CampoNumero
