@@ -3,7 +3,7 @@ import {
   contextoAltaFormula, guardarProductoFormula, obtenerMaterialesAltaFormula,
   type DatosNuevoProducto, type MaterialAltaFormula, type ResultadoNuevoProducto,
 } from "../repositories/nuevoProductoFormulaRepository"
-import { obtenerMicrosFmDb, type MicroFmDb } from "../repositories/formulaRepository"
+import { pesoParadaKg } from "../utils/formulacionVersion"
 
 type Ingrediente = { id: string; material: string; porcentaje: string; base: boolean; micro: string }
 type Empaque = { id: string; material: string; cantidad: string }
@@ -13,7 +13,6 @@ const moneda = (valor: number) => Number(valor).toLocaleString("es-EC", { style:
 
 export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => void }) {
   const [materiales, setMateriales] = useState<MaterialAltaFormula[]>([])
-  const [micros, setMicros] = useState<MicroFmDb[]>([])
   const [codigo, setCodigo] = useState("")
   const [nombre, setNombre] = useState("")
   const [corto, setCorto] = useState("")
@@ -21,7 +20,7 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
   const [panes, setPanes] = useState("")
   const [rendimiento, setRendimiento] = useState("")
   const [vida, setVida] = useState("")
-  const [peso, setPeso] = useState("")
+  const [pesoBola, setPesoBola] = useState("")
   const [pesoFinal, setPesoFinal] = useState("")
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>(() => [filaIngrediente()])
   const [empaques, setEmpaques] = useState<Empaque[]>([])
@@ -36,9 +35,9 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
 
   useEffect(() => {
     let activo = true
-    Promise.all([obtenerMaterialesAltaFormula(), obtenerMicrosFmDb(), contextoAltaFormula()]).then(([m, mi, ctx]) => {
+    Promise.all([obtenerMaterialesAltaFormula(), contextoAltaFormula()]).then(([m, ctx]) => {
       if (!activo) return
-      setMateriales(m); setMicros(mi); setContexto(ctx)
+      setMateriales(m); setContexto(ctx)
       const copia = localStorage.getItem(ctx.clave)
       if (copia) {
         const intento = JSON.parse(copia) as Intento
@@ -49,8 +48,8 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
         const d = intento.datos
         setCodigo(d.codigo); setNombre(d.nombre); setCorto(d.corto); setDescripcion(d.descripcion)
         setPanes(String(d.panes)); setRendimiento(String(d.rendimiento)); setVida(String(d.vida_util))
-        setPeso(String(d.peso_batch_kg)); setPesoFinal(String(d.peso_final_g))
-        setIngredientes(d.ingredientes.map(i => ({ id: crypto.randomUUID(), material: i.materia_prima_id, porcentaje: String(i.porcentaje), base: i.harina_base, micro: i.micro_id ?? "" })))
+        setPesoBola(String(d.peso_bola_g ?? d.peso_batch_kg * 1000 / d.panes)); setPesoFinal(String(d.peso_final_g))
+        setIngredientes(d.ingredientes.map(i => ({ id: crypto.randomUUID(), material: i.materia_prima_id, porcentaje: String(i.porcentaje), base: i.harina_base, micro: i.destino === "MICRO" || i.micro_id ? "MICRO" : "" })))
         setEmpaques(d.empaques.map(e => ({ id: crypto.randomUUID(), material: e.materia_prima_id, cantidad: String(e.cantidad) })))
       }
     }).catch(e => { if (activo) { setError(e.message); setContexto(null) } })
@@ -64,6 +63,7 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
   const base = ingredientes.filter(i => i.base).reduce((total, i) => total + (Number(i.porcentaje.replace(",", ".")) || 0), 0)
   const ingredientesDisponibles = materiales.filter(m => !m.es_empaque)
   const empaquesDisponibles = materiales.filter(m => m.es_empaque)
+  const peso = pesoParadaKg(Number(panes), Number(pesoBola))
   const numero = (texto: string, etiqueta: string, entero = false) => {
     const valor = Number(texto.trim().replace(",", "."))
     if (!texto.trim() || !Number.isFinite(valor) || valor <= 0 || (entero && !Number.isInteger(valor))) throw new Error(`Completa ${etiqueta} con un número positivo${entero ? " entero" : ""}.`)
@@ -82,13 +82,13 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
         const datos: DatosNuevoProducto = {
           codigo: codigo.trim(), nombre: nombre.trim(), corto: corto.trim(), descripcion: descripcion.trim(),
           panes: numero(panes, "las unidades de pan por parada", true), rendimiento: numero(rendimiento, "las unidades vendibles por parada", true),
-          vida_util: numero(vida, "la vida útil", true), peso_batch_kg: numero(peso, "el peso de la parada"), peso_final_g: numero(pesoFinal, "el peso final"),
+          vida_util: numero(vida, "la vida útil", true), peso_bola_g: numero(pesoBola, "el peso de bola"), peso_batch_kg: peso ?? 0, peso_final_g: numero(pesoFinal, "el peso final"),
           ingredientes: ingredientes.map(i => {
             const m = materiales.find(m => m.id === i.material)
             if (!m || m.es_empaque) throw new Error("Selecciona cada ingrediente.")
             if (m.unidad_base !== "KG") throw new Error(`${m.nombre} usa ${m.unidad_base}. Selecciona su artículo en KG para formular por peso.`)
             if (m.incluir_en_costeo && m.costo_unitario === null) throw new Error(`Falta el costo vigente de ${m.nombre}.`)
-            return { materia_prima_id: m.id, porcentaje: numero(i.porcentaje, `el porcentaje de ${m.nombre}`), harina_base: i.base, micro_id: i.micro || null }
+            return { materia_prima_id: m.id, porcentaje: numero(i.porcentaje, `el porcentaje de ${m.nombre}`), harina_base: i.base, destino: i.micro ? "MICRO" : "DIRECTO" }
           }),
           empaques: empaques.map(e => {
             const m = materiales.find(m => m.id === e.material)
@@ -141,7 +141,8 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
         <div className="fm-filtros">
           <label>Unidades de pan por parada<input required type="number" min="1" step="1" value={panes} onChange={e => setPanes(e.target.value)} /></label>
           <label>Rendimiento de fundas / unidades vendibles<input required type="number" min="1" step="1" value={rendimiento} onChange={e => setRendimiento(e.target.value)} /></label>
-          <label>Peso de la parada (kg)<input required type="number" min="0.0001" step="0.0001" value={peso} onChange={e => setPeso(e.target.value)} /></label>
+          <label>Peso de bola (g)<input required type="number" min="0.0001" step="0.0001" value={pesoBola} onChange={e => setPesoBola(e.target.value)} /></label>
+          <label>Peso de la parada (kg)<input readOnly value={peso ?? ""} /></label>
           <label>Peso final por pan (g)<input required type="number" min="0.0001" step="0.0001" value={pesoFinal} onChange={e => setPesoFinal(e.target.value)} /></label>
         </div>
         <p>Selecciona los ingredientes y sus porcentajes panaderos. Marca las harinas de la base, que deben sumar 100%. El cálculo por peso usa ingredientes del catálogo en KG.</p>
@@ -152,11 +153,12 @@ export default function NuevoProductoFormula({ alGuardar }: { alGuardar: () => v
               <option value="">Seleccionar ingrediente</option>{ingredientesDisponibles.map(m => <option key={m.id} value={m.id}>{m.codigo} · {m.nombre} ({m.unidad_base})</option>)}
             </select></td><td><input aria-label="Porcentaje panadero" required type="number" min="0.000001" step="0.000001" value={i.porcentaje} onChange={e => cambiarIngrediente(i.id, { porcentaje: e.target.value })} /></td>
               <td><input aria-label="Harina base" type="checkbox" checked={i.base} onChange={e => cambiarIngrediente(i.id, { base: e.target.checked, micro: "" })} /></td>
-              <td><select aria-label="Destino del ingrediente" value={i.micro} disabled={i.base} onChange={e => cambiarIngrediente(i.id, { micro: e.target.value })}><option value="">Directo</option>{micros.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}</select></td>
+              <td><select aria-label="Destino del ingrediente" value={i.micro} disabled={i.base} onChange={e => cambiarIngrediente(i.id, { micro: e.target.value })}><option value="">Directo</option><option value="MICRO">Micro</option></select></td>
               <td>{!m ? "—" : !m.incluir_en_costeo ? "Excluido del costeo en catálogo" : m.costo_unitario === null ? "Costo pendiente" : `${moneda(m.costo_unitario)} / ${m.unidad_base}`}</td>
               <td><button type="button" aria-label="Quitar ingrediente" disabled={ingredientes.length === 1} onClick={() => setIngredientes(f => f.filter(x => x.id !== i.id))}>Quitar</button></td></tr>
           })}</tbody></table></div>
         <p>Harinas base {base.toLocaleString("es-EC")}% · Total panadero {suma.toLocaleString("es-EC")}%</p>
+        {ingredientes.some(i => i.micro) && <p>Se creará <strong>MICRO {corto.trim().toUpperCase() || "· nombre corto del producto"}</strong> con los ingredientes marcados como Micro. Peso por parada {peso && suma > 0 ? (peso * ingredientes.filter(i => i.micro).reduce((t, i) => t + Number(i.porcentaje || 0), 0) / suma).toLocaleString("es-EC", { maximumFractionDigits: 6 }) : "—"} kg.</p>}
         <button type="button" className="fm-secundario" onClick={() => setIngredientes(f => [...f, filaIngrediente()])}>Agregar ingrediente</button>
       </fieldset>
       <fieldset className="fm-guardado" disabled={bloqueado}><legend>Empaques por unidad vendible</legend>

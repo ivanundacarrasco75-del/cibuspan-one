@@ -30,7 +30,9 @@ function escenario() {
   const module = { exports: {} }
   const source = fs.readFileSync(new URL('../src/services/formulacionService.ts', import.meta.url), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
-  new Function('require', 'module', 'exports', code)(name => name.includes('formulaRepository') ? mock : util, module, module.exports)
+  new Function('require', 'module', 'exports', code)(name => name.includes('formulacionGuardadoRepository')
+    ? { guardarVersionFormulacion: async (id, datos) => { llamadas.push(['atomico', id, datos]); return 'version-nueva' } }
+    : name.includes('formulaRepository') ? mock : util, module, module.exports)
   const datos = { origen, componentes, porcentajes: { harina: '100', agua: '65' }, nombre: 'Prueba nueva', fecha: '2026-11-18', activar: true }
   return { guardar: module.exports.guardarNuevaFormulacion, datos, llamadas, versiones,
     fallar: () => { fallo = true }, recuperar: () => { fallo = false }, cambiarEstructura: () => { copia = copia.slice(0, 1) } }
@@ -38,6 +40,24 @@ function escenario() {
 
 test('Selecciona la última vigente aunque exista un borrador más reciente', () => {
   assert.equal(util.versionPreferidaFormula([{ ...origen, id: 'borrador', numero_version: 8, estado: 'BORRADOR' }, origen, { ...origen, id: 'vieja', numero_version: 1 }]).id, origen.id)
+})
+test('La parada se obtiene de panes por peso de bola y rechaza valores incompletos', () => {
+  assert.equal(util.pesoParadaKg(20, 580), 11.6)
+  assert.equal(util.pesoParadaKg(40, 580), 23.2)
+  assert.equal(util.pesoParadaKg(0, 580), null)
+  assert.equal(util.pesoParadaKg(20, NaN), null)
+})
+test('Los cambios de parada y destino usan un único guardado de nueva versión', async () => {
+  const e = escenario()
+  const datos = { ...e.datos, parametros: { panes: 40, rendimiento: 40, pesoBolaG: 580, pesoFinalG: 500 },
+    destinos: { harina: 'DIRECTO', agua: 'MICRO' } }
+  assert.equal(await e.guardar(datos), 'version-nueva')
+  assert.equal(e.llamadas.length, 1)
+  const [accion, id, enviado] = e.llamadas[0]
+  assert.equal(accion, 'atomico');assert.equal(id, 'origen')
+  assert.equal(enviado.peso_bola_g, 580);assert.equal(enviado.panes, 40)
+  assert.deepEqual(enviado.componentes.map(f => f.destino), ['DIRECTO', 'MICRO'])
+  assert.equal(e.datos.componentes[1].destino_tipo, 'DIRECTO')
 })
 
 test('Nombre y fecha se conservan en los datos existentes de la versión', () => {

@@ -1,5 +1,10 @@
 import type { FormulaVersionFmDb } from "../repositories/formulaRepository"
 
+export function pesoParadaKg(panes: number, pesoBolaG: number) {
+  if (!Number.isInteger(panes) || panes <= 0 || !Number.isFinite(pesoBolaG) || pesoBolaG <= 0) return null
+  return Math.round(panes * pesoBolaG / 1000 * 10000) / 10000
+}
+
 export function fechaFormulacionHoy() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
 }

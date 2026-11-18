@@ -4,6 +4,7 @@ import {
   type FormulaVersionFmDb, type PreformulacionComponenteFmDb,
 } from "../repositories/formulaRepository"
 import { observacionesNuevaFormula } from "../utils/formulacionVersion"
+import { guardarVersionFormulacion } from "../repositories/formulacionGuardadoRepository"
 
 // La copia permanece en borrador hasta completar todas las filas y los metadatos.
 // Un reintento continúa sobre esa copia, nunca sobre la versión de origen.
@@ -15,7 +16,9 @@ export async function guardarNuevaFormulacion(datos: {
   fecha: string
   activar: boolean
   borradorId?: string
-}, alCrearBorrador: (id: string) => void) {
+  parametros?: { panes: number; rendimiento: number; pesoBolaG: number; pesoFinalG: number }
+  destinos?: Record<string, "DIRECTO" | "MICRO">
+}, alCrearBorrador: (id: string) => void = () => {}) {
   const { origen, componentes, porcentajes, nombre, fecha, activar } = datos
   if (!nombre.trim() || nombre.trim().length > 120 || /[\r\n]/.test(nombre)) throw new Error("Ingresa un nombre de versión de hasta 120 caracteres.")
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(Date.parse(fecha)) || new Date(`${fecha}T12:00:00Z`).toISOString().slice(0, 10) !== fecha) throw new Error("Selecciona una fecha de modificación válida.")
@@ -27,6 +30,20 @@ export async function guardarNuevaFormulacion(datos: {
     return valor
   })
   if (!valores.some(valor => valor > 0)) throw new Error("La fórmula debe tener al menos un porcentaje mayor que cero.")
+  if (datos.parametros) {
+    const p = datos.parametros
+    if (!Number.isInteger(p.panes) || p.panes <= 0 || !Number.isInteger(p.rendimiento) || p.rendimiento <= 0 ||
+      !Number.isFinite(p.pesoBolaG) || p.pesoBolaG <= 0 || !Number.isFinite(p.pesoFinalG) || p.pesoFinalG <= 0) {
+      throw new Error("Revisa unidades por parada, rendimiento, peso de bola y peso final.")
+    }
+    return guardarVersionFormulacion(origen.id, {
+      nombre: nombre.trim(), fecha, activar, panes: p.panes, rendimiento: p.rendimiento,
+      peso_bola_g: p.pesoBolaG, peso_final_g: p.pesoFinalG, origen_actualizado_en: origen.actualizado_en,
+      componentes: componentes.map((fila, i) => ({
+        id: fila.id, porcentaje: valores[i], destino: datos.destinos?.[fila.id] ?? fila.destino_tipo,
+      })),
+    })
+  }
   const versiones = await obtenerVersionesFormulaFmDb(origen.formula_id)
   if (versiones.some(version => version.id !== datos.borradorId && version.observaciones?.split("\n")[0]?.toLocaleLowerCase() === `Nombre de versión: ${nombre.trim()}`.toLocaleLowerCase())) throw new Error("Ya existe una versión con ese nombre para el SKU.")
   const observaciones = observacionesNuevaFormula(nombre, fecha, origen)

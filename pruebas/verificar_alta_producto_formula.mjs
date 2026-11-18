@@ -184,6 +184,75 @@ test("Alta atómica con las vistas reales de costeo y catálogo disponible para 
       await assert.rejects(administrar(id(203), "ELIMINAR_FORMULA", producto.formula_id), /Sin permiso/)
       assert.equal((await db.query("select has_function_privilege('anon','fm_administrar_catalogo(uuid,text,uuid)','EXECUTE') permitido")).rows[0].permitido, false)
     })
+    await db.exec(`select set_config('ensayo.permitido','si',false),set_config('ensayo.usuario','${id(1)}',false)`)
+    await db.exec(await readFile(new URL("../supabase/migrations/202611180006_formulacion_parada_micro.sql", import.meta.url), "utf8"))
+    const altaMicro = { ...datos, codigo: "AUTO-MICRO", corto: "PAN ENSAYO", peso_bola_g: 580, peso_batch_kg: 0.0001,
+      ingredientes: [
+        { materia_prima_id: id(10), porcentaje: 100, harina_base: true, destino: "DIRECTO" },
+        { materia_prima_id: id(11), porcentaje: 50, harina_base: false, destino: "MICRO" },
+      ] }
+    const nuevo = await guardar(id(300), altaMicro)
+    const versionJson = async idVersion => (await db.query("select to_jsonb(v) datos from fm_formula_versiones v where id=$1", [idVersion])).rows[0].datos
+    const filasJson = async idVersion => (await db.query("select jsonb_agg(to_jsonb(c) order by c.orden) datos from fm_preformulacion_componentes c where formula_version_id=$1", [idVersion])).rows[0].datos
+    const original = await versionJson(nuevo.version_id)
+    const filasOriginales = await filasJson(nuevo.version_id)
+    const hoy = (await db.query("select ((now() at time zone 'America/Bogota')::date)::text hoy")).rows[0].hoy
+    const solicitud = {
+      nombre: "Parada de cuarenta", fecha: hoy, activar: true, panes: 40, rendimiento: 40, peso_bola_g: 580,
+      peso_final_g: 500, origen_actualizado_en: original.actualizado_en,
+      componentes: filasOriginales.map(c => ({ id: c.id, porcentaje: Number(c.porcentaje_panadero), destino: c.destino_tipo })),
+    }
+    const guardarVersion = async (uuid, cambios = {}) => (await db.query(
+      "select fm_guardar_formulacion($1,$2,$3::jsonb) resultado",
+      [uuid, nuevo.version_id, JSON.stringify({ ...solicitud, ...cambios })]
+    )).rows[0].resultado
+    await t.test("El alta genera MICRO + nombre corto y calcula la parada con panes por peso de bola", async () => {
+      assert.equal(Number(original.peso_bola_g), 580)
+      assert.equal(Number(original.peso_batch_kg), 11.6)
+      const [micro] = (await db.query("select m.nombre,c.micro_id from fm_preformulacion_componentes c join fm_micros m on m.id=c.micro_id where c.formula_version_id=$1", [nuevo.version_id])).rows
+      assert.equal(micro.nombre, "MICRO PAN ENSAYO")
+      const [detalle] = (await db.query("select porcentaje_composicion_micro from fm_vw_recetas_micro where formula_version_id=$1", [nuevo.version_id])).rows
+      assert.equal(Number(detalle.porcentaje_composicion_micro), 100)
+    })
+    let guardada
+    await t.test("Cambiar unidades crea fórmula V2 y micro V2 y mantiene cantidades y destinos anteriores", async () => {
+      guardada = await guardarVersion(id(301))
+      assert.equal(guardada.numero_version, 2)
+      assert.equal(Number(guardada.peso_batch_kg), 23.2)
+      assert.deepEqual(await filasJson(nuevo.version_id), filasOriginales)
+      const despues = await versionJson(nuevo.version_id)
+      for (const campo of ["panes_por_batch", "peso_bola_g", "peso_batch_kg", "rendimiento_unidades", "peso_final_g", "observaciones"]) {
+        assert.equal(despues[campo], original[campo])
+      }
+      const micros = (await db.query("select distinct numero_version,formula_version_id,micro_id from fm_vw_recetas_micro where formula_id=$1 order by numero_version", [nuevo.formula_id])).rows
+      assert.deepEqual(micros.map(m => m.numero_version), [1, 2])
+      assert.equal(micros[0].micro_id, micros[1].micro_id)
+      assert.equal((await versionJson(guardada.version_id)).estado, "VIGENTE")
+    })
+    await t.test("Reintento recupera V2 y cambio de datos o sesión no duplica versiones", async () => {
+      assert.deepEqual(await guardarVersion(id(301)), guardada)
+      await assert.rejects(guardarVersion(id(301), { panes: 50 }), /otros datos/)
+      await db.exec(`select set_config('ensayo.usuario','${id(2)}',false)`)
+      await assert.rejects(guardarVersion(id(301)), /otro usuario/)
+      await db.exec(`select set_config('ensayo.usuario','${id(1)}',false)`)
+    })
+    await t.test("Destinos editables y peso de bola se guardan solo en una nueva versión", async () => {
+      const fuente = await versionJson(guardada.version_id)
+      const filas = await filasJson(guardada.version_id)
+      const [r] = (await db.query("select fm_guardar_formulacion($1,$2,$3::jsonb) resultado", [id(302), guardada.version_id, JSON.stringify({
+        ...solicitud, nombre: "Cambio de destino", origen_actualizado_en: fuente.actualizado_en, peso_bola_g: 600,
+        componentes: filas.map(c => ({ id: c.id, porcentaje: Number(c.porcentaje_panadero), destino: "DIRECTO" })),
+      })])).rows
+      assert.equal(Number(r.resultado.peso_batch_kg), 24)
+      assert.deepEqual(await filasJson(guardada.version_id), filas)
+      assert.equal((await db.query("select count(*)::integer n from fm_vw_recetas_micro where formula_version_id=$1", [r.resultado.version_id])).rows[0].n, 0)
+      assert.equal((await db.query("select count(*)::integer n from fm_vw_recetas_micro where formula_version_id=$1", [guardada.version_id])).rows[0].n, 1)
+    })
+    await t.test("Una versión histórica no se retrofecha y el origen cambiado exige recarga", async () => {
+      await assert.rejects(guardarVersion(id(303)), /origen cambió/)
+      const actual = await versionJson(nuevo.version_id)
+      await assert.rejects(guardarVersion(id(303), { nombre: "Fecha anterior inválida", origen_actualizado_en: actual.actualizado_en, fecha: "2020-01-01" }), /comienza hoy/)
+    })
   } finally {
     await db.close()
   }

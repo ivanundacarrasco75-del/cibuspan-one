@@ -18,8 +18,9 @@ export type DatosNuevoProducto = {
   rendimiento: number
   vida_util: number
   peso_batch_kg: number
+  peso_bola_g?: number
   peso_final_g: number
-  ingredientes: { materia_prima_id: string; porcentaje: number; harina_base: boolean; micro_id: string | null }[]
+  ingredientes: { materia_prima_id: string; porcentaje: number; harina_base: boolean; micro_id?: string | null; destino?: "DIRECTO" | "MICRO" }[]
   empaques: { materia_prima_id: string; cantidad: number }[]
 }
 export type ResultadoNuevoProducto = {
