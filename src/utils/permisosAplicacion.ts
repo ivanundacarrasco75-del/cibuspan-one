@@ -7,6 +7,7 @@ export const PANTALLA_FACTURAS_SRI = "Compras · Facturas del SRI"
 export const PANTALLA_NOTAS_VENTA = "Compras · Notas de venta"
 export const PANTALLA_NO_DEDUCIBLES = "Compras · Gastos no deducibles"
 export const PANTALLA_MENU_FINANZAS = "Pagos y Finanzas · Resumen"
+export const PANTALLA_MENU_PRODUCCION = "Producción · Resumen"
 export const PANTALLA_CUENTAS_POR_PAGAR = "Pagos y Finanzas · Cuentas por Pagar"
 export const PANTALLA_PAGOS_SEMANALES = "Pagos y Finanzas · Pagos semanales"
 export const PANTALLA_PAGOS_ANTERIOR = "Pagos y Finanzas · Pagos"
@@ -49,10 +50,13 @@ export function puedeAbrirPantalla(
   if (ruta === "Administración · Usuarios y Permisos") return rol === "ADMINISTRADOR"
   if (RUTAS_SOLO_ADMIN.includes(ruta) && rol !== "ADMINISTRADOR") return false
   const menus: Record<string, string[]> = {
+    [PANTALLA_MENU_PRODUCCION]: rutasDeNodo(ARBOL_PERMISOS[2]).filter((item) => item !== PANTALLA_MENU_PRODUCCION),
     [PANTALLA_MENU_COMPRAS]: rutasDeNodo(ARBOL_PERMISOS[4]).filter((item) => item !== PANTALLA_MENU_COMPRAS),
     [PANTALLA_FACTURAS_COMPRAS]: PANTALLAS_DOCUMENTOS_COMPRAS,
     [PANTALLA_MENU_FINANZAS]: rutasDeNodo(ARBOL_PERMISOS[5]).filter((item) => item !== PANTALLA_MENU_FINANZAS),
   }
+  if (ruta === PANTALLA_MENU_PRODUCCION && menus[ruta].some((hijo) =>
+    puedeAbrirPantalla(hijo, rol, permitidas, denegadas))) return true
   if (menus[ruta]?.some((hijo) => permitidas.includes(hijo) && !denegadas.includes(hijo) &&
     (!RUTAS_SOLO_ADMIN.includes(hijo) || rol === "ADMINISTRADOR"))) return true
   if (denegadas.includes(ruta)) return false

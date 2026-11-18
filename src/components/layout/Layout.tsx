@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLA_MENU_FINANZAS, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
+import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLA_MENU_FINANZAS, PANTALLA_MENU_PRODUCCION, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
 import LogoCibuspan from "../LogoCibuspan"
 
 type LayoutProps = {
@@ -79,18 +79,8 @@ const modulos: Modulo[] = [
     id: "Producción",
     etiqueta: "Producción",
     icono: "produccion",
-    entrada: "Producción · Resumen",
-    items: [
-      { pantalla: "Producción · Resumen", etiqueta: "Resumen" },
-      { pantalla: "Producción · Pedidos", etiqueta: "Pedidos" },
-      { pantalla: "Producción · Planificación", etiqueta: "Planificación" },
-      { pantalla: "Producción · Producción", etiqueta: "Producción" },
-      { pantalla: "Producción · Fórmulas", etiqueta: "Fórmulas" },
-      { pantalla: "Producción · Semielaborados", etiqueta: "Semielaborados" },
-      { pantalla: "Producción · Etiquetado", etiqueta: "Etiquetado" },
-      { pantalla: "Producción · Historial", etiqueta: "Historial" },
-      { pantalla: "Producción · Análisis", etiqueta: "Análisis" },
-    ],
+    entrada: PANTALLA_MENU_PRODUCCION,
+    items: [],
   },
   {
     id: "Inventario y Despachos",
@@ -286,6 +276,13 @@ export default function Layout({
       </header>
 
       <main className="c1-content">
+        {moduloActualId === "Producción" && pantalla !== PANTALLA_MENU_PRODUCCION && puedeAcceder(PANTALLA_MENU_PRODUCCION) && (
+          <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Producción">
+            <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_PRODUCCION)}>
+              <span aria-hidden="true">← </span>Volver a Producción
+            </button>
+          </nav>
+        )}
         {moduloActualId === "Compras" && pantalla !== PANTALLA_MENU_COMPRAS && moduloActual && (
           <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Compras">
             {PANTALLAS_DOCUMENTOS_COMPRAS.includes(pantalla) && puedeAcceder(PANTALLA_FACTURAS_COMPRAS) && (

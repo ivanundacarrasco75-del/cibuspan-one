@@ -21,6 +21,7 @@ const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
+const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
 const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
 const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
 const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
@@ -412,6 +413,8 @@ function App() {
         return <PedidosV2 />
 
       case "Producción · Resumen":
+        return <ProduccionResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
       case "Producción · Planificación":
       case "Producción · Producción":
       case "Producción":

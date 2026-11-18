@@ -14,6 +14,18 @@ const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
 const compilar = (source) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 
+test('Las tarjetas de Producción conservan la entrada para permisos específicos y antiguos', () => {
+  const menu = utilPermisos.PANTALLA_MENU_PRODUCCION
+  for (const permiso of ['Producción · Planificación', 'Preformulación', 'Semielaborados', 'Hoja de producción']) {
+    const puede = ruta => puedeAbrirPantalla(ruta, 'OPERADOR', [permiso])
+    assert.equal(puede(menu), true, permiso)
+    assert.equal(filtrarModulosPermitidos([{ entrada: menu, items: [] }], puede).length, 1)
+  }
+  assert.equal(puedeAbrirPantalla(menu, 'OPERADOR', ['Producción · Planificación'], ['Producción · Planificación']), false)
+  assert.equal(puedeAbrirPantalla(menu, 'KAM', ['KPI KAM']), false)
+  assert.equal(puedeAbrirPantalla('Producción · Producción', 'OPERADOR', ['Producción · Planificación']), false)
+})
+
 test('Un KAM con acceso personalizado no ve Pedidos, Dashboard ni Administración', () => {
   const puede = (ruta) => puedeAbrirPantalla(ruta, 'KAM', ['KPI KAM'])
   assert.equal(puede('KPI KAM'), true)
