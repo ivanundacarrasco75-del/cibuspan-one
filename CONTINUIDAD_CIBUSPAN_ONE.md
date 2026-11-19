@@ -1,5 +1,15 @@
 # Continuidad de CIBUSPAN ONE
 
+19/11/2026: inicio del diseño de **Casa Masa** en el chat MODULO CM. Ver
+`docs/CASA_MASA.md`: pedidos y empaque propios, CM-001 a CM-004 con meta diaria
+de 20 unidades por SKU, sin OP originadas por pedidos; cobro electrónico contra
+entrega, evidencia por WhatsApp, verificación de pago y bandeja para facturar.
+Base de código revisada: `07c2f36`. Sólo diseño documentado; no se crearon pantallas,
+SQL ni conexión de WhatsApp. Pendientes implementación, instalación y publicación.
+Iván confirma que todavía no tienen número de WhatsApp; responsables y medios
+receptores por definir. El registro manual puede desarrollarse antes. No asumir
+que recibir una captura confirma un pago o que la meta diaria crea inventario.
+
 14/11/2026: MVP en **Compras → Facturas del SRI**, disponible para administradores después de aplicar `202611140001_compras_sri.sql` y publicar. Importa facturas XML de CIBUSPAN, vincula la clave del RIDE en PDF y guarda los datos ordenados en CIBUSPAN ONE. Validado con dos facturas, sus RIDE y una guía de remisión en una prueba de navegador con Supabase simulado. Quedan pendientes la migración en Supabase, la publicación y la automatización de la descarga desde una sesión autenticada del SRI.
 
 Recuperación del 10/11/2026: [estado de la base de contingencia y pruebas pendientes](docs/CONTINGENCIA_SUPABASE.md). El respaldo ya se restauró y los permisos anónimos se retiraron en el destino; la app pública todavía usa el proyecto original.
