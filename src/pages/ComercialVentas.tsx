@@ -45,8 +45,8 @@ type GrupoVenta = {
   fillRate: number | null
 }
 
-const VINO = "#8F1D24"
-const NARANJA = "#F7931E"
+const VINO = "#051142"
+const NARANJA = "#006c65"
 
 function fechaIsoLocal(fecha: Date) {
   const anio = fecha.getFullYear()
@@ -2007,8 +2007,8 @@ const css = `
   }
 
   .reconciliation-mode-actions button.historical {
-    border-color: #8F1D24;
-    color: #8F1D24;
+    border-color: #051142;
+    color: #051142;
   }
 
   .reconciliation-mode-actions button:disabled {
@@ -2124,7 +2124,7 @@ const css = `
     border: 1px solid #dfd4ce;
     border-radius: 6px;
     background: white;
-    color: #8F1D24;
+    color: #051142;
     font-size: 8px;
     font-weight: 900;
     cursor: pointer;
@@ -2181,7 +2181,7 @@ const css = `
   .reconciliation-causes {
     margin: 0 14px 14px;
     padding: 9px 11px;
-    border-left: 3px solid #F7931E;
+    border-left: 3px solid #006c65;
     background: white;
     color: #776a64;
     font-size: 8px;

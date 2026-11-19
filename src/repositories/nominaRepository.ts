@@ -7,6 +7,7 @@ export type EmpleadoNominaDb = {
   nombre_normalizado: string
   area: AreaNomina
   activo: boolean
+  tipo_vinculo: "NOMINA" | "EXTERNO"
   creado_en: string
   actualizado_en: string
 }
@@ -55,14 +56,42 @@ export type ResultadoImportacionNomina = {
   pago_neto_rol: number
 }
 
-export async function obtenerEmpleadosNominaDb() {
-  const { data, error } = await supabase
+export async function obtenerEmpleadosNominaDb(incluirDesvinculados = false) {
+  let consulta = supabase
     .from("fin_nomina_empleados")
     .select("*")
-    .eq("activo", true)
     .order("nombre")
+  if (!incluirDesvinculados) consulta = consulta.eq("activo", true)
+  const { data, error } = await consulta
   if (error) throw new Error(`No se pudieron cargar los empleados: ${error.message}`)
   return (data ?? []) as EmpleadoNominaDb[]
+}
+
+export async function guardarPersonalNomina(persona: Pick<EmpleadoNominaDb, "id" | "nombre" | "area" | "activo" | "tipo_vinculo">) {
+  const { error } = await supabase.rpc("fin_guardar_personal", {
+    p_id: persona.id, p_nombre: persona.nombre, p_area: persona.area,
+    p_activo: persona.activo, p_tipo: persona.tipo_vinculo,
+  })
+  if (error) throw error
+}
+
+export const CONCEPTOS_PAGO_NOMINA = {
+  PRIMERA_QUINCENA: "Primera quincena",
+  SEGUNDA_QUINCENA: "Segunda quincena",
+  DECIMO_TERCERO: "Décimo tercer sueldo",
+  DECIMO_CUARTO: "Décimo cuarto sueldo",
+  DECIMO_SEXTO: "Décimo sexto sueldo",
+} as const
+export type ConceptoPagoNomina = keyof typeof CONCEPTOS_PAGO_NOMINA
+export type CargaNominaCuentas = {
+  periodo: string; concepto: ConceptoPagoNomina
+  filas: { empleado_id: string; monto: string }[]
+}
+export async function cargarNominaCuentas(datos: CargaNominaCuentas) {
+  const { error, status } = await supabase.rpc("fin_cargar_nomina_cuentas", {
+    p_periodo: datos.periodo, p_concepto: datos.concepto, p_filas: datos.filas,
+  })
+  if (error) throw Object.assign(error, { cargaRechazada: status >= 400 && status < 500 })
 }
 
 export async function obtenerImportacionesNominaDb() {

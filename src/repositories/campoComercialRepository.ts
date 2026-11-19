@@ -1,4 +1,4 @@
-import { solicitarCapturasR2, subirCapturasR2, mensajeErrorCampo } from "./capturasR2Repository"
+import { solicitarCapturasR2, subirCapturasR2, mensajeErrorCampo, esCapturaDelProyectoAnterior } from "./capturasR2Repository"
 import { supabase } from "../lib/supabase"
 import { leerCarasPercha, type RegistroSupervision } from "../utils/supervisionCampo"
 import { puntoValido, type LocalCampo, type GeorreferenciaCampo, type FotoCampo } from "../utils/georreferenciaCampo"
@@ -175,6 +175,24 @@ function leerEvidenciaCampo(datos: unknown) {
 export async function obtenerFotosCampo(rutas: string[]) {
   if (!rutas.length) return []
   return solicitarCapturasR2<Array<{ ruta: string; url: string }>>("firmar", { rutas })
+}
+
+export async function obtenerFotosParaRevisionCampo(rutas: string[]) {
+  try {
+    return { fotos: await obtenerFotosCampo(rutas), soloHistoricas: false }
+  } catch (error) {
+    if (!esCapturaDelProyectoAnterior(error)) throw error
+  }
+  const resultados = await Promise.all(rutas.map(async (ruta) => {
+    try {
+      return await obtenerFotosCampo([ruta])
+    } catch (error) {
+      if (!esCapturaDelProyectoAnterior(error) || /\/captura-r2-/.test(ruta)) throw error
+      return []
+    }
+  }))
+  const fotos = resultados.flat()
+  return { fotos, soloHistoricas: fotos.length === 0 }
 }
 
 export async function subirImagenesCampo(archivos: File[], tipo: "captura" | "percha") {

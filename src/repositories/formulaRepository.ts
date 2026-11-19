@@ -740,6 +740,19 @@ export async function activarVersionFmDb(
   return data as string
 }
 
+export async function guardarPorcentajeBorradorFmDb(componenteId: string, versionId: string, porcentaje: number) {
+  const { error } = await supabase.from("fm_preformulacion_componentes")
+    .update({ porcentaje_panadero: porcentaje })
+    .eq("id", componenteId).eq("formula_version_id", versionId).select("id").single()
+  if (error) throw new Error(`No se pudo guardar el porcentaje: ${error.message}`)
+}
+
+export async function guardarDatosVersionBorradorFmDb(versionId: string, observaciones: string) {
+  const { error } = await supabase.from("fm_formula_versiones")
+    .update({ observaciones }).eq("id", versionId).eq("estado", "BORRADOR").select("id").single()
+  if (error) throw new Error(`No se pudo guardar el nombre y la fecha: ${error.message}`)
+}
+
 export async function obtenerPreformulacionCalculadaFmDb(
   formulaVersionId: string,
 ) {

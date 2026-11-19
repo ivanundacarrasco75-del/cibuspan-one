@@ -1,0 +1,10 @@
+.compras-recepcion{margin-top:12px;padding:12px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#0b1739;white-space:normal}
+.compras-recepcion h3{margin:0 0 8px;font-size:14px}.compras-recepcion p{margin:8px 0;font-size:12px}
+.compras-recepcion fieldset{margin:0;padding:0;border:0;min-width:0}.compras-recepcion label{display:flex;align-items:center;gap:8px;font-size:12px}
+.compras-recepcion-tabla{max-width:100%;overflow:auto;margin:10px 0}.compras-recepcion table{width:100%;min-width:680px;table-layout:auto}
+.compras-recepcion th,.compras-recepcion td{padding:5px;border:1px solid #cbd5e1;text-align:left;white-space:normal}
+.compras-recepcion th{position:static}
+.compras-recepcion select{max-width:340px;width:100%;padding:4px;background:white;color:#0b1739;border:1px solid #94a3b8}
+.compras-recepcion input:not([type=checkbox]){width:120px;padding:4px;border:1px solid #94a3b8;background:white;color:#0b1739}
+.compras-recepcion .compras-recepcion-confirmar{align-items:flex-start}.compras-recepcion button{padding:6px 10px;background:#0b1739;color:white;border:0;border-radius:4px}
+.compras-recepcion button:disabled{opacity:.5}

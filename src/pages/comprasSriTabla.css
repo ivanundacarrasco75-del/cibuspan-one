@@ -1,0 +1,270 @@
+.compras-sri-pagina {
+  min-width: 0;
+  padding: 12px clamp(8px, 1vw, 14px);
+  color: #152536;
+  text-align: left;
+}
+
+.compras-sri-cabecera,
+.compras-sri-herramientas,
+.compras-sri-paginas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.compras-sri-cabecera {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.compras-sri-cabecera h1 {
+  margin: 0;
+  color: #102646;
+  font-size: clamp(17px, 2vw, 23px);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.compras-sri-herramientas {
+  font-size: 12px;
+}
+
+.compras-sri-herramientas a,
+.compras-sri-importar {
+  padding: 5px 9px;
+  border: 1px solid #bcccd8;
+  border-radius: 5px;
+  background: #fff;
+  color: #102646;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.compras-sri-importar {
+  position: relative;
+  border-color: #97cfcd;
+  background: #e6f6f5;
+  cursor: pointer;
+}
+
+.compras-sri-importar input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.compras-sri-importar:focus-within,
+.compras-sri-contenedor:focus-visible {
+  outline: 2px solid #2371ab;
+  outline-offset: 2px;
+}
+
+.compras-sri-paginas {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.compras-sri-pagina > p,
+.compras-sri-pagina > ul {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.compras-sri-contenedor {
+  overflow: auto;
+  max-height: 72vh;
+  border: 1px solid #a6b5c3;
+}
+
+.compras-sri-tabla {
+  width: calc(100% - 1px);
+  min-width: 1048px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  color: #152536;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.compras-sri-tabla th,
+.compras-sri-tabla td {
+  padding: 2px 4px;
+  border-bottom: 1px solid #bac5d1;
+  border-right: 1px solid #bac5d1;
+  text-align: left;
+}
+
+.compras-sri-tabla th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #e9eff4;
+  white-space: nowrap;
+  padding-block: 5px;
+}
+
+.compras-sri-tabla td > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  padding: 1px 2px;
+  background-color: transparent !important;
+  color: inherit;
+  font: inherit;
+}
+
+.compras-sri-tabla td > input:not(:focus) {
+  text-overflow: ellipsis;
+}
+
+.compras-sri-tabla td > input:focus {
+  outline: 2px solid #2371ab;
+  outline-offset: -1px;
+  background-color: white !important;
+  color: #152536;
+}
+
+.compras-sri-col-fecha { width: 104px; }
+.compras-sri-col-serie { width: 128px; }
+.compras-sri-col-proveedor { width: 136px; }
+.compras-sri-col-subtotal,
+.compras-sri-col-retencion,
+.compras-sri-col-total { width: 66px; }
+.compras-sri-col-iva { width: 52px; }
+.compras-sri-col-documento { width: 94px; }
+.compras-sri-col-estado { width: 70px; }
+
+.compras-sri-celda-subtotal > input,
+.compras-sri-celda-iva > input,
+.compras-sri-celda-retencion > input,
+.compras-sri-celda-total > input,
+.compras-sri-tabla .compras-sri-monto { text-align: right; font-variant-numeric: tabular-nums; }
+
+.compras-sri-tabla .compras-sri-pagada > td { background: #9edbfa; color: #10304b; }
+.compras-sri-tabla .compras-sri-saldo > td { background: #fff; font-weight: 650; }
+.compras-sri-movimiento { font-variant-numeric: tabular-nums; }
+.compras-sri-estado { white-space: nowrap; }
+.compras-sri-pagina button {
+  min-height: 22px;
+  padding: 2px 4px;
+  border: 1px solid #c9d7e1;
+  border-radius: 3px;
+  background: #fff;
+  color: #102646;
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.compras-sri-pagina button:disabled { opacity: .55; cursor: default; }
+.compras-sri-pagina button:hover:not(:disabled) { background: #e6f6f5; }
+.compras-sri-pagina .compras-sri-filtro-boton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  min-height: 0;
+  padding: 0 2px 0 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+.compras-sri-filtro {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  width: min(318px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid #bcccd8;
+  border-radius: 6px;
+  background: #fff;
+  color: #102646;
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 20px #10264629;
+}
+.compras-sri-filtro label { display: grid; gap: 4px; margin-bottom: 6px; }
+.compras-sri-filtro input { width: 100%; padding: 6px; border: 1px solid #bcccd8; border-radius: 3px; font: inherit; }
+.compras-sri-filtro ul { max-height: 160px; margin: 4px 0 0; padding: 0; overflow: auto; list-style: none; }
+.compras-sri-filtro li button,
+.compras-sri-pagina .compras-sri-filtro-todos {
+  width: 100%;
+  padding: 4px 6px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.compras-sri-filtro li button { border-color: transparent; }
+.compras-sri-filtro li button[aria-pressed="true"] { background: #e6f6f5; }
+.compras-sri-filtro > p { margin-top: 6px; }
+.compras-sri-filtro-activo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.compras-sri-tabla .compras-sri-detalle {
+  padding: 8px 10px;
+  background: #f4f8fb;
+  overflow-wrap: anywhere;
+}
+.compras-sri-detalle ul { margin: 4px 0; padding-left: 18px; }
+
+.compras-sri-formulario {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 7px 4px;
+}
+
+.compras-sri-pagina .compras-sri-alta {
+  background: #e6f6f5;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.compras-sri-formulario-manual {
+  margin-bottom: 10px;
+  border: 1px solid #bcccd8;
+  background: white;
+  font-size: 12px;
+}
+
+.compras-sri-formulario-manual fieldset {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  align-items: end;
+  gap: 8px;
+}
+
+.compras-sri-formulario-manual label { display: grid; gap: 3px; min-width: 0; }
+.compras-sri-formulario-manual input { width: 100%; min-width: 0; font: inherit; }
+.compras-sri-formulario-manual p { padding: 0 8px; color: #8b1f16; }
+.compras-sri-tabla-documentos { min-width: 880px; }
+.compras-sri-col-detalle { width: 62px; }
+.compras-sri-tabla-documentos td:not(.compras-sri-detalle) {
+  height: 27px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.compras-sri-error { background: #fff1ee; color: #8b1f16; }

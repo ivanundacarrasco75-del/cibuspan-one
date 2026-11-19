@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react"
 import { obtenerDashboardVisitasRotacion, type DatosDashboardCampo } from "../repositories/dashboardVisitasRotacionRepository"
 import { fechaHoyCampoDashboard } from "../utils/dashboardVisitasRotacion"
 import { agruparVisitasDiariasCampo } from "../utils/visitasDiariasCampo"
-import "../components/kpiKam/DashboardVisitasRotacion.css"
 import "./VisitasDiarias.css"
 import { CLAVE_REVISION_CAMPO, pendientesRevisionCampo } from "../utils/revisionDatosCampo"
 

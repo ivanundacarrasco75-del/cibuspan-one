@@ -1,17 +1,20 @@
 import type { GeorreferenciaCampo, FotoCampo } from "./georreferenciaCampo"
 import { datoVerificadoCampo, esIngresoManualCampo, type VerificacionCamposCampo } from "./validacionLecturasCampo.ts"
 import type { LecturaFavorita } from "../repositories/campoComercialRepository"
+import type { PromocionDb, PromocionProductoDb } from "../repositories/promocionesRepository"
 
-export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
+export type IndicadorCampo = "rotacion" | "stock" | "dias" | "caras" | "precio" | "precio_afiliado" | "venta" | "participacion_clase" | "participacion_subclase" | "prediccion" | "stock_cd" | "dias_cd" | "presencia" | "codificacion" | "quiebres" | "sin_perchar"
 export type OrigenVisitaCampo = "TODOS" | "MERCADERISTA" | "KAM"
 export const INDICADORES_CAMPO: Array<{ id: IndicadorCampo; nombre: string; unidad: string; agregacion: "PROMEDIO" | "SUMA"; descripcion: string }> = [
   { id: "rotacion", nombre: "Rotación diaria", unidad: "u/día", agregacion: "PROMEDIO", descripcion: "Venta promedio diaria reportada; promedio entre los locales con dato." },
-  { id: "stock", nombre: "Stock en el local", unidad: "unidades", agregacion: "SUMA", descripcion: "Suma de existencias de los locales con dato; cada local se cuenta una vez." },
+  { id: "stock", nombre: "Existencia en local", unidad: "unidades", agregacion: "SUMA", descripcion: "Suma de existencias de los locales con dato; cada local se cuenta una vez." },
   { id: "dias", nombre: "Días de inventario local", unidad: "días", agregacion: "PROMEDIO", descripcion: "Promedio de días de inventario reportados en los locales con dato." },
   { id: "caras", nombre: "Caras en percha", unidad: "caras", agregacion: "PROMEDIO", descripcion: "Promedio de caras registradas por local." },
-  { id: "precio", nombre: "Precio al público", unidad: "USD", agregacion: "PROMEDIO", descripcion: "Precio promedio registrado en los locales con dato." },
+  { id: "precio", nombre: "Precio comercio", unidad: "USD", agregacion: "PROMEDIO", descripcion: "Precio promedio registrado en los locales con dato." },
   { id: "precio_afiliado", nombre: "Precio afiliado", unidad: "USD", agregacion: "PROMEDIO", descripcion: "Precio de afiliado promedio registrado." },
-  { id: "venta", nombre: "Venta promedio diaria", unidad: "USD/día", agregacion: "PROMEDIO", descripcion: "Valor de venta diaria reportado; promedio por local con dato." },
+  { id: "venta", nombre: "Venta promedio diaria (valor)", unidad: "USD/día", agregacion: "PROMEDIO", descripcion: "Valor de venta diaria reportado; promedio por local con dato." },
+  { id: "participacion_clase", nombre: "Participación en clase", unidad: "%", agregacion: "PROMEDIO", descripcion: "Promedio de la participación en clase reportada por los locales con dato." },
+  { id: "participacion_subclase", nombre: "Participación en subclase", unidad: "%", agregacion: "PROMEDIO", descripcion: "Promedio de la participación en subclase reportada por los locales con dato." },
   { id: "prediccion", nombre: "Predicción de venta", unidad: "unidades", agregacion: "PROMEDIO", descripcion: "Predicción reportada, promediada entre locales; conserva el horizonte de la fuente." },
   { id: "stock_cd", nombre: "Stock del CD", unidad: "cajas", agregacion: "PROMEDIO", descripcion: "Promedio del stock de CD reportado; no se suma porque varios locales pueden mostrar el mismo CD." },
   { id: "dias_cd", nombre: "Días de inventario CD", unidad: "días", agregacion: "PROMEDIO", descripcion: "Promedio de días de inventario del CD reportados." },
@@ -34,18 +37,28 @@ export type RegistroDashboardCampo = {
   responsable_nombre?: string | null; visita_id?: string
   valores: Record<IndicadorCampo, number | null>
 }
+export const CAMPO_FUENTE_INDICADOR: Partial<Record<IndicadorCampo, keyof LecturaFavorita>> = {
+  rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local",
+  precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor",
+  participacion_clase: "participacion_clase", participacion_subclase: "participacion_subclase",
+  prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd",
+  quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades",
+}
 export function valorIndicadorValidadoCampo(r: RegistroDashboardCampo, indicador: IndicadorCampo) {
-  const campos: Partial<Record<IndicadorCampo, string>> = { rotacion: "rotacion_diaria_unidades", stock: "stock_local_unidades", dias: "dias_inventario_local", precio: "precio_comercio", precio_afiliado: "precio_afiliado", venta: "venta_diaria_valor", prediccion: "prediccion_venta_unidades", stock_cd: "stock_cd_cajas", dias_cd: "dias_inventario_cd", quiebres: "stock_local_unidades", sin_perchar: "stock_local_unidades" }
-  const campo = campos[indicador]
+  const campo = CAMPO_FUENTE_INDICADOR[indicador]
   if (!campo || esIngresoManualCampo(r)) return r.valores[indicador]
-  const actual = r.lectura_guardada?.[campo as keyof LecturaFavorita]
+  const actual = r.lectura_guardada?.[campo]
   if (datoVerificadoCampo(campo, actual, r.verificacion_campos)) return r.valores[indicador]
   // La captura sólo de respaldo y el ingreso sin lector son declaraciones manuales.
   if (!Object.keys(r.verificacion_campos ?? {}).length && ["RESPALDO_MANUAL", "SIN_LECTOR"].includes(r.lector_estado ?? "")) return r.valores[indicador]
   return null
 }
+type DescuentoPromocionCampo = Pick<PromocionProductoDb, "tipo_descuento" | "valor_descuento">
+type VigenciaPromocionCampo = Pick<PromocionDb, "fecha_inicio" | "fecha_fin"> & DescuentoPromocionCampo
 export type PuntoSemanaCampo = {
   valor: number | null; locales_con_dato: number; locales_revisados: number; ultima_fecha: string | null
+  locales_en_promocion?: number
+  descuentos_promocion?: DescuentoPromocionCampo[]
   pendientes?: Array<{ registroId: string; campo: string; fecha: string; clienteId: string }>
 }
 export type SerieSkuCampo = ProductoDashboardCampo & { semanas: PuntoSemanaCampo[] }
@@ -68,13 +81,28 @@ export function semanasDashboardCampo(referencia: string): SemanaCampo[] {
   }))
 }
 
-export function resumirSemanasCampo({ registros, productos, semanas, indicador, clienteId = "", localId = "", origen = "TODOS", soloValidados = false, camposPendientes }: {
+export function resumirSemanasCampo({ registros, productos, semanas, indicador, clienteId = "", localId = "", origen = "TODOS", soloValidados = false, camposPendientes, promociones }: {
   registros: RegistroDashboardCampo[]; productos: ProductoDashboardCampo[]; semanas: SemanaCampo[]
   soloValidados?: boolean; indicador: IndicadorCampo; clienteId?: string; localId?: string; origen?: OrigenVisitaCampo
   camposPendientes?: (r: RegistroDashboardCampo) => Array<{ campo: string }>
+  promociones?: readonly PromocionDb[]
 }): SerieSkuCampo[] {
+  const promocionesPorClienteSku = new Map<string, VigenciaPromocionCampo[]>()
+  for (const promocion of promociones ?? []) {
+    if (!promocion.activo || promocion.estado === "CANCELADA") continue
+    for (const producto of promocion.productos) {
+      const clave = `${promocion.cliente_id}|${producto.producto_id}`
+      const vigencias = promocionesPorClienteSku.get(clave) ?? []
+      vigencias.push({
+        fecha_inicio: promocion.fecha_inicio, fecha_fin: promocion.fecha_fin,
+        tipo_descuento: producto.tipo_descuento, valor_descuento: producto.valor_descuento,
+      })
+      promocionesPorClienteSku.set(clave, vigencias)
+    }
+  }
+  const catalogo = new Map(productos.map((p) => [p.id, p]))
   const ultimos = new Map<string, RegistroDashboardCampo>()
-  const visibles = registros.filter((r) => (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
+  const visibles = registros.filter((r) => catalogo.has(r.producto_id) && (!clienteId || r.cliente_id === clienteId) && (!localId || r.local_id === localId) && (origen === "TODOS" || r.responsable_rol === origen))
   for (const registro of visibles) {
     const semana = semanas.findIndex((s) => registro.fecha >= s.desde && registro.fecha <= s.hasta)
     if (semana < 0) continue
@@ -82,14 +110,13 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
     const orden = (r: RegistroDashboardCampo) => `${r.fecha}|${r.visitado_en}|${r.actualizado_en}|${r.id}`
     if (!anterior || orden(registro) > orden(anterior)) ultimos.set(clave, registro)
   }
-  const catalogo = new Map(productos.map((p) => [p.id, p]))
-  for (const r of ultimos.values()) if (!catalogo.has(r.producto_id)) catalogo.set(r.producto_id, { id: r.producto_id, codigo: r.producto_codigo, nombre: r.producto_nombre })
   const agrupados = new Map<string, RegistroDashboardCampo[]>()
   for (const [clave, r] of ultimos) {
     const key = `${clave.split("|")[0]}|${r.producto_id}`, grupo = agrupados.get(key) ?? []
     grupo.push(r); agrupados.set(key, grupo)
   }
   const config = INDICADORES_CAMPO.find((i) => i.id === indicador)!
+  const campo = CAMPO_FUENTE_INDICADOR[indicador]
   return [...catalogo.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es") || a.codigo.localeCompare(b.codigo)).map((producto) => ({
     ...producto,
     semanas: semanas.map((_, indice) => {
@@ -97,11 +124,25 @@ export function resumirSemanasCampo({ registros, productos, semanas, indicador, 
       const valores = registrosSku.map((r) => soloValidados ? valorIndicadorValidadoCampo(r, indicador) : r.valores[indicador])
       const datos = registrosSku.filter((_, i) => valores[i] !== null && Number.isFinite(valores[i]))
       const suma = valores.reduce<number>((total, v) => total + (v !== null && Number.isFinite(v) ? v : 0), 0)
+      let localesEnPromocion = 0
+      const descuentos = new Map<string, DescuentoPromocionCampo>()
+      for (const registro of datos) {
+        const vigencias = promocionesPorClienteSku.get(`${registro.cliente_id}|${registro.producto_id}`)
+        const aplicables = vigencias?.filter((p) => p.fecha_inicio <= registro.fecha && registro.fecha <= p.fecha_fin)
+        if (!aplicables?.length) continue
+        localesEnPromocion += 1
+        for (const { tipo_descuento, valor_descuento } of aplicables) {
+          descuentos.set(`${tipo_descuento}|${valor_descuento}`, { tipo_descuento, valor_descuento })
+        }
+      }
       return {
         valor: !datos.length ? null : config.agregacion === "SUMA" ? suma : suma / datos.length,
         locales_con_dato: datos.length, locales_revisados: registrosSku.length,
         ultima_fecha: datos.length ? datos.map((r) => r.fecha).sort().at(-1)! : null,
-        ...(camposPendientes ? { pendientes: registrosSku.flatMap((r) => camposPendientes(r).map((c) => ({ registroId: r.id, campo: c.campo, fecha: r.fecha, clienteId: r.cliente_id }))) } : {}),
+        ...(promociones && { locales_en_promocion: localesEnPromocion, descuentos_promocion: [...descuentos.values()] }),
+        ...(camposPendientes ? { pendientes: campo && !soloValidados ? datos
+          .filter((r) => camposPendientes(r).some((c) => c.campo === campo))
+          .map((r) => ({ registroId: r.id, campo, fecha: r.fecha, clienteId: r.cliente_id })) : [] } : {}),
       }
     }),
   }))

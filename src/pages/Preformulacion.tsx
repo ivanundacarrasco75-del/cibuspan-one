@@ -180,8 +180,6 @@ export default function Preformulacion() {
     useState("")
   const [rendimientoUnidades, setRendimientoUnidades] =
     useState("")
-  const [paradasPorBatch, setParadasPorBatch] =
-    useState("1")
   const [mermaPorcentaje, setMermaPorcentaje] =
     useState("0")
   const [observacionesVersion, setObservacionesVersion] =
@@ -675,10 +673,7 @@ export default function Preformulacion() {
             rendimientoUnidades === ""
               ? null
               : Number(rendimientoUnidades),
-          paradasPorBatch:
-            paradasPorBatch === ""
-              ? 1
-              : Number(paradasPorBatch),
+          paradasPorBatch: 1,
           mermaPorcentaje:
             Number(mermaPorcentaje || 0),
           observaciones:
@@ -694,7 +689,6 @@ export default function Preformulacion() {
       setPesoFinalG("")
       setPesoBatchKg("")
       setRendimientoUnidades("")
-      setParadasPorBatch("1")
       setMermaPorcentaje("0")
       setObservacionesVersion("")
 
@@ -1182,10 +1176,10 @@ export default function Preformulacion() {
             }
             header {
               padding-bottom: 14px;
-              border-bottom: 3px solid #8f1d24;
+              border-bottom: 3px solid #051142;
             }
             .marca {
-              color: #8f1d24;
+              color: #051142;
               font-size: 12px;
               font-weight: 700;
               letter-spacing: 1px;
@@ -1661,13 +1655,6 @@ export default function Preformulacion() {
                     etiqueta="Rendimiento de fundas"
                     valor={rendimientoUnidades}
                     cambiar={setRendimientoUnidades}
-                  />
-
-                  <CampoNumero
-                    etiqueta="Paradas por batch"
-                    valor={paradasPorBatch}
-                    cambiar={setParadasPorBatch}
-                    paso="1"
                   />
 
                   <CampoNumero
@@ -2796,7 +2783,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -2835,7 +2822,7 @@ const botonPestana = {
 }
 
 const botonPestanaActivo = {
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
 }
 
@@ -2921,7 +2908,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -2929,10 +2916,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2957,7 +2944,7 @@ const tarjeta = {
 }
 
 const codigoTarjeta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
 }
@@ -2994,10 +2981,10 @@ const celdaNumero = {
 
 const botonEditar = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -3066,7 +3053,7 @@ const etiquetaCosto = {
 }
 
 const valorCosto = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "26px",
 }
 

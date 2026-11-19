@@ -16,6 +16,8 @@ test('Casa Masa exige permiso propio y acceso operativo; no amplía accesos exis
  const ruta='Casa Masa · Pedidos y empaque'
  assert.equal(puedeAbrirPantalla(ruta,'BODEGUERO',['Casa Masa','Despachos']),true)
  assert.equal(puedeAbrirPantalla(ruta,'GERENTE',['Casa Masa','Pedidos']),true)
+ assert.equal(puedeAbrirPantalla(ruta,'GERENTE',['Casa Masa','Pedidos'],[ruta]),false)
+ assert.equal(puedeAbrirPantalla(ruta,'GERENTE',[ruta,'Pedidos']),true)
  for(const permisos of [[],['Casa Masa'],['Pedidos'],['Despachos']]) assert.equal(puedeAbrirPantalla(ruta,'ADMINISTRADOR',permisos),false)
  assert.equal(puedeAbrirPantalla('Comercial · Pedidos','BODEGUERO',['Casa Masa','Despachos']),false)
 })

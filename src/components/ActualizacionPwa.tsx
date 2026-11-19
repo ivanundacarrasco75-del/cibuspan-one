@@ -63,7 +63,7 @@ const contenedor = {
 
 const titulo = {
   display: "block",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "16px",
 }
 
@@ -96,7 +96,7 @@ const botonActualizar = {
   padding: "9px 14px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",

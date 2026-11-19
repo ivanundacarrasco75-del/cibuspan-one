@@ -13,7 +13,7 @@ with estado as (
  coalesce(not has_table_privilege('authenticated',to_regclass('public.cm_detalles_demanda'),'SELECT'),false) vista_privada,
  exists(select 1 from pg_policy where polrelid=to_regclass('public.cm_pedidos') and polname='cm_lectura') politica
 )
-select jsonb_build_object('tipo','casa_masa','version','202611190001',
+select jsonb_build_object('tipo','casa_masa','version','202611190002',
  'correcto',tabla and rls and registro and empaque and demanda and despacho and escritura_protegida and anon_denegado and vista_privada and politica,
  'tabla',tabla,'rls',rls,'registro',registro,'empaque',empaque,'demanda_excluida',demanda,'control_despacho',despacho,
  'escritura_protegida',escritura_protegida,'anon_denegado',anon_denegado,'vista_privada',vista_privada,'politica',politica,

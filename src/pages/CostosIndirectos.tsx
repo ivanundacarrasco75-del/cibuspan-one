@@ -257,7 +257,6 @@ export default function CostosIndirectos() {
         <ReporteRentabilidadSku modo="PYG_CLIENTE" integrado />
       )}
 
-
       {vista === "MARGEN" && (
         <>
           <ReporteEstructuraCostos />
@@ -669,7 +668,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: 12,
   fontWeight: 800,
   letterSpacing: 1.1,
@@ -801,7 +800,7 @@ const botonSecundario = {
   borderRadius: 9,
   padding: "10px 16px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: 800,
   cursor: "pointer",
 }

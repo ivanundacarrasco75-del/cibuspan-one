@@ -1,4 +1,5 @@
 -- Casa Masa, primera entrega: pedido central y seguimiento de empaque.
+-- Versión 202611190002: 202611190001 pertenece a edición de ingredientes.
 -- No carga stock, no fabrica ni registra pagos. Aplicar sólo este SQL nuevo.
 begin;
 set local lock_timeout='5s';
@@ -51,9 +52,18 @@ alter table public.cm_empaque_eventos enable row level security;
 revoke all on public.cm_pedidos,public.cm_empaque_eventos from public,anon,authenticated,service_role;
 grant select on public.cm_pedidos to authenticated;
 drop policy if exists cm_lectura on public.cm_pedidos;
+
+-- La denegación explícita del submenú prevalece sobre el permiso heredado.
+create or replace function public.cm_puede_operar()
+returns boolean language sql stable security definer set search_path=pg_catalog,public as $body$
+ select exists(select 1 from public.app_profiles where user_id=auth.uid() and activo)
+ and coalesce((select permitido from public.app_user_permissions where user_id=auth.uid()
+ and pantalla='Casa Masa · Pedidos y empaque'),public.app_puede('Casa Masa'));
+$body$;
+revoke all on function public.cm_puede_operar() from public,anon;
+grant execute on function public.cm_puede_operar() to authenticated;
 create policy cm_lectura on public.cm_pedidos for select to authenticated
- using (exists(select 1 from public.app_profiles where user_id=auth.uid() and activo)
- and public.app_puede('Casa Masa'));
+ using (public.cm_puede_operar());
 
 insert into public.app_role_permissions(rol,pantalla,permitido)
 select rol,'Casa Masa',true from unnest(array['ADMINISTRADOR','GERENTE','GERENTE_OPERACIONES','BODEGUERO']) rol
@@ -90,7 +100,8 @@ create or replace function public.registrar_pedido_casa_masa(p_solicitud_id uuid
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $body$
 declare resultado jsonb; datos jsonb;
 begin
- perform public.app_exigir_operacion(array['Casa Masa']);
+ perform public.app_exigir_operacion(array['Casa Masa','Casa Masa · Pedidos y empaque']);
+ if not public.cm_puede_operar() then raise exception 'No tienes acceso a Casa Masa.' using errcode='42501'; end if;
  datos:=public.ped_datos_registro(p_datos);
  if exists(select 1 from jsonb_array_elements(datos->'detalles') d left join public.productos p on p.id=(d->>'productoId')::uuid
  where p.id is null or upper(trim(p.codigo)) not in ('CM-001','CM-002','CM-003','CM-004')) then
@@ -112,7 +123,8 @@ create or replace function public.guardar_empaque_casa_masa(p_pedido_id text,p_v
 returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $body$
 declare actual public.cm_pedidos%rowtype; nuevo public.cm_pedidos%rowtype; estado text; orden_estado text[]:=array['PENDIENTE','EN PREPARACION','EMPACADO Y ETIQUETADO','LISTO'];
 begin
- perform public.app_exigir_operacion(array['Casa Masa']);
+ perform public.app_exigir_operacion(array['Casa Masa','Casa Masa · Pedidos y empaque']);
+ if not public.cm_puede_operar() then raise exception 'No tienes acceso a Casa Masa.' using errcode='42501'; end if;
  if auth.uid() is null then raise exception 'Se requiere un usuario identificado.'; end if;
  -- Mismo orden de bloqueos que logística: cabecera, detalles, reserva.
  select p.estado into estado from public.pedidos p where id=p_pedido_id for update;

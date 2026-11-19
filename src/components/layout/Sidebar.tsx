@@ -1,3 +1,5 @@
+import LogoCibuspan from "../LogoCibuspan"
+
 type SidebarProps = {
   pantalla: string
   cambiarPantalla: (pantalla: string) => void
@@ -24,10 +26,8 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="brand-icon">C1</div>
-
         <div>
-          <h2>CIBUSPAN ONE</h2>
+          <LogoCibuspan ancho={180} />
           <p>Sistema Integral de Producción</p>
         </div>
       </div>

@@ -1240,7 +1240,7 @@ useEffect(() => {
               justifyContent: "center",
               margin: "0 auto 14px",
               borderRadius: "50%",
-              background: "#8F1D24",
+              background: "#051142",
               color: "#ffffff",
               fontSize: "30px",
               fontWeight: 900,
@@ -1277,7 +1277,7 @@ useEffect(() => {
               padding: "10px 12px",
               borderRadius: "8px",
               background: "#fff1f2",
-              color: "#8F1D24",
+              color: "#051142",
               fontSize: "13px",
               fontWeight: 900,
             }}
@@ -1295,7 +1295,7 @@ useEffect(() => {
               padding: "10px 22px",
               border: 0,
               borderRadius: "9px",
-              background: "#8F1D24",
+              background: "#051142",
               color: "#ffffff",
               fontWeight: 800,
               cursor: "pointer",
@@ -2117,7 +2117,7 @@ const botonPrincipal = {
   padding: "10px 17px",
   border: "none",
   borderRadius: "8px",
-  background: "#8F1D24",
+  background: "#051142",
   color: "white",
   fontWeight: 800,
   cursor: "pointer",
@@ -2126,10 +2126,10 @@ const botonPrincipal = {
 const botonSecundario = {
   minHeight: "40px",
   padding: "9px 14px",
-  border: "1px solid #8F1D24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8F1D24",
+  color: "#051142",
   fontWeight: 800,
   cursor: "pointer",
 }
@@ -2181,9 +2181,9 @@ const celda = {
 
 const devolucionesCss = `
   .c1-returns {
-    --vino: #8F1D24;
-    --vino-oscuro: #68151A;
-    --naranja: #F7931E;
+    --vino: #051142;
+    --vino-oscuro: #051142;
+    --naranja: #006c65;
     --crema: #F8F5F1;
     width: 100% !important;
     max-width: none !important;

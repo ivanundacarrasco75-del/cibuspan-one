@@ -21,7 +21,7 @@ export default function KardexInventario() {
   const [tipo, setTipo] = useState<TipoInventario>("MATERIA_PRIMA")
   const [busqueda, setBusqueda] = useState("")
   const [seleccion, setSeleccion] = useState("")
-  const [vista, setVista] = useState<"KARDEX" | "INICIAL" | "ARRANQUE">("KARDEX")
+  const [vista, setVista] = useState<"KARDEX" | "INICIAL" | "ARRANQUE" | "ARRANQUE_PT" | "ARRANQUE_MP">("KARDEX")
   const [arranque, setArranque] = useState<EstadoArranque | null>(null)
   const corteMostrado = useRef("")
   const [desde, setDesde] = useState("2026-10-01")
@@ -82,8 +82,11 @@ export default function KardexInventario() {
   function mostrarArranque(e: EstadoArranque) {
     setArranque(e)
     if (e.aplicado && e.fecha_inicio && corteMostrado.current !== e.fecha_inicio) {
-      corteMostrado.current = e.fecha_inicio; setDesde(e.fecha_inicio)
-      setHasta(h => h < e.fecha_inicio! ? e.fecha_inicio! : h)
+      corteMostrado.current = e.fecha_inicio
+      if (e.alcance !== "PT" || tipo === "PRODUCTO_TERMINADO") {
+        setDesde(e.fecha_inicio)
+        setHasta(h => h < e.fecha_inicio! ? e.fecha_inicio! : h)
+      }
       setVista(v => v === "INICIAL" ? "KARDEX" : v)
     }
   }
@@ -177,7 +180,7 @@ export default function KardexInventario() {
     setAltaFila(null); setConfirmarCarga(false); setMensaje("Artículo disponible y vinculado. El stock se guardará al confirmar la carga.")
   }
   async function cargarInicial() {
-    if (arranque?.aplicado) { setError("El arranque físico ya está confirmado. Usa movimientos del período vigente en el Kardex."); return }
+    if (arranque?.aplicado || arranque?.corte_mp) { setError("Ya hay un arranque físico confirmado. Usa movimientos del período vigente en el Kardex."); return }
     if (guardando || errorCarga || !unidadConfirmada || !incluidos.length || !confirmarCarga) return
     setGuardando(true); setError(""); setMensaje("")
     try {
@@ -198,14 +201,17 @@ export default function KardexInventario() {
     <style>{css}</style><header><div><small>INVENTARIO Y BODEGA</small><h1>Kardex</h1><p>Saldo inicial, entradas, salidas y ajustes por artículo.</p></div>
       <button disabled={guardando || cargando} onClick={() => void actualizar()}>Actualizar</button></header>
     <nav><button disabled={guardando} className={vista === "KARDEX" ? "activo" : ""} onClick={() => setVista("KARDEX")}>Revisar artículos</button>
-      {!arranque?.aplicado && <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Saldo histórico de septiembre</button>}
-      <button disabled={guardando} className={vista === "ARRANQUE" ? "activo" : ""} onClick={() => setVista("ARRANQUE")}>Preparar arranque</button></nav>
+      {!arranque?.aplicado && !arranque?.corte_mp && <button disabled={guardando} className={vista === "INICIAL" ? "activo" : ""} onClick={() => setVista("INICIAL")}>Saldo histórico de septiembre</button>}
+      <button disabled={guardando} className={vista === "ARRANQUE_PT" ? "activo" : ""} onClick={() => setVista("ARRANQUE_PT")}>Toma física de PT</button>
+      <button disabled={guardando} className={vista === "ARRANQUE_MP" ? "activo" : ""} onClick={() => setVista("ARRANQUE_MP")}>Toma física de MP y empaques</button>
+      {arranque?.alcance !== "PT" && !arranque?.corte_mp && <button disabled={guardando} className={vista === "ARRANQUE" ? "activo" : ""} onClick={() => setVista("ARRANQUE")}>Arranque completo</button>}</nav>
     {error && <p role="alert" className="error">{error}</p>}{mensaje && <p role="status" className="exito">{mensaje}</p>}
-    {arranque?.aplicado && <section><p>Inicio operativo: {arranque.fecha_inicio} · Conteo al cierre: {arranque.fecha_cierre}. El historial anterior se conserva como período no conciliado.</p>
-      {vista === "KARDEX" && desde && desde < arranque.fecha_inicio! && <p className="pendiente">El rango incluye movimientos previos al arranque; esos datos históricos no están conciliados.</p>}</section>}
-    {!arranque?.aplicado && inicio?.activo && <section><p>Inventario histórico desde el 01/10/2026, aún provisional. Prepara el conteo físico en Preparar arranque para iniciar el control con existencias verificadas.</p>
+    {arranque?.aplicado && <section><p>{arranque.alcance === "PT" ? "Inicio operativo de producto terminado" : "Inicio operativo"}: {arranque.fecha_inicio} · Conteo al cierre: {arranque.fecha_cierre}.</p>
+      {vista === "KARDEX" && (arranque.alcance !== "PT" || tipo === "PRODUCTO_TERMINADO") && desde && desde < arranque.fecha_inicio! && <p className="pendiente">El rango incluye movimientos previos al arranque; esos datos históricos no están conciliados.</p>}</section>}
+    {arranque?.corte_mp && (!arranque.aplicado || arranque.alcance === "PT") && <section><p>Inicio operativo de MP y empaques: {arranque.corte_mp.fecha_inicio} · Conteo al cierre: {arranque.corte_mp.fecha_cierre}.</p></section>}
+    {!arranque?.aplicado && !arranque?.corte_mp && inicio?.activo && <section><p>Inventario histórico desde el 01/10/2026, aún provisional. Registra un conteo físico para iniciar el control con existencias verificadas.</p>
       {inicio.puede_descargar && <button disabled={guardando} onClick={() => void descargarRespaldoInicio(inicio.respaldo_id!).catch((e) => setError(e.message))}>Descargar respaldo anterior</button>}</section>}
-    {vista === "ARRANQUE" ? <ArranqueOperativo onEstado={e => { const recargar = e.aplicado && !arranque?.aplicado; mostrarArranque(e); if (recargar) void actualizar() }} /> : vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
+    {vista === "ARRANQUE" || vista === "ARRANQUE_PT" || vista === "ARRANQUE_MP" ? <ArranqueOperativo key={vista} alcance={vista === "ARRANQUE_PT" ? "PT" : vista === "ARRANQUE_MP" ? "MP" : "COMPLETO"} onEstado={e => { const recargar = (e.aplicado && !arranque?.aplicado) || (e.corte_mp && !arranque?.corte_mp); mostrarArranque(e); if (recargar) void actualizar() }} /> : vista === "INICIAL" ? <section><h2>Un Excel para ambos inventarios</h2>
       <p>Los artículos se vinculan automáticamente por código. Revisa las filas pendientes, las sucursales y las unidades.</p>
       <p>Para producto terminado se genera un lote de referencia y se usa el cierre como fecha de producción estimada. El vencimiento se calcula con la vida útil del SKU en el catálogo. Puedes corregir las fechas y dividir la cantidad entre lotes.</p>
       <p>La carga habitual añade saldos y bloquea artículos con movimientos. La opción de inicio de octubre respalda y sustituye el inventario anterior. La carga no sustituye la importación de costos de Compras.</p>
@@ -271,7 +277,7 @@ export default function KardexInventario() {
       {articulo && <section><h2>{articulo.nombre}</h2><div className="saldos"><span>Stock actual: {numero(articulo.saldo)} {articulo.unidad}</span>
         {consulta && <><span>Antes del rango: {numero(consulta.saldo_anterior)}</span><span>Al cierre del rango: {numero(consulta.saldo_cierre)}</span></>}</div>
         {!articulo.iniciado && <p className="pendiente">Este artículo todavía no tiene saldo inicial en el Kardex.</p>}
-        <p>{inicio?.activo ? "El stock parte exclusivamente del Excel al 30/09 y de los movimientos registrados después." : "Los saldos existentes de PT se registran desde la activación del Kardex."} Las órdenes históricas y los consumos por receta todavía no generan movimientos de materias primas automáticamente.</p>
+        <p>{arranque?.aplicado && tipo === "PRODUCTO_TERMINADO" ? "El saldo operativo parte del conteo físico y de los movimientos posteriores." : inicio?.activo ? "Consulta el saldo de apertura y los movimientos en el Kardex." : "Los movimientos se registran desde la activación del Kardex."} La fabricación nueva descuenta las materias primas y los empaques confirmados en el registro de producción.</p>
         <button className="principal" disabled={cargando || guardando || !articulo.iniciado} onClick={abrirMovimiento}>Registrar entrada, salida o conteo</button>
         {formulario && <div className="movimiento"><h3>Nuevo movimiento · {articulo.unidad}</h3><div className="campos">
           {articulo.tipo === "PRODUCTO_TERMINADO" && <label>Lote<select value={loteId} disabled={guardando} onChange={(e) => setLoteId(e.target.value)}><option value="">Elegir lote…</option>
@@ -296,5 +302,5 @@ export default function KardexInventario() {
 }
 
 const css = `
-.kardex dialog.alta-inventario{border:1px solid #d2c4bd;border-radius:12px;padding:22px;max-width:800px;width:calc(100% - 64px);max-height:80vh;overflow:auto;color:#403330}.kardex dialog.alta-inventario::backdrop{background:rgb(0 0 0 / 40%)}.kardex{padding:22px;max-width:1600px;margin:auto;color:#403330}.kardex header{display:flex;justify-content:space-between;align-items:center;gap:16px}.kardex h1{margin:4px 0;color:#8f1d24}.kardex h2{font-size:19px}.kardex small{display:block;font-size:11px;color:#796d67;margin-top:4px}.kardex p{font-size:13px;line-height:1.5}.kardex nav{display:flex;gap:8px;margin:16px 0}.kardex section{background:white;border:1px solid #e5dcd6;border-radius:12px;padding:20px;margin:15px 0}.kardex button{border:1px solid #c9b5ab;border-radius:7px;background:#fff;padding:10px 14px;color:#68151a;cursor:pointer;margin:4px}.kardex button.principal,.kardex button.activo{background:#8f1d24;color:white;border-color:#8f1d24}.kardex button:disabled{opacity:.5;cursor:default}.kardex .campos{display:flex;flex-wrap:wrap;gap:14px}.kardex label{display:flex;flex-direction:column;gap:6px;font-size:12px}.kardex input,.kardex select{border:1px solid #d2c4bd;border-radius:6px;padding:9px;max-width:100%;background:white;color:#403330}.kardex .campos input,.kardex .campos select{max-width:360px}.kardex .tabla{overflow:auto;margin:16px 0}.kardex table{width:100%;border-collapse:collapse;min-width:900px;font-size:12px}.kardex th,.kardex td{padding:10px;border-bottom:1px solid #eee4dd;vertical-align:top;text-align:left}.kardex th{background:#f6eee8}.kardex .error{background:#fdebea;color:#9c242b;padding:12px;border-radius:8px}.kardex .exito{background:#e8f6eb;color:#176833;padding:12px;border-radius:8px}.kardex .pendiente{color:#95590b}.kardex .check{flex-direction:row;align-items:center;margin:18px 0}.kardex .check input{width:18px;height:18px}.kardex .lotes{min-width:520px;margin-top:10px}.kardex .lote{display:flex;align-items:end;gap:8px;background:#faf7f3;padding:10px;margin:5px 0}.kardex .lote input{width:115px}.kardex .lote label:first-child input{width:70px}.kardex .movimiento,.kardex .confirmacion{padding:15px;background:#faf5ef;border:1px solid #e6d5c5;border-radius:8px;margin:15px 0}.kardex .saldos{display:flex;flex-wrap:wrap;gap:12px}.kardex .saldos span{background:#f6eee8;border-radius:8px;padding:12px;font-size:14px}@media(max-width:650px){.kardex{padding:12px}.kardex section{padding:12px}.kardex .campos{display:grid;grid-template-columns:1fr 1fr}.kardex .campos input,.kardex .campos select{width:100%;box-sizing:border-box}.kardex header{align-items:start}.kardex nav button{flex:1}.kardex .saldos span{width:100%}}
+.kardex dialog.alta-inventario{border:1px solid #d2c4bd;border-radius:12px;padding:22px;max-width:800px;width:calc(100% - 64px);max-height:80vh;overflow:auto;color:#403330}.kardex dialog.alta-inventario::backdrop{background:rgb(0 0 0 / 40%)}.kardex{padding:22px;max-width:1600px;margin:auto;color:#403330}.kardex header{display:flex;justify-content:space-between;align-items:center;gap:16px}.kardex h1{margin:4px 0;color:#051142}.kardex h2{font-size:19px}.kardex small{display:block;font-size:11px;color:#796d67;margin-top:4px}.kardex p{font-size:13px;line-height:1.5}.kardex nav{display:flex;gap:8px;margin:16px 0}.kardex section{background:white;border:1px solid #e5dcd6;border-radius:12px;padding:20px;margin:15px 0}.kardex button{border:1px solid #c9b5ab;border-radius:7px;background:#fff;padding:10px 14px;color:#051142;cursor:pointer;margin:4px}.kardex button.principal,.kardex button.activo{background:#051142;color:white;border-color:#051142}.kardex button:disabled{opacity:.5;cursor:default}.kardex .campos{display:flex;flex-wrap:wrap;gap:14px}.kardex label{display:flex;flex-direction:column;gap:6px;font-size:12px}.kardex input,.kardex select{border:1px solid #d2c4bd;border-radius:6px;padding:9px;max-width:100%;background:white;color:#403330}.kardex .campos input,.kardex .campos select{max-width:360px}.kardex .tabla{overflow:auto;margin:16px 0}.kardex table{width:100%;border-collapse:collapse;min-width:900px;font-size:12px}.kardex th,.kardex td{padding:10px;border-bottom:1px solid #eee4dd;vertical-align:top;text-align:left}.kardex th{background:#f6eee8}.kardex .error{background:#fdebea;color:#9c242b;padding:12px;border-radius:8px}.kardex .exito{background:#e8f6eb;color:#176833;padding:12px;border-radius:8px}.kardex .pendiente{color:#95590b}.kardex .check{flex-direction:row;align-items:center;margin:18px 0}.kardex .check input{width:18px;height:18px}.kardex .lotes{min-width:520px;margin-top:10px}.kardex .lote{display:flex;align-items:end;gap:8px;background:#faf7f3;padding:10px;margin:5px 0}.kardex .lote input{width:115px}.kardex .lote label:first-child input{width:70px}.kardex .movimiento,.kardex .confirmacion{padding:15px;background:#faf5ef;border:1px solid #e6d5c5;border-radius:8px;margin:15px 0}.kardex .saldos{display:flex;flex-wrap:wrap;gap:12px}.kardex .saldos span{background:#f6eee8;border-radius:8px;padding:12px;font-size:14px}@media(max-width:650px){.kardex{padding:12px}.kardex section{padding:12px}.kardex .campos{display:grid;grid-template-columns:1fr 1fr}.kardex .campos input,.kardex .campos select{width:100%;box-sizing:border-box}.kardex header{align-items:start}.kardex nav button{flex:1}.kardex .saldos span{width:100%}}
 `

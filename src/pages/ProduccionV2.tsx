@@ -1094,11 +1094,11 @@ export default function ProduccionV2({
               gap: 24px;
               margin-bottom: 14px;
               padding-bottom: 10px;
-              border-bottom: 3px solid #8f1d24;
+              border-bottom: 3px solid #051142;
             }
 
             .marca {
-              color: #8f1d24;
+              color: #051142;
               font-size: 11px;
               font-weight: 700;
               letter-spacing: 1px;
@@ -1124,7 +1124,7 @@ export default function ProduccionV2({
             }
 
             .resumen strong {
-              color: #8f1d24;
+              color: #051142;
               font-size: 16px;
             }
 
@@ -1137,7 +1137,7 @@ export default function ProduccionV2({
             th {
               padding: 8px 6px;
               border: 1px solid #9ca3af;
-              background: #8f1d24;
+              background: #051142;
               color: white;
               text-align: left;
               font-size: 10px;
@@ -1460,11 +1460,11 @@ export default function ProduccionV2({
               align-items: flex-start;
               margin-bottom: 14px;
               padding-bottom: 10px;
-              border-bottom: 3px solid #8f1d24;
+              border-bottom: 3px solid #051142;
             }
 
             .marca {
-              color: #8f1d24;
+              color: #051142;
               font-size: 11px;
               font-weight: 700;
               letter-spacing: 1px;
@@ -1496,7 +1496,7 @@ export default function ProduccionV2({
             }
 
             .resumen strong {
-              color: #8f1d24;
+              color: #051142;
               font-size: 15px;
             }
 
@@ -1509,7 +1509,7 @@ export default function ProduccionV2({
             th {
               padding: 7px 5px;
               border: 1px solid #9ca3af;
-              background: #8f1d24;
+              background: #051142;
               color: white;
               font-size: 9px;
               text-align: left;
@@ -2150,7 +2150,7 @@ export default function ProduccionV2({
                             color:
                               incluido &&
                               unidadesPlanificadas > 0
-                                ? "#8f1d24"
+                                ? "#051142"
                                 : "#6b7280",
                             fontSize: "17px",
                           }}
@@ -3197,7 +3197,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -3237,7 +3237,7 @@ const datoTitulo = {
 }
 
 const valorIndicador = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "28px",
 }
 
@@ -3340,10 +3340,10 @@ const controlLotes = {
 const botonMenos = {
   width: "34px",
   height: "34px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "21px",
   fontWeight: "bold",
   cursor: "pointer",
@@ -3354,7 +3354,7 @@ const botonMas = {
   height: "34px",
   border: "none",
   borderRadius: "7px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontSize: "20px",
   fontWeight: "bold",
@@ -3370,10 +3370,10 @@ const numeroLotes = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -3402,7 +3402,7 @@ const botonIngresarCompleto = {
   padding: "13px 22px",
   border: "none",
   borderRadius: "9px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
 }
@@ -3411,7 +3411,7 @@ const contador = {
   minWidth: "36px",
   padding: "7px 11px",
   borderRadius: "999px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   textAlign: "center" as const,
   fontWeight: "bold",
@@ -3510,7 +3510,7 @@ const resumenPlan = {
 const valorResumen = {
   display: "block",
   marginTop: "5px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "25px",
 }
 
@@ -3580,7 +3580,7 @@ const campoTabla = {
 const campoLecturaTabla = {
   ...campoTabla,
   background: "#f4f5f7",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
 }
 
@@ -3624,7 +3624,7 @@ const botonPestana = {
 
 const botonPestanaActiva = {
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   boxShadow:
     "0 2px 8px rgba(15, 23, 42, 0.08)",
 }
@@ -3638,10 +3638,10 @@ const textoPendiente = {
 
 const botonPdfProduccion = {
   padding: "11px 18px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -3719,10 +3719,10 @@ const accionesHistorial = {
 
 const botonVerHistorial = {
   padding: "8px 11px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -3731,7 +3731,7 @@ const botonImprimirHistorial = {
   padding: "8px 11px",
   border: "none",
   borderRadius: "7px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -3776,7 +3776,7 @@ const cabeceraOrdenProduccion = {
 const etiquetaOrdenProduccion = {
   display: "block",
   marginBottom: "4px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "11px",
   fontWeight: "bold",
   letterSpacing: "0.8px",
@@ -3829,7 +3829,7 @@ const datoOrdenProduccion = {
 const valorOrdenProduccion = {
   display: "block",
   marginTop: "3px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "20px",
 }
 
@@ -3849,10 +3849,10 @@ const accionesOrdenProduccion = {
 
 const botonVerOrden = {
   padding: "10px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -3861,7 +3861,7 @@ const botonImprimirOrden = {
   padding: "10px 12px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -3871,7 +3871,7 @@ const botonEditarOrden = {
   padding: "10px 12px",
   border: "none",
   borderRadius: "8px",
-  background: "#f7931e",
+  background: "#006c65",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -3913,7 +3913,7 @@ const botonGuardarEdicion = {
   padding: "10px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -3921,9 +3921,9 @@ const botonGuardarEdicion = {
 
 const produccionResponsiveCss = `
   .c1-production {
-    --c1-vino: #8F1D24;
-    --c1-vino-oscuro: #68151A;
-    --c1-naranja: #F7931E;
+    --c1-vino: #051142;
+    --c1-vino-oscuro: #051142;
+    --c1-naranja: #006c65;
     --c1-crema: #F8F5F1;
   }
 
@@ -3935,7 +3935,7 @@ const produccionResponsiveCss = `
   }
   .c1-production .prod-final-actions button,
   .c1-production .prod-modal-actions button:last-child {
-    background: linear-gradient(90deg, #F7931E, #FF7900) !important;
+    background: linear-gradient(90deg, #006c65, #FF7900) !important;
     color: white !important;
     border-color: transparent !important;
     box-shadow: 0 8px 20px rgba(247,147,30,.18);

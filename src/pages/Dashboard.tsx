@@ -570,7 +570,7 @@ const tituloTarjeta = {
 }
 
 const valorTarjeta = {
-  color: "#8f1d24",
+  color: "#051142",
   lineHeight: 1.1,
 }
 

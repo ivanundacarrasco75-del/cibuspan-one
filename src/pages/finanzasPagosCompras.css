@@ -1,0 +1,106 @@
+.fin-pagos .fin-pagos-filtros,
+.fin-pagos-dialogo .fin-pagos-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-block: 10px;
+  font-size: 12px;
+}
+
+.fin-pagos-filtros label,
+.fin-pagos-verificar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fin-pagos-filtros input,
+.fin-pagos-filtros select,
+.fin-pagos-dialogo input {
+  font: inherit;
+  min-height: 26px;
+  border: 1px solid #bcccd8;
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+
+.fin-pagos-filtros input[type="search"] { width: min(238px, 54vw); }
+.fin-pagos .fin-pagos-tabla { table-layout: auto; min-width: 1110px; }
+.fin-pagos .fin-pagos-cuentas-scroll {
+  --fin-pagos-cabecera: 28px;
+  --fin-pagos-fila: 27px;
+  max-block-size: calc(2px + var(--fin-pagos-cabecera) + 10 * var(--fin-pagos-fila) + var(--fin-pagos-barra-horizontal, 0px));
+  scrollbar-gutter: stable;
+}
+.fin-pagos-cuentas-scroll .fin-pagos-tabla th { height: var(--fin-pagos-cabecera); }
+.fin-pagos-cuentas-scroll .fin-pagos-tabla td:not(.compras-sri-detalle) { height: var(--fin-pagos-fila); }
+.fin-pagos-tabla td { height: 25px; }
+.fin-pagos-tabla td:not(.compras-sri-detalle) {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fin-pagos-tabla td > input[type="checkbox"],
+.fin-pagos input[type="checkbox"] {
+  width: 14px;
+  min-height: 0;
+  height: 14px;
+  margin: 0 3px;
+  vertical-align: middle;
+  accent-color: #167a8a;
+}
+
+.fin-pagos-tabla td > input[type="number"] {
+  min-width: 76px;
+  border-color: #aac2cc;
+  background-color: #fff !important;
+  text-align: right;
+}
+
+.fin-pagos-elegida > td { background: #fff6d8; }
+.fin-pagos-tabla .compras-sri-acciones > div { display: flex; gap: 3px; }
+.fin-pagos-seleccion { margin-top: 20px; }
+.fin-pagos h2 { margin: 0 0 8px; font-size: 16px; }
+.fin-pagos button.fin-pagos-principal {
+  padding: 5px 9px;
+  background: #0e3956;
+  color: #fff;
+  border-color: #0e3956;
+}
+.fin-pagos button.fin-pagos-principal:hover:not(:disabled) { background: #1b5a74; }
+
+.fin-pagos-dialogo {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid #a6b5c3;
+  border-radius: 6px;
+  color: #152536;
+  font-size: 13px;
+}
+.fin-pagos-dialogo::backdrop { background: rgb(15 29 54 / 45%); }
+.fin-pagos-dialogo fieldset {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+}
+.fin-pagos-dialogo fieldset label { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.fin-pagos-dialogo button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #bcccd8;
+  border-radius: 3px;
+  background: #fff;
+  color: #102646;
+  cursor: pointer;
+}
+.fin-pagos-dialogo button:disabled { opacity: .55; cursor: default; }
+.fin-pagos-dialogo button.fin-pagos-principal { background: #0e3956; color: #fff; border-color: #0e3956; }

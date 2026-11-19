@@ -3,7 +3,7 @@ import {createServer} from 'vite'
 import {fileURLToPath} from 'node:url'
 // Solo respuestas de prueba: ninguna solicitud llega a Supabase real.
 process.env.VITE_SUPABASE_URL='https://dashboard-prueba.invalid'
-process.env.VITE_SUPABASE_ANON_KEY='clave-publica-de-prueba'
+process.env.VITE_SUPABASE_PUBLISHABLE_KEY='clave-publica-de-prueba'
 const solicitudes=[]
 let administrador=true
 const filas=Array.from({length:702},(_,i)=>({
@@ -21,14 +21,33 @@ const originalFetch=globalThis.fetch
 globalThis.fetch=async(input,init)=>{
  const u=new URL(String(input)),nombre=u.pathname.split('/').at(-1)
  solicitudes.push(u)
- if(nombre==='com_kpi_campo_catalogo')return new Response(JSON.stringify({puede_administrar:administrador,clientes:[{id:'c1',nombre:'Cliente'}],locales:[{id:'l1',nombre:'Local 1',codigo:'1'}],productos:[{id:'p1',nombre:'INTEGRAL',codigo:'EAN'}]}),{headers:{'Content-Type':'application/json'}})
+ if(nombre==='com_kpi_campo_catalogo')return new Response(JSON.stringify({
+  puede_administrar:administrador,
+  clientes:[{id:'c1',nombre:'Cliente 1'},{id:'c2',nombre:'Cliente 2'}],
+  locales:[{id:'l1',nombre:'Local 1',codigo:'1'}],
+  productos:[
+   {id:'p1',nombre:'INTEGRAL',codigo:'EAN',autorizado:true},
+   {id:'p2',nombre:'BLANCO',codigo:'EAN2',autorizado:false},
+   {id:'p3',nombre:'SEMILLAS',codigo:'EAN3',autorizado:false},
+  ],
+ }),{headers:{'Content-Type':'application/json'}})
+ if(nombre==='cliente_productos'){
+  assert.equal(u.searchParams.get('activo'),'eq.true')
+  assert.equal(u.searchParams.get('cliente_id'),'in.(c1,c2)')
+  return new Response(JSON.stringify([
+   {cliente_id:'c1',producto_id:'p1'}, {cliente_id:'c2',producto_id:'p2'},
+   {cliente_id:'c2',producto_id:'inactivo'},
+  ]),{headers:{'Content-Type':'application/json'}})
+ }
  if(nombre==='com_visitas_campo_sku'){
   const offset=Number(u.searchParams.get('offset')||0),limit=Number(u.searchParams.get('limit')||500)
-  assert.equal(u.searchParams.get('visita.cliente_id'),'eq.c1')
+  const cliente=u.searchParams.get('visita.cliente_id')
+  assert.ok(cliente===null||cliente==='eq.c1')
   assert.equal(u.searchParams.get('visita.estado'),'eq.CONFIRMADA')
   assert.ok(u.searchParams.getAll('visita.fecha_visita').includes('gte.2026-09-14'))
   assert.ok(u.searchParams.getAll('visita.fecha_visita').includes('lte.2026-10-12'))
-  return new Response(JSON.stringify(filas.slice(offset,offset+limit)),{headers:{'Content-Type':'application/json'}})
+  const visibles=cliente ? filas.filter(f=>f.visita.cliente_id==='c1') : filas
+  return new Response(JSON.stringify(visibles.slice(offset,offset+limit)),{headers:{'Content-Type':'application/json'}})
  }
  throw new Error('Solicitud inesperada: '+u.pathname)
 }
@@ -53,6 +72,21 @@ try{
   const propios=await obtenerDashboardVisitasRotacion('c1','2026-09-14','2026-10-12')
   assert.equal(propios.registros[1].puede_procesar,true);assert.equal(propios.registros[2].puede_procesar,false)
  } finally {supabase.auth.getUser=getUser}
+ administrador=true
+ filas.push(
+  {...filas[0],id:'sin-asignacion-c1',producto_id:'p2'},
+  {...filas[0],id:'sin-asignacion-c2',visita:{...filas[0].visita,cliente_id:'c2'}},
+  {...filas[0],id:'asignado-c2',producto_id:'p2',visita:{...filas[0].visita,cliente_id:'c2'}},
+  {...filas[0],id:'sku-inactivo',producto_id:'inactivo',visita:{...filas[0].visita,cliente_id:'c2'}},
+ )
+ const cliente=await obtenerDashboardVisitasRotacion('c1','2026-09-14','2026-10-12',{soloAsignados:true})
+ assert.deepEqual(cliente.productos.map(p=>p.id),['p1'])
+ assert.equal(cliente.registros.length,702)
+ const todos=await obtenerDashboardVisitasRotacion('','2026-09-14','2026-10-12',{soloAsignados:true})
+ assert.deepEqual(todos.productos.map(p=>p.id),['p1','p2'])
+ assert.equal(todos.registros.length,703)
+ assert.deepEqual(todos.registros.filter(r=>r.cliente_id==='c2').map(r=>r.id),['asignado-c2'])
+ console.log('Dashboard verificado: solo asignaciones activas por cliente y SKU, incluso con Todos los clientes.')
  globalThis.fetch=async()=>new Response(JSON.stringify({message:'Sin permiso de lectura',code:'42501'}),{status:403,headers:{'Content-Type':'application/json'}})
  await assert.rejects(()=>obtenerDashboardVisitasRotacion('c1','2026-09-14','2026-10-12'),/Sin permiso/)
  console.log('El error de permisos se muestra como error; no se convierte en un tablero de ceros.')

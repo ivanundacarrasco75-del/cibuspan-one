@@ -15,8 +15,23 @@ import {
   type MicroVersionFmDb,
 } from "../repositories/formulaRepository"
 import Preformulacion from "./Preformulacion"
+import FormulacionEditor from "./FormulacionEditor"
+import NuevoProductoFormula from "./NuevoProductoFormula"
+import CatalogoFormulas from "./CatalogoFormulas"
+import SimuladorCostosCotizacion from "./SimuladorCostosCotizacion"
+import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
+import { agruparIngredientesImpresion, etiquetaVersionFormula, versionPreferidaFormula } from "../utils/formulacionVersion"
+import "./formulasOrganizacion.css"
 
 type Pestana = "SKU" | "MICROS"
+type Seccion = "MENU" | "FORMULACION" | "IMPRESION" | "NUEVO_PRODUCTO" | "ADMINISTRACION" | "SIMULADOR_COSTOS"
+const tarjetasFormulas: Tarjeta[] = [
+  { nombre: "Ingresar nuevo producto", ruta: "NUEVO_PRODUCTO", descripcion: "Crea el producto y su fórmula maestra seleccionando ingredientes y empaques, y calcula su costo.", icono: "M12 5v14M5 12h14" },
+  { nombre: "Administrar catálogo y versiones", ruta: "ADMINISTRACION", descripcion: "Consulta todas las fórmulas, bloquea o habilita su uso y elimina fórmulas o versiones.", icono: "M4 5h16M4 12h16M4 19h16M8 3v4m8 3v4m-8 3v4" },
+  { nombre: "Formulación", ruta: "FORMULACION", descripcion: "Consulta la fórmula y guarda una nueva versión editando sus porcentajes panaderos.", icono: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7" },
+  { nombre: "Simulador de costos", ruta: "SIMULADOR_COSTOS", descripcion: "Consulta el costo del producto y simula precios, descuentos y márgenes para cotizar.", icono: "M5 3h14v18H5zM8 6h8v4H8zM8 14h1m3 0h1m3 0h1M8 18h1m3 0h1m3 0h1" },
+  { nombre: "Impresión de fórmulas", ruta: "IMPRESION", descripcion: "Calcula e imprime cantidades para un SKU o para sus micros.", icono: "M6 8V3h12v5M6 17H3V8h18v9h-3M6 14h12v7H6z" },
+]
 
 function numeroFijo(
   valor: number | null | undefined,
@@ -54,6 +69,7 @@ function escaparHtml(valor: string) {
 }
 
 export default function Formulas() {
+  const [seccion, setSeccion] = useState<Seccion>("MENU")
   const [pestana, setPestana] = useState<Pestana>("SKU")
   const [administrando, setAdministrando] = useState(false)
   const [revisionDatos, setRevisionDatos] = useState(0)
@@ -168,34 +184,7 @@ export default function Formulas() {
     [componentesSku, factorSku],
   )
 
-  const filasImpresionSku = useMemo(() => {
-    const filas: { nombre: string; cantidad: number }[] = []
-    const indicePorMicro = new Map<string, number>()
-
-    for (const fila of filasSku) {
-      if (!fila.micro_id) {
-        filas.push({
-          nombre: fila.materia_nombre,
-          cantidad: fila.cantidad,
-        })
-        continue
-      }
-
-      const indiceExistente = indicePorMicro.get(fila.micro_id)
-
-      if (indiceExistente == null) {
-        indicePorMicro.set(fila.micro_id, filas.length)
-        filas.push({
-          nombre: fila.micro_nombre ?? "MICRO",
-          cantidad: fila.cantidad,
-        })
-      } else {
-        filas[indiceExistente].cantidad += fila.cantidad
-      }
-    }
-
-    return filas
-  }, [filasSku])
+  const filasImpresionSku = useMemo(() => agruparIngredientesImpresion(filasSku), [filasSku])
 
   const componentesMicro = useMemo(
     () =>
@@ -277,6 +266,10 @@ export default function Formulas() {
   }, [revisionDatos])
 
   useEffect(() => {
+    let cancelado = false
+    setVersionSkuId("")
+    setVersionesSku([])
+    setComponentesSku([])
     if (!formulaId) {
       setVersionesSku([])
       setVersionSkuId("")
@@ -285,19 +278,20 @@ export default function Formulas() {
 
     obtenerVersionesFormulaFmDb(formulaId)
       .then((datos) => {
+        if (cancelado) return
         setVersionesSku(datos)
-        const preferida =
-          datos.find((version) => version.estado === "VIGENTE") ??
-          datos[0]
+        const preferida = versionPreferidaFormula(datos)
         setVersionSkuId(preferida?.id ?? "")
       })
       .catch((err) =>
+        !cancelado &&
         setError(
           err instanceof Error
             ? err.message
             : "No se pudieron cargar las versiones del SKU.",
         ),
       )
+    return () => { cancelado = true }
   }, [formulaId, revisionDatos])
 
   useEffect(() => {
@@ -308,6 +302,7 @@ export default function Formulas() {
     }
 
     let cancelado = false
+    setComponentesSku([])
     setCostoMateriaPrimaConjunto(null)
 
     Promise.all([
@@ -337,7 +332,7 @@ export default function Formulas() {
     return () => {
       cancelado = true
     }
-  }, [versionSkuId])
+  }, [versionSkuId, revisionDatos])
 
   useEffect(() => {
     if (!versionSkuSeleccionada) return
@@ -352,6 +347,10 @@ export default function Formulas() {
   }, [versionSkuSeleccionada])
 
   useEffect(() => {
+    let cancelado = false
+    setVersionMicroId("")
+    setVersionesMicro([])
+    setComponentesVersionMicro([])
     if (!microId) {
       setVersionesMicro([])
       setVersionMicroId("")
@@ -360,6 +359,7 @@ export default function Formulas() {
 
     obtenerVersionesMicroFmDb(microId)
       .then((datos) => {
+        if (cancelado) return
         setVersionesMicro(datos)
         const preferida =
           datos.find((version) => version.estado === "VIGENTE") ??
@@ -368,30 +368,36 @@ export default function Formulas() {
         setMicrosObjetivo("1")
       })
       .catch((err) =>
+        !cancelado &&
         setError(
           err instanceof Error
             ? err.message
             : "No se pudieron cargar las versiones del micro.",
         ),
       )
+    return () => { cancelado = true }
   }, [microId, revisionDatos])
 
   useEffect(() => {
+    let cancelado = false
+    setComponentesVersionMicro([])
     if (!versionMicroId) {
       setComponentesVersionMicro([])
       return
     }
 
     obtenerComponentesCosteadosFmDb(versionMicroId)
-      .then(setComponentesVersionMicro)
+      .then(datos => { if (!cancelado) setComponentesVersionMicro(datos) })
       .catch((err) =>
+        !cancelado &&
         setError(
           err instanceof Error
             ? err.message
             : "No se pudo calcular la fórmula del micro.",
         ),
       )
-  }, [versionMicroId])
+    return () => { cancelado = true }
+  }, [versionMicroId, revisionDatos])
 
   useEffect(() => {
     function regresarDesdeAdministracion(evento: Event) {
@@ -410,6 +416,16 @@ export default function Formulas() {
         regresarDesdeAdministracion,
       )
   }, [administrando])
+
+  useEffect(() => {
+    function regresar(evento: Event) {
+      if (seccion === "MENU" || administrando) return
+      evento.preventDefault()
+      setSeccion("MENU")
+    }
+    window.addEventListener("c1:regresar", regresar)
+    return () => window.removeEventListener("c1:regresar", regresar)
+  }, [seccion, administrando])
 
   function volverAlCalculo() {
     setAdministrando(false)
@@ -455,8 +471,8 @@ export default function Formulas() {
           <style>
             @page { size: A4; margin: 15mm; }
             body { margin: 0; color: #1f2937; font-family: Arial, sans-serif; }
-            header { padding-bottom: 14px; border-bottom: 3px solid #8f1d24; }
-            .marca { color: #8f1d24; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+            header { padding-bottom: 14px; border-bottom: 3px solid #051142; }
+            .marca { color: #051142; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
             h1 { margin: 7px 0 4px; font-size: 24px; }
             p { margin: 0; color: #4b5563; }
             table { width: 100%; margin-top: 20px; border-collapse: collapse; }
@@ -492,13 +508,35 @@ export default function Formulas() {
             onClick={volverAlCalculo}
             style={botonSecundario}
           >
-            ← Volver a Fórmulas
+            ← Volver al catálogo de fórmulas
           </button>
         </div>
         <Preformulacion />
       </div>
     )
   }
+
+  if (seccion === "MENU") return <MenuTarjetas titulo="Fórmulas" tarjetas={tarjetasFormulas} cambiarPantalla={destino => setSeccion(destino as Seccion)} />
+
+  if (seccion === "SIMULADOR_COSTOS") return <>
+    <nav className="fm-regreso" aria-label="Navegación de Fórmulas"><button type="button" className="fm-secundario" onClick={() => setSeccion("MENU")}>← Volver a Fórmulas</button></nav>
+    <div className="fm-editor"><SimuladorCostosCotizacion /></div>
+  </>
+
+  if (seccion === "NUEVO_PRODUCTO") return <>
+    <nav className="fm-regreso" aria-label="Navegación de Fórmulas"><button type="button" className="fm-secundario" onClick={() => setSeccion("MENU")}>← Volver a Fórmulas</button></nav>
+    <NuevoProductoFormula alGuardar={() => setRevisionDatos(actual => actual + 1)} />
+  </>
+
+  if (seccion === "ADMINISTRACION") return <>
+    <nav className="fm-regreso" aria-label="Navegación de Fórmulas"><button type="button" className="fm-secundario" onClick={() => setSeccion("MENU")}>← Volver a Fórmulas</button></nav>
+    <CatalogoFormulas editar={() => setAdministrando(true)} alCambiar={() => setRevisionDatos(actual => actual + 1)} />
+  </>
+
+  if (seccion === "FORMULACION") return <>
+    <nav className="fm-regreso" aria-label="Navegación de Fórmulas"><button type="button" className="fm-secundario" onClick={() => setSeccion("MENU")}>← Volver a Fórmulas</button></nav>
+    <FormulacionEditor alGuardar={() => setRevisionDatos(actual => actual + 1)} />
+  </>
 
   return (
     <main style={pagina}>
@@ -511,19 +549,19 @@ export default function Formulas() {
 
       <header style={cabecera}>
         <div>
-          <span style={etiqueta}>COSTEO Y PRODUCCIÓN</span>
-          <h1 style={titulo}>Fórmulas</h1>
+          <span style={etiqueta}>PRODUCCIÓN</span>
+          <h1 style={titulo}>Impresión de fórmulas</h1>
           <p style={subtitulo}>
-            Calcula ingredientes, cantidades y costos para SKU y micros.
+            Selecciona el SKU o micro y la cantidad que necesitas producir.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setAdministrando(true)}
+          onClick={() => setSeccion("MENU")}
           style={botonSecundario}
         >
-          Administrar fórmulas y versiones
+          ← Volver a Fórmulas
         </button>
       </header>
 
@@ -573,12 +611,12 @@ export default function Formulas() {
                 cambiar={setVersionSkuId}
                 opciones={versionesSku.map((version) => ({
                   valor: version.id,
-                  texto: `V${version.numero_version} · ${version.estado}`,
+                  texto: etiquetaVersionFormula(version),
                 }))}
               />
 
               <CampoNumero
-                etiqueta="Número de fundas a producir"
+                etiqueta="Unidades del SKU a producir (fundas)"
                 valor={panesObjetivo}
                 cambiar={setPanesObjetivo}
               />
@@ -624,7 +662,7 @@ export default function Formulas() {
                   {formulaSeleccionada?.nombre ?? "Fórmula SKU"}
                 </h2>
                 <p style={descripcion}>
-                  Los ingredientes de los micros están desglosados dentro de la fórmula.
+                  Los micros se muestran completos, sin desglosar sus ingredientes.
                 </p>
               </div>
 
@@ -633,7 +671,7 @@ export default function Formulas() {
                 onClick={() =>
                   imprimir(
                     formulaSeleccionada?.nombre ?? "Fórmula SKU",
-                    `${skuSolicitados || 0} fundas · ${numeroFijo(
+                    `${versionSkuSeleccionada ? etiquetaVersionFormula(versionSkuSeleccionada) + " · " : ""}${skuSolicitados || 0} fundas · ${numeroFijo(
                       unidadesPanSolicitadas,
                       0,
                     )} unidades · ${numeroFijo(
@@ -644,12 +682,13 @@ export default function Formulas() {
                   )
                 }
                 style={botonPrincipal}
+                disabled={!versionSkuId || !filasImpresionSku.length || !Number.isInteger(skuSolicitados) || skuSolicitados <= 0 || skuBase <= 0}
               >
                 Imprimir fórmula
               </button>
             </div>
 
-            <TablaFormula filas={filasSku} tipo="SKU" />
+            <TablaImpresionSku filas={filasImpresionSku} />
           </section>
         </>
       ) : (
@@ -722,7 +761,7 @@ export default function Formulas() {
                 onClick={() =>
                   imprimir(
                     microSeleccionado?.nombre ?? "Fórmula de micro",
-                    `${numeroEntero(factorMicro)} micros · Peso unitario: ${numeroFijo(
+                    `V${versionMicroSeleccionada?.numero_version ?? ""} · ${numeroEntero(factorMicro)} micros · Peso unitario: ${numeroFijo(
                       pesoUnMicro,
                     )} kg · Peso total: ${numeroFijo(
                       pesoUnMicro * factorMicro,
@@ -734,6 +773,7 @@ export default function Formulas() {
                   )
                 }
                 style={botonPrincipal}
+                disabled={!versionMicroId || !filasMicro.length || !Number.isInteger(microsSolicitados) || microsSolicitados <= 0}
               >
                 Imprimir micro
               </button>
@@ -818,6 +858,15 @@ function TarjetaResumen({
   )
 }
 
+function TablaImpresionSku({ filas }: { filas: { nombre: string; cantidad: number }[] }) {
+  return <div className="fm-hoja" tabIndex={0} aria-label="Fórmula SKU para impresión">
+    <table><thead><tr><th>N.º</th><th>Ingrediente o micro</th><th>Cantidad (kg)</th></tr></thead>
+      <tbody>{filas.map((fila, indice) => <tr key={indice}><th scope="row">{indice + 1}</th><td>{fila.nombre}</td><td className="fm-numero">{numeroFijo(fila.cantidad)}</td></tr>)}</tbody>
+      <tfoot><tr><th colSpan={2}>Total</th><td className="fm-numero">{numeroFijo(filas.reduce((suma, fila) => suma + fila.cantidad, 0))}</td></tr></tfoot>
+    </table>
+  </div>
+}
+
 function TablaFormula({
   filas,
   tipo,
@@ -836,7 +885,7 @@ function TablaFormula({
   }
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="fm-hoja" style={{ overflowX: "auto" }}>
       <table style={tabla}>
         <thead>
           <tr>
@@ -910,7 +959,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -940,7 +989,7 @@ const botonPestana = {
 }
 
 const botonPestanaActivo = {
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
 }
 
@@ -1006,7 +1055,7 @@ const etiquetaResumen = {
   textTransform: "uppercase" as const,
 }
 
-const valorResumen = { color: "#8f1d24", fontSize: "23px" }
+const valorResumen = { color: "#051142", fontSize: "23px" }
 
 const encabezadoTablaBloque = {
   display: "flex",
@@ -1037,7 +1086,7 @@ const celdaNumero = { ...celda, textAlign: "right" as const }
 const detalleIngrediente = {
   display: "block",
   marginTop: "4px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "11px",
 }
 
@@ -1055,7 +1104,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1063,10 +1112,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }

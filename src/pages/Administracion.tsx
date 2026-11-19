@@ -1194,9 +1194,9 @@ function BotonPestana({
       style={{
         ...botonPestana,
         background: activo
-          ? "#8f1d24"
+          ? "#051142"
           : "white",
-        color: activo ? "white" : "#8f1d24",
+        color: activo ? "white" : "#051142",
       }}
     >
       {texto}
@@ -1246,7 +1246,7 @@ const cabeceraPagina = {
 }
 
 const etiquetaPagina = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -1285,7 +1285,7 @@ const botonArea = {
 }
 
 const botonAreaActivo = {
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   boxShadow:
     "0 2px 8px rgba(15, 23, 42, 0.10)",
@@ -1314,7 +1314,7 @@ const tarjetaModulo = {
 
 const tituloModulo = {
   margin: "0 0 12px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "21px",
 }
 
@@ -1329,7 +1329,7 @@ const botonModulo = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
 }
@@ -1343,7 +1343,7 @@ const pestanas = {
 
 const botonPestana = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1384,7 +1384,7 @@ const botonPrincipal = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",
@@ -1392,10 +1392,10 @@ const botonPrincipal = {
 
 const botonSecundario = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   cursor: "pointer",
 }
 

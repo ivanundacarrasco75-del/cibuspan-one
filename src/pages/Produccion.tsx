@@ -362,7 +362,7 @@ export default function Produccion() {
           border: "none",
           borderRadius: "8px",
           background:
-            totalProgramado > 25 ? "#aaaaaa" : "#8f1d24",
+            totalProgramado > 25 ? "#aaaaaa" : "#051142",
           color: "white",
           fontWeight: "bold",
           cursor:

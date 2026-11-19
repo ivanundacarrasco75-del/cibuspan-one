@@ -14,20 +14,53 @@ export type DatosDashboardCampo = {
 }
 const numero = (valor: unknown): number | null => valor == null || valor === "" || !Number.isFinite(Number(valor)) ? null : Number(valor)
 
-export async function obtenerDashboardVisitasRotacion(clienteId: string, desde: string, hasta: string): Promise<DatosDashboardCampo> {
+export async function obtenerDashboardVisitasRotacion(
+  clienteId: string, desde: string, hasta: string, { soloAsignados = false } = {},
+): Promise<DatosDashboardCampo> {
   const [catalogo, registros] = await Promise.all([
     supabase.rpc("com_kpi_campo_catalogo", { p_cliente_id: clienteId || null, p_desde: desde, p_hasta: hasta }),
     leerRegistros(clienteId, desde, hasta),
   ])
   if (catalogo.error) throw new Error(`No se pudo cargar el catálogo de visitas: ${catalogo.error.message}`)
   const datos = catalogo.data ?? {}
+  const clientes: DatosDashboardCampo["clientes"] = datos.clientes ?? []
+  const productos: Array<ProductoDashboardCampo & { autorizado?: boolean }> = datos.productos ?? []
+  const asignaciones = soloAsignados
+    ? clienteId
+      ? new Map([[clienteId, new Set(productos.filter((p) => p.autorizado === true).map((p) => p.id))]])
+      : await leerAsignacionesActivas(clientes.map((c) => c.id))
+    : null
+  const asignados = asignaciones ? new Set([...asignaciones.values()].flatMap((ids) => [...ids])) : null
+  const productosVisibles = asignados ? productos.filter((p) => asignados.has(p.id)) : productos
+  const idsVisibles = new Set(productosVisibles.map((p) => p.id))
+  const registrosVisibles = asignaciones
+    ? registros.filter((r) => idsVisibles.has(r.producto_id) && asignaciones.get(r.cliente_id)?.has(r.producto_id))
+    : registros
   const administrador = datos.puede_administrar === true
   const usuarioId = administrador ? null : (await supabase.auth.getUser()).data.user?.id
-  return { clientes: datos.clientes ?? [], locales: datos.locales ?? [], productos: datos.productos ?? [],
-    registros: registros.map((r) => {
-      const nombre = (datos.clientes ?? []).find((c: { id: string; nombre: string }) => c.id === r.cliente_id)?.nombre ?? ""
+  return { clientes, locales: datos.locales ?? [], productos: productosVisibles,
+    registros: registrosVisibles.map((r) => {
+      const nombre = clientes.find((c) => c.id === r.cliente_id)?.nombre ?? ""
       return { ...r, cliente_nombre: nombre, lector_estado: clienteIngresoManualCampo(nombre) ? "RESPALDO_MANUAL" : r.lector_estado, puede_procesar: administrador || !!usuarioId && r.registrado_por === usuarioId }
     }) }
+}
+
+async function leerAsignacionesActivas(clientes: string[]) {
+  const asignaciones = new Map<string, Set<string>>()
+  if (!clientes.length) return asignaciones
+  const pagina = 500
+  for (let inicio = 0; ; inicio += pagina) {
+    const { data, error } = await supabase.from("cliente_productos")
+      .select("cliente_id, producto_id").eq("activo", true).in("cliente_id", clientes)
+      .order("cliente_id").order("producto_id").range(inicio, inicio + pagina - 1)
+    if (error) throw new Error(`No se pudieron cargar las asignaciones de Cliente - Producto: ${error.message}`)
+    for (const fila of data ?? []) {
+      const productos = asignaciones.get(fila.cliente_id) ?? new Set<string>()
+      productos.add(fila.producto_id)
+      asignaciones.set(fila.cliente_id, productos)
+    }
+    if ((data?.length ?? 0) < pagina) return asignaciones
+  }
 }
 
 async function leerRegistros(clienteId: string, desde: string, hasta: string) {
@@ -75,6 +108,7 @@ async function leerRegistros(clienteId: string, desde: string, hasta: string) {
         valores: {
           rotacion: numero(fila.rotacion_diaria_unidades), stock, dias: numero(fila.dias_inventario_local), caras,
           precio: numero(fila.precio_comercio), precio_afiliado: numero(fila.precio_afiliado), venta: numero(fila.venta_diaria_valor),
+          participacion_clase: numero(fila.participacion_clase), participacion_subclase: numero(fila.participacion_subclase),
           prediccion: numero(fila.prediccion_venta_unidades), stock_cd: numero(fila.stock_cd_cajas), dias_cd: numero(fila.dias_inventario_cd),
           presencia: fila.presencia_percha === "PRESENTE" ? 100 : fila.presencia_percha === "AUSENTE" ? 0 : null,
           codificacion: fila.codificado_app == null ? null : fila.codificado_app ? 100 : 0,

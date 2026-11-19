@@ -1,17 +1,44 @@
 import { supabase } from "../lib/supabase"
 import type { FacturaSri } from "../utils/comprasSri"
 
-export type CompraGuardada = {
+export type CampoCompra = "fecha" | "serie" | "proveedor" | "descripcion" | "subtotal" | "iva" | "total" | "retencion" | "documento"
+export type AbonoCompra = { id: string; valor: string; fecha: string; documento: string }
+export type ControlCompra = {
+  edicion: Partial<Record<CampoCompra, string>>
+  abonos: AbonoCompra[]
+}
+export type CompraGuardada = ControlCompra & {
   datos: FacturaSri
   ride_leido: boolean
+  neto_excel?: number | null
+  origen_excel?: boolean
+  observaciones_excel?: string | null
+  documento_excel?: string | null
 }
 
-export async function listarComprasSri(desde: number, limite: number) {
-  const { data, error } = await supabase.from("compras_sri")
-    .select("datos,ride_leido").order("fecha_emision", { ascending: false })
-    .order("clave_acceso").range(desde, desde + limite - 1)
+export async function listarComprasSri(desde: number, limite: number, proveedor: string | null) {
+  let consulta = supabase.from("compras_vw_facturas")
+    .select("datos,ride_leido,edicion,abonos,neto_excel,origen_excel,observaciones_excel,documento_excel")
+    .order("fecha_orden", { ascending: false, nullsFirst: false }).order("id")
+    .range(desde, desde + limite - 1)
+  if (proveedor !== null) consulta = consulta.eq("proveedor_filtro", proveedor)
+  const { data, error } = await consulta
   if (error) throw error
   return data as CompraGuardada[]
+}
+
+export async function buscarProveedoresSri(texto: string) {
+  const { data, error } = await supabase.rpc("compras_sri_buscar_proveedores", { p_texto: texto })
+  if (error) throw error
+  return ((data ?? []) as { proveedor: string }[]).map(fila => fila.proveedor)
+}
+
+export async function editarCompraSri(clave: string, campo: CampoCompra, valor: string) {
+  const { data, error } = await supabase.rpc("compras_sri_editar", {
+    p_clave: clave, p_campo: campo, p_valor: valor,
+  })
+  if (error) throw error
+  return data as ControlCompra
 }
 
 export async function guardarCompraSri(datos: FacturaSri, xml: string) {

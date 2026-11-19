@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { filtrarModulosPermitidos } from "../../utils/permisosAplicacion"
+import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLA_MENU_FINANZAS, PANTALLA_MENU_PRODUCCION, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
+import LogoCibuspan from "../LogoCibuspan"
 
 type LayoutProps = {
   pantalla: string
@@ -7,6 +8,7 @@ type LayoutProps = {
   cerrarSesion?: () => void | Promise<void>
   usuario?: string | null
   puedeAcceder: (pantalla: string) => boolean
+  regresarRolesPago?: () => void
   children: ReactNode
 }
 
@@ -44,18 +46,18 @@ type Modulo = {
   items: ItemSubmenu[]
 }
 
-const COLOR_VINO = "#8F1D24"
-const COLOR_VINO_OSCURO = "#68151A"
-const COLOR_NARANJA = "#F7931E"
-const COLOR_FONDO = "#F8F5F1"
-
 const modulos: Modulo[] = [
   {
     id: "Inicio",
-    etiqueta: "Inicio",
+    etiqueta: "Dashboards",
     icono: "inicio",
     entrada: "Dashboard",
-    items: [],
+    items: [
+      { pantalla: "Dashboard", etiqueta: "Revisión operativa" },
+      { pantalla: "Dashboard · Comercial", etiqueta: "Comercial" },
+      { pantalla: "Dashboard · Visitas y rotación", etiqueta: "Visitas PDV" },
+      { pantalla: "Dashboard · Costos y gastos", etiqueta: "Costos y gastos" },
+    ],
   },
   {
     id: "Comercial",
@@ -85,18 +87,8 @@ const modulos: Modulo[] = [
     id: "Producción",
     etiqueta: "Producción",
     icono: "produccion",
-    entrada: "Producción · Resumen",
-    items: [
-      { pantalla: "Producción · Resumen", etiqueta: "Resumen" },
-      { pantalla: "Producción · Pedidos", etiqueta: "Pedidos" },
-      { pantalla: "Producción · Planificación", etiqueta: "Planificación" },
-      { pantalla: "Producción · Producción", etiqueta: "Producción" },
-      { pantalla: "Producción · Fórmulas", etiqueta: "Fórmulas" },
-      { pantalla: "Producción · Semielaborados", etiqueta: "Semielaborados" },
-      { pantalla: "Producción · Etiquetado", etiqueta: "Etiquetado" },
-      { pantalla: "Producción · Historial", etiqueta: "Historial" },
-      { pantalla: "Producción · Análisis", etiqueta: "Análisis" },
-    ],
+    entrada: PANTALLA_MENU_PRODUCCION,
+    items: [],
   },
   {
     id: "Inventario y Despachos",
@@ -118,42 +110,15 @@ const modulos: Modulo[] = [
     id: "Compras",
     etiqueta: "Compras",
     icono: "compras",
-    entrada: "Compras · Resumen",
-    items: [
-      { pantalla: "Compras · Resumen", etiqueta: "Resumen" },
-      { pantalla: "Compras · Proveedores", etiqueta: "Proveedores" },
-      { pantalla: "Compras · Facturas", etiqueta: "Facturas" },
-      { pantalla: "Compras · Facturas del SRI", etiqueta: "Facturas del SRI" },
-      {
-        pantalla: "Compras · Materias Primas y Empaques",
-        etiqueta: "Materias Primas y Empaques",
-      },
-      { pantalla: "Compras · Costos", etiqueta: "Costos" },
-      { pantalla: "Compras · Kardex", etiqueta: "Kardex" },
-      { pantalla: "Compras · Historial", etiqueta: "Historial" },
-      { pantalla: "Compras · Análisis", etiqueta: "Análisis" },
-    ],
+    entrada: PANTALLA_MENU_COMPRAS,
+    items: [],
   },
   {
     id: "Pagos y Finanzas",
     etiqueta: "Pagos y Finanzas",
     icono: "finanzas",
-    entrada: "Pagos y Finanzas · Resumen",
-    items: [
-      { pantalla: "Pagos y Finanzas · Resumen", etiqueta: "Resumen" },
-      { pantalla: "Pagos y Finanzas · Cuentas por Cobrar", etiqueta: "Cuentas por Cobrar" },
-      { pantalla: "Pagos y Finanzas · Cobros y Conciliación", etiqueta: "Cobros y Conciliación" },
-      { pantalla: "Pagos y Finanzas · Cuentas por Pagar", etiqueta: "Cuentas por Pagar" },
-      { pantalla: "Pagos y Finanzas · Pagos", etiqueta: "Pagos" },
-      { pantalla: "Pagos y Finanzas · Roles de pago", etiqueta: "Roles de pago" },
-      { pantalla: "Pagos y Finanzas · Tesorería", etiqueta: "Tesorería" },
-      { pantalla: "Pagos y Finanzas · Resultados", etiqueta: "Resultados" },
-      { pantalla: "Pagos y Finanzas · Importación contable", etiqueta: "Importación contable" },
-      { pantalla: "Pagos y Finanzas · Clasificación de gastos", etiqueta: "Clasificación" },
-      { pantalla: "Pagos y Finanzas · Rentabilidad", etiqueta: "Rentabilidad" },
-      { pantalla: "Pagos y Finanzas · Historial", etiqueta: "Historial" },
-      { pantalla: "Pagos y Finanzas · Análisis", etiqueta: "Análisis" },
-    ],
+    entrada: PANTALLA_MENU_FINANZAS,
+    items: [],
   },
   {
     id: "Administración",
@@ -173,7 +138,7 @@ const modulos: Modulo[] = [
 ]
 
 function moduloDePantalla(pantalla: string): Modulo["id"] {
-  if (pantalla === "Dashboard") return "Inicio"
+  if (pantalla === "Dashboard" || pantalla.startsWith("Dashboard ·")) return "Inicio"
 
   if (pantalla.startsWith("Comercial ·")) return "Comercial"
   if (pantalla.startsWith("Casa Masa ·")) return "Casa Masa"
@@ -231,6 +196,7 @@ export default function Layout({
   cerrarSesion,
   usuario,
   puedeAcceder,
+  regresarRolesPago,
   children,
 }: LayoutProps) {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
@@ -265,7 +231,7 @@ export default function Layout({
       <style>{css}</style>
 
       <aside className="c1-sidebar">
-        <Marca />
+        <LogoCibuspan />
 
         <nav className="c1-menu-desktop" aria-label="Navegación principal">
           {modulosDisponibles.map((modulo) => (
@@ -306,7 +272,7 @@ export default function Layout({
           <Icono nombre="menu" />
         </button>
 
-        <Marca compacta />
+        <div className="c1-mobile-brand"><LogoCibuspan ancho={168} /></div>
 
         <button
           type="button"
@@ -319,7 +285,40 @@ export default function Layout({
       </header>
 
       <main className="c1-content">
-        {moduloActual && moduloActual.items.length > 0 && (
+        {moduloActualId === "Producción" && pantalla !== PANTALLA_MENU_PRODUCCION && puedeAcceder(PANTALLA_MENU_PRODUCCION) && (
+          <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Producción">
+            <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_PRODUCCION)}>
+              <span aria-hidden="true">← </span>Volver a Producción
+            </button>
+          </nav>
+        )}
+        {moduloActualId === "Compras" && pantalla !== PANTALLA_MENU_COMPRAS && moduloActual && (
+          <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Compras">
+            {PANTALLAS_DOCUMENTOS_COMPRAS.includes(pantalla) && puedeAcceder(PANTALLA_FACTURAS_COMPRAS) && (
+              <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_FACTURAS_COMPRAS)}>
+                <span aria-hidden="true">← </span>Volver a Facturas de compras
+              </button>
+            )}
+            <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_COMPRAS)}>
+              <span aria-hidden="true">← </span>Volver a Compras
+            </button>
+          </nav>
+        )}
+          {moduloActualId === "Pagos y Finanzas" && pantalla !== PANTALLA_MENU_FINANZAS && (puedeAcceder(PANTALLA_MENU_FINANZAS) || regresarRolesPago) && (
+            <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Pagos y Finanzas">
+              {puedeAcceder(PANTALLA_MENU_FINANZAS) && (
+              <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_FINANZAS)}>
+                <span aria-hidden="true">← </span>Volver a Pagos y Finanzas
+              </button>
+              )}
+              {regresarRolesPago && (
+                <button type="button" className="c1-subnav-item" onClick={regresarRolesPago}>
+                  <span aria-hidden="true">← </span>Volver a Roles de pago
+                </button>
+              )}
+            </nav>
+          )}
+          {moduloActual && moduloActual.items.length > 0 && (
           <div className="c1-subnav-shell">
             <div className="c1-module-title">{moduloActual.etiqueta}</div>
             <nav className="c1-subnav" aria-label={`Opciones de ${moduloActual.etiqueta}`}>
@@ -330,6 +329,7 @@ export default function Layout({
                   className={`c1-subnav-item ${
                     pantalla === item.pantalla ? "activo" : ""
                   }`}
+                  aria-current={pantalla === item.pantalla ? "page" : undefined}
                   onClick={() => navegar(item.pantalla)}
                 >
                   {item.etiqueta}
@@ -361,7 +361,7 @@ export default function Layout({
         <div className="c1-overlay" onClick={() => setMenuMovilAbierto(false)}>
           <aside className="c1-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="c1-drawer-header">
-              <Marca />
+              <LogoCibuspan ancho={190} />
               <button
                 type="button"
                 className="c1-icon-button"
@@ -420,19 +420,6 @@ export default function Layout({
           </section>
         </div>
       )}
-    </div>
-  )
-}
-
-function Marca({ compacta = false }: { compacta?: boolean }) {
-  return (
-    <div className={`c1-brand ${compacta ? "compacta" : ""}`} aria-label="CIBUSPAN ONE">
-      <span className="c1-brand-symbol" aria-hidden="true">
-        <i />
-        <i />
-      </span>
-      <span className="c1-brand-cibus">CIBUSPAN</span>
-      <span className="c1-brand-one">ONE</span>
     </div>
   )
 }
@@ -570,18 +557,11 @@ function Icono({ nombre }: { nombre: IconoNombre }) {
 
 const css = `
   * { box-sizing: border-box; }
-  :root {
-    --c1-vino: ${COLOR_VINO};
-    --c1-vino-oscuro: ${COLOR_VINO_OSCURO};
-    --c1-naranja: ${COLOR_NARANJA};
-    --c1-fondo: ${COLOR_FONDO};
-  }
-
-  body { margin: 0; background: var(--c1-fondo); }
+  body { margin: 0; background: var(--cibuspan-fondo); }
 
   .c1-shell {
     min-height: 100vh;
-    background: var(--c1-fondo);
+    background: var(--cibuspan-fondo);
     color: #2b2422;
   }
 
@@ -593,59 +573,9 @@ const css = `
     display: flex;
     flex-direction: column;
     padding: 22px 16px 18px;
-    background: linear-gradient(180deg, #73191f 0%, #5d151a 100%);
+    background: var(--cibuspan-azul);
     color: white;
     box-shadow: 6px 0 24px rgba(69,22,22,.12);
-  }
-
-  .c1-brand {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    height: 48px;
-    padding: 0 8px;
-    white-space: nowrap;
-  }
-
-  .c1-brand-symbol {
-    position: relative;
-    width: 27px;
-    height: 30px;
-    flex: 0 0 27px;
-  }
-
-  .c1-brand-symbol i {
-    position: absolute;
-    left: 3px;
-    width: 20px;
-    height: 12px;
-    background: var(--c1-naranja);
-    border-radius: 100% 0 100% 0;
-    transform-origin: 0 50%;
-  }
-
-  .c1-brand-symbol i:first-child {
-    top: 2px;
-    transform: rotate(-25deg);
-  }
-
-  .c1-brand-symbol i:last-child {
-    bottom: 2px;
-    transform: rotate(25deg) scaleY(-1);
-  }
-
-  .c1-brand-cibus {
-    font-size: 20px;
-    font-weight: 900;
-    letter-spacing: -.7px;
-    color: white;
-  }
-
-  .c1-brand-one {
-    font-size: 20px;
-    font-weight: 900;
-    color: var(--c1-naranja);
-    letter-spacing: -.7px;
   }
 
   .c1-menu-desktop {
@@ -681,9 +611,8 @@ const css = `
   }
 
   .c1-menu-item.activo {
-    background: var(--c1-naranja);
-    color: white;
-    box-shadow: 0 8px 20px rgba(247,147,30,.2);
+    background: var(--cibuspan-turquesa);
+    color: var(--cibuspan-azul);
   }
 
   .c1-icon {
@@ -728,7 +657,7 @@ const css = `
     width: 38px;
     height: 38px;
     background: white;
-    color: var(--c1-vino);
+    color: var(--cibuspan-azul);
   }
 
   .c1-user-text {
@@ -761,14 +690,14 @@ const css = `
     top: 0;
     z-index: 700;
     padding: 13px 20px 10px;
-    border-bottom: 1px solid #eadfd8;
-    background: rgba(248,245,241,.96);
+    border-bottom: 1px solid #dce5ee;
+    background: var(--cibuspan-fondo);
     backdrop-filter: blur(12px);
   }
 
   .c1-module-title {
     margin: 0 0 8px 2px;
-    color: var(--c1-vino);
+    color: var(--cibuspan-azul);
     font-size: 13px;
     font-weight: 850;
     letter-spacing: .02em;
@@ -787,10 +716,10 @@ const css = `
     flex: 0 0 auto;
     min-height: 34px;
     padding: 0 13px;
-    border: 1px solid #e4d8d2;
+    border: 1px solid #dce5ee;
     border-radius: 999px;
     background: white;
-    color: #655650;
+    color: #51617a;
     font: inherit;
     font-size: 12px;
     font-weight: 750;
@@ -799,14 +728,25 @@ const css = `
   }
 
   .c1-subnav-item:hover {
-    border-color: #cba89b;
-    color: var(--c1-vino);
+    border-color: var(--cibuspan-turquesa-texto);
+    color: var(--cibuspan-azul);
   }
 
   .c1-subnav-item.activo {
-    border-color: var(--c1-vino);
-    background: var(--c1-vino);
+    border-color: var(--cibuspan-azul);
+    background: var(--cibuspan-azul);
     color: white;
+  }
+
+  .c1-compras-regreso {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .c1-compras-regreso .c1-subnav-item {
+    min-height: 44px;
+    color: var(--cibuspan-azul);
   }
 
   .c1-page-slot {
@@ -829,7 +769,7 @@ const css = `
     width: min(86vw, 340px);
     height: 100%;
     padding: 18px;
-    background: linear-gradient(180deg, #73191f 0%, #5d151a 100%);
+    background: var(--cibuspan-azul);
     color: white;
     box-shadow: 20px 0 60px rgba(0,0,0,.22);
   }
@@ -899,7 +839,7 @@ const css = `
 
   .c1-sheet h3 {
     margin: 0 0 14px;
-    color: var(--c1-vino);
+    color: var(--cibuspan-azul);
   }
 
   .c1-sheet-grid {
@@ -925,9 +865,9 @@ const css = `
   }
 
   .c1-sheet-item.activo {
-    border-color: var(--c1-naranja);
-    color: var(--c1-vino);
-    background: #fff4e6;
+    border-color: var(--cibuspan-turquesa-texto);
+    color: var(--cibuspan-azul);
+    background: var(--cibuspan-turquesa-claro);
   }
 
   @media (max-width: 820px) {
@@ -950,16 +890,14 @@ const css = `
       grid-template-columns: 48px 1fr 48px;
       align-items: center;
       padding: 0 8px;
-      background: linear-gradient(90deg, #73191f, #8f1d24);
+      background: var(--cibuspan-azul);
       color: white;
       box-shadow: 0 2px 14px rgba(69,22,22,.18);
     }
 
-    .c1-mobile-header .c1-brand {
+    .c1-mobile-brand {
       justify-self: center;
-      padding: 0;
-      transform: scale(.86);
-      transform-origin: center;
+      max-width: 100%;
     }
 
     .c1-menu-trigger {
@@ -1023,7 +961,7 @@ const css = `
     }
 
     .c1-bottom-item.activo {
-      color: var(--c1-naranja);
+      color: var(--cibuspan-turquesa-texto);
       font-weight: 800;
     }
   }

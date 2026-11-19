@@ -1972,7 +1972,7 @@ export default function PedidosV2() {
                             color:
                               unidadesSolicitadas >
                               0
-                                ? "#8f1d24"
+                                ? "#051142"
                                 : "#6b7280",
                             fontSize: "17px",
                           }}
@@ -2506,7 +2506,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -2631,19 +2631,19 @@ const datoTitulo = {
 }
 
 const datoResumen = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "28px",
 }
 
 const datoResumenTexto = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "20px",
 }
 
 const totalPedido = {
   display: "block",
   marginTop: "4px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "23px",
 }
 
@@ -2652,17 +2652,17 @@ const botonGuardar = {
   padding: "12px 22px",
   border: "none",
   borderRadius: "9px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
 }
 
 const botonSecundario = {
   padding: "10px 16px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "8px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2671,7 +2671,7 @@ const contador = {
   minWidth: "36px",
   padding: "7px 11px",
   borderRadius: "999px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   textAlign: "center" as const,
   fontWeight: "bold",
@@ -2769,10 +2769,10 @@ const botonEliminarPedido = {
 
 const botonVerPedido = {
   padding: "8px 12px",
-  border: "1px solid #8f1d24",
+  border: "1px solid #051142",
   borderRadius: "7px",
   background: "white",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   cursor: "pointer",
 }
@@ -2847,7 +2847,7 @@ const resumenModal = {
 const valorModal = {
   display: "block",
   marginTop: "5px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "24px",
 }
 
@@ -2894,7 +2894,7 @@ const botonImportar = {
 
 const botonImportarSantamaria = {
   ...botonImportar,
-  background: "#8f1d24",
+  background: "#051142",
 }
 
 const panelImportacionSantamaria = {
@@ -2908,7 +2908,7 @@ const mensajeProcesandoImportacion = {
   padding: "13px 16px",
   borderRadius: "9px",
   background: "#fff1d6",
-  color: "#8f1d24",
+  color: "#051142",
   fontWeight: "bold",
   textAlign: "center" as const,
 }
@@ -2926,7 +2926,7 @@ const botonCerrarImportacion = {
 const checkImportacion = {
   width: "20px",
   height: "20px",
-  accentColor: "#8f1d24",
+  accentColor: "#051142",
   cursor: "pointer",
 }
 
@@ -2956,9 +2956,9 @@ const pieImportacionSantamaria = {
 
 const pedidosResponsiveCss = `
   .c1-orders {
-    --c1-vino: #8F1D24;
-    --c1-vino-oscuro: #68151A;
-    --c1-naranja: #F7931E;
+    --c1-vino: #051142;
+    --c1-vino-oscuro: #051142;
+    --c1-naranja: #006c65;
   }
 
   .c1-orders .orders-panel,
@@ -2975,7 +2975,7 @@ const pedidosResponsiveCss = `
 
   .c1-orders .orders-import button,
   .c1-orders .orders-save-panel > button {
-    background: linear-gradient(90deg,#F7931E,#FF7900) !important;
+    background: linear-gradient(90deg,#006c65,#FF7900) !important;
     color: white !important;
     border-color: transparent !important;
   }
@@ -2983,7 +2983,7 @@ const pedidosResponsiveCss = `
   .c1-orders input:focus,
   .c1-orders select:focus {
     outline: none;
-    border-color: #F7931E !important;
+    border-color: #006c65 !important;
     box-shadow: 0 0 0 3px rgba(247,147,30,.13);
   }
 
@@ -3014,7 +3014,7 @@ const pedidosResponsiveCss = `
   }
 
   .c1-orders .orders-status-filter button.activo {
-    background: #8F1D24;
+    background: #051142;
     color: white;
     box-shadow: 0 3px 9px rgba(143,29,36,.14);
   }

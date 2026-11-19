@@ -4,11 +4,10 @@ import {
   type CompraGuardada,
 } from "../repositories/comprasSriRepository"
 import { leerFacturaSri } from "../utils/comprasSri"
+import ComprasSriTabla from "./ComprasSriTabla"
 
 const sri = "https://srienlinea.sri.gob.ec/sri-en-linea/inicio/NAT"
 const porPagina = 25
-const formato = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const monto = (valor: string | number) => formato.format(Number(valor))
 
 function mensajeError(error: unknown) {
   if (typeof error === "object" && error && "message" in error) return String(error.message)
@@ -18,6 +17,7 @@ function mensajeError(error: unknown) {
 export default function ComprasSri() {
   const [compras, setCompras] = useState<CompraGuardada[]>([])
   const [pagina, setPagina] = useState(0)
+  const [proveedor, setProveedor] = useState<string | null>(null)
   const [haySiguiente, setHaySiguiente] = useState(false)
   const [revision, setRevision] = useState(0)
   const [cargando, setCargando] = useState(true)
@@ -29,7 +29,7 @@ export default function ComprasSri() {
     let vigente = true
     setCargando(true)
     setErrorTabla("")
-    listarComprasSri(pagina * porPagina, porPagina + 1)
+    listarComprasSri(pagina * porPagina, porPagina + 1, proveedor)
       .then((filas) => {
         if (!vigente) return
         setCompras(filas.slice(0, porPagina))
@@ -42,7 +42,17 @@ export default function ComprasSri() {
         if (vigente) setCargando(false)
       })
     return () => { vigente = false }
-  }, [pagina, revision])
+  }, [pagina, revision, proveedor])
+
+  function elegirProveedor(nombre: string | null) {
+    if (nombre === proveedor && pagina === 0) {
+      if (errorTabla) setRevision(actual => actual + 1)
+      return
+    }
+    setCargando(true)
+    setPagina(0)
+    setProveedor(nombre)
+  }
 
   async function importar(archivos: File[]) {
     setImportando(true)
@@ -79,19 +89,23 @@ export default function ComprasSri() {
   }
 
   return (
-    <section>
-      <h1>Facturas de compra del SRI</h1>
-      <p>Abre el SRI, consulta Comprobantes electrónicos recibidos y descarga el XML y el RIDE de las facturas que quieras registrar.</p>
-      <p><a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a></p>
-      <label>
-        Importar XML y PDF del SRI{" "}
-        <input type="file" accept=".xml,.pdf" multiple disabled={importando}
-          onChange={(evento) => {
-            const archivos = Array.from(evento.currentTarget.files ?? [])
-            evento.currentTarget.value = ""
-            if (archivos.length) void importar(archivos)
-          }} />
-      </label>
+    <section className="compras-sri-pagina">
+      <header className="compras-sri-cabecera">
+        <h1>Facturas de compra del SRI</h1>
+        <div className="compras-sri-herramientas">
+          <a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a>
+          <label className="compras-sri-importar">
+            <input type="file" accept=".xml,.pdf" multiple disabled={importando}
+              aria-label="Importar XML y PDF del SRI"
+              onChange={(evento) => {
+                const archivos = Array.from(evento.currentTarget.files ?? [])
+                evento.currentTarget.value = ""
+                if (archivos.length) void importar(archivos)
+              }} />
+            <span aria-hidden="true">Importar XML o PDF</span>
+          </label>
+        </div>
+      </header>
       {importando && <p role="status">Procesando documentos…</p>}
       {resultados.length > 0 && (
         <ul aria-label="Resultado de los archivos" aria-live="polite">
@@ -99,51 +113,16 @@ export default function ComprasSri() {
         </ul>
       )}
       {errorTabla && <p role="alert">No se pudieron consultar las compras. {errorTabla}</p>}
+      {proveedor !== null && <p className="compras-sri-filtro-activo">
+        <span>Proveedor: {proveedor}</span>
+        <button type="button" onClick={() => elegirProveedor(null)}>Quitar filtro</button>
+      </p>}
       {cargando && <p role="status">Cargando compras…</p>}
-      {!cargando && !errorTabla && !compras.length && <p>Todavía no hay facturas registradas.</p>}
-      {!cargando && !errorTabla && compras.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>{["Fecha", "Factura", "Proveedor", "Subtotal", "IVA", "Total", "RIDE"]
-                .map((columna) => <th key={columna} scope="col">{columna}</th>)}</tr>
-            </thead>
-            <tbody>
-              {compras.map(({ datos, ride_leido }) => (
-                <tr key={datos.clave}>
-                  <td>{datos.fecha}</td>
-                  <td>
-                    <details>
-                      <summary>{datos.serie}</summary>
-                      <div>Autorización: {datos.autorizacion}</div>
-                      <div>{datos.estadoXml}</div>
-                      <ul>
-                        {datos.items.map((item, indice) => (
-                          <li key={indice}>
-                            {item.codigo} · {item.descripcion} · {item.cantidad} × {item.precio}
-                            {" · Subtotal "}{monto(item.subtotal)}
-                          </li>
-                        ))}
-                      </ul>
-                      {datos.pagos.map((pago, indice) => (
-                        <div key={indice}>Pago {pago.forma} · {pago.total} · {pago.plazo} {pago.unidad}</div>
-                      ))}
-                    </details>
-                  </td>
-                  <td>{datos.proveedor}<br /><small>{datos.ruc}</small></td>
-                  <td>{monto(datos.subtotal)}</td>
-                  <td>{monto(datos.impuestos.filter((impuesto) => impuesto.codigo === "2")
-                    .reduce((total, impuesto) => total + Number(impuesto.valor), 0))}</td>
-                  <td>{monto(datos.total)}</td>
-                  <td>{ride_leido ? "Vinculado" : "Pendiente"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {!cargando && !errorTabla && !compras.length && <p>{proveedor === null ? "Todavía no hay facturas registradas." : "No hay facturas para el proveedor seleccionado."}</p>}
+      <ComprasSriTabla compras={cargando || errorTabla ? [] : compras} proveedor={proveedor} elegirProveedor={elegirProveedor}
+        alCambiarProveedor={() => { if (proveedor !== null) { setPagina(0); setRevision(actual => actual + 1) } }} />
       {(pagina > 0 || haySiguiente) && !errorTabla && (
-        <nav aria-label="Páginas de facturas">
+        <nav className="compras-sri-paginas" aria-label="Páginas de facturas">
           <button type="button" disabled={pagina === 0 || cargando} onClick={() => setPagina(pagina - 1)}>Anterior</button>
           {" "}Página {pagina + 1}{" "}
           <button type="button" disabled={!haySiguiente || cargando} onClick={() => setPagina(pagina + 1)}>Siguiente</button>

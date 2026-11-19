@@ -2441,7 +2441,7 @@ const css = `
   .cg-kicker {
     display: block;
     margin-bottom: 6px;
-    color: #F7931E;
+    color: #006c65;
     font-size: 11px;
     font-weight: 850;
     text-transform: uppercase;
@@ -2455,7 +2455,7 @@ const css = `
   .cg-tabla-cabecera h3,
   .cg-clientes-header h4 {
     margin: 0;
-    color: #8F1D24;
+    color: #051142;
   }
 
   .cg-header h1 { font-size: clamp(26px, 3vw, 36px); }
@@ -2643,7 +2643,7 @@ const css = `
     border-radius: 999px;
     background: #eee7e3;
   }
-  .cg-barra i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #F7931E, #8F1D24); }
+  .cg-barra i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #006c65, #051142); }
   .cg-barra-grande { height: 9px; margin: 8px 0 7px; }
 
   .cg-detalle-panel { padding: 20px; min-width: 0; }
@@ -2662,7 +2662,7 @@ const css = `
     transition: .15s ease;
   }
   .cg-btn:disabled { opacity: .6; cursor: wait; }
-  .cg-btn-primario { border: 1px solid #8F1D24; background: #8F1D24; color: white; }
+  .cg-btn-primario { border: 1px solid #051142; background: #051142; color: white; }
   .cg-btn-primario:hover:not(:disabled) { background: #74171d; }
   .cg-btn-secundario { border: 1px solid #dfd4ce; background: white; color: #675a54; }
 
@@ -2685,7 +2685,7 @@ const css = `
     border: 1px solid #eee3de;
   }
   .cg-conciliacion span { color: #6e615b; font-size: 12px; font-weight: 750; }
-  .cg-conciliacion strong { color: #8F1D24; font-size: 16px; }
+  .cg-conciliacion strong { color: #051142; font-size: 16px; }
   .cg-conciliacion small { color: #897b74; }
 
   .cg-form-card,
@@ -2718,7 +2718,7 @@ const css = `
   }
 
   .cg-masivo-toolbar > strong {
-    color: #8F1D24;
+    color: #051142;
     font-size: 11px;
   }
   .cg-form-header { align-items: flex-start; margin-bottom: 16px; }
@@ -2754,7 +2754,7 @@ const css = `
   .cg-porcentaje-input input { padding-right: 30px; }
   .cg-porcentaje-input span { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: #8c7d76; }
   .cg-btn-icono { border: 1px solid #ebd9d9; border-radius: 8px; background: #fff7f7; color: #a53238; font-size: 20px; cursor: pointer; }
-  .cg-link-btn { margin-top: 9px; border: 0; background: transparent; color: #8F1D24; font-weight: 800; cursor: pointer; padding: 4px 0; }
+  .cg-link-btn { margin-top: 9px; border: 0; background: transparent; color: #051142; font-weight: 800; cursor: pointer; padding: 4px 0; }
 
   .cg-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
@@ -2784,7 +2784,7 @@ const css = `
   .cg-check-col input[type="checkbox"] {
     width: 16px;
     height: 16px;
-    accent-color: #8F1D24;
+    accent-color: #051142;
     cursor: pointer;
   }
   .cg-check-col input[type="checkbox"]:disabled {
@@ -2813,7 +2813,7 @@ const css = `
   .cg-chip-clasificacion.pendiente { background: #fff0f0; color: #9e3035; }
 
   .cg-acciones-tabla { display: flex; gap: 5px; white-space: nowrap; }
-  .cg-acciones-tabla button { border: 0; background: transparent; color: #8F1D24; font-size: 10px; font-weight: 800; cursor: pointer; }
+  .cg-acciones-tabla button { border: 0; background: transparent; color: #051142; font-size: 10px; font-weight: 800; cursor: pointer; }
   .cg-acciones-tabla button.peligro { color: #a9363b; }
 
   .cg-vacio,
@@ -2898,7 +2898,7 @@ const css = `
     margin-bottom: 14px;
   }
 
-  .cg-preview-header h2 { margin: 0; color: #8F1D24; font-size: 20px; }
+  .cg-preview-header h2 { margin: 0; color: #051142; font-size: 20px; }
   .cg-preview-header p { margin: 5px 0 0; color: #786b65; font-size: 12px; }
 
   .cg-preview-status {
@@ -2936,7 +2936,7 @@ const css = `
   .cg-auto-toggle span { display: flex; flex-direction: column; gap: 2px; }
   .cg-auto-toggle strong { font-size: 12px; }
   .cg-auto-toggle small { color: #8a7c75; font-size: 10px; }
-  .cg-auto-toggle b { color: #8F1D24; font-size: 18px; }
+  .cg-auto-toggle b { color: #051142; font-size: 18px; }
 
   .cg-auto-lista { padding: 5px 2px 2px; }
   .cg-auto-fila {

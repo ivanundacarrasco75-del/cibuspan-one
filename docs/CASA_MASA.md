@@ -2,6 +2,16 @@
 
 ## Primera entrega preparada en código — 19/11/2026
 
+Integración posterior: se incorporó main hasta `79def68` antes de instalar,
+conservando sus avances y la edición de permisos por submenú. Versión SQL definitiva
+`202611190002`, sin colisionar con la edición de ingredientes `202611190001`.
+Se verificaron los cuatro SKU activos y las dos funciones reales de planificación.
+Producción usa contingencia `eodcwkuexldsbomflthe`; el instalador detecta esa conexión
+desde el bundle público, la conserva al compilar y señala explícitamente el proyecto
+al CLI. No cambia `.env` ni la vinculación local antigua. Admite el JSON `rows` actual.
+Pruebas tras integración: 41 casos comprobados; compilación correcta.
+Iván solicita que el agente ejecute instalación/publicación con los accesos existentes.
+
 - Menú Casa Masa → Pedidos y empaque, con consulta por fechas, búsqueda y tarjetas.
 - Nuevo pedido de los cuatro SKU, usando clientes, puntos de entrega y unidades de
   manejo existentes. Se guarda en el registro central mediante su control recuperable;
@@ -16,7 +26,7 @@
   de registro/actualizaciones. Un pedido del módulo CM debe estar Listo para salir,
   incluso si se confirma desde Despachos general. Corregir etapas antes de la salida
   es posible; después de salida se conserva el seguimiento sin edición de empaque.
-- SQL nuevo `202611190001_casa_masa_empaque.sql`: fuente privada que excluye los
+- SQL nuevo `202611190002_casa_masa_empaque.sql`: fuente privada que excluye los
   detalles de los cuatro SKU CM antes de agrupar demanda por producto base en ambos
   cálculos existentes. Conserva los cuerpos de los cálculos, sustituyendo sólo la
   fuente de detalles; rechaza contratos no reconocidos. No modifica otras vistas.

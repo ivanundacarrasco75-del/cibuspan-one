@@ -149,10 +149,10 @@ function botonPestana(activa: boolean) {
     padding: "13px 20px",
     border: "none",
     borderBottom: activa
-      ? "3px solid #8f1d24"
+      ? "3px solid #051142"
       : "3px solid transparent",
     background: "transparent",
-    color: activa ? "#8f1d24" : "#555555",
+    color: activa ? "#051142" : "#555555",
     fontWeight: activa ? "bold" : "normal",
     cursor: "pointer",
   }

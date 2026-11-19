@@ -1453,10 +1453,10 @@ export default function ComercialClientes({
           .gross-margin-back button {
             min-height: 38px;
             padding: 0 14px;
-            border: 1px solid #8F1D24;
+            border: 1px solid #051142;
             border-radius: 8px;
             background: #fff;
-            color: #8F1D24;
+            color: #051142;
             font-size: 9px;
             font-weight: 900;
             cursor: pointer;
@@ -2565,7 +2565,7 @@ const css = `
 
   .period-switch button.active {
     background: white;
-    color: #8F1D24;
+    color: #051142;
     box-shadow: 0 2px 6px rgba(84, 48, 37, .1);
   }
 

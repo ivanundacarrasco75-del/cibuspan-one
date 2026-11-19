@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises'
 const {PGlite}=await import(process.env.CIBUSPAN_SQL_TEST_MODULE || '@electric-sql/pglite')
 const leer = n => readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')
 const registro=await leer('202610270001_registro_pedidos_seguro.sql')
-const migracion=await leer('202611190001_casa_masa_empaque.sql')
+const migracion=await leer('202611190002_casa_masa_empaque.sql')
 const diagnostico=await readFile(new URL('../supabase/diagnosticos/verificar_casa_masa.sql',import.meta.url),'utf8')
 const id=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`
 
@@ -114,6 +114,10 @@ test('Permisos: inactivo, denegación personalizada, usuario externo, escritura 
  assert.equal((await db.query('select count(*)::integer n from cm_pedidos')).rows[0].n,0)
  await assert.rejects(guardar(db,p,1,'EN PREPARACION'),/Sin permiso/)
  }
+ await db.exec('reset role');await db.query('insert into app_user_permissions values($1,\'Casa Masa · Pedidos y empaque\',false)',[id(1)])
+ await db.query("select set_config('ensayo.usuario',$1,false)",[id(1)]);await db.exec('set role authenticated')
+ assert.equal((await db.query('select count(*)::integer n from cm_pedidos')).rows[0].n,0)
+ await assert.rejects(guardar(db,p,1,'EN PREPARACION'),/No tienes acceso/)
  await db.exec('reset role');await db.query('insert into app_user_permissions values($1,\'Casa Masa\',false)',[id(2)])
  await db.query("select set_config('ensayo.usuario',$1,false)",[id(2)]);await db.exec('set role authenticated')
  await assert.rejects(guardar(db,p,1,'EN PREPARACION'),/Sin permiso/)

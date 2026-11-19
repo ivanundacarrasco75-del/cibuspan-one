@@ -8,7 +8,6 @@ import {
 
 import ModalMensaje from "../components/ModalMensaje"
 import {
-  actualizarAreaNominaDb,
   importarNominaPdfDb,
   obtenerEmpleadosNominaDb,
   obtenerImportacionesNominaDb,
@@ -24,8 +23,17 @@ import {
   type AnalisisRolesPdf,
   type AreaNomina,
 } from "../utils/rolesPagoPdf"
+import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
+import PersonalNomina from "./PersonalNomina"
+import PagosNomina from "./PagosNomina"
 
-type Vista = "IMPORTAR" | "RESUMEN" | "EMPLEADOS"
+export type VistaRolesPago = "MENU" | "IMPORTAR" | "RESUMEN" | "EMPLEADOS" | "PAGOS"
+const tarjetas: Tarjeta[] = [
+  { nombre: "Cargar PDF", ruta: "IMPORTAR", descripcion: "Importa el reporte mensual de rubros.", icono: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7" },
+  { nombre: "Resumen mensual", ruta: "RESUMEN", descripcion: "Consulta el costo laboral y las cargas mensuales.", icono: "M4 4v16h16M8 16v-4m4 4V8m4 8V5" },
+  { nombre: "Empleados y áreas", ruta: "EMPLEADOS", descripcion: "Gestiona empleados, prestadores externos y su estado.", icono: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8m11 12v6m-3-3h6" },
+  { nombre: "Pagos nómina", ruta: "PAGOS", descripcion: "Prepara las obligaciones y cárgalas a Cuentas por pagar.", icono: "M5 4h14v16H5zM8 2v4m8-4v4M5 9h14m-9 5 2 2 4-4" },
+]
 
 function moneda(valor: number | null | undefined) {
   return Number(valor ?? 0).toLocaleString("es-EC", {
@@ -49,8 +57,11 @@ function mesPeriodo(periodo: string) {
   }).format(new Date(Date.UTC(anio, mes - 1, 1)))
 }
 
-export default function RolesPago() {
-  const [vista, setVista] = useState<Vista>("IMPORTAR")
+export default function RolesPago({ alCargarPagos, vista, setVista }: {
+  alCargarPagos: () => void
+  vista: VistaRolesPago
+  setVista: (vista: VistaRolesPago) => void
+}) {
   const [empleados, setEmpleados] = useState<EmpleadoNominaDb[]>([])
   const [importaciones, setImportaciones] = useState<ImportacionNominaDb[]>([])
   const [resumenMensual, setResumenMensual] = useState<NominaMensualAreaDb[]>([])
@@ -72,7 +83,7 @@ export default function RolesPago() {
     setError("")
     try {
       const [empleadosDb, importacionesDb, resumenDb] = await Promise.all([
-        obtenerEmpleadosNominaDb(),
+        obtenerEmpleadosNominaDb(true),
         obtenerImportacionesNominaDb(),
         obtenerNominaMensualAreaDb(),
       ])
@@ -160,24 +171,6 @@ export default function RolesPago() {
     }
   }
 
-  async function cambiarAreaEmpleado(empleado: EmpleadoNominaDb, area: AreaNomina) {
-    if (empleado.area === area) return
-    const anterior = empleado.area
-    setEmpleados((actuales) =>
-      actuales.map((item) => item.id === empleado.id ? { ...item, area } : item),
-    )
-    try {
-      await actualizarAreaNominaDb(empleado.id, area)
-      await cargarDatos()
-      setMensaje(`Área de ${empleado.nombre} actualizada en todo el historial.`)
-    } catch (err) {
-      setEmpleados((actuales) =>
-        actuales.map((item) => item.id === empleado.id ? { ...item, area: anterior } : item),
-      )
-      setError(err instanceof Error ? err.message : "No se pudo cambiar el área.")
-    }
-  }
-
   const empleadosAnalisis = useMemo(() => {
     if (!analisis) return []
     return analisis.empleados.map((empleado) => ({
@@ -206,7 +199,7 @@ export default function RolesPago() {
   const maximoArea = Math.max(1, ...areasPeriodo.map((item) => Number(item.costo_empresa)))
 
   return (
-    <main className="nom-page">
+    <main className={vista === "MENU" ? "nom-menu" : "nom-page"}>
       <style>{css}</style>
       <ModalMensaje
         abierto={Boolean(error)}
@@ -222,6 +215,8 @@ export default function RolesPago() {
         cierreAutomaticoMs={4500}
       />
 
+      {vista === "MENU" ? <MenuTarjetas titulo="Roles de pago" tarjetas={tarjetas}
+        cambiarPantalla={destino => setVista(destino as VistaRolesPago)} /> : <>
       <header className="nom-header">
         <div>
           <span>CONTROL FINANCIERO · COSTO LABORAL</span>
@@ -232,18 +227,6 @@ export default function RolesPago() {
           {cargando ? "Actualizando..." : "Actualizar"}
         </button>
       </header>
-
-      <nav className="nom-tabs">
-        {([
-          ["IMPORTAR", "Cargar PDF"],
-          ["RESUMEN", "Resumen mensual"],
-          ["EMPLEADOS", "Empleados y áreas"],
-        ] as [Vista, string][]).map(([id, etiqueta]) => (
-          <button key={id} type="button" className={vista === id ? "active" : ""} onClick={() => setVista(id)}>
-            {etiqueta}
-          </button>
-        ))}
-      </nav>
 
       {vista === "IMPORTAR" && (
         <section className="nom-panel">
@@ -349,12 +332,9 @@ export default function RolesPago() {
         </section>
       )}
 
-      {vista === "EMPLEADOS" && (
-        <section className="nom-panel">
-          <div className="nom-panel-head"><div><span>MAESTRO DE PERSONAL</span><h2>Empleados y áreas</h2><p>Un cambio de área actualiza automáticamente todo el historial del empleado.</p></div></div>
-          {empleados.length === 0 ? <div className="nom-empty">Los empleados aparecerán al instalar la migración o importar el primer rol.</div> : <div className="nom-table-wrap"><table><thead><tr><th>Empleado</th><th>Área vigente</th><th>Actualización</th></tr></thead><tbody>{empleados.map((empleado) => <tr key={empleado.id}><td data-label="Empleado"><strong>{empleado.nombre}</strong></td><td data-label="Área"><SelectorArea value={empleado.area} onChange={(area) => void cambiarAreaEmpleado(empleado, area)} /></td><td data-label="Actualización">{new Date(empleado.actualizado_en).toLocaleDateString("es-EC")}</td></tr>)}</tbody></table></div>}
-        </section>
-      )}
+      {vista === "EMPLEADOS" && <PersonalNomina empleados={empleados} alGuardar={cargarDatos} />}
+      {vista === "PAGOS" && !cargando && <PagosNomina empleados={empleados} alCargar={alCargarPagos} />}
+      </>}
     </main>
   )
 }
@@ -373,21 +353,21 @@ const css = `
   .nom-header, .nom-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
   .nom-header { margin-bottom: 20px; }
   .nom-header span, .nom-panel-head span, .nom-area-preview header span, .nom-bars header span, .nom-history header span { color: #f07f12; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
-  .nom-header h1 { margin: 4px 0 2px; color: #8f1d24; font-size: clamp(30px, 3.2vw, 46px); line-height: 1; }
+  .nom-header h1 { margin: 4px 0 2px; color: #051142; font-size: clamp(30px, 3.2vw, 46px); line-height: 1; }
   .nom-header p, .nom-panel-head p { margin: 3px 0 0; color: #6f625e; }
   .nom-page button { min-height: 42px; padding: 10px 18px; border: 1px solid #9f2028; border-radius: 9px; background: #9f2028; color: white; font-weight: 800; cursor: pointer; }
-  .nom-page button.secondary { background: white; color: #8f1d24; }
+  .nom-page button.secondary { background: white; color: #051142; }
   .nom-page button:disabled { opacity: .55; cursor: wait; }
   .nom-tabs { display: flex; gap: 4px; margin-bottom: 16px; padding: 6px; border: 1px solid #e6ded8; border-radius: 12px; background: #eee9e5; }
   .nom-tabs button { flex: 1; border-color: transparent; background: transparent; color: #6d5c57; }
-  .nom-tabs button.active { background: white; color: #8f1d24; box-shadow: 0 4px 14px rgba(65,35,29,.08); }
+  .nom-tabs button.active { background: white; color: #051142; box-shadow: 0 4px 14px rgba(65,35,29,.08); }
   .nom-panel { padding: 22px; border: 1px solid #e4dbd5; border-radius: 15px; background: white; box-shadow: 0 10px 30px rgba(81,45,36,.05); }
   .nom-panel-head h2, .nom-area-preview h3, .nom-bars h3, .nom-history h3 { margin: 4px 0; }
   .nom-empty { margin-top: 20px; padding: 44px 20px; border: 1px dashed #d8c8bf; border-radius: 12px; color: #796c67; text-align: center; background: #fffaf7; }
   .nom-kpis { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 10px; margin: 20px 0; }
   .nom-kpis.four { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .nom-kpi { min-height: 118px; padding: 15px; border: 1px solid #eadfda; border-top: 3px solid #9b8f89; border-radius: 10px; background: #fffdfc; }
-  .nom-kpi.wine { border-top-color: #9f2028; } .nom-kpi.orange { border-top-color: #f7931e; } .nom-kpi.green { border-top-color: #14934f; } .nom-kpi.blue { border-top-color: #3278c9; }
+  .nom-kpi.wine { border-top-color: #9f2028; } .nom-kpi.orange { border-top-color: #006c65; } .nom-kpi.green { border-top-color: #14934f; } .nom-kpi.blue { border-top-color: #3278c9; }
   .nom-kpi span { display: block; min-height: 28px; color: #735f58; font-size: 10px; font-weight: 900; text-transform: uppercase; }
   .nom-kpi strong { display: block; margin: 8px 0; font-size: clamp(20px,2vw,28px); line-height: 1; }
   .nom-kpi small { color: #8c7a74; }
@@ -418,7 +398,7 @@ const css = `
   .nom-bars article div strong, .nom-bars article div small { display: block; }
   .nom-bars article div small, .nom-bars article > small { color: #8b7c77; }
   .nom-bars article > span { height: 10px; overflow: hidden; border-radius: 999px; background: #eee5df; }
-  .nom-bars article > span i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#9f2028,#f7931e); }
+  .nom-bars article > span i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#9f2028,#006c65); }
   .nom-history header { margin-bottom: 8px; }
   .nom-history article { display: grid; grid-template-columns: 1.4fr 1fr 140px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee5df; }
   .nom-history article:last-child { border-bottom: 0; }

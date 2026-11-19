@@ -103,7 +103,7 @@ const cabecera = {
 }
 
 const etiqueta = {
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "12px",
   fontWeight: "bold",
   letterSpacing: "1px",
@@ -144,7 +144,7 @@ const tarjeta = {
 const titulo = {
   marginTop: 0,
   marginBottom: "12px",
-  color: "#8f1d24",
+  color: "#051142",
   fontSize: "21px",
 }
 
@@ -159,7 +159,7 @@ const boton = {
   padding: "11px 18px",
   border: "none",
   borderRadius: "8px",
-  background: "#8f1d24",
+  background: "#051142",
   color: "white",
   fontWeight: "bold",
   cursor: "pointer",

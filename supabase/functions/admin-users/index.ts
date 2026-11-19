@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { RUTAS_PERMISOS } from "../_shared/catalogoPermisos.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,7 @@ const roles = new Set([
 ])
 
 const pantallas = new Set([
+  ...RUTAS_PERMISOS,
   "Dashboard", "Pedidos", "Inventario", "Producción", "Semielaborados",
   "Despachos", "Historial despachos", "Devoluciones", "Descuentos", "Reportes",
   "Documentos", "Hoja de producción", "Hoja de despacho", "Anexo Supermaxi",

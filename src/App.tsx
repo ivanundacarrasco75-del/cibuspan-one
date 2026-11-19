@@ -4,10 +4,15 @@ import type { Session } from "@supabase/supabase-js"
 import { supabase } from "./lib/supabase"
 
 import Layout from "./components/layout/Layout"
+import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
-import InstalarApp from "./components/InstalarApp"
+import type { VistaRolesPago } from "./pages/RolesPago"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
-import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
+import {
+  PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
+  PANTALLA_MENU_COMPRAS, PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla,
+  PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
+} from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
 // Esto reduce mucho el JavaScript inicial de la app y evita cargar importadores,
@@ -15,6 +20,12 @@ import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
 const CasaMasa = lazy(() => import("./pages/CasaMasa"))
+const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
+const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
+const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
+const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
+const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
+const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
 const KardexInventario = lazy(() => import("./pages/KardexInventario"))
@@ -47,6 +58,7 @@ const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
 const ImportacionContable = lazy(() => import("./pages/ImportacionContable"))
 const KpiKam = lazy(() => import("./pages/KpiKam"))
 const VisitasRotacion = lazy(() => import("./pages/VisitasRotacion"))
+const DashboardVisitasRotacion = lazy(() => import("./components/kpiKam/DashboardVisitasRotacion"))
 const VisitasDiarias = lazy(() => import("./pages/VisitasDiarias"))
 const RevisionDatosVisitas = lazy(() => import("./pages/RevisionDatosVisitas"))
 const SupervisionVisitas = lazy(() => import("./pages/SupervisionVisitas"))
@@ -89,7 +101,7 @@ function PantallaEnConstruccion({
         <p
           style={{
             margin: "0 0 6px",
-            color: "#F7931E",
+            color: "#006c65",
             fontSize: "12px",
             fontWeight: 800,
             textTransform: "uppercase",
@@ -98,7 +110,7 @@ function PantallaEnConstruccion({
         >
           CIBUSPAN ONE · Navegación V2
         </p>
-        <h1 style={{ margin: "0 0 10px", color: "#8F1D24" }}>{titulo}</h1>
+        <h1 style={{ margin: "0 0 10px", color: "#051142" }}>{titulo}</h1>
         <p style={{ margin: 0, color: "#6b625f", lineHeight: 1.55 }}>
           {detalle ??
             "La ubicación ya quedó creada dentro de la nueva arquitectura. La función se integrará en las siguientes fases sin afectar los módulos actuales."}
@@ -113,12 +125,20 @@ function App() {
   const [cargandoSesion, setCargandoSesion] = useState(true)
   const [perfil, setPerfil] = useState<PerfilAplicacion | null>(null)
   const [pantallasPermitidas, setPantallasPermitidas] = useState<string[]>([])
+  const [pantallasDenegadas, setPantallasDenegadas] = useState<string[]>([])
   const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
+  const [vistaRolesPago, setVistaRolesPago] = useState<VistaRolesPago>("MENU")
+  const enRolesPago = pantalla === "Roles de pago" || pantalla === "Pagos y Finanzas · Roles de pago"
+
+  useEffect(() => {
+    setVistaRolesPago("MENU")
+  }, [pantalla])
   const usuarioConPerfilRef = useRef<string | null>(null)
   const puedeAcceder = useCallback((destino: string) => !!perfil?.activo &&
-    puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas), [perfil, pantallasPermitidas])
+    puedeAbrirPantalla(destino, perfil.rol, pantallasPermitidas, pantallasDenegadas),
+    [perfil, pantallasPermitidas, pantallasDenegadas])
 
   useEffect(() => {
     if (!cargandoPerfil && perfil?.activo && !puedeAcceder(pantalla)) {
@@ -150,11 +170,13 @@ function App() {
           const acceso = await obtenerAccesoActual(session.user.id)
           setPerfil(acceso.perfil)
           setPantallasPermitidas(acceso.pantallasPermitidas)
+          setPantallasDenegadas(acceso.pantallasDenegadas)
           setErrorAcceso("")
           usuarioConPerfilRef.current = session.user.id
         } catch (err) {
           setPerfil(null)
           setPantallasPermitidas([])
+          setPantallasDenegadas([])
           setErrorAcceso(err instanceof Error ? err.message : "No se pudo verificar el acceso.")
           usuarioConPerfilRef.current = session.user.id
         }
@@ -172,6 +194,7 @@ function App() {
       if (!session) {
         setPerfil(null)
         setPantallasPermitidas([])
+        setPantallasDenegadas([])
         setErrorAcceso("")
         usuarioConPerfilRef.current = null
         setCargandoPerfil(false)
@@ -186,12 +209,14 @@ function App() {
             .then((acceso) => {
               setPerfil(acceso.perfil)
               setPantallasPermitidas(acceso.pantallasPermitidas)
+              setPantallasDenegadas(acceso.pantallasDenegadas)
               setErrorAcceso("")
               usuarioConPerfilRef.current = session.user.id
             })
             .catch((err) => {
               setPerfil(null)
               setPantallasPermitidas([])
+              setPantallasDenegadas([])
               setErrorAcceso(err instanceof Error ? err.message : "No se pudo verificar el acceso.")
               usuarioConPerfilRef.current = session.user.id
             })
@@ -219,6 +244,7 @@ function App() {
         if (!vigente) return
         setPerfil(acceso.perfil)
         setPantallasPermitidas(acceso.pantallasPermitidas)
+        setPantallasDenegadas(acceso.pantallasDenegadas)
         setErrorAcceso("")
       } catch (err) {
         if (vigente) setErrorAcceso(err instanceof Error ? err.message : "No se pudo actualizar el acceso.")
@@ -255,9 +281,7 @@ function App() {
     return (
       <main style={paginaCarga}>
         <div style={cargador}>
-          <div style={iconoCarga}>C1</div>
-
-          <h1 style={{ margin: 0 }}>CIBUSPAN ONE</h1>
+          <h1 style={{ margin: 0 }}><LogoCibuspan ancho={260} /></h1>
 
           <p
             style={{
@@ -304,6 +328,12 @@ function App() {
       case "Dashboard":
         return <DashboardV2 cambiarPantalla={setPantalla} />
 
+      case "Dashboard · Visitas y rotación":
+        return <DashboardVisitasRotacion cambiarPantalla={setPantalla} />
+
+      case "Dashboard · Costos y gastos":
+        return <DashboardV2 cambiarPantalla={setPantalla} tabInicial="costos_gastos" />
+
       case "Dashboard · Devoluciones":
         return (
           <DashboardV2
@@ -334,6 +364,7 @@ function App() {
       case "Devoluciones":
         return <Devoluciones />
 
+      case "Dashboard · Comercial":
       case "Comercial · Análisis":
         return (
           <DashboardV2
@@ -386,6 +417,8 @@ function App() {
         return <PedidosV2 />
 
       case "Producción · Resumen":
+        return <ProduccionResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
       case "Producción · Planificación":
       case "Producción · Producción":
       case "Producción":
@@ -453,13 +486,23 @@ function App() {
       case "Materias primas":
         return <MateriasPrimas />
 
-      case "Compras · Facturas":
-        return <PagosGastos />
-
-      case "Compras · Facturas del SRI":
+      case PANTALLA_FACTURAS_SRI:
         return <ComprasSri />
 
-      case "Compras · Resumen":
+      case PANTALLA_MENU_COMPRAS:
+      case "Compras · Facturas":
+      case PANTALLA_FACTURAS_COMPRAS:
+        return <ComprasResumen facturas={pantalla !== PANTALLA_MENU_COMPRAS} puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
+      case PANTALLA_NOTAS_VENTA:
+        return <ComprasDocumentos key={pantalla} tipo="notas" />
+
+      case PANTALLA_NO_DEDUCIBLES:
+        return <ComprasDocumentos key={pantalla} tipo="noDeducibles" />
+
+      case PANTALLA_ANTICIPAR_COMPRAS:
+        return <ComprasAnticipar />
+
       case "Compras · Proveedores":
       case "Compras · Costos":
       case "Compras · Historial":
@@ -481,16 +524,23 @@ function App() {
       case "Pagos y Finanzas · Importación contable":
         return <ImportacionContable cambiarPantalla={setPantalla} />
 
-      case "Pagos y Finanzas · Resumen":
-      case "Pagos y Finanzas · Cuentas por Pagar":
-      case "Pagos y Finanzas · Pagos":
+      case PANTALLA_MENU_FINANZAS:
+        return <FinanzasResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
+
+      case PANTALLA_CUENTAS_POR_PAGAR:
+      case PANTALLA_PAGOS_SEMANALES:
+      case PANTALLA_PAGOS_ANTERIOR:
+        if (!puedeAcceder(PANTALLA_PAGOS_SEMANALES)) return <PagosGastos />
+        return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR}
+          cambiarPantalla={setPantalla} />
+
       case "Pagos y Finanzas · Historial":
       case "Pagos y gastos":
         return <PagosGastos />
 
       case "Pagos y Finanzas · Roles de pago":
       case "Roles de pago":
-        return <RolesPago />
+        return <RolesPago alCargarPagos={() => setPantalla(PANTALLA_CUENTAS_POR_PAGAR)} vista={vistaRolesPago} setVista={setVistaRolesPago} />
 
       case "Costos indirectos":
         return <CostosIndirectos />
@@ -540,11 +590,11 @@ function App() {
       cerrarSesion={cerrarSesion}
       usuario={sesion.user.email}
       puedeAcceder={puedeAcceder}
+      regresarRolesPago={enRolesPago && vistaRolesPago !== "MENU" ? () => setVistaRolesPago("MENU") : undefined}
     >
       <Suspense fallback={<CargandoModulo />}>
         {puedeAcceder(pantalla) ? renderPantalla() : <section style={{ padding: 24 }}><p role="alert">No tienes acceso a esta pantalla. Solicita al administrador los permisos correspondientes.</p></section>}
       </Suspense>
-      <InstalarApp />
     </Layout>
   )
 }
@@ -552,7 +602,7 @@ function App() {
 function CargandoModulo() {
   return (
     <section style={cargaModulo}>
-      <div style={pulsoModulo}>C1</div>
+      <LogoCibuspan ancho={132} />
       <div>
         <strong style={{ display: "block", color: "#25272b" }}>Abriendo módulo…</strong>
         <small style={{ color: "#6b7280" }}>Cargando solo la información necesaria.</small>
@@ -570,25 +620,13 @@ const cargaModulo = {
   padding: "28px",
 }
 
-const pulsoModulo = {
-  width: "42px",
-  height: "42px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "12px",
-  background: "#8F1D24",
-  color: "white",
-  fontWeight: 800,
-}
-
 const paginaCarga = {
   minHeight: "100vh",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   padding: "24px",
-  background: "#f8f5f1",
+  background: "var(--cibuspan-fondo)",
 }
 
 const cargador = {
@@ -596,19 +634,6 @@ const cargador = {
   flexDirection: "column" as const,
   alignItems: "center",
   gap: "14px",
-}
-
-const iconoCarga = {
-  width: "58px",
-  height: "58px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: "14px",
-  background: "#8F1D24",
-  color: "white",
-  fontWeight: "bold",
-  fontSize: "20px",
 }
 
 export default App

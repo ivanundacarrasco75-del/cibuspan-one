@@ -9,6 +9,28 @@ try {
  const {visitasSinProcesarCampo}=await server.ssrLoadModule('/src/utils/procesamientoAutomaticoCampo.ts')
  const {resumirSemanasCampo,semanasDashboardCampo}=await server.ssrLoadModule('/src/utils/dashboardVisitasRotacion.ts')
  const {camposPendientesDatosCampo}=await server.ssrLoadModule('/src/utils/estadoDatosCampo.ts')
+ await test('La revisión omite solo capturas históricas ausentes y conserva capturas disponibles', async () => {
+  const {supabase}=await server.ssrLoadModule('/src/lib/supabase.ts')
+  const {obtenerFotosParaRevisionCampo}=await server.ssrLoadModule('/src/repositories/campoComercialRepository.ts')
+  const sesion=supabase.auth.getSession, fetchOriginal=globalThis.fetch
+  const antiguo='usuario/2026-10-14/original.png', actual='usuario/2026-11-14/captura-r2-nueva.png'
+  const mensaje='La captura no está disponible en R2. Las capturas históricas pendientes se conservan en el proyecto anterior.'
+  const foto={ruta:actual,url:'https://prueba.invalid/captura'}
+  supabase.auth.getSession=async()=>({data:{session:{access_token:'prueba'}},error:null})
+  globalThis.fetch=async (_, opciones)=>{
+   const {rutas}=JSON.parse(opciones.body)
+   if (rutas.includes('sin-permiso')) return Response.json({error:'Sin permiso'},{status:403})
+   if (rutas.some(ruta=>ruta!==actual)) return Response.json({error:mensaje},{status:404})
+   return Response.json([foto])
+  }
+  try {
+   assert.deepEqual(await obtenerFotosParaRevisionCampo([antiguo]),{fotos:[],soloHistoricas:true})
+   assert.deepEqual(await obtenerFotosParaRevisionCampo([antiguo,actual]),{fotos:[foto],soloHistoricas:false})
+   assert.deepEqual(await obtenerFotosParaRevisionCampo([]),{fotos:[],soloHistoricas:false})
+   await assert.rejects(()=>obtenerFotosParaRevisionCampo(['sin-permiso']),/Sin permiso/)
+   await assert.rejects(()=>obtenerFotosParaRevisionCampo(['usuario/2026-11-14/captura-r2-ausente.png']),/no está disponible/)
+  } finally {globalThis.fetch=fetchOriginal;supabase.auth.getSession=sesion}
+ })
  const r={id:'r',fecha:'2026-10-14',cliente_id:'c',local_id:'l',local_nombre:'Local',producto_id:'p',producto_nombre:'Pan',producto_codigo:'sku',visitado_en:'2026-10-14T12:00:00Z',capturas_app:['original.png'],lectura_guardada:{rotacion_diaria_unidades:1.2,precio_comercio:2},verificacion_campos:{rotacion_diaria_unidades:{estado:'PENDIENTE',valor:1.2},precio_comercio:{estado:'DOBLE_LECTURA',valor:2}},lectura_almacenada:{lectura_control:{principal:{rotacion_diaria_unidades:1.2},control:{rotacion_diaria_unidades:12}}},valores:{rotacion:1.2}}
  await test('Confirmar el mismo valor guarda sólo su certificado y preserva evidencia; no vuelve a procesarse',()=>{
   const d=prepararRevisionDatoCampo(r,'rotacion_diaria_unidades',1.2)
@@ -58,8 +80,54 @@ try {
   const viejo={...r,id:'viejo',visitado_en:'2026-10-13T12:00:00Z'}
   const s=resumirSemanasCampo({registros:[viejo,r],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),indicador:'rotacion',soloValidados:false,camposPendientes:camposPendientesDatosCampo})[0]
   assert.equal(s.semanas[4].valor,1.2)
-  assert.equal(s.semanas[4].pendientes.every(p=>p.registroId==='r'),true)
-  assert.equal(s.semanas[4].pendientes.some(p=>p.campo==='precio_comercio'),false)
+  assert.deepEqual(s.semanas[4].pendientes,[{registroId:'r',campo:'rotacion_diaria_unidades',fecha:r.fecha,clienteId:'c'}])
+ })
+ await test('La revisión por indicador cuenta todos sus pendientes y puede limitarse a una barra',()=>{
+  const otraVisita={...r,id:'otra',fecha:'2026-10-15'}
+  const revisada={...r,id:'lista',verificacion_campos:{
+   ...r.verificacion_campos,rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2},
+   precio_comercio:{estado:'PENDIENTE',valor:2},
+  }}
+  const registros=[r,otraVisita,revisada]
+  const rotacion='rotacion_diaria_unidades'
+  assert.deepEqual(pendientesRevisionCampo(registros,rotacion).map(p=>p.registro.id),['r','otra'])
+  assert.deepEqual(pendientesRevisionCampo(registros,rotacion,['otra']).map(p=>p.clave),['otra:rotacion_diaria_unidades'])
+  assert.deepEqual(pendientesRevisionCampo(registros,rotacion,['lista']),[])
+  assert.deepEqual(pendientesRevisionCampo([revisada],'precio_comercio').map(p=>p.clave),['lista:precio_comercio'])
+ })
+ await test('El precio pendiente no marca rotación; cada indicador abre su campo y su semana',()=>{
+  const anterior={...r,id:'anterior',fecha:'2026-10-07',visitado_en:'2026-10-07T12:00:00Z',valores:{rotacion:1.2,precio:2}}
+  const actual={...r,id:'actual',valores:{rotacion:1.2,precio:2},verificacion_campos:{
+   rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:1.2},precio_comercio:{estado:'PENDIENTE',valor:2},
+  }}
+  const args={registros:[anterior,actual],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
+  const rotacion=resumirSemanasCampo({...args,indicador:'rotacion'})[0].semanas
+  const precio=resumirSemanasCampo({...args,indicador:'precio'})[0].semanas
+  assert.deepEqual(rotacion[3].pendientes,[{registroId:'anterior',campo:'rotacion_diaria_unidades',fecha:anterior.fecha,clienteId:'c'}])
+  assert.deepEqual(rotacion[4].pendientes,[])
+  assert.deepEqual(precio[3].pendientes,[])
+  assert.deepEqual(precio[4].pendientes,[{registroId:'actual',campo:'precio_comercio',fecha:actual.fecha,clienteId:'c'}])
+  assert.ok(pendientesRevisionCampo([actual]).some(p=>p.campo==='precio_comercio'))
+ })
+ await test('Una barra marca sólo las mediciones incluidas y el filtro de verificados retira las provisionales',()=>{
+  const confirmado={...r,id:'confirmado',local_id:'l2',lectura_guardada:{rotacion_diaria_unidades:2},verificacion_campos:{rotacion_diaria_unidades:{estado:'REVISION_MANUAL',valor:2}},valores:{rotacion:2}}
+  const ausente={...r,id:'ausente',local_id:'l3',lectura_guardada:{rotacion_diaria_unidades:null},valores:{rotacion:null}}
+  const args={registros:[r,confirmado,ausente],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),indicador:'rotacion',camposPendientes:camposPendientesDatosCampo}
+  const punto=(cambios)=>resumirSemanasCampo({...args,...cambios})[0].semanas[4]
+  assert.equal(punto().valor,1.6)
+  assert.deepEqual(punto().pendientes.map(p=>p.registroId),['r'])
+  assert.equal(punto({soloValidados:true}).valor,2)
+  assert.deepEqual(punto({soloValidados:true}).pendientes,[])
+  assert.equal(punto({registros:[ausente]}).valor,null)
+  assert.deepEqual(punto({registros:[ausente]}).pendientes,[])
+ })
+ await test('Los indicadores derivados del stock abren el campo de stock; los manuales no arrastran dudas OCR',()=>{
+  const dato={...r,lectura_guardada:{...r.lectura_guardada,stock_local_unidades:0},verificacion_campos:{...r.verificacion_campos,stock_local_unidades:{estado:'PENDIENTE',valor:0}},valores:{stock:0,quiebres:100,sin_perchar:0,caras:2}}
+  const args={registros:[dato],productos:[{id:'p',codigo:'sku',nombre:'Pan'}],semanas:semanasDashboardCampo(r.fecha),camposPendientes:camposPendientesDatosCampo}
+  for(const indicador of ['stock','quiebres','sin_perchar']) {
+   assert.deepEqual(resumirSemanasCampo({...args,indicador})[0].semanas[4].pendientes.map(p=>p.campo),['stock_local_unidades'])
+  }
+  assert.deepEqual(resumirSemanasCampo({...args,indicador:'caras'})[0].semanas[4].pendientes,[])
  })
  await test('Recorte localiza etiqueta y valor siguiente, respeta límites y no inventa campo ausente',()=>{
   const lineas=[{text:'Venta promedio diaria (Cant)',bbox:{x0:10,y0:4,x1:200,y1:18}},{text:'1.20',bbox:{x0:10,y0:20,x1:40,y1:35}}]
