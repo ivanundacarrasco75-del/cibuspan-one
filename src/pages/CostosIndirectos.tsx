@@ -10,7 +10,6 @@ import ReporteMargenBrutoAnalitico from "./ReporteMargenBrutoAnalitico"
 import ReporteEstructuraCostos from "./ReporteEstructuraCostos"
 import ReportePygGeneral from "./ReportePygGeneral"
 import ReporteRentabilidadSku from "./ReporteRentabilidadSku"
-import SimuladorCostosCotizacion from "./SimuladorCostosCotizacion"
 import {
   importarBalanceResultadosDb,
   obtenerImportacionesResultadosDb,
@@ -28,7 +27,6 @@ import {
 type Vista =
   | "PYG"
   | "PYG_CLIENTE"
-  | "COTIZACION"
   | "IMPORTAR"
   | "MARGEN"
   | "RESUMEN"
@@ -228,7 +226,6 @@ export default function CostosIndirectos() {
         {([
           ["PYG", "PyG general"],
           ["PYG_CLIENTE", "PyG por cliente"],
-          ["COTIZACION", "Simulador de costos"],
           ["MARGEN", "Margen bruto"],
           ["IMPORTAR", "Importar balance"],
           ["RESUMEN", "Resultado contable existente"],
@@ -259,8 +256,6 @@ export default function CostosIndirectos() {
       {vista === "PYG_CLIENTE" && (
         <ReporteRentabilidadSku modo="PYG_CLIENTE" integrado />
       )}
-
-      {vista === "COTIZACION" && <SimuladorCostosCotizacion />}
 
       {vista === "MARGEN" && (
         <>

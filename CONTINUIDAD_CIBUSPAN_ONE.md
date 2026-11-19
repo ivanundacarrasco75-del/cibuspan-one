@@ -1,5 +1,7 @@
 # Continuidad de CIBUSPAN ONE
 
+Simulador de costos dentro de Fórmulas, 19/11/2026. Preparado sobre `0878100`. Se trasladó la entrada de Simulador de costos desde las pestañas de Resultados y rentabilidad a una tarjeta dentro de Producción → Fórmulas. Reutiliza SimuladorCostosCotizacion y sus consultas/cálculos, con Volver a Fórmulas. Cambios de frontend en Formulas.tsx y CostosIndirectos.tsx. Pendiente publicación tras aprobación de Iván.
+
 Editar fórmula con lista completa de ingredientes, 19/11/2026. Preparado sobre `9b0b052`. Formulación incluye Editar fórmula, con selección de materias primas desde el catálogo, Agregar ingrediente, Quitar, harina base, Directo/Micro y porcentajes. Permite completar una fórmula guardada con ingredientes faltantes. Conserva datos de parada y guardado de nueva versión de fórmula/micro. El servicio distingue filas nuevas y envía la estructura completa al RPC.
 
 La migración pendiente `202611190001_edicion_ingredientes_formula.sql` amplía fm_guardar_formulacion conservando el contrato de los clientes anteriores y sus reintentos. Admite filas nuevas, sustituidas y retiradas solo en la nueva versión. Verifica pertenencia de IDs al origen, materias activas/unidad/costo para ingredientes nuevos, harinas base y duplicados nuevos. Las separaciones de un mismo ingrediente ya existentes en recetas anteriores pueden conservarse. La prueba de dos ingredientes faltantes produce cuatro filas y un micro de tres ingredientes, dejando las filas anteriores intactas.
