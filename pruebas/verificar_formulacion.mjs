@@ -59,6 +59,19 @@ test('Los cambios de parada y destino usan un único guardado de nueva versión'
   assert.deepEqual(enviado.componentes.map(f => f.destino), ['DIRECTO', 'MICRO'])
   assert.equal(e.datos.componentes[1].destino_tipo, 'DIRECTO')
 })
+test('Editar la lista completa envía los ingredientes nuevos y las harinas base a la nueva versión', async () => {
+  const e = escenario()
+  const nueva = { ...ingrediente('sal', 3, 2), nuevo: true, es_harina_base: false }
+  const datos = { ...e.datos, editarIngredientes: true, componentes: [...e.datos.componentes, nueva],
+    porcentajes: { ...e.datos.porcentajes, sal: '2' }, destinos: { harina: 'DIRECTO', agua: 'DIRECTO', sal: 'MICRO' },
+    parametros: { panes: 20, rendimiento: 20, pesoBolaG: 580, pesoFinalG: 500 } }
+  assert.equal(await e.guardar(datos), 'version-nueva')
+  const enviado = e.llamadas[0][2]
+  assert.equal(enviado.estructura_completa, true)
+  assert.deepEqual(enviado.componentes[2], { id: null, materia_prima_id: 'sal', harina_base: false, porcentaje: 2, destino: 'MICRO' })
+  assert.equal(enviado.componentes[0].harina_base, true)
+  assert.equal(e.datos.componentes.length, 2)
+})
 
 test('Nombre y fecha se conservan en los datos existentes de la versión', () => {
   const notas = util.observacionesNuevaFormula('Nueva receta', '2026-11-18', origen)

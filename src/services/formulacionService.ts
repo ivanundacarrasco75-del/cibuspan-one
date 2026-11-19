@@ -6,11 +6,13 @@ import {
 import { observacionesNuevaFormula } from "../utils/formulacionVersion"
 import { guardarVersionFormulacion } from "../repositories/formulacionGuardadoRepository"
 
+export type ComponenteEditableFormulacion = PreformulacionComponenteFmDb & { nuevo?: boolean }
+
 // La copia permanece en borrador hasta completar todas las filas y los metadatos.
 // Un reintento continúa sobre esa copia, nunca sobre la versión de origen.
 export async function guardarNuevaFormulacion(datos: {
   origen: FormulaVersionFmDb
-  componentes: PreformulacionComponenteFmDb[]
+  componentes: ComponenteEditableFormulacion[]
   porcentajes: Record<string, string>
   nombre: string
   fecha: string
@@ -18,6 +20,7 @@ export async function guardarNuevaFormulacion(datos: {
   borradorId?: string
   parametros?: { panes: number; rendimiento: number; pesoBolaG: number; pesoFinalG: number }
   destinos?: Record<string, "DIRECTO" | "MICRO">
+  editarIngredientes?: boolean
 }, alCrearBorrador: (id: string) => void = () => {}) {
   const { origen, componentes, porcentajes, nombre, fecha, activar } = datos
   if (!nombre.trim() || nombre.trim().length > 120 || /[\r\n]/.test(nombre)) throw new Error("Ingresa un nombre de versión de hasta 120 caracteres.")
@@ -39,8 +42,10 @@ export async function guardarNuevaFormulacion(datos: {
     return guardarVersionFormulacion(origen.id, {
       nombre: nombre.trim(), fecha, activar, panes: p.panes, rendimiento: p.rendimiento,
       peso_bola_g: p.pesoBolaG, peso_final_g: p.pesoFinalG, origen_actualizado_en: origen.actualizado_en,
+      ...(datos.editarIngredientes ? { estructura_completa: true } : {}),
       componentes: componentes.map((fila, i) => ({
-        id: fila.id, porcentaje: valores[i], destino: datos.destinos?.[fila.id] ?? fila.destino_tipo,
+        id: fila.nuevo ? null : fila.id, porcentaje: valores[i], destino: datos.destinos?.[fila.id] ?? fila.destino_tipo,
+        ...(datos.editarIngredientes ? { materia_prima_id: fila.materia_prima_id, harina_base: fila.es_harina_base } : {}),
       })),
     })
   }

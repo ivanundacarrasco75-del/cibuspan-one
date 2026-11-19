@@ -253,6 +253,51 @@ test("Alta atómica con las vistas reales de costeo y catálogo disponible para 
       const actual = await versionJson(nuevo.version_id)
       await assert.rejects(guardarVersion(id(303), { nombre: "Fecha anterior inválida", origen_actualizado_en: actual.actualizado_en, fecha: "2020-01-01" }), /comienza hoy/)
     })
+    await db.exec(await readFile(new URL("../supabase/migrations/202611190001_edicion_ingredientes_formula.sql", import.meta.url), "utf8"))
+    await db.exec(`insert into materias_primas(id,codigo,nombre,unidad_base,costo_unitario_referencia) values
+      ('${id(16)}','SAL','Sal','KG',1),('${id(17)}','LEV','Levadura','KG',3)`)
+    const fuenteEdicion = await versionJson(nuevo.version_id)
+    const datosEdicion = {
+      ...solicitud, nombre: "Completar dos ingredientes", origen_actualizado_en: fuenteEdicion.actualizado_en,
+      estructura_completa: true, componentes: [
+        ...filasOriginales.map(c => ({ id: c.id, materia_prima_id: c.materia_prima_id, harina_base: c.es_harina_base, porcentaje: Number(c.porcentaje_panadero), destino: c.destino_tipo })),
+        { id: null, materia_prima_id: id(16), harina_base: false, porcentaje: 2, destino: "MICRO" },
+        { id: null, materia_prima_id: id(17), harina_base: false, porcentaje: 1, destino: "MICRO" },
+      ],
+    }
+    const editar = async (uuid, origen, datos) => (await db.query("select fm_guardar_formulacion($1,$2,$3::jsonb) resultado", [uuid, origen, JSON.stringify(datos)])).rows[0].resultado
+    let completa
+    await t.test("Agregar dos ingredientes guarda cuatro filas y un micro nuevo sin editar las dos filas anteriores", async () => {
+      completa = await editar(id(400), nuevo.version_id, datosEdicion)
+      assert.equal((await filasJson(completa.version_id)).length, 4)
+      assert.deepEqual(await filasJson(nuevo.version_id), filasOriginales)
+      assert.equal((await db.query("select count(*)::integer n from fm_vw_recetas_micro where formula_version_id=$1", [completa.version_id])).rows[0].n, 3)
+      assert.deepEqual(await editar(id(400), nuevo.version_id, datosEdicion), completa)
+      assert.equal((await db.query("select items_sin_costo from fm_vw_productos_costo_completo where formula_version_id=$1", [completa.version_id])).rows[0].items_sin_costo, 0)
+    })
+    await t.test("Cambiar y quitar ingredientes genera otra versión completa y conserva la versión de cuatro filas", async () => {
+      const fuente = await versionJson(completa.version_id), filas = await filasJson(completa.version_id)
+      const cambio = { ...datosEdicion, nombre: "Cambiar y quitar", origen_actualizado_en: fuente.actualizado_en,
+        componentes: [
+          { id: filas[0].id, materia_prima_id: id(10), harina_base: true, porcentaje: 100, destino: "DIRECTO" },
+          { id: filas[2].id, materia_prima_id: id(17), harina_base: false, porcentaje: 2, destino: "MICRO" },
+        ] }
+      const r = await editar(id(401), completa.version_id, cambio)
+      const nuevas = await filasJson(r.version_id)
+      assert.deepEqual(nuevas.map(f => f.materia_prima_id), [id(10), id(17)])
+      assert.deepEqual(await filasJson(completa.version_id), filas)
+    })
+    await t.test("Ingredientes repetidos o sin costo revierten toda la nueva versión", async () => {
+      const origen = await versionJson(nuevo.version_id)
+      const antes = (await db.query("select count(*)::integer n from fm_formula_versiones")).rows[0].n
+      const d = { ...datosEdicion, origen_actualizado_en: origen.actualizado_en, nombre: "Duplicado",
+        componentes: [...datosEdicion.componentes, datosEdicion.componentes[2]] }
+      await assert.rejects(editar(id(402), nuevo.version_id, d), /una sola vez/)
+      await assert.rejects(editar(id(402), nuevo.version_id, { ...d, nombre: "Sin precio",
+        componentes: [...datosEdicion.componentes, { id: null, materia_prima_id: id(13), harina_base: false, porcentaje: 1, destino: "DIRECTO" }] }), /Falta el costo/)
+      assert.equal((await db.query("select count(*)::integer n from fm_formula_versiones")).rows[0].n, antes)
+      assert.deepEqual(await filasJson(nuevo.version_id), filasOriginales)
+    })
   } finally {
     await db.close()
   }

@@ -9,7 +9,8 @@ export type DatosVersionFormulacion = {
   peso_bola_g: number
   peso_final_g: number
   origen_actualizado_en: string
-  componentes: { id: string; porcentaje: number; destino: "DIRECTO" | "MICRO" }[]
+  estructura_completa?: boolean
+  componentes: { id: string | null; porcentaje: number; destino: "DIRECTO" | "MICRO"; materia_prima_id?: string; harina_base?: boolean }[]
 }
 export type IntentoVersionFormulacion = { id: string; usuario: string; origen: string; datos: DatosVersionFormulacion }
 async function contexto() {
