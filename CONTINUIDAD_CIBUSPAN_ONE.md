@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-Simulador de costos dentro de Fórmulas, 19/11/2026. Preparado sobre `0878100`. Se trasladó la entrada de Simulador de costos desde las pestañas de Resultados y rentabilidad a una tarjeta dentro de Producción → Fórmulas. Reutiliza SimuladorCostosCotizacion y sus consultas/cálculos, con Volver a Fórmulas. Cambios de frontend en Formulas.tsx y CostosIndirectos.tsx. Pendiente publicación tras aprobación de Iván.
+Simulador de costos dentro de Fórmulas, 19/11/2026. Se trasladó la entrada de Simulador de costos desde las pestañas de Resultados y rentabilidad a una tarjeta dentro de Producción → Fórmulas. Reutiliza SimuladorCostosCotizacion y sus consultas/cálculos, con Volver a Fórmulas. Cambios de frontend en Formulas.tsx y CostosIndirectos.tsx. Pasó npm run build con el Supabase operativo. Publicado desde `f7a9548`, despliegue `e53ea38d`. El dominio público sirve ambos módulos idénticos al build y se verificaron la tarjeta nueva, retirada de la pestaña anterior, Supabase operativo y R2/firma. Cambio de frontend sin SQL.
 
 Editar fórmula con lista completa de ingredientes, 19/11/2026. Preparado sobre `9b0b052`. Formulación incluye Editar fórmula, con selección de materias primas desde el catálogo, Agregar ingrediente, Quitar, harina base, Directo/Micro y porcentajes. Permite completar una fórmula guardada con ingredientes faltantes. Conserva datos de parada y guardado de nueva versión de fórmula/micro. El servicio distingue filas nuevas y envía la estructura completa al RPC.
 
