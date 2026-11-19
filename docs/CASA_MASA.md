@@ -1,5 +1,52 @@
 # Casa Masa: alcance inicial
 
+## Primera entrega preparada en código — 19/11/2026
+
+- Menú Casa Masa → Pedidos y empaque, con consulta por fechas, búsqueda y tarjetas.
+- Nuevo pedido de los cuatro SKU, usando clientes, puntos de entrega y unidades de
+  manejo existentes. Se guarda en el registro central mediante su control recuperable;
+  la pertenencia a Casa Masa se guarda en la misma transacción.
+- Datos de contacto, dirección/punto, responsable, repartidor y observaciones;
+  secuencia Pendiente → En preparación → Empacado y etiquetado → Listo.
+- Verificación manual de cantidades/etiquetas y reserva completa por detalle para
+  confirmar empaque; repartidor obligatorio para Listo. No imprime etiquetas todavía.
+- Acceso al pedido seleccionado en Preparación/Despachos existentes, para elegir
+  lotes y confirmar la salida una sola vez. No marca entrega ni cobra automáticamente.
+- Control de versión para evitar sobrescribir cambios de otra persona y auditoría
+  de registro/actualizaciones. Un pedido del módulo CM debe estar Listo para salir,
+  incluso si se confirma desde Despachos general. Corregir etapas antes de la salida
+  es posible; después de salida se conserva el seguimiento sin edición de empaque.
+- SQL nuevo `202611190001_casa_masa_empaque.sql`: fuente privada que excluye los
+  detalles de los cuatro SKU CM antes de agrupar demanda por producto base en ambos
+  cálculos existentes. Conserva los cuerpos de los cálculos, sustituyendo sólo la
+  fuente de detalles; rechaza contratos no reconocidos. No modifica otras vistas.
+- Permiso Casa Masa por defecto para administrador, gerente, operaciones y bodeguero.
+  Requiere además Pedidos o Despachos para catálogos/registro central; el acceso a
+  Preparación exige Despachos. Se amplía la lista válida de `admin-users` para poder
+  guardar/revocar este permiso desde Usuarios y permisos.
+
+Instalación y publicación **pendientes**. Ejecutar `scripts/Instalar-CasaMasa.ps1`:
+compila, aplica sólo el SQL nuevo, valida el diagnóstico, registra sólo esa versión,
+actualiza `admin-users` y publica Pages. Si falta un contrato anterior, se detiene;
+no instala ni repara migraciones antiguas. No crea SKU, clientes ni pedidos de ejemplo.
+Los pedidos históricos de otro canal no se trasladan al módulo automáticamente.
+
+Pruebas locales: 32 aprobadas (cinco escenarios SQL, dos pruebas de reglas/acceso CM,
+13 de registro recuperable y 12 de permisos). PGlite utiliza el registro real de pedidos
+y modelos del esquema/permisos/planificación anterior; no certifica la definición ni
+los datos de la base real, HTTP, simultaneidad de varias conexiones o aceptación humana.
+Compilación correcta; sintaxis del instalador PowerShell comprobada.
+Revisión visual intentada con una vista aislada en localhost y datos de ejemplo:
+el navegador integrado no alcanzó el servidor y la herramienta de ventana local
+falló por continuación expirada. **Recorrido visual pendiente**, sin datos reales escritos.
+
+Pendientes siguientes: comprobar catálogo y clientes en la base real, instalar/publicar,
+validar el recorrido de empaque/reserva/despacho en navegador, registrar fabricación
+diaria independiente, cobros/comprobantes, facturación y conexión oficial de WhatsApp.
+Las tarjetas de 20 unidades/día muestran la meta, no existencias disponibles.
+
+---
+
 Fecha: 19/11/2026. Propuesta funcional a partir del chat MODULO CM.
 Base revisada: main, commit 07c2f36. Este documento inicia el diseño;
 no acredita pantallas implementadas, SQL instalado ni WhatsApp conectado.

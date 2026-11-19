@@ -26,6 +26,7 @@ export const ETIQUETAS_ROL: Record<AppRole, string> = {
 export const PANTALLAS_APLICACION = [
   "Dashboard",
   "Pedidos",
+  "Casa Masa",
   "Inventario",
   "Producción",
   "Semielaborados",
@@ -59,9 +60,10 @@ export const PERMISOS_PREDETERMINADOS: Record<
     (pantalla) => pantalla !== "Usuarios y permisos",
   ),
 
-  BODEGUERO: ["Despachos"],
+  BODEGUERO: ["Despachos", "Casa Masa"],
 
   GERENTE_OPERACIONES: [
+    "Casa Masa",
     "Pedidos",
     "Inventario",
     "Despachos",

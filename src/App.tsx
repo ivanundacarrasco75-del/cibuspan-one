@@ -14,6 +14,7 @@ import { puedeAbrirPantalla } from "./utils/permisosAplicacion"
 // PDF/Excel y pantallas pesadas que no se están usando.
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
+const CasaMasa = lazy(() => import("./pages/CasaMasa"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
 const InventarioV2 = lazy(() => import("./pages/InventarioV2"))
 const KardexInventario = lazy(() => import("./pages/KardexInventario"))
@@ -322,6 +323,9 @@ function App() {
       // ---------------------------------------------------------
       // COMERCIAL
       // ---------------------------------------------------------
+      case "Casa Masa · Pedidos y empaque":
+        return <CasaMasa puedeDespachar={puedeAcceder("Despachos")} />
+
       case "Comercial · Pedidos":
       case "Pedidos":
         return <PedidosV2 />

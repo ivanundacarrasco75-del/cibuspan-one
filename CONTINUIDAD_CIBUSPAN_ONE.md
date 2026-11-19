@@ -1,5 +1,20 @@
 # Continuidad de CIBUSPAN ONE
 
+19/11/2026, primera implementación CM preparada: **Casa Masa → Pedidos y empaque**,
+registro central recuperable de pedidos de los cuatro SKU, tarjetas por fechas,
+contacto/dirección/responsable/repartidor, etapas de empaque con auditoría y control
+de versión, verificación de reserva completa y enlace al despacho del pedido.
+SQL nuevo `202611190001_casa_masa_empaque.sql` excluye los detalles CM de ambos
+cálculos de demanda antes de agrupar por producto base; no fabrica ni carga stock.
+Permiso propio y lista válida de `admin-users` actualizados. Instalador exclusivo
+`scripts/Instalar-CasaMasa.ps1`, sin db push ni reparación de versiones anteriores.
+32 pruebas locales aprobadas y build correcto. SQL probado en PGlite con registro
+real y auxiliares modelados; base real no consultada ni modificada. Revisión visual
+pendiente por fallo de conexión/herramienta de navegador. Instalación, actualización
+de la función admin-users y publicación pendientes. Ver `docs/CASA_MASA.md`.
+Cobros, facturación, WhatsApp y registro de fabricación diaria todavía pendientes;
+no trasladar pedidos históricos de otro canal automáticamente.
+
 19/11/2026: inicio del diseño de **Casa Masa** en el chat MODULO CM. Ver
 `docs/CASA_MASA.md`: pedidos y empaque propios, CM-001 a CM-004 con meta diaria
 de 20 unidades por SKU, sin OP originadas por pedidos; cobro electrónico contra

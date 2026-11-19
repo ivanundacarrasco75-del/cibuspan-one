@@ -22,6 +22,7 @@ const pantallas = new Set([
   "Administración", "Materias primas", "Preformulación", "Usuarios y permisos",
   "KPI KAM",
   "Campo comercial",
+  "Casa Masa",
 ])
 
 function respuesta(status: number, body: unknown) {

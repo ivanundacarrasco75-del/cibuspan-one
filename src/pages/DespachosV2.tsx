@@ -31,7 +31,7 @@ function fechaAyer() {
   return `${anio}-${mes}-${dia}`
 }
 
-export default function DespachosV2() {
+export default function DespachosV2({ pedidoInicialId = "" }: { pedidoInicialId?: string }) {
   const logistica = useLogisticaSegura()
   const accionLogistica = useRef(false), lecturaDetalle = useRef(0), lecturaPedidos = useRef(0)
   const [pedidos, setPedidos] = useState<
@@ -93,6 +93,12 @@ export default function DespachosV2() {
 
       if (lectura !== lecturaPedidos.current) return
       setPedidos(pedidosDb)
+
+      if (pedidoInicialId && !pedidoSeleccionadoId) {
+        if (pedidosDb.some(p => p.id === pedidoInicialId)) await cargarDetallePedido(pedidoInicialId)
+        else setError("El pedido solicitado ya no está disponible para preparación o despacho. Actualiza Casa Masa.")
+        return
+      }
 
       if (
         mantenerSeleccion &&

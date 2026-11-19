@@ -32,6 +32,7 @@ type Modulo = {
   id:
     | "Inicio"
     | "Comercial"
+    | "Casa Masa"
     | "Producción"
     | "Inventario y Despachos"
     | "Compras"
@@ -72,6 +73,13 @@ const modulos: Modulo[] = [
       { pantalla: "Comercial · Revisión de datos", etiqueta: "Revisión de datos" },
       { pantalla: "Comercial · KPI KAM", etiqueta: "Gestión Comercial" },
     ],
+  },
+  {
+    id: "Casa Masa",
+    etiqueta: "Casa Masa",
+    icono: "comercial",
+    entrada: "Casa Masa · Pedidos y empaque",
+    items: [{ pantalla: "Casa Masa · Pedidos y empaque", etiqueta: "Pedidos y empaque" }],
   },
   {
     id: "Producción",
@@ -168,6 +176,7 @@ function moduloDePantalla(pantalla: string): Modulo["id"] {
   if (pantalla === "Dashboard") return "Inicio"
 
   if (pantalla.startsWith("Comercial ·")) return "Comercial"
+  if (pantalla.startsWith("Casa Masa ·")) return "Casa Masa"
   if (pantalla.startsWith("Producción ·")) return "Producción"
   if (pantalla.startsWith("Inventario y Despachos ·")) return "Inventario y Despachos"
   if (pantalla.startsWith("Compras ·")) return "Compras"

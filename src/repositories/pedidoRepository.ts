@@ -346,7 +346,8 @@ async function controlRegistroPedidoDb(usuarioEsperado?: string) {
   try { almacen = window.localStorage } catch { throw new Error("Habilita el almacenamiento del navegador para conservar el intento.") }
   return crearControlRegistroPedido({ almacen, proyecto: import.meta.env.VITE_SUPABASE_URL, usuarioId: user.id,
     registrar: async s => {
-      const { data, error } = await supabase.rpc("registrar_pedido_seguro", { p_solicitud_id: s.solicitudId, p_datos: s.datos, p_usuario_esperado: user.id })
+      const funcion = s.origen === "CASA_MASA" ? "registrar_pedido_casa_masa" : "registrar_pedido_seguro"
+      const { data, error } = await supabase.rpc(funcion, { p_solicitud_id: s.solicitudId, p_datos: s.datos, p_usuario_esperado: user.id })
       if (error) throw new Error(error.code === "PGRST202" || error.code === "42883" ? "Falta instalar el registro seguro de pedidos. No se usó el guardado anterior." : error.message)
       return data
     },

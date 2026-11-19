@@ -1,6 +1,7 @@
 const grupos: Array<[string, string[]]> = [
   ["Dashboard", ["Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
   ["Pedidos", ["Comercial · Pedidos", "Producción · Pedidos"]],
+  ["Casa Masa", ["Casa Masa · Pedidos y empaque"]],
   ["Inventario", ["Inventario y Despachos · Resumen", "Inventario y Despachos · Inventario", "Inventario y Despachos · Kardex"]],
   ["Producción", ["Producción · Resumen", "Producción · Planificación", "Producción · Producción", "Producción · Historial"]],
   ["Preformulación", ["Producción · Fórmulas"]],
@@ -30,6 +31,7 @@ export function permisoDePantalla(pantalla: string): string {
 export function puedeAbrirPantalla(pantalla: string, rol: string, permitidas: readonly string[]): boolean {
   if (pantalla === "Compras · Facturas del SRI") return rol === "ADMINISTRADOR"
   const permiso = permisoDePantalla(pantalla)
+  if (permiso === "Casa Masa") return permitidas.includes("Casa Masa") && permitidas.some(p => p === "Pedidos" || p === "Despachos")
   if (permiso === "Usuarios y permisos") return rol === "ADMINISTRADOR"
   return permitidas.includes(permiso)
 }
