@@ -1,5 +1,13 @@
 # Contingencia de CIBUSPAN ONE
 
+Comprobación directa del 19/11/2026: el dominio público y su endpoint de capturas
+utilizan `eodcwkuexldsbomflthe`; R2 y firma presentes. El CLI informa contingencia
+ACTIVE_HEALTHY y original/recuperación INACTIVE. No asumir que `.env.local` o el
+enlace local del CLI ya se actualizaron: todavía señalan el original en esta copia.
+Casa Masa se instaló especificando el proyecto activo y se compiló conservando
+la configuración pública sin reescribir esos archivos. El estado del 10/11 que
+sigue es histórico; no describe el destino público actual.
+
 Estado al 10/11/2026: Supabase original `mkntfvsbmlgobettavnu` restringió Auth y Storage por cuota; se mantiene íntegro, con sus imágenes. El proyecto vacío `cibuspan-one-recuperacion` de esa organización se pausó. En la organización separada `CIBUSPAN CONTINGENCIA`, el proyecto `eodcwkuexldsbomflthe` aparece sano y Auth respondió HTTP 200 con la clave publicable. El ticket SU-540390 sigue como seguimiento del servicio original.
 
 ## Cambio del enlace público — 11/11/2026

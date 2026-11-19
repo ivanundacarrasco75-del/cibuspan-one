@@ -1,6 +1,13 @@
 # Casa Masa: alcance inicial
 
-## Primera entrega preparada en código — 19/11/2026
+## Primera entrega instalada y publicada — 19/11/2026
+
+Ejecutada por el agente en contingencia `eodcwkuexldsbomflthe`. Diagnóstico real
+`correcto=true`, sólo versión `202611190002` registrada. Función admin-users v3 ACTIVE,
+con su configuración previa de autenticación conservada. Publicación main:
+`https://3b2846f2.cibuspan-one.pages.dev`. El dominio público sirve el mismo build
+de Casa Masa, entrada, Fórmulas y Compras SRI; Supabase operativo, R2 y firma verificados.
+No se registraron operaciones ficticias en producción. Recorrido visual todavía pendiente.
 
 Integración posterior: se incorporó main hasta `79def68` antes de instalar,
 conservando sus avances y la edición de permisos por submenú. Versión SQL definitiva
@@ -35,7 +42,7 @@ Iván solicita que el agente ejecute instalación/publicación con los accesos e
   Preparación exige Despachos. Se amplía la lista válida de `admin-users` para poder
   guardar/revocar este permiso desde Usuarios y permisos.
 
-Instalación y publicación **pendientes**. Ejecutar `scripts/Instalar-CasaMasa.ps1`:
+Instalación y publicación **completadas** con `scripts/Instalar-CasaMasa.ps1`:
 compila, aplica sólo el SQL nuevo, valida el diagnóstico, registra sólo esa versión,
 actualiza `admin-users` y publica Pages. Si falta un contrato anterior, se detiene;
 no instala ni repara migraciones antiguas. No crea SKU, clientes ni pedidos de ejemplo.
@@ -50,7 +57,7 @@ Revisión visual intentada con una vista aislada en localhost y datos de ejemplo
 el navegador integrado no alcanzó el servidor y la herramienta de ventana local
 falló por continuación expirada. **Recorrido visual pendiente**, sin datos reales escritos.
 
-Pendientes siguientes: comprobar catálogo y clientes en la base real, instalar/publicar,
+Pendientes siguientes: validar asignaciones cliente/producto y puntos de entrega,
 validar el recorrido de empaque/reserva/despacho en navegador, registrar fabricación
 diaria independiente, cobros/comprobantes, facturación y conexión oficial de WhatsApp.
 Las tarjetas de 20 unidades/día muestran la meta, no existencias disponibles.
@@ -199,4 +206,5 @@ No reutilizar permisos de otros módulos para conceder acceso financiero acciden
 
 Instalación futura: revisar historial remoto y dry-run antes de cualquier db push.
 Aplicar sólo SQL nuevo revisado cuando corresponda y registrar sólo su versión al terminar.
-Estado actual: diseño documentado; implementación, instalación, publicación e integración pendientes.
+Estado actual: primera entrega de pedidos/empaque implementada, instalada y publicada.
+Integración WhatsApp, cobros, facturación y registro diario de fabricación pendientes.

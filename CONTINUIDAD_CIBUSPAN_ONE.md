@@ -1,5 +1,21 @@
 # Continuidad de CIBUSPAN ONE
 
+19/11/2026, **Casa Masa instalado y publicado por el agente**. SQL exclusivo
+`202611190002_casa_masa_empaque.sql` ejecutado en `eodcwkuexldsbomflthe`, diagnóstico
+`correcto=true` con los cuatro SKU activos, RLS, escritura protegida, anónimo denegado,
+vista privada, exclusión de demanda CM y control de despacho. Registrada únicamente
+esa versión. `admin-users` actualizado a v3, ACTIVE, conservando `verify_jwt=false`
+ya existente y la validación interna de sesión/administrador; config.toml registra
+ese valor para no cambiarlo en posteriores despliegues. Cloudflare main publicado
+en `https://3b2846f2.cibuspan-one.pages.dev`, desde la integración `006b238` y esa
+configuración conservada. El dominio público sirve JS idéntico al build de entrada,
+Casa Masa, Fórmulas y Compras SRI; endpoint de capturas conserva contingencia, R2 y firma.
+41 pruebas locales comprobadas y compilación integrada correctas. No se crearon
+pedidos, pagos ni movimientos de inventario reales. Falta recorrido visual y aceptación
+operativa; no certificar pedido/reserva/despacho real completo. Cobros/comprobantes,
+facturación, WhatsApp y registro de fabricación diaria siguen pendientes. No pedir
+al propietario volver a ejecutar este instalador ni copiar comandos por rutina.
+
 19/11/2026, continuidad operativa CM: Iván confirma que el agente debe ejecutar
 también instalaciones y publicaciones con las sesiones disponibles, sin delegarle
 comandos por rutina. Se comprobó por CLI y bundle público que producción utiliza
@@ -12,7 +28,7 @@ Casa Masa utiliza la versión libre `202611190002`; `202611190001` corresponde a
 ingredientes y no debe repararse por CM. Los cuatro SKU CM están activos, verificados
 en la base real. Instalador corregido para detectar y conservar la conexión pública,
 usar el destino explícito sin relink y leer el JSON con `rows` del CLI actual.
-Instalación/publicación CM todavía pendientes en este punto; actualizar al terminar.
+Este fue el estado previo a la instalación, completada y verificada arriba.
 
 19/11/2026, primera implementación CM preparada: **Casa Masa → Pedidos y empaque**,
 registro central recuperable de pedidos de los cuatro SKU, tarjetas por fechas,
