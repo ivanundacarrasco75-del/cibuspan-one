@@ -1,18 +1,27 @@
 import type { VentaDiariaDb } from "../repositories/ventasRepository"
 import type { DevolucionListadoDb } from "../repositories/devolucionRepository"
 import { valorIndicadorValidadoCampo, type RegistroDashboardCampo } from "./dashboardVisitasRotacion"
+import { calcularRentabilidadSku, claveCliente, normalizar as normalizarCosto, type CostoProducto } from "./calculoRentabilidadSku"
+import type { FacturaDetalleDb } from "../repositories/facturasRepository"
+import type { NominaMensualAreaDb } from "../repositories/nominaRepository"
+import type { PromocionDb } from "../repositories/promocionesRepository"
+import type { ReglaDistribucionDb } from "../repositories/rentabilidadRepository"
 
 export type CatalogoSku = { id: string; codigo: string; nombre: string; corto: string }
-export type CostoSku = { producto_id: string; costo_materiales_unidad: number | null; items_sin_costo: number }
+export type CostoSku = { producto_id: string; costo_materiales_unidad: number | null; items_sin_costo: number } & Partial<CostoProducto>
 export type DatosTableroSku = {
   productos: CatalogoSku[]
   clientes: Array<{ id: string; nombre: string }>
-  asignaciones: Array<{ cliente_id: string; producto_id: string }>
+  asignaciones: Array<{ cliente_id: string; producto_id: string; precio?: number | null }>
   ventas: VentaDiariaDb[] | null
   devoluciones: DevolucionListadoDb[] | null
   visitas: RegistroDashboardCampo[] | null
   costos: CostoSku[] | null
   errores: string[]
+  rentabilidad?: {
+    facturas: FacturaDetalleDb[] | null; nomina: NominaMensualAreaDb[] | null
+    promociones: PromocionDb[] | null; reglas: ReglaDistribucionDb[] | null
+  }
 }
 export type FilaSku = CatalogoSku & {
   unidades: number; venta: number; devueltas: number; valorDevuelto: number
@@ -126,4 +135,42 @@ export function resumirTableroSku(datos: DatosTableroSku, clienteId = "", produc
     rotaciones, locales: [...locales.values()].map((l) => ({ ...l, rotacion: l.suma / l.skus })),
     pendientes, ventasSinVinculo,
   }
+}
+
+// La distribución se calcula sobre todos los movimientos antes de filtrar el cliente/SKU.
+export function resumirRentabilidadTableroSku(datos: DatosTableroSku, desde: string, hasta: string, clienteId = "", productoId = "") {
+  const base = resumirTableroSku(datos, clienteId, productoId)
+  const fuentes = datos.rentabilidad
+  const completo = datos.ventas !== null && datos.devoluciones !== null && datos.costos !== null &&
+    !!fuentes && Object.values(fuentes).every(f => f !== null)
+  const productos = new Map(datos.productos.map(p => [p.id, p]))
+  const clientes = new Map(datos.clientes.map(c => [c.id, c]))
+  const permitidos = new Set(datos.asignaciones.filter(a => !clienteId || a.cliente_id === clienteId).map(a =>
+    claveCliente(clientes.get(a.cliente_id)?.nombre) + "|" + normalizarCosto(productos.get(a.producto_id)?.codigo)))
+  const calculo = calcularRentabilidadSku({
+    clientes: datos.clientes, productos: datos.productos,
+    relaciones: datos.asignaciones.map(a => ({...a, precio: a.precio ?? null})),
+    costos: (datos.costos ?? []).map(c => ({...c, producto_codigo: c.producto_codigo ?? productos.get(c.producto_id)?.codigo ?? "",
+      batch_calculado_kg: c.batch_calculado_kg ?? null, rendimiento_unidades: c.rendimiento_unidades ?? null})),
+    ventas: datos.ventas ?? [], devoluciones: datos.devoluciones ?? [], facturas: fuentes?.facturas ?? [],
+    nomina: fuentes?.nomina ?? [], promociones: fuentes?.promociones ?? [], reglas: fuentes?.reglas ?? [],
+    desde, hasta, baseDevoluciones: "REGISTRO",
+  })
+  const filas = base.filas.map(f => {
+    const movimientos = calculo.filas.filter(r => r.productoKey === normalizarCosto(f.codigo) && permitidos.has(r.key))
+    const sumar = (campo: "descuentos" | "costoMateriales" | "manoObraDirecta" | "transporte" | "gastoClienteDirecto") =>
+      movimientos.reduce((s, r) => s + Number(r[campo] ?? 0), 0)
+    const descuentos = fuentes?.promociones != null ? sumar("descuentos") : null
+    const neto = f.neto !== null && descuentos !== null ? f.neto - descuentos : null
+    const materiales = datos.costos !== null && movimientos.every(r => r.completo) ? sumar("costoMateriales") : null
+    const manoObra = fuentes?.nomina != null && fuentes?.reglas != null ? sumar("manoObraDirecta") : null
+    const transporte = fuentes?.facturas != null && fuentes?.nomina != null ? sumar("transporte") : null
+    const gastoCliente = fuentes?.facturas != null ? sumar("gastoClienteDirecto") : null
+    const aporte = completo && neto !== null && materiales !== null && manoObra !== null && transporte !== null && gastoCliente !== null &&
+      Math.abs(calculo.costosSinAsignar) < 0.005 ? neto - materiales - manoObra - transporte - gastoCliente : null
+    return {...f, descuento: descuentos, devolucion: datos.devoluciones !== null && !f.devolucionesSinValor ? f.valorDevuelto : null,
+      netoComercial: neto, materiales, manoObra, transporte, gastoCliente, contribucion: aporte,
+      margen: aporte !== null && neto !== null && neto > 0 ? aporte / neto * 100 : null}
+  })
+  return {...base, financieras: filas, costosSinAsignar: calculo.costosSinAsignar, fuentesCompletas: completo}
 }

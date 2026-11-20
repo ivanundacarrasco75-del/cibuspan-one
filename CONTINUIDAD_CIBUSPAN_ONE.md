@@ -1,5 +1,21 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Panorama SKU aprobado para publicar e integrado con fuentes reales**.
+La ruta `Dashboard · SKU` / Dashboards → Movimiento de SKU utiliza ahora
+`src/pages/PanoramaSku.tsx`, sin pestañas, con los ocho gráficos aprobados, filtros
+y detalle. `calculoRentabilidadSku.ts` extrae el cálculo existente del reporte;
+el reporte conserva su atribución de devoluciones por origen y su comportamiento.
+El tablero usa explícitamente fecha de registro para empatar con sus cantidades
+devueltas. Comparte descuentos registrados, costos vigentes, distribución de nómina,
+transporte y gasto directo del cliente; se distribuye antes de filtrar. Los gastos
+y nómina se toman por mes, sin prorratear días, igual que el reporte. Fuentes
+fallidas/costos incompletos o sin distribuir dejan el aporte pendiente; no se
+presentan como ceros. Solo SKU activos con asignación activa al cliente.
+34 pruebas de cálculo, visitas y permisos aprobadas. Compilación final para
+`eodcwkuexldsbomflthe` con configuración pública recuperada de la publicación actual
+y Auth comprobado; no usar `.env.local` como destino. Pendiente completar y
+comprobar despliegue autorizado; no se ejecutó SQL ni se modificaron datos.
+
 20/11/2026, **Tercera propuesta SKU: panorama gráfico sin pestañas**. El usuario
 rechazó la alternativa con pestañas y pidió todos los indicadores en una sola vista,
 con gráficos más vistosos. `pruebas/vista_preliminar_sku/panorama.html` presenta

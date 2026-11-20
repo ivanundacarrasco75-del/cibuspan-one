@@ -52,7 +52,7 @@ const RolesPago = lazy(() => import("./pages/RolesPago"))
 const ReporteDevoluciones = lazy(() => import("./pages/ReporteDevoluciones"))
 const DescuentosPromociones = lazy(() => import("./pages/DescuentosPromociones"))
 const ReporteRentabilidadSku = lazy(() => import("./pages/ReporteRentabilidadSku"))
-const TableroSku = lazy(() => import("./pages/TableroSku"))
+const PanoramaSku = lazy(() => import("./pages/PanoramaSku"))
 const SimuladorRentabilidad = lazy(() => import("./pages/SimuladorRentabilidad"))
 const UsuariosPermisos = lazy(() => import("./pages/UsuariosPermisos"))
 const ClasificacionGastos = lazy(() => import("./pages/ClasificacionGastos"))
@@ -330,7 +330,7 @@ function App() {
         return <DashboardV2 cambiarPantalla={setPantalla} />
 
       case "Dashboard · SKU":
-        return <TableroSku cambiarPantalla={setPantalla} />
+        return <PanoramaSku cambiarPantalla={setPantalla} />
 
       case "Dashboard · Visitas y rotación":
         return <DashboardVisitasRotacion cambiarPantalla={setPantalla} />
