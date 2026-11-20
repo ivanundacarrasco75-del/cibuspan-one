@@ -536,8 +536,8 @@ function App() {
       case PANTALLA_CUENTAS_POR_PAGAR:
       case PANTALLA_PAGOS_SEMANALES:
       case PANTALLA_PAGOS_ANTERIOR:
-        if (!puedeAcceder(PANTALLA_PAGOS_SEMANALES)) return <PagosGastos />
         return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR}
+          puedeProgramar={puedeAcceder(PANTALLA_PAGOS_SEMANALES)}
           cambiarPantalla={setPantalla} />
 
       case "Pagos y Finanzas · Historial":

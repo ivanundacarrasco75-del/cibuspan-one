@@ -24,12 +24,11 @@ export type CuentaCompra = {
 export type CompraProgramada = { documento_id: string; monto: number; pagado: number }
 export type SeleccionCompra = { id: string; monto: string; verificado: boolean }
 
-const vistaCuentas = "fin_vw_cuentas_por_pagar_compras"
 const CUENTAS_POR_PAGINA = 40
 
 export async function listarCuentasCompra(pagina: number, tipo: string, busqueda: string, pendientes: boolean) {
   const inicio = pagina * CUENTAS_POR_PAGINA
-  let consulta = supabase.from(vistaCuentas).select("*", { count: "exact" })
+  let consulta = supabase.rpc("fin_consultar_cuentas", {}, { count: "exact" }).select("*")
     .order("fecha_documento", { ascending: false, nullsFirst: false }).order("id")
     .range(inicio, inicio + CUENTAS_POR_PAGINA - 1)
   if (tipo) consulta = consulta.eq("tipo", tipo)
@@ -53,7 +52,7 @@ export async function listarComprasProgramadas(semana: string) {
   const cuentas = new Map<string, CuentaCompra>()
   for (let inicio = 0; inicio < planes.length; inicio += bloque) {
     const ids = planes.slice(inicio, inicio + bloque).map(plan => plan.documento_id)
-    const { data, error } = await supabase.from(vistaCuentas).select("*").in("id", ids)
+    const { data, error } = await supabase.rpc("fin_consultar_cuentas").select("*").in("id", ids)
     if (error) throw error
     for (const cuenta of (data ?? []) as CuentaCompra[]) cuentas.set(cuenta.id, cuenta)
   }

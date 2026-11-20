@@ -25,6 +25,8 @@ calculables muestra "Margen de los SKU calculados", no los califica de peores.
 40 pruebas aprobadas y compilación correcta con Supabase operativo. Pendiente
 completar/verificar publicación de esta corrección. Ningún dato fue modificado.
 
+Acceso a Finanzas por permisos asignados, 20/11/2026. El caso de tsamaniego@cibuspan.com confirmó Cuentas por Pagar y Roles de pago autorizados, y Pagos semanales denegado. App enviaba Cuentas por pagar al registro anterior cuando faltaba el permiso semanal. Se retira ese desvío y se muestran las acciones semanales solo a quienes pueden abrir esa pantalla. Las consultas de cuentas y de gestión de Roles usan RPC con autorización exacta y perfil activo, sin ampliar el acceso directo a las tablas fuente. La migración nueva `202611200002_finanzas_permisos_asignados.sql` adapta las guardas de las funciones propias de Finanzas a esas rutas. La autorización semanal permanece independiente. Pasaron las pruebas SQL de autorización/revocación/inactivo, consulta de XML/Excel/manual/histórico, pago directo y protección semanal; Chrome con JEFA_FACTURACION y administrador y npm run build. Pendientes instalar y publicar. No se modificó la ficha de permisos de Teresa.
+
 20/11/2026, **Facturas SRI asignable a otros roles**. Preparado sobre `c3269cb`.
 El catálogo compartido permite marcar Facturas SRI en Usuarios y Permisos para
 cualquier rol. Se mantiene el acceso por permiso exacto y su denegación explícita.

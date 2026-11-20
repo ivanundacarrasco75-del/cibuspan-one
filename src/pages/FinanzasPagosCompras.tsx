@@ -47,7 +47,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
 }) {
   const [detalle, setDetalle] = useState<string | null>(null)
   const contenedor = useRef<HTMLDivElement>(null)
-  const columnas = 13 + (modo === "semana" ? 2 : 1)
+  const columnas = 13 + (modo === "semana" ? 2 : 1) - (modo === "cuentas" && !acciones.seleccionar ? 1 : 0)
 
   useEffect(() => {
     const elemento = contenedor.current
@@ -67,7 +67,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
       tabIndex={0} role="region" aria-label={titulo} onScroll={alDesplazar}>
       <table className="compras-sri-tabla fin-pagos-tabla" aria-label={titulo}>
         <thead><tr>
-          {modo === "cuentas" && <th scope="col">Elegir</th>}
+          {modo === "cuentas" && acciones.seleccionar && <th scope="col">Elegir</th>}
           <th scope="col">Emisión</th><th scope="col">Tipo</th><th scope="col">Documento</th>
           <th scope="col">Proveedor</th><th scope="col">Descripción</th><th scope="col">Subtotal</th>
           <th scope="col">IVA</th><th scope="col">Retención</th><th scope="col">Total</th>
@@ -97,7 +97,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
           if (plan) estado = restante === 0 ? "Ejecutado" : puedePagar ? "Programado" : "Revisar saldo"
           return <Fragment key={cuenta.id}>
             <tr className={restante === 0 && (plan || cuenta.pagado > 0) ? "compras-sri-pagada" : elegida ? "fin-pagos-elegida" : undefined}>
-              {modo === "cuentas" && <td><input type="checkbox" aria-label={`Seleccionar ${nombre}`} checked={Boolean(elegida)}
+              {modo === "cuentas" && acciones.seleccionar && <td><input type="checkbox" aria-label={`Seleccionar ${nombre}`} checked={Boolean(elegida)}
                 disabled={acciones.ocupado || (!elegida && (cuenta.saldo === null || cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
                 onChange={evento => acciones.seleccionar?.(cuenta, evento.target.checked)} /></td>}
               <td>{cuenta.fecha_documento || "—"}</td><td>{tipos[cuenta.tipo]}</td>
@@ -143,8 +143,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   )
 }
 
-export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
-  semanal: boolean; cambiarPantalla: (pantalla: string) => void
+export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeProgramar }: {
+  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeProgramar: boolean
 }) {
   const [semana, setSemana] = useState(() => lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
@@ -340,9 +340,9 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
       <header className="compras-sri-cabecera">
         <h1>{semanal ? "Pagos semanales" : "Cuentas por pagar"}</h1>
         <div className="compras-sri-herramientas">
-          <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
+          {(semanal || puedeProgramar) && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
             {semanal ? "Cuentas por pagar" : "Ver pagos semanales"}
-          </button>
+          </button>}
           <button type="button" disabled={guardando || pago !== null} onClick={() => setRevision(valor => valor + 1)}>Actualizar</button>
         </div>
       </header>
@@ -379,7 +379,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
           <div aria-busy={cargando || cargandoMas}>
             {cargando ? <p role="status">Cargando documentos…</p> :
               <TablaCompras filas={cuentas.map(cuenta => ({ cuenta }))} titulo="Cuentas por pagar consolidadas" modo="cuentas"
-                acciones={{ ...acciones, seleccionar }} alDesplazar={cargarAlDesplazar} />}
+                acciones={{ ...acciones, seleccionar: puedeProgramar ? seleccionar : undefined }} alDesplazar={cargarAlDesplazar} />}
           </div>
           <div className="compras-sri-paginas">
             {!cargando && <span>{total} documentos</span>}
@@ -389,7 +389,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
               <button type="button" onClick={() => void cargarMas()}>Reintentar</button>
             </>}
           </div>
-          <section className="fin-pagos-seleccion" aria-labelledby="pagos-seleccionados">
+          {puedeProgramar && <section className="fin-pagos-seleccion" aria-labelledby="pagos-seleccionados">
             <h2 id="pagos-seleccionados">Documentos seleccionados</h2>
             <form onSubmit={enviarSeleccion}>
               <TablaCompras filas={seleccionadas} modo="seleccion" titulo="Documentos seleccionados" acciones={{
@@ -411,7 +411,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla }: {
                 </button>
               </div>
             </form>
-          </section>
+          </section>}
         </>
       )}
       {pago && createPortal(<dialog ref={dialogo} className="fin-pagos-dialogo" aria-labelledby="registrar-pago-compra"

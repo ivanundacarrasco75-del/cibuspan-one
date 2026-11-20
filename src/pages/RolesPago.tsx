@@ -85,7 +85,7 @@ export default function RolesPago({ alCargarPagos, vista, setVista }: {
       const [empleadosDb, importacionesDb, resumenDb] = await Promise.all([
         obtenerEmpleadosNominaDb(true),
         obtenerImportacionesNominaDb(),
-        obtenerNominaMensualAreaDb(),
+        obtenerNominaMensualAreaDb(true),
       ])
       setEmpleados(empleadosDb)
       setImportaciones(importacionesDb)

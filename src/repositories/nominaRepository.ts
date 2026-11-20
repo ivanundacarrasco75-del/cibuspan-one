@@ -58,7 +58,7 @@ export type ResultadoImportacionNomina = {
 
 export async function obtenerEmpleadosNominaDb(incluirDesvinculados = false) {
   let consulta = supabase
-    .from("fin_nomina_empleados")
+    .rpc("fin_consultar_personal")
     .select("*")
     .order("nombre")
   if (!incluirDesvinculados) consulta = consulta.eq("activo", true)
@@ -96,7 +96,7 @@ export async function cargarNominaCuentas(datos: CargaNominaCuentas) {
 
 export async function obtenerImportacionesNominaDb() {
   const { data, error } = await supabase
-    .from("fin_nomina_importaciones")
+    .rpc("fin_consultar_roles_importados")
     .select("*")
     .order("periodo", { ascending: false })
     .limit(36)
@@ -104,9 +104,9 @@ export async function obtenerImportacionesNominaDb() {
   return (data ?? []) as ImportacionNominaDb[]
 }
 
-export async function obtenerNominaMensualAreaDb() {
-  const { data, error } = await supabase
-    .from("fin_vw_nomina_mensual_area")
+export async function obtenerNominaMensualAreaDb(gestionRoles = false) {
+  const consulta = gestionRoles ? supabase.rpc("fin_consultar_resumen_roles") : supabase.from("fin_vw_nomina_mensual_area")
+  const { data, error } = await consulta
     .select("*")
     .order("periodo", { ascending: true })
   if (error) throw new Error(`No se pudo cargar el resumen de nómina: ${error.message}`)
