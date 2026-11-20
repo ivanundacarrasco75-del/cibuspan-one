@@ -1,0 +1,12 @@
+.anticipos-tabla { min-width: 1000px; table-layout: auto; }
+.anticipos-tabla td { height: 27px; max-width: 220px; }
+.anticipos-pagina > .compras-sri-contenedor { max-height: 320px; }
+.anticipos-tabla td:not(.compras-sri-detalle) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anticipos-tabla input[type="checkbox"], .anticipos-tabla input[type="radio"] { width: 14px; min-height: 0; height: 14px; }
+.anticipos-tabla input[type="number"] { min-width: 90px; }
+.anticipos-acciones { display: flex; gap: 4px; }
+.anticipos-campos { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; border: 0; }
+.anticipos-campos label { display: grid; gap: 3px; }
+.anticipos-cruce { width: min(960px, calc(100vw - 32px)); }
+.anticipos-cruce .anticipos-facturas { max-height: 240px; }
+.anticipos-cruce .anticipos-tabla { min-width: 700px; font-size: 12px; }

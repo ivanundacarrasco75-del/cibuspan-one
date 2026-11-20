@@ -4,6 +4,7 @@ export const PANTALLA_MENU_COMPRAS = "Compras · Resumen"
 export const PANTALLA_ANTICIPAR_COMPRAS = "Compras · Compras por anticipar"
 export const PANTALLA_FACTURAS_COMPRAS = "Compras · Facturas de compras"
 export const PANTALLA_FACTURAS_SRI = "Compras · Facturas del SRI"
+export const PANTALLA_ANTICIPOS = "Compras · Anticipos"
 export const PANTALLA_NOTAS_VENTA = "Compras · Notas de venta"
 export const PANTALLA_NO_DEDUCIBLES = "Compras · Gastos no deducibles"
 export const PANTALLA_MENU_FINANZAS = "Pagos y Finanzas · Resumen"
@@ -12,7 +13,7 @@ export const PANTALLA_CUENTAS_POR_PAGAR = "Pagos y Finanzas · Cuentas por Pagar
 export const PANTALLA_PAGOS_SEMANALES = "Pagos y Finanzas · Pagos semanales"
 export const PANTALLA_PAGOS_ANTERIOR = "Pagos y Finanzas · Pagos"
 
-export const PANTALLAS_DOCUMENTOS_COMPRAS = [PANTALLA_FACTURAS_SRI, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES]
+export const PANTALLAS_DOCUMENTOS_COMPRAS = [PANTALLA_FACTURAS_SRI, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES, PANTALLA_ANTICIPOS]
 
 const grupos: Array<[string, string[]]> = [
   ["Dashboard", ["Dashboard · SKU", "Dashboard · Comercial", "Dashboard · Costos y gastos", "Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
@@ -56,6 +57,8 @@ export function puedeAbrirPantalla(
     [PANTALLA_FACTURAS_COMPRAS]: PANTALLAS_DOCUMENTOS_COMPRAS,
     [PANTALLA_MENU_FINANZAS]: rutasDeNodo(ARBOL_PERMISOS[5]).filter((item) => item !== PANTALLA_MENU_FINANZAS),
   }
+  if ([PANTALLA_MENU_COMPRAS, PANTALLA_FACTURAS_COMPRAS].includes(ruta) &&
+    permitidas.includes(PANTALLA_CUENTAS_POR_PAGAR) && !denegadas.includes(PANTALLA_CUENTAS_POR_PAGAR)) return true
   if (ruta === PANTALLA_MENU_PRODUCCION && menus[ruta].some((hijo) =>
     puedeAbrirPantalla(hijo, rol, permitidas, denegadas))) return true
   if (menus[ruta]?.some((hijo) => permitidas.includes(hijo) && !denegadas.includes(hijo) &&

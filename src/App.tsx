@@ -12,6 +12,7 @@ import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
   PANTALLA_MENU_COMPRAS, PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla,
   PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
+  PANTALLA_ANTICIPOS,
 } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
@@ -24,6 +25,7 @@ const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
 const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
 const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
+const Anticipos = lazy(() => import("./pages/Anticipos"))
 const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
 const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
@@ -130,6 +132,7 @@ function App() {
   const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
+  const [semanaPagosAnticipos, setSemanaPagosAnticipos] = useState<string>()
   const [revisionDevolucionId,setRevisionDevolucionId] = useState('')
   useEffect(()=>{if(pantalla!=='Comercial · Devoluciones' && pantalla!=='Devoluciones')setRevisionDevolucionId('')},[pantalla])
   const [vistaRolesPago, setVistaRolesPago] = useState<VistaRolesPago>("MENU")
@@ -536,9 +539,13 @@ function App() {
       case PANTALLA_CUENTAS_POR_PAGAR:
       case PANTALLA_PAGOS_SEMANALES:
       case PANTALLA_PAGOS_ANTERIOR:
-        return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR}
+        return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR} semanaInicial={semanaPagosAnticipos}
           puedeAbrirPagosSemanales={puedeAcceder(PANTALLA_PAGOS_SEMANALES)}
           cambiarPantalla={setPantalla} />
+
+      case PANTALLA_ANTICIPOS:
+        return <Anticipos puedeAbrirPagosSemanales={puedeAcceder(PANTALLA_PAGOS_SEMANALES)}
+          alProgramar={semana => { setSemanaPagosAnticipos(semana); setPantalla(PANTALLA_PAGOS_SEMANALES) }} />
 
       case "Pagos y Finanzas · Historial":
       case "Pagos y gastos":

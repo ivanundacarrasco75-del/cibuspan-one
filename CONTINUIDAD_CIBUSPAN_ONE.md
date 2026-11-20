@@ -1,5 +1,22 @@
 # Continuidad de CIBUSPAN ONE
 
+Anticipos a proveedores, 20/11/2026. Preparado sobre `6bbb8cf`. Nueva opción en
+Compras → Facturas de compras → Anticipos, también accesible desde Cuentas por
+pagar. Hereda el permiso exacto de Cuentas por pagar; ejecutar Pagos semanales
+conserva su permiso independiente. Registro compacto, selección de importes y
+semana; pago por el flujo semanal existente. El cruce manual posterior usa solo
+el importe efectivamente pagado y disponible, conserva la referencia del depósito
+y admite aplicaciones parciales o completas a facturas XML/Excel. Actualiza el
+saldo en Finanzas y el estado de Facturas SRI sin generar otra salida de caja.
+Si hay un pago semanal pendiente de la factura, reduce ese pendiente al saldo
+restante. Compara el RUC cuando ambos documentos lo tienen y exige confirmar el
+proveedor. Operaciones con UUID idempotente, bloqueos y auditoría del cruce.
+Pasaron 29 pruebas de SQL/permisos, Chrome con JEFA_FACTURACION para alta,
+programación de otra semana, pago, cruce móvil y factura SRI pagada, y
+`npm run build`. Las pruebas utilizaron datos simulados; no se hicieron pagos
+reales. Pendiente instalar exclusivamente `202611200004_anticipos_proveedores.sql`,
+registrar esa versión y publicar/verificar la compilación.
+
 Selección completa por permiso de Cuentas por pagar, 20/11/2026. Se corrige el criterio anterior: las casillas, montos y tabla inferior forman parte del permiso de Cuentas por pagar y aparecen para todos sus usuarios. Programar esa selección usa el mismo permiso; si no se puede abrir Pagos semanales, confirma el guardado y continúa en Cuentas por pagar. Pagos semanales también usa el permiso exacto asignado para consulta, ejecución y retiro, con el mismo comportamiento entre roles autorizados. No se asignan permisos automáticamente. Pasaron Chrome con JEFA_FACTURACION y administrador, 24 pruebas de SQL/catálogo y npm run build. Se instaló y registró únicamente `202611200003_finanzas_seleccion_por_modulo.sql`. Publicado desde `c422032`, despliegue `2c48b9f5`. La lectura con el perfil de Teresa confirmó la autorización de programación desde Cuentas por pagar y 778 cuentas, con la misma huella de permisos. Coincidieron los SHA-256 públicos de los siete archivos verificados de índice, Finanzas y Roles; Supabase/R2/firma comprobados.
 
 20/11/2026, **Auditoría y corrección del Panorama SKU solicitadas por Iván**.

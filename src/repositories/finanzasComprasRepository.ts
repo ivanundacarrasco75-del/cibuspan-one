@@ -1,10 +1,10 @@
 import { supabase } from "../lib/supabase"
 
-export type TipoCuentaCompra = "SRI" | "NOTA_VENTA" | "NO_DEDUCIBLE" | "NOMINA"
+export type TipoCuentaCompra = "SRI" | "NOTA_VENTA" | "NO_DEDUCIBLE" | "NOMINA" | "ANTICIPO"
 export type CuentaCompra = {
   id: string
   tipo: TipoCuentaCompra
-  origen: "SRI" | "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS" | "EXCEL" | "NOMINA"
+  origen: "SRI" | "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS" | "EXCEL" | "NOMINA" | "ANTICIPO"
   fecha_documento: string | null
   numero_documento: string | null
   proveedor: string | null
@@ -24,7 +24,7 @@ export type CuentaCompra = {
 export type CompraProgramada = { documento_id: string; monto: number; pagado: number }
 export type SeleccionCompra = { id: string; monto: string; verificado: boolean }
 
-const CUENTAS_POR_PAGINA = 40
+export const CUENTAS_POR_PAGINA = 40
 
 export async function listarCuentasCompra(pagina: number, tipo: string, busqueda: string, pendientes: boolean) {
   const inicio = pagina * CUENTAS_POR_PAGINA

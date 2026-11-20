@@ -119,6 +119,16 @@ test('Cuentas y Pagos semanales se autorizan por permiso exacto para todos los r
   }
 })
 
+test('Anticipos hereda Cuentas por pagar y se abre desde Facturas de compras con cualquier rol autorizado', () => {
+  for (const rol of ['ADMINISTRADOR','JEFA_FACTURACION','GERENTE']) {
+    const permiso='Pagos y Finanzas · Cuentas por Pagar'
+    assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_ANTICIPOS,rol,[permiso]),true)
+    assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_COMPRAS,rol,[permiso]),true)
+    assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS,rol,[permiso]),true)
+    assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_ANTICIPOS,rol,[permiso],[permiso]),false)
+  }
+})
+
 function servicio(responder, error = null) {
   const module = { exports: {} }; const eventos = []
   vm.runInNewContext(compilar(leer('src/services/usuarioService.ts')), {

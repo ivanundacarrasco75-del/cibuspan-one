@@ -4,11 +4,11 @@ import {
   listarComprasProgramadas, listarCuentasCompra, pagarCompra,
   programarCompras, quitarCompraProgramada, type CompraProgramada, type CuentaCompra, type TipoCuentaCompra,
 } from "../repositories/finanzasComprasRepository"
-import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES } from "../utils/permisosAplicacion"
+import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES } from "../utils/permisosAplicacion"
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
 
-const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina" }
+const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina", ANTICIPO: "Anticipo" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const importe = (valor: number | string | null) => valor === null ? "—" : moneda.format(Number(valor))
 const centavos = (valor: number | string | null) => Math.round(Number(valor) * 100)
@@ -127,7 +127,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
             </tr>
             {detalle === cuenta.id && <tr><td colSpan={columnas} className="compras-sri-detalle">
               <strong>{nombre}</strong><p>{cuenta.concepto || "Sin descripción"}</p>
-              {cuenta.ruc && <p>RUC {cuenta.ruc} · Clave de acceso {cuenta.id.slice(4)}</p>}
+              {cuenta.ruc && <p>RUC {cuenta.ruc}{cuenta.id.startsWith("sri:") ? " · Clave de acceso " + cuenta.id.slice(4) : ""}</p>}
               {historica(cuenta) && <p>Origen histórico en Clasificación de gastos. Verifica el saldo contra los pagos anteriores.</p>}
               {cuenta.observaciones && <p>{cuenta.observaciones}</p>}
               {cuenta.pagos.length > 0 ? <ul>{cuenta.pagos.map(pago =>
@@ -143,10 +143,10 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   )
 }
 
-export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAbrirPagosSemanales }: {
-  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean
+export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAbrirPagosSemanales, semanaInicial }: {
+  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean; semanaInicial?: string
 }) {
-  const [semana, setSemana] = useState(() => lunes(hoy()))
+  const [semana, setSemana] = useState(() => semanaInicial ?? lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
   const [programadas, setProgramadas] = useState<FilaProgramada[]>([])
   const [seleccion, setSeleccion] = useState(new Map<string, Seleccion>())
@@ -341,6 +341,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
       <header className="compras-sri-cabecera">
         <h1>{semanal ? "Pagos semanales" : "Cuentas por pagar"}</h1>
         <div className="compras-sri-herramientas">
+          {!semanal && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(PANTALLA_ANTICIPOS)}>Anticipos</button>}
           {(semanal || puedeAbrirPagosSemanales) && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
             {semanal ? "Cuentas por pagar" : "Ver pagos semanales"}
           </button>}
