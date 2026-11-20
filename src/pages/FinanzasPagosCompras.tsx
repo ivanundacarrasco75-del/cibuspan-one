@@ -143,8 +143,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   )
 }
 
-export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeProgramar }: {
-  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeProgramar: boolean
+export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAbrirPagosSemanales }: {
+  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean
 }) {
   const [semana, setSemana] = useState(() => lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
@@ -325,7 +325,8 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedePr
       await programarCompras(semana, filas)
       setSeleccion(new Map())
       setAviso(`${filas.length} documento(s) enviado(s) a la semana del ${semana}.`)
-      cambiarPantalla(PANTALLA_PAGOS_SEMANALES)
+      if (puedeAbrirPagosSemanales) cambiarPantalla(PANTALLA_PAGOS_SEMANALES)
+      else setRevision(valor => valor + 1)
     })
   }
 
@@ -340,7 +341,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedePr
       <header className="compras-sri-cabecera">
         <h1>{semanal ? "Pagos semanales" : "Cuentas por pagar"}</h1>
         <div className="compras-sri-herramientas">
-          {(semanal || puedeProgramar) && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
+          {(semanal || puedeAbrirPagosSemanales) && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
             {semanal ? "Cuentas por pagar" : "Ver pagos semanales"}
           </button>}
           <button type="button" disabled={guardando || pago !== null} onClick={() => setRevision(valor => valor + 1)}>Actualizar</button>
@@ -379,7 +380,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedePr
           <div aria-busy={cargando || cargandoMas}>
             {cargando ? <p role="status">Cargando documentos…</p> :
               <TablaCompras filas={cuentas.map(cuenta => ({ cuenta }))} titulo="Cuentas por pagar consolidadas" modo="cuentas"
-                acciones={{ ...acciones, seleccionar: puedeProgramar ? seleccionar : undefined }} alDesplazar={cargarAlDesplazar} />}
+                acciones={{ ...acciones, seleccionar }} alDesplazar={cargarAlDesplazar} />}
           </div>
           <div className="compras-sri-paginas">
             {!cargando && <span>{total} documentos</span>}
@@ -389,7 +390,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedePr
               <button type="button" onClick={() => void cargarMas()}>Reintentar</button>
             </>}
           </div>
-          {puedeProgramar && <section className="fin-pagos-seleccion" aria-labelledby="pagos-seleccionados">
+          <section className="fin-pagos-seleccion" aria-labelledby="pagos-seleccionados">
             <h2 id="pagos-seleccionados">Documentos seleccionados</h2>
             <form onSubmit={enviarSeleccion}>
               <TablaCompras filas={seleccionadas} modo="seleccion" titulo="Documentos seleccionados" acciones={{
@@ -411,7 +412,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedePr
                 </button>
               </div>
             </form>
-          </section>}
+          </section>
         </>
       )}
       {pago && createPortal(<dialog ref={dialogo} className="fin-pagos-dialogo" aria-labelledby="registrar-pago-compra"

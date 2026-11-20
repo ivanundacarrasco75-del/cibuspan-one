@@ -43,11 +43,12 @@ export async function listarComprasProgramadas(semana: string) {
   const planes: CompraProgramada[] = []
   const bloque = 100
   for (let inicio = 0; ; inicio += bloque) {
-    const { data, error } = await supabase.from("fin_programacion_compras").select("documento_id,monto,pagado")
+    const { data, error } = await supabase.rpc("fin_consultar_programaciones").select("documento_id,monto,pagado")
       .eq("semana", semana).order("documento_id").range(inicio, inicio + bloque - 1)
     if (error) throw error
-    planes.push(...(data ?? []))
-    if (!data || data.length < bloque) break
+    const registros = (data ?? []) as CompraProgramada[]
+    planes.push(...registros)
+    if (registros.length < bloque) break
   }
   const cuentas = new Map<string, CuentaCompra>()
   for (let inicio = 0; inicio < planes.length; inicio += bloque) {

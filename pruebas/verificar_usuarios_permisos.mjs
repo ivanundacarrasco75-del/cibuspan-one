@@ -110,6 +110,15 @@ test('El catálogo cubre las rutas del menú y las pantallas antiguas', () => {
   assert.equal(new Set(catalogo.RUTAS_PERMISOS).size, catalogo.RUTAS_PERMISOS.length)
 })
 
+test('Cuentas y Pagos semanales se autorizan por permiso exacto para todos los roles', () => {
+  for (const rol of ['ADMINISTRADOR','GERENTE','JEFA_FACTURACION','KAM','BODEGUERO']) {
+    for (const ruta of ['Pagos y Finanzas · Cuentas por Pagar','Pagos y Finanzas · Pagos semanales']) {
+      assert.equal(puedeAbrirPantalla(ruta,rol,[ruta]),true)
+      assert.equal(puedeAbrirPantalla(ruta,rol,[ruta],[ruta]),false)
+    }
+  }
+})
+
 function servicio(responder, error = null) {
   const module = { exports: {} }; const eventos = []
   vm.runInNewContext(compilar(leer('src/services/usuarioService.ts')), {

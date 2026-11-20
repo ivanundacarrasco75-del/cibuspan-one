@@ -8,7 +8,7 @@ const uid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 const persona = "00000000-0000-0000-0000-000000000001"
 const clave = "1".repeat(49)
 
-test("el permiso de Cuentas y Roles permite sus datos y operaciones, sin conceder Pagos semanales ni acceso directo a XML", async () => {
+test("Cuentas permite seleccionar y programar con cualquier rol; ejecutar una semana requiere su propio permiso", async () => {
   const db = new PGlite()
   try {
     await db.exec(`
@@ -44,6 +44,9 @@ test("el permiso de Cuentas y Roles permite sus datos y operaciones, sin concede
     const sql = await leer("202611200002_finanzas_permisos_asignados")
     await db.exec(sql)
     await db.exec(sql)
+    const seleccion = await leer("202611200003_finanzas_seleccion_por_modulo")
+    await db.exec(seleccion)
+    await db.exec(seleccion)
     await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,current_date,$2,'<xml/>')",
       [clave,JSON.stringify({ clave,serie:"SRI-1",proveedor:"Proveedor SRI",total:"100",subtotal:"100",items:[],impuestos:[] })])
     await db.exec(`
@@ -59,11 +62,9 @@ test("el permiso de Cuentas y Roles permite sus datos y operaciones, sin concede
     assert.equal((await db.query("select count(*)::int n from fin_consultar_cuentas()")).rows[0].n,4)
     await db.query("select fin_pagar_compra($1,$2,10,current_date,'REF',null,false)", ["sri:"+clave,persona])
     assert.equal((await db.query("select saldo::int from fin_consultar_cuentas() where id=$1",["sri:"+clave])).rows[0].saldo,90)
-    await assert.rejects(db.query("select fin_programar_compras('2026-11-16',$1)",[JSON.stringify([{id:"sri:"+clave,monto:20}])]),/administrador/)
+    await db.query("select fin_programar_compras('2026-11-16',$1)",[JSON.stringify([{id:"sri:"+clave,monto:20}])])
+    await assert.rejects(db.query("select * from fin_consultar_programaciones()"),/permiso/)
     await assert.rejects(db.query("select fin_pagar_compra($1,$2,10,current_date,'REF','2026-11-16',false)",["sri:"+clave,"11111111-1111-1111-1111-111111111111"]),/pagos semanales/)
-    await db.query("reset role")
-    await db.query("insert into fin_programacion_compras(semana,documento_id,monto,confirmado_por) values('2026-11-16',$1,20,$2)",["sri:"+clave,uid])
-    await db.query("set role authenticated")
     await assert.rejects(db.query("select compras_sri_abonar($1,$2,5,current_date,'REF')",[clave,"11111111-1111-1111-1111-111111111111"]),/factura programada/)
     await db.query("select fin_guardar_personal($1,'Personal Prueba','ADMINISTRACION',true,'EXTERNO')",[persona])
     assert.equal((await db.query("select nombre from fin_consultar_personal() where id=$1",[persona])).rows[0].nombre,"Personal Prueba")
@@ -71,9 +72,16 @@ test("el permiso de Cuentas y Roles permite sus datos y operaciones, sin concede
     assert.equal((await db.query("select count(*)::int n from fin_consultar_cuentas() where tipo='NOMINA'")).rows[0].n,1)
     assert.equal((await db.query("select count(*)::int n from fin_consultar_roles_importados()")).rows[0].n,0)
     assert.equal((await db.query("select count(*)::int n from fin_consultar_resumen_roles()")).rows[0].n,0)
+    await db.exec(`reset role; update app_user_permissions set permitido=true where pantalla='Pagos y Finanzas · Pagos semanales'; set role authenticated`)
+    assert.equal((await db.query("select count(*)::int n from fin_consultar_programaciones()")).rows[0].n,1)
+    await db.query("select fin_pagar_compra($1,$2,20,current_date,'REF-SEMANA','2026-11-16',false)",["sri:"+clave,"22222222-2222-2222-2222-222222222222"])
+    await db.exec(`reset role; update app_user_permissions set permitido=false where pantalla='Pagos y Finanzas · Cuentas por Pagar'; set role authenticated`)
+    await assert.rejects(db.query("select fin_pagar_compra($1,$2,5,current_date,'REF-DIRECTO',null,false)",["sri:"+clave,"33333333-3333-3333-3333-333333333333"]),/Cuentas por pagar/)
+    await assert.rejects(db.query("select compras_sri_abonar($1,$2,5,current_date,'REF-DIRECTO')",[clave,"33333333-3333-3333-3333-333333333333"]),/esta entrada/)
     await db.exec(`reset role; update app_user_permissions set permitido=false where user_id='${uid}'; set role authenticated`)
     await assert.rejects(db.query("select * from fin_consultar_cuentas()"),/permiso/)
     await assert.rejects(db.query("select * from fin_consultar_personal()"),/permiso/)
+    await assert.rejects(db.query("select fin_programar_compras('2026-11-23',$1)",[JSON.stringify([{id:"sri:"+clave,monto:5}])]),/administrador/)
     await assert.rejects(db.query("select fin_guardar_personal($1,'Personal Prueba','ADMINISTRACION',true,'EXTERNO')",[persona]),/permiso/)
     await db.exec(`reset role; update app_user_permissions set permitido=true; update app_profiles set activo=false; set role authenticated`)
     await assert.rejects(db.query("select * from fin_consultar_cuentas()"),/permiso/)
