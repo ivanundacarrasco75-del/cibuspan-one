@@ -12,7 +12,16 @@ programar pagos conserva su autorización propia. No se asignan usuarios al inst
 `npm run build` correcto con la configuración pública del Supabase operativo.
 Funciones y políticas reales revisadas antes de instalar. Conteos previos
 13 XML, 746 documentos Excel, dos pagos y cero recepciones. Instalación,
-registro de la versión y publicación pendientes de comprobar.
+registro de la versión y publicación completados por el agente desde `ffaf5f0`.
+Despliegue `e61b7e24`, dominio principal verificado por SHA-256 del índice,
+bundle principal y módulo UsuariosPermisos. Las seis políticas y los dos RPC
+de edición/detalle usan el permiso nuevo, autenticado permitido y anónimo
+bloqueado. Conteos posteriores iguales a los previos. Registrada únicamente
+la versión `202611200001`. Supabase operativo, R2 y firma comprobados.
+Renderizado de la casilla habilitada comprobado para Facturación, Gerencia,
+Bodega y KAM. El administrador puede asignarla a las personas elegidas y
+guardar permisos; queda pendiente que el usuario seleccione a los destinatarios
+y compruebe su acceso con las sesiones reales.
 
 20/11/2026, **Panorama SKU aprobado para publicar e integrado con fuentes reales**.
 La ruta `Dashboard · SKU` / Dashboards → Movimiento de SKU utiliza ahora
