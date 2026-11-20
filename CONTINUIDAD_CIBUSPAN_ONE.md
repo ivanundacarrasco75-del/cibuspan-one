@@ -22,8 +22,15 @@ comprobantes ni caja. No se cargan los datos personales en Git: payload y SQL de
 datos privados solo en `diagnosticos_privados/retenciones_2026/`.
 Pasaron 36 pruebas de historial/permisos/retenciones/SRI, prueba local del payload
 completo y reintento, Chrome con carga real de XML simulado y consulta de reglas,
-móvil sin desborde, y `npm run build`. Pendiente instalar únicamente la migración
-nueva, cargar el historial autorizado, registrar su versión y publicar/verificar.
+móvil sin desborde, y `npm run build`. Instalada y registrada únicamente la
+migración nueva `202611200007`. Cargado el historial autorizado mediante el RPC:
+640 observaciones y 90 perfiles con los estados esperados; una auditoría de carga.
+La consulta operativa confirmó las mismas huellas de saldos y definición de la
+vista de cuentas, 21 pagos, 23 planes y cero retenciones emitidas registradas.
+Teresa consulta los 90 perfiles con los mismos permisos: Cuentas true, semanal
+false y huella conservada. Publicado desde `6a7efa2`, despliegue `e83d35b8`;
+SHA-256 de 17 archivos públicos de índice, Finanzas, Roles, SRI, sugerencias,
+documentos y estilos coincidentes. Supabase operativo/R2/firma comprobados.
 
 Conciliación preliminar del PDF de retenciones, 20/11/2026, sobre `686d8b2`.
 El usuario entregó `RETENCIONES 2026.pdf`, reporte contable de enero-septiembre.
