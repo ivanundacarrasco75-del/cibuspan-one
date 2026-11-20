@@ -1,5 +1,19 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Facturas SRI asignable a otros roles**. Preparado sobre `c3269cb`.
+El catálogo compartido permite marcar Facturas SRI en Usuarios y Permisos para
+cualquier rol. Se mantiene el acceso por permiso exacto y su denegación explícita.
+SQL nuevo exclusivo `202611200001_compras_sri_permisos.sql` agrega autorización
+para perfiles activos en lectura/importación/XML/RIDE, edición y detalle de
+facturas XML/Excel. La recepción conserva los permisos adicionales del Kardex.
+Los pagos existentes de facturas Excel se muestran en su detalle. Registrar o
+programar pagos conserva su autorización propia. No se asignan usuarios al instalar.
+25 pruebas locales de permisos, SQL SRI, Excel y recepción aprobadas y
+`npm run build` correcto con la configuración pública del Supabase operativo.
+Funciones y políticas reales revisadas antes de instalar. Conteos previos
+13 XML, 746 documentos Excel, dos pagos y cero recepciones. Instalación,
+registro de la versión y publicación pendientes de comprobar.
+
 20/11/2026, **Panorama SKU aprobado para publicar e integrado con fuentes reales**.
 La ruta `Dashboard · SKU` / Dashboards → Movimiento de SKU utiliza ahora
 `src/pages/PanoramaSku.tsx`, sin pestañas, con los ocho gráficos aprobados, filtros

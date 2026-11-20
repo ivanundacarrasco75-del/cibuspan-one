@@ -90,5 +90,5 @@ export const ALIASES_PERMISOS: Record<string, string> = {
 }
 
 export const RUTAS_SOLO_ADMIN = [
-  "Administración · Usuarios y Permisos", "Compras · Facturas del SRI", "Pagos y Finanzas · Pagos semanales",
+  "Administración · Usuarios y Permisos", "Pagos y Finanzas · Pagos semanales",
 ]

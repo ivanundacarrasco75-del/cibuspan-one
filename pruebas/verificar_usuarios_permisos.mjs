@@ -74,7 +74,7 @@ test('Un permiso exacto abre su opción sin conceder los menús hermanos', () =>
   assert.equal(puede(PANTALLA_FACTURAS_COMPRAS), true)
   assert.equal(puede(PANTALLA_NO_DEDUCIBLES), false)
   assert.equal(puede('Administración · Configuración'), false)
-  assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_SRI, 'GERENTE', [PANTALLA_FACTURAS_SRI]), false)
+  assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_SRI, 'GERENTE', [PANTALLA_FACTURAS_SRI]), true)
 })
 
 test('La denegación exacta prevalece sobre el permiso anterior y los aliases', () => {
@@ -86,6 +86,21 @@ test('La denegación exacta prevalece sobre el permiso anterior y los aliases', 
   const todas = [...catalogo.RUTAS_PERMISOS]
   assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'ADMINISTRADOR', [], todas), false)
   assert.equal(puedeAbrirPantalla(PANTALLA_MENU_COMPRAS, 'GERENTE', [PANTALLA_NOTAS_VENTA], [PANTALLA_MENU_COMPRAS, PANTALLA_FACTURAS_COMPRAS]), true)
+})
+
+test('Facturas SRI se puede asignar y revocar para cualquier rol sin abrir otras opciones', () => {
+  assert.equal(catalogo.RUTAS_SOLO_ADMIN.includes(PANTALLA_FACTURAS_SRI), false)
+  for (const rol of ['GERENTE', 'BODEGUERO', 'GERENTE_OPERACIONES', 'JEFA_FACTURACION', 'KAM', 'MERCADERISTA']) {
+    const permisos = [PANTALLA_FACTURAS_SRI]
+    for (const ruta of [PANTALLA_FACTURAS_SRI, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS]) {
+      assert.equal(puedeAbrirPantalla(ruta, rol, permisos), true, `${rol} ${ruta}`)
+    }
+    assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_SRI, rol, [], []), false)
+    assert.equal(puedeAbrirPantalla(PANTALLA_FACTURAS_SRI, rol, permisos, permisos), false)
+    assert.equal(puedeAbrirPantalla(PANTALLA_NOTAS_VENTA, rol, permisos), false)
+    assert.equal(puedeAbrirPantalla('Pagos y Finanzas · Pagos semanales', rol, permisos), false)
+    assert.equal(puedeAbrirPantalla('Administración · Usuarios y Permisos', rol, permisos), false)
+  }
 })
 
 test('El catálogo cubre las rutas del menú y las pantallas antiguas', () => {
