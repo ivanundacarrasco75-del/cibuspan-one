@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { obtenerTableroSku } from "../repositories/tableroSkuRepository"
 import { resumirTableroSku, type DatosTableroSku } from "../utils/tableroSku"
 import { fechaHoyCampoDashboard } from "../utils/dashboardVisitasRotacion"
@@ -31,7 +31,10 @@ function Ranking({ titulo, unidad, items, vacio, alElegir, inverso = false }: {
   </section>
 }
 
-export default function TableroSku({ cambiarPantalla }: { cambiarPantalla: (pantalla: string) => void }) {
+export default function TableroSku({ cambiarPantalla, panelRentabilidad }: {
+  cambiarPantalla: (pantalla: string) => void
+  panelRentabilidad?: (productoIds: string[]) => ReactNode
+}) {
   const [hoy] = useState(fechaHoyCampoDashboard)
   const [desde, setDesde] = useState(`${hoy.slice(0, 7)}-01`)
   const [hasta, setHasta] = useState(hoy)
@@ -94,6 +97,7 @@ export default function TableroSku({ cambiarPantalla }: { cambiarPantalla: (pant
         <article><span>Aporte después de materiales</span><strong>{aporteCompleto ? dinero(filas.reduce((s, f) => s + f.aporte!, 0)) : "—"}</strong><small>Incluye devoluciones · costo vigente</small></article>
       </section>
       <p className="sku-metodo">Venta facturada del periodo {datos.ventas === null ? "—" : dinero(venta)}. Las devoluciones se toman por su fecha de registro y pueden corresponder a ventas anteriores. El aporte resta el valor devuelto y el costo de materiales de todas las unidades facturadas. Mano de obra, transporte y gastos se consultan en Rentabilidad por SKU.</p>
+      {panelRentabilidad?.(filas.map((f) => f.id))}
       {(faltanValores > 0 || resumen.ventasSinVinculo > 0) && <p className="sku-aviso">{faltanValores > 0 && `${faltanValores} líneas devueltas sin valor comprobado. El neto y aporte de sus SKU quedan pendientes. `}{resumen.ventasSinVinculo > 0 && `${resumen.ventasSinVinculo} líneas de venta sin vínculo único a cliente o producto requieren revisar el catálogo.`}</p>}
       <div className="sku-rankings">
         <Ranking titulo="5 SKU más vendidos" unidad="unidades" items={datos.ventas === null ? [] : comunes.map((f, i) => ({ ...f, valor: filas[i].unidades })).filter((f) => f.valor > 0)} vacio={disponibilidad(datos.ventas, "Sin ventas positivas en este periodo.")} alElegir={setSku} />

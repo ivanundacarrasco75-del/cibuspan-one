@@ -1,5 +1,20 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Contribución y margen añadidos solo a la vista preliminar solicitada**.
+El ejemplo reproducible está en `pruebas/vista_preliminar_sku/`; se inicia con
+`node pruebas/vista_preliminar_sku/servidor.mjs` y abre el puerto local 5192.
+Incluye venta neta comercial, aporte tras descuentos/devoluciones y costos
+directos (materiales/empaques, mano de obra, transporte y gasto del cliente), margen
+calculado sobre totales, top 5 por aporte, top 5 por menor margen, pérdidas en rojo
+y desglose por SKU. Datos ficticios identificados en pantalla, sin conexión a
+Supabase ni escritura. `TableroSku` admite un panel opcional para este preliminar;
+la ruta normal todavía no recibe este panel. **Pendiente integrar el cálculo real
+del reporte de rentabilidad antes de ofrecer estos indicadores en producción**.
+Compiladas la aplicación y la vista de ejemplo. Abierta en Chrome y comprobada la
+sección nueva con aporte $1.675,30, margen 23,1 % y un SKU con pérdida (ejemplos,
+no resultados de la empresa). No se publicó ni se ejecutó SQL. La revisión visual
+se limita a esta vista de ejemplo; falta aceptación operativa y datos reales.
+
 20/11/2026, **Movimiento de SKU implementado; pendiente de publicar**. Nueva
 entrada en Dashboards, con el mismo permiso de Dashboard Comercial. Combina ventas
 diarias, devoluciones, visitas y costos de materiales mediante consultas existentes;

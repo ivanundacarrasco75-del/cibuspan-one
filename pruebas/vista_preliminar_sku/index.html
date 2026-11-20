@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es"><head><meta charset="UTF-8"><title>Vista preliminar · Movimiento de SKU</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{margin:0;background:#f8f5f1;font-family:Arial,sans-serif}*{box-sizing:border-box}.aviso{padding:16px 28px;background:#fff3ce;color:#574010;font-size:15px;line-height:1.5}
+.rentabilidad-preliminar{margin:24px 0;padding:20px;border:1px solid #4f9e7b;border-radius:14px;background:#102a2d}.rentabilidad-preliminar>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}.rentabilidad-etiqueta{font-size:11px;letter-spacing:.1em;color:#86efac;font-weight:bold}.rentabilidad-formula{font-size:12px;color:#c2ddd6}.rentabilidad-fila{display:flex;align-items:center;justify-content:space-between;gap:14px}.rentabilidad-fila>b{white-space:nowrap}.rentabilidad-preliminar .sku-totales article{border-top-color:#4ade80}.rentabilidad-preliminar .sku-detalle header{display:flex;align-items:center;justify-content:space-between;gap:12px}@media(max-width:600px){.rentabilidad-preliminar{padding:12px}}
+</style></head><body>
+<div class="aviso"><strong>Vista preliminar con datos de ejemplo.</strong> Revisa el diseño y la nueva sección verde de contribución y margen. Las cifras son ficticias, sin conexión a los datos reales. Los enlaces a otros reportes no están habilitados.</div>
+<div id="root"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import TableroSku from '/src/pages/TableroSku.tsx';
+import RentabilidadPreliminar from './RentabilidadPreliminar.jsx';
+import {rentabilidadEjemplo} from './datos.mjs';
+createRoot(document.getElementById('root')).render(React.createElement(TableroSku,{
+  cambiarPantalla:()=>{},
+  panelRentabilidad:productoIds=>React.createElement(RentabilidadPreliminar,{datos:rentabilidadEjemplo,productoIds}),
+}));
+</script></body></html>
