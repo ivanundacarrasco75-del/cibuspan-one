@@ -1,5 +1,23 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Movimiento de SKU implementado; pendiente de publicar**. Nueva
+entrada en Dashboards, con el mismo permiso de Dashboard Comercial. Combina ventas
+diarias, devoluciones, visitas y costos de materiales mediante consultas existentes;
+no requiere SQL ni modifica datos. Filtros por periodo, cliente y SKU, limitados a
+productos activos con asignación activa Cliente–Producto. Incluye seis top 5:
+mayor/menor venta positiva, más devoluciones, mayor aporte tras devoluciones y
+materiales, locales por rotación promedio y combinaciones SKU/local. Los SKU sin
+venta se muestran aparte. El aporte usa costo de materiales vigente y no equivale
+a utilidad completa: mano de obra, transporte y gastos siguen en Rentabilidad por
+SKU. Devoluciones por su fecha de registro, sin atribuirlas a la venta de origen.
+Rotación: última visita por SKU/local/semana, valores verificados o manuales;
+cobertura visible, sin imputar semanas ausentes ni cambiar el dashboard semanal.
+Las fuentes fallidas y valores incompletos se muestran como pendientes. Compilación
+correcta y 28 pruebas de cálculos/permisos aprobadas. Recorrido visual pendiente:
+el navegador de pruebas no pudo acceder al servidor local. No se consultaron ni
+modificaron datos productivos para estas pruebas. No desplegar el build local de
+validación: se generó con clave de prueba; publicar con la configuración oficial.
+
 19/11/2026, **Casa Masa instalado y publicado por el agente**. SQL exclusivo
 `202611190002_casa_masa_empaque.sql` ejecutado en `eodcwkuexldsbomflthe`, diagnóstico
 `correcto=true` con los cuatro SKU activos, RLS, escritura protegida, anónimo denegado,

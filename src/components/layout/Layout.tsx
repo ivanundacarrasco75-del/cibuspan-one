@@ -55,6 +55,7 @@ const modulos: Modulo[] = [
     items: [
       { pantalla: "Dashboard", etiqueta: "Revisión operativa" },
       { pantalla: "Dashboard · Comercial", etiqueta: "Comercial" },
+      { pantalla: "Dashboard · SKU", etiqueta: "Movimiento de SKU" },
       { pantalla: "Dashboard · Visitas y rotación", etiqueta: "Visitas PDV" },
       { pantalla: "Dashboard · Costos y gastos", etiqueta: "Costos y gastos" },
     ],

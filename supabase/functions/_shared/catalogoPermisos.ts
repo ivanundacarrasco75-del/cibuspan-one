@@ -62,6 +62,7 @@ export function rutasDeNodo(nodo: NodoPermiso): string[] {
 export const RUTAS_PERMISOS = ARBOL_PERMISOS.flatMap(rutasDeNodo)
 
 export const ALIASES_PERMISOS: Record<string, string> = {
+  "Dashboard · SKU": "Dashboard · Comercial",
   Pedidos: "Comercial · Pedidos",
   Ventas: "Comercial · Ventas",
   "Ventas por cliente y SKU": "Comercial · Ventas",

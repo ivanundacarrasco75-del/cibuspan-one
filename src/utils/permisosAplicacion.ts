@@ -15,7 +15,7 @@ export const PANTALLA_PAGOS_ANTERIOR = "Pagos y Finanzas · Pagos"
 export const PANTALLAS_DOCUMENTOS_COMPRAS = [PANTALLA_FACTURAS_SRI, PANTALLA_NOTAS_VENTA, PANTALLA_NO_DEDUCIBLES]
 
 const grupos: Array<[string, string[]]> = [
-  ["Dashboard", ["Dashboard · Comercial", "Dashboard · Costos y gastos", "Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
+  ["Dashboard", ["Dashboard · SKU", "Dashboard · Comercial", "Dashboard · Costos y gastos", "Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
   ["Pedidos", ["Comercial · Pedidos", "Producción · Pedidos"]],
   ["Casa Masa", ["Casa Masa · Pedidos y empaque"]],
   ["Inventario", ["Inventario y Despachos · Resumen", "Inventario y Despachos · Inventario", "Inventario y Despachos · Kardex"]],
