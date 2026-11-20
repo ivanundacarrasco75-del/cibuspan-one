@@ -25,8 +25,16 @@ programación, pago, anticipo, anulación y permisos correctas. Chrome comprobó
 ausencia de pagos directos en Cuentas, cálculo 6,50/neto 108,50, selección y pago
 semanal, Sueldo octubre/2026 a Cuentas y móvil sin desborde. Pasaron las 36 pruebas
 de SQL/permisos de Finanzas, anticipos y estos cambios, y `npm run build`.
-Pendiente instalar únicamente `202611200005_nomina_sueldo.sql` y
-`202611200006_retenciones_documentos.sql`, registrar esas versiones y publicar.
+Se instalaron únicamente `202611200005_nomina_sueldo.sql` y
+`202611200006_retenciones_documentos.sql`, y se registraron ambas versiones tras
+su ejecución correcta. Publicado desde `cda8d85`, despliegue `1334d3c3`; SHA-256
+públicos de catorce archivos de índice, Finanzas, Retenciones, SRI, Anticipos,
+Roles y nómina coincidentes con la compilación. Supabase operativo/R2/firma
+comprobados. Verificación real con Teresa: 779 cuentas, once reglas y cero
+retenciones; permiso de Cuentas true y semanal false, huella de permisos intacta.
+Instalación: catorce obligaciones de nómina, 21 pagos, 22 programaciones y cero
+saldos cambiados; conteos de cuentas y facturas conservados. No se registraron
+pagos, obligaciones de nómina ni retenciones de prueba en la base operativa.
 
 Anticipos a proveedores, 20/11/2026. Preparado sobre `6bbb8cf`. Nueva opción en
 Compras → Facturas de compras → Anticipos, también accesible desde Cuentas por
