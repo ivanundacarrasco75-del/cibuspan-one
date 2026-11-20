@@ -40,6 +40,8 @@ export type VentaSemanalDb = {
 }
 
 export type VentaDiariaDb = {
+  id?: string
+  comprobante?: string
   fecha_emision: string
   cliente_id: string | null
   cliente_nombre: string
@@ -219,13 +221,14 @@ export async function obtenerVentasDiariasRangoDb(
     const { data, error } = await supabase
       .from("com_ventas_detalle")
       .select(
-        "fecha_emision,cliente_id,cliente_nombre,producto_id,sku,producto_nombre,cantidad,total_sin_impuestos",
+        "id,comprobante,fecha_emision,cliente_id,cliente_nombre,producto_id,sku,producto_nombre,cantidad,total_sin_impuestos",
       )
       .gte("fecha_emision", fechaDesde)
       .lte("fecha_emision", fechaHasta)
       .order("fecha_emision", { ascending: true })
       .order("cliente_nombre", { ascending: true })
       .order("sku", { ascending: true })
+      .order("id", { ascending: true })
       .range(inicio, inicio + tamanoPagina - 1)
 
     if (error) {

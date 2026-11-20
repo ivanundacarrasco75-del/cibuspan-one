@@ -1,5 +1,30 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Auditoría y corrección del Panorama SKU solicitadas por Iván**.
+Lecturas SELECT en `eodcwkuexldsbomflthe` comprobaron que septiembre/2026 es el
+último balance cargado y cerrado; octubre figura sin cerrar. Filtro cambiado a
+mes/año sobre balances con cierre confirmado, por defecto el último disponible.
+El aviso de agosto incluía 12 ventas de clientes ajenos a Favorita: corregido su
+alcance por cliente/SKU, sin cambiar esos registros. Ocho líneas de Favorita sin
+precio ni total pertenecen al documento `0202621900031` del 07/08/2026; afectan a
+ocho SKU y explican que solo Manjar y Chocobits tuvieran aporte calculable.
+Los avisos ahora abren las líneas concretas y enlazan directamente ese documento
+en el historial de Devoluciones. No se estimaron ni completaron importes.
+La fuente anterior de gastos (facturas) no contenía el transporte ni gastos
+históricos de agosto/septiembre. El tablero ahora usa exclusivamente el gasto
+específico por cliente del libro mayor clasificado y concilia su suma con el
+balance mensual; sustituye las facturas y la distribución de nómina para evitar
+duplicarlas. Conserva MOD de nómina y materiales vigentes; no modifica el reporte
+de rentabilidad ni pretende cuadrar el EBITDA contable. Auditoría local con
+fuentes reales de agosto: Manjar 44,31 % y Chocobits 41,64 %, ambos aún únicos
+calculables en ese filtro. Septiembre/Favorita tiene 10 SKU calculables y cero
+devoluciones sin importe. Sin costos sin distribuir y gasto conciliado en ambos
+meses. Datos de auditoría solo en `.wrangler/`, no versionados.
+Ranking rotulado como aporte USD frente a margen %; con cinco o menos SKU
+calculables muestra "Margen de los SKU calculados", no los califica de peores.
+40 pruebas aprobadas y compilación correcta con Supabase operativo. Pendiente
+completar/verificar publicación de esta corrección. Ningún dato fue modificado.
+
 20/11/2026, **Facturas SRI asignable a otros roles**. Preparado sobre `c3269cb`.
 El catálogo compartido permite marcar Facturas SRI en Usuarios y Permisos para
 cualquier rol. Se mantiene el acceso por permiso exacto y su denegación explícita.

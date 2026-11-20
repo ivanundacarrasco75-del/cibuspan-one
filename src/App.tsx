@@ -130,6 +130,8 @@ function App() {
   const [errorAcceso, setErrorAcceso] = useState("")
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
+  const [revisionDevolucionId,setRevisionDevolucionId] = useState('')
+  useEffect(()=>{if(pantalla!=='Comercial · Devoluciones' && pantalla!=='Devoluciones')setRevisionDevolucionId('')},[pantalla])
   const [vistaRolesPago, setVistaRolesPago] = useState<VistaRolesPago>("MENU")
   const enRolesPago = pantalla === "Roles de pago" || pantalla === "Pagos y Finanzas · Roles de pago"
 
@@ -330,7 +332,7 @@ function App() {
         return <DashboardV2 cambiarPantalla={setPantalla} />
 
       case "Dashboard · SKU":
-        return <PanoramaSku cambiarPantalla={setPantalla} />
+        return <PanoramaSku cambiarPantalla={setPantalla} abrirDevolucion={id=>{setRevisionDevolucionId(id);setPantalla('Comercial · Devoluciones')}} />
 
       case "Dashboard · Visitas y rotación":
         return <DashboardVisitasRotacion cambiarPantalla={setPantalla} />
@@ -366,7 +368,7 @@ function App() {
 
       case "Comercial · Devoluciones":
       case "Devoluciones":
-        return <Devoluciones />
+        return <Devoluciones documentoInicialId={revisionDevolucionId} />
 
       case "Dashboard · Comercial":
       case "Comercial · Análisis":

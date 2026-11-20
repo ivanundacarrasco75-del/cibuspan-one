@@ -510,12 +510,12 @@ function extraerCantidadesDocumentoGenerico(
   }
 }
 
-export default function Devoluciones() {
+export default function Devoluciones({documentoInicialId=''}:{documentoInicialId?:string}) {
   const archivoRef =
     useRef<HTMLInputElement | null>(null)
 
   const [vista, setVista] =
-    useState<VistaDevoluciones>("IMPORTAR")
+    useState<VistaDevoluciones>(documentoInicialId ? "HISTORIAL" : "IMPORTAR")
 
   const [clientes, setClientes] = useState<
     ClienteDevolucionDb[]
@@ -560,7 +560,7 @@ export default function Devoluciones() {
   const [fechaSemanaFiltro, setFechaSemanaFiltro] =
     useState("")
   const [devolucionSeleccionadaId, setDevolucionSeleccionadaId] =
-    useState("")
+    useState(documentoInicialId)
 
   const [cargando, setCargando] = useState(false)
   const [guardando, setGuardando] = useState(false)
