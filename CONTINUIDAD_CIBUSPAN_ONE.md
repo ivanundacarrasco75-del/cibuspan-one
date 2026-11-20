@@ -1,5 +1,18 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Tercera propuesta SKU: panorama gráfico sin pestañas**. El usuario
+rechazó la alternativa con pestañas y pidió todos los indicadores en una sola vista,
+con gráficos más vistosos. `pruebas/vista_preliminar_sku/panorama.html` presenta
+cuatro KPI, señales de pérdida/sin venta y ocho gráficos juntos: columnas de más
+vendidos, menor venta, devoluciones, anillo de costos/aporte, mayor aporte, menor
+margen, rotación por local e intensidad SKU/local. Detalle completo y metodología
+debajo, en la misma página, sin paneles ocultos ni navegación por pestañas. Usa
+los mismos datos ficticios y servidor local 5192; no integra aún rentabilidad real.
+Compilación del ejemplo y `npm run build` correctas. Abierta como entrega en el
+navegador de Codex; árbol accesible confirma métricas, ocho gráficos y tabla.
+La captura visual falló y Chrome estaba minimizado; no certificar revisión visual
+final ni recorrido móvil. Pendiente opinión del usuario. Sin publicación ni SQL.
+
 20/11/2026, **Segunda alternativa visual del tablero SKU, solo preliminar**.
 `pruebas/vista_preliminar_sku/claro.html` conserva los mismos datos ficticios del
 primer estilo y los agrupa en Resumen, Ventas, Devoluciones, Rentabilidad, Rotación
