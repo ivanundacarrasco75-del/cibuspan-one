@@ -14,8 +14,16 @@ proveedor. Operaciones con UUID idempotente, bloqueos y auditoría del cruce.
 Pasaron 29 pruebas de SQL/permisos, Chrome con JEFA_FACTURACION para alta,
 programación de otra semana, pago, cruce móvil y factura SRI pagada, y
 `npm run build`. Las pruebas utilizaron datos simulados; no se hicieron pagos
-reales. Pendiente instalar exclusivamente `202611200004_anticipos_proveedores.sql`,
-registrar esa versión y publicar/verificar la compilación.
+reales. Instalado exclusivamente `202611200004_anticipos_proveedores.sql` y
+registrada esa versión tras su ejecución correcta. Publicado desde `4711747`,
+despliegue `991d3c86`. Coincidieron los SHA-256 públicos de diez archivos de
+índice, Finanzas, Anticipos, Roles y nómina; Supabase operativo/R2/firma comprobados.
+Lectura real con el perfil de Teresa: 778 cuentas y cero anticipos; Cuentas por
+pagar permitido, Pagos semanales denegado y huella de permisos conservada.
+La verificación posterior confirmó cero cruces y los conteos de las vistas de
+cuentas/facturas iguales a sus fuentes anteriores. Los pagos reales siguieron
+aumentando por la operación de los usuarios durante la publicación; no se
+usaron conteos anteriores como una instantánea fija ni se modificaron esos pagos.
 
 Selección completa por permiso de Cuentas por pagar, 20/11/2026. Se corrige el criterio anterior: las casillas, montos y tabla inferior forman parte del permiso de Cuentas por pagar y aparecen para todos sus usuarios. Programar esa selección usa el mismo permiso; si no se puede abrir Pagos semanales, confirma el guardado y continúa en Cuentas por pagar. Pagos semanales también usa el permiso exacto asignado para consulta, ejecución y retiro, con el mismo comportamiento entre roles autorizados. No se asignan permisos automáticamente. Pasaron Chrome con JEFA_FACTURACION y administrador, 24 pruebas de SQL/catálogo y npm run build. Se instaló y registró únicamente `202611200003_finanzas_seleccion_por_modulo.sql`. Publicado desde `c422032`, despliegue `2c48b9f5`. La lectura con el perfil de Teresa confirmó la autorización de programación desde Cuentas por pagar y 778 cuentas, con la misma huella de permisos. Coincidieron los SHA-256 públicos de los siete archivos verificados de índice, Finanzas y Roles; Supabase/R2/firma comprobados.
 
