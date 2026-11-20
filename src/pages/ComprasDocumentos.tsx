@@ -96,6 +96,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
       {formulario && (
         <form className="compras-sri-formulario compras-sri-formulario-manual" onSubmit={guardar}>
           <fieldset disabled={guardando}>
+          {tipo === "notas" && <p>Nota de venta: verifica el régimen RIMPE y su tratamiento. No se presume retención de renta ni de IVA a partir del nombre del proveedor.</p>}
             <label>Fecha de emisión <input name="fecha" type="date" defaultValue={hoy()} required /></label>
             <label>N.º documento <input name="numero" maxLength={80} required={tipo === "notas"} /></label>
             <label>Proveedor <input name="proveedor" maxLength={200} required /></label>

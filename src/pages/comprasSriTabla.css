@@ -268,3 +268,8 @@
 }
 
 .compras-sri-error { background: #fff1ee; color: #8b1f16; }
+.compras-sri-col-sugerencia { width: 230px; }
+.compras-sri-tabla-con-sugerencias { min-width: 1360px; }
+.compras-sri-tabla-con-sugerencias .compras-sri-col-descripcion { width: 220px; }
+.sugerencia-retencion-iva { display: grid; gap: 2px; white-space: normal; min-width: 180px; font-size: 11px; line-height: 1.25; padding: 3px; }
+.sugerencia-retencion-iva small { color: #625b57; }

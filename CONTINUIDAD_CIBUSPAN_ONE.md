@@ -1,5 +1,30 @@
 # Continuidad de CIBUSPAN ONE
 
+Reglas futuras por historial y sugerencia al ingresar XML, 20/11/2026.
+Preparado sobre `f7f4891`, a petición expresa de cargar reglas del PDF. Nueva
+migración `202611200007_historial_reglas_iva.sql`: fuentes y observaciones
+contables separadas de retenciones emitidas, perfiles por RUC y carga idempotente
+auditada. El reporte revisado aporta 640 facturas de 90 proveedores. La prueba
+local con todos sus datos coincide con la conciliación anterior: 20 perfiles
+positivos uniformes con tres o más muestras, 13 ceros por revisar, siete variables,
+29 insuficientes y 21 sin IVA. Solo los primeros sugieren un importe, sobre el
+IVA de documentos posteriores al período histórico y con RUC exacto. No se
+vinculan por alias/nombre ni se completa automáticamente el RUC del Excel.
+Facturas SRI muestra una columna nueva de IVA sugerido al cargar el XML. En
+Reglas de retenciones se consultan los perfiles, conteos y fuente/página de
+ejemplo, y se muestra la sugerencia al revisar un documento. Siempre requiere
+verificar concepto y condición actual antes de registrar la retención; renta
+permanece manual. Notas de venta muestran una indicación de revisión al ingresar,
+sin presumir retenciones. Se agrega al catálogo el caso de IVA 100% por arriendo
+de inmueble de persona natural, para no confundirlo con honorarios profesionales.
+El importador del historial y la consulta no alteran cuentas, saldos, planes,
+comprobantes ni caja. No se cargan los datos personales en Git: payload y SQL de
+datos privados solo en `diagnosticos_privados/retenciones_2026/`.
+Pasaron 36 pruebas de historial/permisos/retenciones/SRI, prueba local del payload
+completo y reintento, Chrome con carga real de XML simulado y consulta de reglas,
+móvil sin desborde, y `npm run build`. Pendiente instalar únicamente la migración
+nueva, cargar el historial autorizado, registrar su versión y publicar/verificar.
+
 Conciliación preliminar del PDF de retenciones, 20/11/2026, sobre `686d8b2`.
 El usuario entregó `RETENCIONES 2026.pdf`, reporte contable de enero-septiembre.
 Se extrajeron y comprobaron las 676 filas, incluidas doce partidas entre páginas:

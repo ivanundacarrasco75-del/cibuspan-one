@@ -1,4 +1,7 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import SugerenciaRetencionIva from "../components/SugerenciaRetencionIva"
+import { listarPerfilesRetencionIva } from "../repositories/retencionesRepository"
+import type { PerfilRetencionIva } from "../utils/sugerenciasRetencionIva"
 import {
   editarCompraSri,
   type CampoCompra, type CompraGuardada, type ControlCompra,
@@ -22,9 +25,9 @@ const columnas: { campo: CampoCompra; titulo: string; tipo?: "date" | "importe" 
 const formato = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const moneda = (centavos: number) => formato.format(centavos / 100)
 const centavos = (valor: string) => Math.round(Number(valor) * 100)
-const totalColumnas = columnas.length + 2
+const totalColumnas = columnas.length + 3
 
-function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; alCambiarProveedor: () => void }) {
+function FilaCompra({ compra, alCambiarProveedor, perfiles }: { compra: CompraGuardada; alCambiarProveedor: () => void; perfiles: PerfilRetencionIva[] | null }) {
   const { datos, ride_leido } = compra
   const [control, setControl] = useState<ControlCompra>({ edicion: compra.edicion, abonos: compra.abonos })
   const [error, setError] = useState("")
@@ -99,6 +102,10 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
           )
         })}
         <td className="compras-sri-estado">{saldo === null ? "Por revisar" : liquidada ? "Pagada" : saldo === 0 ? "Sin saldo" : pagado ? "Abonada" : "Pendiente"}</td>
+        <td>{perfiles === null ? "Consultando historial…" : <SugerenciaRetencionIva
+          perfil={perfiles.find(p => p.ruc === datos.ruc)} ruc={datos.ruc} fecha={campos.fecha}
+          iva={campos.iva === "" ? null : Number(campos.iva)}
+          descuentoIncluido={Number(campos.retencion) > 0 || (neto != null && Number(campos.total) > neto)} />}</td>
         <td>
           <button type="button" aria-expanded={detalleAbierto} onClick={() => setDetalleAbierto(abierto => !abierto)}>Detalle</button>
         </td>
@@ -128,13 +135,13 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
         <tr className="compras-sri-pagada compras-sri-movimiento" key={abono.id}>
           <td>{abono.fecha || "Fecha pendiente"}</td><td colSpan={6}>Pago de {campos.serie}</td>
           <td className="compras-sri-monto">{moneda(centavos(abono.valor))}</td>
-          <td>{abono.documento}</td><td colSpan={2}>Pagado</td>
+          <td>{abono.documento}</td><td colSpan={3}>Pagado</td>
         </tr>
       ))}
       {control.abonos.length > 0 && saldo !== null && saldo > 0 && (
         <tr className="compras-sri-saldo">
           <td colSpan={7}>Saldo pendiente de {campos.serie}</td>
-          <td className="compras-sri-monto">{moneda(saldo)}</td><td colSpan={3} />
+          <td className="compras-sri-monto">{moneda(saldo)}</td><td colSpan={4} />
         </tr>
       )}
       {error && <tr><td colSpan={totalColumnas} role="alert" className="compras-sri-error">{error}</td></tr>}
@@ -148,12 +155,23 @@ export default function ComprasSriTabla({ compras, proveedor, elegirProveedor, a
   elegirProveedor: (nombre: string | null) => void
   alCambiarProveedor: () => void
 }) {
+  const [perfiles, setPerfiles] = useState<PerfilRetencionIva[] | null>(null)
+  const [errorHistorial, setErrorHistorial] = useState(false)
+  useEffect(() => {
+    let vigente = true
+    void listarPerfilesRetencionIva().then(filas => { if (vigente) setPerfiles(filas) })
+      .catch(() => { if (vigente) { setPerfiles([]); setErrorHistorial(true) } })
+    return () => { vigente = false }
+  }, [])
   return (
+    <>
+    {errorHistorial && <p role="alert">No se pudo consultar el historial de IVA. Revisa las retenciones antes de registrar el pago.</p>}
     <div className="compras-sri-contenedor" tabIndex={0} role="region" aria-label="Tabla desplazable de facturas">
-      <table className="compras-sri-tabla" aria-label="Facturas de compra">
+      <table className="compras-sri-tabla compras-sri-tabla-con-sugerencias" aria-label="Facturas de compra">
         <colgroup>
           {columnas.map(({ campo }) => <col key={campo} className={`compras-sri-col-${campo}`} />)}
           <col className="compras-sri-col-estado" />
+          <col className="compras-sri-col-sugerencia" />
           <col className="compras-sri-col-detalle" />
         </colgroup>
         <thead><tr>
@@ -161,10 +179,12 @@ export default function ComprasSriTabla({ compras, proveedor, elegirProveedor, a
             {campo === "proveedor" ? <ComprasSriFiltroProveedor proveedor={proveedor} elegir={elegirProveedor} /> : titulo}
           </th>)}
           <th scope="col">Estado</th>
+          <th scope="col">IVA sugerido por historial</th>
           <th scope="col">Detalle</th>
         </tr></thead>
-        <tbody>{compras.map((compra) => <FilaCompra key={compra.datos.clave} compra={compra} alCambiarProveedor={alCambiarProveedor} />)}</tbody>
+        <tbody>{compras.map((compra) => <FilaCompra key={compra.datos.clave} compra={compra} alCambiarProveedor={alCambiarProveedor} perfiles={perfiles} />)}</tbody>
       </table>
     </div>
+    </>
   )
 }

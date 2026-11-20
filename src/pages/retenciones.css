@@ -9,3 +9,5 @@
 .retenciones-lineas input[type="number"] { width: 110px; }
 .retenciones-documento > form > button { margin: 10px 0; }
 .retenciones-anular { display: grid; gap: 8px; margin-top: 20px; }
+.retenciones-perfiles .compras-sri-contenedor { max-height: 320px; }
+.retenciones-historial-aviso { padding: 8px; background: #fff7e8; border: 1px solid #e0caa5; margin: 10px 0; }

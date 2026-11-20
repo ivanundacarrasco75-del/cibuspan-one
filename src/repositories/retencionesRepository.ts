@@ -1,4 +1,16 @@
 import { supabase } from "../lib/supabase"
+import type { PerfilRetencionIva } from "../utils/sugerenciasRetencionIva"
+
+export async function listarPerfilesRetencionIva() {
+  const filas: PerfilRetencionIva[] = []
+  for (let desde = 0; ; desde += 200) {
+    const { data, error } = await supabase.rpc("fin_consultar_perfiles_iva").select("*").order("ruc").range(desde, desde + 199)
+    if (error) throw error
+    const pagina = (data ?? []) as PerfilRetencionIva[]
+    filas.push(...pagina)
+    if (pagina.length < 200) return filas
+  }
+}
 
 export type ReglaRetencion = {
   id: string; impuesto: "RENTA" | "IVA"; concepto: string; porcentaje: number; desde: string; hasta: string | null; fuente: string
