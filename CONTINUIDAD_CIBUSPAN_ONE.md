@@ -1,5 +1,30 @@
 # Continuidad de CIBUSPAN ONE
 
+Conciliación preliminar del PDF de retenciones, 20/11/2026, sobre `686d8b2`.
+El usuario entregó `RETENCIONES 2026.pdf`, reporte contable de enero-septiembre.
+Se extrajeron y comprobaron las 676 filas, incluidas doce partidas entre páginas:
+640 facturas, 27 notas de venta y nueve notas de crédito. Las notas de crédito
+se restan para conciliar todos los totales: compras netas USD 397.418,69 y
+retenciones de IVA USD 6.210,62. El PDF no contiene renta, números de comprobante
+de retención ni estados de anulación; no permite registrar por sí solo retenciones
+fiscales completas. Consulta de solo lectura: 593 cuentas SRI/notas del período.
+Se hallaron 355 coincidencias preliminares por nombre compatible, secuencial,
+fecha y total con tolerancia USD 0,01; sin RUC en esos registros Excel. Otras
+54 requieren revisar diferencias, dos son ambiguas y 256 no tienen coincidencia;
+nueve notas de crédito quedaron separadas. No se deben importar como confirmadas
+ni completar RUC automáticamente a partir de esa comparación.
+Historial por RUC: 33 proveedores con tasa uniforme observada en tres o más
+facturas con IVA y siete con tasas variables. Lectura de 63 documentos pendientes
+de octubre a 20/11: trece estimaciones orientativas de IVA, diez con descuento
+ya incluido en el neto; no volver a restarlo. Renta no se estima por diferencia
+entre neto y total. Revisar concepto, régimen y calificación actual del proveedor.
+Extracción, JSON, SQL SELECT, scripts y conciliación solo en el directorio ignorado
+`diagnosticos_privados/retenciones_2026/`. Se preparó un Excel de revisión fuera
+del repositorio, con Cruce, Sugerencias IVA y Proveedores. No se importaron perfiles,
+no se aplicaron retenciones y no cambiaron saldos, pagos ni permisos. Pendiente
+confirmar identidades/diferencias y disponer del detalle de renta y comprobantes
+antes de una importación a la aplicación. No hubo cambios de código ni publicación.
+
 Sueldo, retenciones y flujo de pagos, 20/11/2026. Preparado sobre `5e7f1d4`.
 Pagos nómina agrega SUELDO con el mes seleccionado, importe inicialmente vacío
 y editable, sin cambiar el destino Cuentas por pagar. La tabla de Cuentas por
