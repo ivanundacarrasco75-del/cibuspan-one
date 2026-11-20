@@ -11,10 +11,18 @@ transporte y gasto directo del cliente; se distribuye antes de filtrar. Los gast
 y nómina se toman por mes, sin prorratear días, igual que el reporte. Fuentes
 fallidas/costos incompletos o sin distribuir dejan el aporte pendiente; no se
 presentan como ceros. Solo SKU activos con asignación activa al cliente.
+**Publicado y comprobado** en Cloudflare Production/main, despliegue
+`3d5eef6a-389e-4f4e-9bc0-7c47671ace6b`, fuente `12c12fc`, URL
+`https://3d5eef6a.cibuspan-one.pages.dev`. El dominio principal
+`https://cibuspan-one.pages.dev` sirve el index nuevo y
+`PanoramaSku-C4uJ23xT.js` idéntico por SHA-256 al paquete local comprobado,
+sin datos de ejemplo. Código en GitHub main. Se comprobó la sesión abierta de
+producción sin navegar ni recargar su formulario de pagos seleccionado; falta
+el recorrido autenticado del nuevo tablero con cifras reales y aceptación operativa.
 34 pruebas de cálculo, visitas y permisos aprobadas. Compilación final para
 `eodcwkuexldsbomflthe` con configuración pública recuperada de la publicación actual
-y Auth comprobado; no usar `.env.local` como destino. Pendiente completar y
-comprobar despliegue autorizado; no se ejecutó SQL ni se modificaron datos.
+y Auth comprobado; no usar `.env.local` como destino. No se ejecutó SQL ni se
+modificaron datos.
 
 20/11/2026, **Tercera propuesta SKU: panorama gráfico sin pestañas**. El usuario
 rechazó la alternativa con pestañas y pidió todos los indicadores en una sola vista,
