@@ -1,5 +1,17 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Segunda alternativa visual del tablero SKU, solo preliminar**.
+`pruebas/vista_preliminar_sku/claro.html` conserva los mismos datos ficticios del
+primer estilo y los agrupa en Resumen, Ventas, Devoluciones, Rentabilidad, Rotación
+y Detalle. Estilo claro con cuatro indicadores principales, puntos para revisar,
+rankings por sección y metodología desplegable. El detalle conserva costos,
+descuentos, devoluciones, aporte y margen; los promedios de rotación reutilizan la
+misma utilidad del tablero. Filtros sobre fechas del ejemplo, cliente y SKU;
+pulsar un SKU abre su detalle. Enlace para comparar con la alternativa anterior.
+Mismo servidor local 5192. Compilación del preliminar correcta y pantalla principal
+comprobada visualmente en Chrome; no se certifica aún recorrido móvil ni integración
+de rentabilidad con datos reales. Sin publicación ni cambios en la base de datos.
+
 20/11/2026, **Contribución y margen añadidos solo a la vista preliminar solicitada**.
 El ejemplo reproducible está en `pruebas/vista_preliminar_sku/`; se inicia con
 `node pruebas/vista_preliminar_sku/servidor.mjs` y abre el puerto local 5192.

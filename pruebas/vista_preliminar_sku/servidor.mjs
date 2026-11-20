@@ -4,6 +4,7 @@ import {datos} from './datos.mjs'
 import {fileURLToPath} from 'node:url'
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const entrada = 'pruebas/vista_preliminar_sku/index.html'
+const alternativa = 'pruebas/vista_preliminar_sku/claro.html'
 const config = {
   configFile: false, root,
   plugins: [{name: 'sku-datos-de-ejemplo', enforce: 'pre', load(id) {
@@ -11,9 +12,9 @@ const config = {
       return 'export async function obtenerTableroSku(){return ' + JSON.stringify(datos) + '}'
     }
   }}, react()],
-  optimizeDeps: {entries: [entrada]},
+  optimizeDeps: {entries: [entrada, alternativa]},
   server: {host: '127.0.0.1', port: 5192, strictPort: true},
-  build: {outDir: '.wrangler/sku-preview/build', rollupOptions: {input: entrada}},
+  build: {outDir: '.wrangler/sku-preview/build', rollupOptions: {input: [entrada, alternativa]}},
 }
 if (process.argv.includes('--build')) await build(config)
 else {
