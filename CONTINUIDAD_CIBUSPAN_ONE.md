@@ -1,5 +1,33 @@
 # Continuidad de CIBUSPAN ONE
 
+Sueldo, retenciones y flujo de pagos, 20/11/2026. Preparado sobre `5e7f1d4`.
+Pagos nómina agrega SUELDO con el mes seleccionado, importe inicialmente vacío
+y editable, sin cambiar el destino Cuentas por pagar. La tabla de Cuentas por
+pagar conserva selección, tabla inferior y Detalle; Abonar/Pagar solo aparecen
+en Pagos semanales. Nueva tarjeta Reglas de retenciones, con el mismo permiso
+exacto de Cuentas por pagar. El usuario confirmó que CIBUSPAN es agente de
+retención; no se la configura como contribuyente especial. Catálogo de casos
+frecuentes de renta (NAC-DGERCGC26-00000009, desde marzo/2026) e IVA (cuadro
+vigente del SRI y NAC-DGERCGC20-00000061/reformas), con fuente y vigencia.
+El operador verifica régimen, fecha del pago/crédito en cuenta, bases y reglas;
+admite bases separadas para facturas mixtas. Renta sobre base sin IVA e IVA
+sobre el impuesto, calculados también en SQL. Notas de venta: este flujo solo
+admite RIMPE Negocio Popular sin IVA, sin retención; otros casos requieren
+revisión. Casos no incluidos no se clasifican automáticamente.
+Se registra el comprobante ya emitido: no hay emisión/autorización electrónica
+ni anulación ante el SRI. El descuento se guarda separado de la caja, sustituye
+el ya incluido en el neto XML/Excel/manual según su fuente y ajusta el pendiente
+semanal. El estado de SRI usa también ese neto; preserva los créditos de anticipos.
+Registro idempotente con comprobante y confirmación, auditoría y anulación local
+con motivo; protege importes frente a edición mientras hay retención activa.
+Pruebas SQL de Sueldo/mes/reintento, netos, notas, Excel, factura mixta,
+programación, pago, anticipo, anulación y permisos correctas. Chrome comprobó
+ausencia de pagos directos en Cuentas, cálculo 6,50/neto 108,50, selección y pago
+semanal, Sueldo octubre/2026 a Cuentas y móvil sin desborde. Pasaron las 36 pruebas
+de SQL/permisos de Finanzas, anticipos y estos cambios, y `npm run build`.
+Pendiente instalar únicamente `202611200005_nomina_sueldo.sql` y
+`202611200006_retenciones_documentos.sql`, registrar esas versiones y publicar.
+
 Anticipos a proveedores, 20/11/2026. Preparado sobre `6bbb8cf`. Nueva opción en
 Compras → Facturas de compras → Anticipos, también accesible desde Cuentas por
 pagar. Hereda el permiso exacto de Cuentas por pagar; ejecutar Pagos semanales

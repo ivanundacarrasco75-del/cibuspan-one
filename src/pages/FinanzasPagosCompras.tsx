@@ -4,7 +4,7 @@ import {
   listarComprasProgramadas, listarCuentasCompra, pagarCompra,
   programarCompras, quitarCompraProgramada, type CompraProgramada, type CuentaCompra, type TipoCuentaCompra,
 } from "../repositories/finanzasComprasRepository"
-import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES } from "../utils/permisosAplicacion"
+import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES } from "../utils/permisosAplicacion"
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
 
@@ -116,7 +116,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
                   disabled={acciones.ocupado} onChange={evento => acciones.verificar?.(cuenta.id, evento.target.checked)} /> Saldo verificado</label>
                 : estado}</td>
               <td className="compras-sri-acciones"><div>
-                {modo !== "seleccion" && puedePagar && <>
+                {modo === "semana" && puedePagar && <>
                   <button type="button" disabled={acciones.ocupado} onClick={() => acciones.abrirPago(cuenta, true, plan)}>Abonar</button>
                   <button type="button" disabled={acciones.ocupado} onClick={() => acciones.abrirPago(cuenta, false, plan)}>Pagar</button>
                 </>}
@@ -342,6 +342,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
         <h1>{semanal ? "Pagos semanales" : "Cuentas por pagar"}</h1>
         <div className="compras-sri-herramientas">
           {!semanal && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(PANTALLA_ANTICIPOS)}>Anticipos</button>}
+          {!semanal && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(PANTALLA_RETENCIONES)}>Retenciones</button>}
           {(semanal || puedeAbrirPagosSemanales) && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
             {semanal ? "Cuentas por pagar" : "Ver pagos semanales"}
           </button>}

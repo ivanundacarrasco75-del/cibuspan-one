@@ -63,6 +63,7 @@ export const RUTAS_PERMISOS = ARBOL_PERMISOS.flatMap(rutasDeNodo)
 
 export const ALIASES_PERMISOS: Record<string, string> = {
   "Compras · Anticipos": "Pagos y Finanzas · Cuentas por Pagar",
+  "Pagos y Finanzas · Reglas de retenciones": "Pagos y Finanzas · Cuentas por Pagar",
   "Dashboard · SKU": "Dashboard · Comercial",
   Pedidos: "Comercial · Pedidos",
   Ventas: "Comercial · Ventas",

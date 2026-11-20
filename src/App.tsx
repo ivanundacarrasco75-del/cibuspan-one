@@ -12,7 +12,7 @@ import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
   PANTALLA_MENU_COMPRAS, PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla,
   PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
-  PANTALLA_ANTICIPOS,
+  PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES,
 } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
@@ -26,6 +26,7 @@ const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
 const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
 const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
 const Anticipos = lazy(() => import("./pages/Anticipos"))
+const ReglasRetenciones = lazy(() => import("./pages/ReglasRetenciones"))
 const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
 const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
 const PedidosV2 = lazy(() => import("./pages/PedidosV2"))
@@ -546,6 +547,9 @@ function App() {
       case PANTALLA_ANTICIPOS:
         return <Anticipos puedeAbrirPagosSemanales={puedeAcceder(PANTALLA_PAGOS_SEMANALES)}
           alProgramar={semana => { setSemanaPagosAnticipos(semana); setPantalla(PANTALLA_PAGOS_SEMANALES) }} />
+
+      case PANTALLA_RETENCIONES:
+        return <ReglasRetenciones />
 
       case "Pagos y Finanzas · Historial":
       case "Pagos y gastos":

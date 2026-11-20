@@ -76,6 +76,7 @@ export async function guardarPersonalNomina(persona: Pick<EmpleadoNominaDb, "id"
 }
 
 export const CONCEPTOS_PAGO_NOMINA = {
+  SUELDO: "Sueldo",
   PRIMERA_QUINCENA: "Primera quincena",
   SEGUNDA_QUINCENA: "Segunda quincena",
   DECIMO_TERCERO: "Décimo tercer sueldo",

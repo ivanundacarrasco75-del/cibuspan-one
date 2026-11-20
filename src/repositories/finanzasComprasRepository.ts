@@ -13,6 +13,7 @@ export type CuentaCompra = {
   iva: number | null
   retencion: number | null
   total: number | null
+  neto: number | null
   pagado: number
   saldo: number | null
   ruc: string | null

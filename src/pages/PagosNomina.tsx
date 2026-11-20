@@ -65,7 +65,7 @@ export default function PagosNomina({ empleados, alCargar }: {
         <label>Concepto <select aria-label="Concepto" value={concepto} disabled={bloqueado}
           onChange={evento => setConcepto(evento.target.value as ConceptoPagoNomina)}>
           {Object.entries(CONCEPTOS_PAGO_NOMINA).map(([codigo, etiqueta]) =>
-            <option key={codigo} value={codigo}>{etiqueta}{codigo.endsWith("QUINCENA") ? ` · ${nombreMes}` : ""}</option>)}
+            <option key={codigo} value={codigo}>{etiqueta}{codigo === "SUELDO" || codigo.endsWith("QUINCENA") ? ` · ${nombreMes}` : ""}</option>)}
         </select></label>
       </div>
       <div className="nom-gestion-scroll" tabIndex={0} role="region" aria-label="Personal para pagos de nómina">

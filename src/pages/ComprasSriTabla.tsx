@@ -46,7 +46,7 @@ function FilaCompra({ compra, alCambiarProveedor }: { compra: CompraGuardada; al
     ...control.edicion,
   }
   const pagado = control.abonos.reduce((suma, abono) => suma + centavos(abono.valor), 0)
-  const neto = compra.origen_excel ? compra.neto_excel : Number(campos.total)
+  const neto = compra.origen_excel || compra.neto_excel != null ? compra.neto_excel : Number(campos.total)
   const saldo = neto === null || neto === undefined ? null : Math.max(0, Math.round(neto * 100) - pagado)
   const liquidada = saldo === 0 && pagado > 0
 

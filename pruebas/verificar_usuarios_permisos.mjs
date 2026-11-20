@@ -14,6 +14,15 @@ const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
 const compilar = (source) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 
+test('Reglas de retenciones comparte el permiso exacto de Cuentas por pagar sin habilitar pagos semanales', () => {
+  for (const rol of ['ADMINISTRADOR', 'JEFA_FACTURACION', 'KAM']) {
+    const cuentas = utilPermisos.PANTALLA_CUENTAS_POR_PAGAR
+    assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_RETENCIONES, rol, [cuentas]), true)
+    assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_RETENCIONES, rol, [cuentas], [cuentas]), false)
+    if (rol !== 'ADMINISTRADOR') assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_PAGOS_SEMANALES, rol, [cuentas]), false)
+  }
+})
+
 test('Las tarjetas de Producción conservan la entrada para permisos específicos y antiguos', () => {
   const menu = utilPermisos.PANTALLA_MENU_PRODUCCION
   for (const permiso of ['Producción · Planificación', 'Preformulación', 'Semielaborados', 'Hoja de producción']) {

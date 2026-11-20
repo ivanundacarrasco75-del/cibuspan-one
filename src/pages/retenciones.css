@@ -1,0 +1,11 @@
+.retenciones-pagina > details { margin: 12px 0; }
+.retenciones-pagina summary { cursor: pointer; font-weight: 600; }
+.retenciones-pagina table { min-width: 900px; table-layout: auto; }
+.retenciones-pagina td { white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+.retenciones-pagina .retenciones-documentos { max-height: 320px; }
+.retenciones-documento { margin-top: 16px; }
+.retenciones-documento fieldset { border: 0; padding: 0; min-width: 0; }
+.retenciones-lineas select { width: 360px; }
+.retenciones-lineas input[type="number"] { width: 110px; }
+.retenciones-documento > form > button { margin: 10px 0; }
+.retenciones-anular { display: grid; gap: 8px; margin-top: 20px; }
