@@ -8,15 +8,24 @@ con rotación de un SKU activo asignado al cliente seleccionado y consulta los
 medición; no inventa valores ni modifica el dashboard semanal. La pantalla indica
 por separado mes financiero y rango PDV, permite abrir Visitas PDV y distingue
 carga, error de fuente, ausencia de visitas y mediciones pendientes.
-43 pruebas locales aprobadas y compilación correcta. El bloqueo de la revisión
+46 pruebas locales aprobadas tras integrar las actualizaciones oficiales de
+finanzas y compilación correcta con configuración del Supabase operativo. El bloqueo de la revisión
 automática por cuota se levantó después de su hora de reinicio; se retomaron las
 operaciones por la misma revisión, sin eludirla. Lectura SELECT del Supabase
 operativo confirmó 1.184 rotaciones guardadas de Favorita, con visitas desde
 22/09/2026 hasta 19/11/2026; Rosado 43 rotaciones hasta 13/10/2026 y Santamaría
 ocho hasta 14/10/2026. Estos conteos son de valores guardados, no certifican que
-todos estén verificados. Pendiente integrar la nueva main `3a29fd1` y completar
-publicación. Recompilar con configuración oficial: el `dist/` de validación usa
-clave de prueba. No se ejecutó SQL de escritura.
+todos estén verificados. Auditoría con registros reales y el mismo validador del
+tablero: Favorita, 23/10–19/11, 645 mediciones, 40 locales con rotación y 290 pares
+SKU/local, 26 mediciones semanales pendientes; Rosado cinco locales/34 pares y
+Santamaría tres locales/ocho pares en sus respectivas ventanas recientes.
+**Publicado y comprobado** desde `eb28c18`, integrado con las actualizaciones de
+main hasta `e474c68`, despliegue `b3a58202-e9bd-40b1-aaf4-740516fce110`, URL
+`https://b3a58202.cibuspan-one.pages.dev`. Dominio principal verificado por SHA-256
+del bundle principal, PanoramaSku, ReglasRetenciones y ComprasSri frente al paquete
+local comprobado. No se ejecutó SQL de escritura ni se cambiaron visitas. Falta
+recorrido autenticado del nuevo filtro PDV en producción; la comprobación de
+rankings se realizó con los registros reales y sus validaciones, por lectura.
 
 La corrección anterior de margen/meses/enlaces **sí terminó su despliegue**, según
 Wrangler: `https://967c22cf.cibuspan-one.pages.dev`, fuente `c0f139e`, integrada
