@@ -22,6 +22,7 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
   const [regimen, setRegimen] = useState("")
   const [especial, setEspecial] = useState(false)
   const [comprobante, setComprobante] = useState("")
+  const [calculada, setCalculada] = useState(false)
   const [motivo, setMotivo] = useState("")
   const [confirmado, setConfirmado] = useState(false)
   const [lineas, setLineas] = useState<{ impuesto: "RENTA" | "IVA"; regla: string; base: string; valor?: string }[]>([
@@ -39,7 +40,16 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
   const ocupado = useRef(false)
   useEffect(() => {
     let vigente = true
-    void listarRetenciones(cuenta.id).then(filas => { if (vigente) setHistorial(filas) })
+    void listarRetenciones(cuenta.id).then(filas => {
+      if (!vigente) return
+      setHistorial(filas)
+      const actual = filas.find(fila => fila.estado === "ACTIVA" && fila.tipo_registro === "CALCULADA")
+      if (actual) {
+        setCalculada(true); setFecha(actual.fecha); setRegimen(actual.regimen); setEspecial(actual.proveedor_especial); setMotivo(actual.motivo)
+        setLineas(actual.lineas.map(linea => ({ impuesto: linea.impuesto, regla: linea.id, base: Number(linea.base).toFixed(2),
+          ...(linea.ajuste_manual ? { valor: Number(linea.valor).toFixed(2) } : {}) })))
+      }
+    })
       .catch(fallo => { if (vigente) setError(textoError(fallo)) }).finally(() => { if (vigente) setCargando(false) })
     return () => { vigente = false }
   }, [cuenta.id])
@@ -50,13 +60,12 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
     return suma + (linea.valor !== undefined ? centavos(linea.valor) : Math.round(centavos(linea.base) * Number(regla?.porcentaje ?? 0) / 100))
   }, 0)
   // Un XML no descontaba la columna antigua; Excel/manual ya incorporaban su neto.
-  const retencionPrevia = cuenta.origen === "SRI" ? 0 : Math.max(0, centavos(cuenta.total ?? 0) - centavos(cuenta.neto ?? 0))
-  const nuevoSaldo = centavos(cuenta.neto ?? 0) + retencionPrevia - totalCentavos - centavos(cuenta.pagado)
+  const nuevoSaldo = centavos(cuenta.total ?? 0) - totalCentavos - centavos(cuenta.pagado)
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault()
     if (ocupado.current) return
-    const solicitud = pendiente ?? { id: operacion.current, documento: cuenta.id, fecha, regimen, especial, comprobante, motivo,
+    const solicitud = pendiente ?? { id: operacion.current, documento: cuenta.id, fecha, regimen, especial, comprobante: calculada ? "" : comprobante, motivo, calculada,
       lineas: lineas.map(({ regla, base, valor }) => ({ regla, base, ...(valor !== undefined ? { valor } : {}) })), confirmado }
     ocupado.current = true; setGuardando(true); setError(""); setPendiente(solicitud)
     try {
@@ -78,12 +87,14 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
   return <section className="retenciones-documento">
     <h2>{cuenta.numero_documento} · {cuenta.proveedor}</h2>
     <p>Subtotal USD {dinero(Number(cuenta.subtotal))} · IVA USD {dinero(Number(cuenta.iva))} · Total USD {dinero(Number(cuenta.total))} · Saldo actual USD {dinero(Number(cuenta.saldo))}</p>
+    {cuenta.observaciones && <p>{cuenta.observaciones}</p>}
     {!activa && <div className="retenciones-historial-aviso">
       <SugerenciaRetencionIva perfil={perfil} ruc={cuenta.ruc} fecha={cuenta.fecha_documento} iva={cuenta.iva}
         notaVenta={cuenta.tipo === "NOTA_VENTA"} descuentoIncluido={Number(cuenta.total) > Number(cuenta.neto)} />
       <p>Selecciona abajo la regla que corresponde al concepto y verifica la condición actual del proveedor. Renta no se infiere de este historial.</p>
     </div>}
-    {cargando ? <p>Cargando retenciones…</p> : activa ? <>
+    {activa?.tipo_registro === "CALCULADA" && <p role="status"><strong>Cálculo pendiente de emisión: USD {dinero(activa.total)}.</strong> Puedes corregirlo o registrar el comprobante emitido.</p>}
+    {cargando ? <p>Cargando retenciones…</p> : activa && activa.tipo_registro !== "CALCULADA" ? <>
       <p><strong>Retención registrada: USD {dinero(activa.total)}</strong> · {activa.fecha} · Comprobante {activa.comprobante || "sin importe"}</p>
       <p>{activa.motivo}</p>
       <div className="compras-sri-contenedor"><table className="compras-sri-tabla"><thead><tr><th>Impuesto</th><th>Concepto</th><th>Base</th><th>%</th><th>Retenido</th></tr></thead>
@@ -96,6 +107,9 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
     </> : <form onSubmit={guardar}>
       <fieldset disabled={bloqueado}>
         <div className="fin-pagos-filtros">
+          <label>Tipo de registro <select aria-label="Tipo de registro" value={calculada ? "CALCULADA" : "EMITIDA"} onChange={evento => setCalculada(evento.target.value === "CALCULADA")}>
+            <option value="CALCULADA">Cálculo pendiente de emisión</option><option value="EMITIDA">Comprobante emitido</option>
+          </select></label>
           <label>Fecha de retención <input required type="date" min={cuenta.fecha_documento ?? undefined} value={fecha} onChange={evento => evento.target.value && setFecha(evento.target.value)} /></label>
           <label>Régimen del proveedor <select aria-label="Régimen del proveedor" required value={regimen} onChange={evento => { setRegimen(evento.target.value); setLineas(actual => actual.map(linea => ({ ...linea, regla: "", valor: undefined }))) }}>
             <option value="">Seleccionar</option><option value="GENERAL">General / actividad fuera de RIMPE</option><option value="RIMPE_EMPRENDEDOR">RIMPE Emprendedor</option><option value="RIMPE_POPULAR">RIMPE Negocio Popular</option>
@@ -129,12 +143,12 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
         <p>El importe retenido es editable. Si corriges el cálculo, explica el ajuste en el motivo; se conservarán ambos valores en el detalle.</p>
         <p>La renta se calcula sobre la base sin IVA; la retención de IVA, sobre el impuesto. Si ya había una retención incluida en el neto, este registro la sustituye. La fecha corresponde al pago o crédito en cuenta, lo que ocurra primero.</p>
         <div className="fin-pagos-filtros">
-          <label>Comprobante de retención emitido <input required={totalCentavos > 0} maxLength={100} value={comprobante} onChange={evento => setComprobante(evento.target.value)} /></label>
+          {!calculada && <label>Comprobante de retención emitido <input required={totalCentavos > 0} maxLength={100} value={comprobante} onChange={evento => setComprobante(evento.target.value)} /></label>}
           <label>Concepto / motivo de no retener <input required maxLength={500} value={motivo} onChange={evento => setMotivo(evento.target.value)} /></label>
         </div>
         <label><input required type="checkbox" checked={confirmado} onChange={evento => setConfirmado(evento.target.checked)} /> Verifiqué el régimen del proveedor, la fecha, las bases y los supuestos de las reglas elegidas.</label>
       </fieldset>
-      <button disabled={guardando || cargando || nuevoSaldo < 0}>{guardando ? "Guardando…" : pendiente ? "Reintentar registro" : "Registrar retención y actualizar saldo"}</button>
+      <button disabled={guardando || cargando || nuevoSaldo < 0}>{guardando ? "Guardando…" : pendiente ? "Reintentar registro" : calculada ? "Guardar cálculo y actualizar saldo" : "Registrar retención y actualizar saldo"}</button>
     </form>}
     {error && <p role="alert" className="compras-sri-error">{error}</p>}
     {historial.filter(fila => fila.estado === "ANULADA").map(fila => <p key={fila.id}>Registro anulado: {fila.fecha} · {fila.comprobante} · USD {dinero(fila.total)}</p>)}

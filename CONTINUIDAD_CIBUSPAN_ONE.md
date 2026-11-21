@@ -1,5 +1,35 @@
 # Continuidad de CIBUSPAN ONE
 
+Cálculos editables pendientes de emisión, 20/11/2026, sobre `3a29fd1`.
+El usuario confirmó expresamente que la carga de hoy debe ser de cálculos, no de
+comprobantes emitidos. Instalada y registrada solo la migración nueva
+`202611200009_retenciones_calculadas.sql`; 008 también está instalada y publicada
+desde `3a29fd1` (despliegue `6789ab13`, 17 archivos públicos comprobados).
+009 distingue CALCULADA/EMITIDA, permite corregir un cálculo con historial y
+promoverlo únicamente al registrar la referencia real. La corrección vuelve al
+neto anterior a retenciones y evita descontar dos veces. Ambas operaciones
+mantienen permisos, bloqueo de documento, límites de importe, auditoría,
+idempotencia y conciliación con abonos/anticipos/plan. El importe sigue editable
+en Pagos y Finanzas → Reglas de retenciones → Calcular / detalle.
+Se cargaron nueve cálculos autorizados, sin comprobantes, por USD 201,32, de los
+trece XML subidos el 20/11 en America/Guayaquil. EDUEXPRESS 33346: 9,80, neto
+480,20. Transporte 1328: 1,40, conserva abono 138,60 y queda saldo cero, sin crear
+un nuevo pago. Los cálculos son estimaciones bajo régimen general provisional
+según XML/concepto; requieren confirmar RUC vigente antes de emitir. En las dos
+facturas de diseño web/redes se usa IVA 70% del historial, con motivo explícito
+de confirmar que no corresponda el supuesto profesional de IVA 100%. GLOBAL
+FLEXOGRAPHY usa bienes, con aviso de historial insuficiente. No presentarlos
+como tratamientos fiscales confirmados ni como comprobantes emitidos.
+Cuatro documentos siguen sin descuento y con marca visible Revisar retención:
+recuperación de descuento y procesamiento de información de CORPORACION
+FAVORITA; compra mixta de AVILA; asesoría de YANEZ. Los motivos se conservan
+en metadatos de SRI y auditoría, visibles en SRI y detalle de Finanzas.
+La carga transaccional comprobó caja y todas las otras cuentas sin cambios.
+Lectura posterior independiente: nueve CALCULADAS por 201,32, cero EMITIDAS.
+Datos y SQL de carga solo en `diagnosticos_privados/retenciones_2026/` ignorado.
+Pasaron nueve pruebas SQL, Chrome de creación/reapertura/corrección/emisión con
+referencia, y `npm run build`. Pendiente publicar la interfaz de 009.
+
 Importe de retención editable, 20/11/2026, preparado sobre `ffe4cb3`. El usuario
 pidió poder corregir el importe y registrar retenciones a las facturas subidas
 hoy. En Reglas de retenciones, cada línea de renta/IVA tiene un campo Retenido
@@ -18,10 +48,11 @@ IVA cero, base 490, XML sin mención RIMPE y agente 1; se informó 9,80 de renta
 condicionado a régimen general, sin registrarlo. Hay conceptos mixtos y casos
 que requieren clasificación, no aplicar una tasa general a los trece.
 Se preguntó si ya hay comprobantes emitidos o se desean cálculos editables
-pendientes de emisión. No consta respuesta todavía. Falta ese dato y, para
-registrar como emitidas, sus referencias; no inventarlas ni eludir la guarda.
+pendientes de emisión. El usuario respondió después que desea cálculos; ver el
+estado actualizado de 009 arriba. Para registrar como emitidas se requieren
+sus referencias; no inventarlas ni eludir la guarda.
 Detalle y consultas solo en `diagnosticos_privados/retenciones_2026/`.
-Pendiente instalar/publicar el cambio editable y resolver la carga de hoy.
+008 instalada y publicada; la carga de hoy se resolvió con 009, según lo indicado arriba.
 
 Reglas futuras por historial y sugerencia al ingresar XML, 20/11/2026.
 Preparado sobre `f7f4891`, a petición expresa de cargar reglas del PDF. Nueva

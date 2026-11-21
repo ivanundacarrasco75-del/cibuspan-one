@@ -81,7 +81,7 @@ function FilaCompra({ compra, alCambiarProveedor, perfiles }: { compra: CompraGu
             <td key={campo} className={`compras-sri-celda-${campo}`}>
               <input key={valor} aria-label={`${titulo} de ${campos.serie}`} defaultValue={valor} title={valor}
                 type={tipo === "date" ? "date" : "text"} inputMode={tipo === "importe" ? "decimal" : undefined}
-                maxLength={500} readOnly={guardando || datos.clave.startsWith("excel:")} onBlur={(evento) => {
+                maxLength={500} readOnly={guardando || datos.clave.startsWith("excel:") || (campo === "retencion" && Boolean(control.edicion.retencion_estado))} onBlur={(evento) => {
                   if (datos.clave.startsWith("excel:")) return
                   const input = evento.currentTarget
                   const nuevo = input.value.trim()
@@ -98,6 +98,8 @@ function FilaCompra({ compra, alCambiarProveedor, perfiles }: { compra: CompraGu
                   if (evento.key === "Escape") evento.currentTarget.value = valor
                   if (evento.key === "Escape" || evento.key === "Enter") evento.currentTarget.blur()
                 }} />
+              {campo === "retencion" && control.edicion.retencion_estado === "CALCULADA" && <small title="Editable en Pagos y Finanzas → Reglas de retenciones">Calculada · pendiente de emisión</small>}
+              {campo === "retencion" && control.edicion.retencion_revision && <small title={control.edicion.retencion_revision}>Revisar retención</small>}
             </td>
           )
         })}

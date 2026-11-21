@@ -41,7 +41,7 @@ async function preparar(t) {
     '202611180002_nomina_cuentas_por_pagar','202611200001_compras_sri_permisos',
     '202611200002_finanzas_permisos_asignados','202611200003_finanzas_seleccion_por_modulo',
     '202611200004_anticipos_proveedores','202611200005_nomina_sueldo','202611200006_retenciones_documentos',
-    '202611200008_retenciones_importe_editable']) await db.exec(await leer(nombre))
+    '202611200008_retenciones_importe_editable','202611200009_retenciones_calculadas']) await db.exec(await leer(nombre))
   await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,'2026-11-01',$2,'<xml/>')",
     [clave,JSON.stringify({clave,serie:'F-1',fecha:'2026-11-01',proveedor:'Proveedor',ruc:'1790000000001',subtotal:'100',total:'115',items:[],impuestos:[{codigo:'2',valor:'15'}]})])
   await db.exec(`insert into fin_nomina_empleados(id,nombre,nombre_normalizado,area,activo,tipo_vinculo)
@@ -152,4 +152,24 @@ test('El ajuste manual valida límites y conserva un cero explícito sin sustitu
   await assert.rejects(aplicar(10,undefined,'GENERAL',false,[{regla:'IR_NO_APLICA',base:100,valor:1},{regla:'IVA_NO_APLICA',base:15}]),/importe retenido/)
   await aplicar(10,undefined,'GENERAL',false,[{regla:'IR_BIENES_2026',base:100,valor:0},{regla:'IVA_BIENES',base:15,valor:0}])
   assert.equal(Number((await cuenta()).retencion),0);assert.equal(Number((await cuenta()).saldo),115)
+})
+
+test('Cálculo sin comprobante se corrige sin duplicar descuento y pasa a emitido solo con una referencia real',async t=>{
+  const {db,cuenta}=await preparar(t)
+  const originales=[{regla:'IR_BIENES_2026',base:100},{regla:'IVA_BIENES',base:15}]
+  const calculo=(n,lineas=originales)=>db.query("select fin_guardar_calculo_retencion($1,$2,'2026-11-20','GENERAL',false,'','Cálculo revisado pendiente de emisión',$3,true)",[id(n),'sri:'+clave,JSON.stringify(lineas)])
+  await calculo(10);await calculo(10)
+  assert.equal(Number((await cuenta()).saldo),108.5)
+  assert.match((await cuenta()).observaciones,/pendiente de emisión/)
+  const nuevas=[{regla:'IR_BIENES_2026',base:100,valor:1.5},{regla:'IVA_BIENES',base:15,valor:4}]
+  await calculo(11,nuevas);assert.equal(Number((await cuenta()).saldo),109.5)
+  assert.equal((await db.query("select count(*)::int n from fin_retenciones_documentos where estado='ACTIVA'")).rows[0].n,1)
+  const sri=(await db.query('select edicion from compras_vw_facturas')).rows[0].edicion
+  assert.equal(sri.retencion_estado,'CALCULADA')
+  await assert.rejects(db.query("select fin_aplicar_retencion($1,$2,'2026-11-20','GENERAL',false,'','Confirmar cálculo',$3,true)",[id(12),'sri:'+clave,JSON.stringify(nuevas)]),/comprobante de retención emitido/)
+  assert.equal(Number((await cuenta()).saldo),109.5)
+  await db.query("select fin_aplicar_retencion($1,$2,'2026-11-20','GENERAL',false,'RET-REAL-01','Comprobante emitido',$3,true)",[id(12),'sri:'+clave,JSON.stringify(nuevas)])
+  assert.equal(Number((await cuenta()).saldo),109.5)
+  assert.equal((await db.query("select tipo_registro from fin_retenciones_documentos where estado='ACTIVA'")).rows[0].tipo_registro,'EMITIDA')
+  await assert.rejects(calculo(13),/retención emitida/)
 })

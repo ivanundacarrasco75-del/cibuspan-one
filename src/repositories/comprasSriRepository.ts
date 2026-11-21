@@ -4,7 +4,7 @@ import type { FacturaSri } from "../utils/comprasSri"
 export type CampoCompra = "fecha" | "serie" | "proveedor" | "descripcion" | "subtotal" | "iva" | "total" | "retencion" | "documento"
 export type AbonoCompra = { id: string; valor: string; fecha: string; documento: string }
 export type ControlCompra = {
-  edicion: Partial<Record<CampoCompra, string>>
+  edicion: Partial<Record<CampoCompra, string>> & { retencion_estado?: "CALCULADA" | "EMITIDA"; retencion_revision?: string | null }
   abonos: AbonoCompra[]
 }
 export type CompraGuardada = ControlCompra & {
