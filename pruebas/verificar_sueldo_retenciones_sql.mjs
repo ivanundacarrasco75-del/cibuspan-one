@@ -40,7 +40,8 @@ async function preparar(t) {
     '202611170004_compras_excel_anual','202608150110_roles_pago_mensuales','202611180001_nomina_programacion_personal',
     '202611180002_nomina_cuentas_por_pagar','202611200001_compras_sri_permisos',
     '202611200002_finanzas_permisos_asignados','202611200003_finanzas_seleccion_por_modulo',
-    '202611200004_anticipos_proveedores','202611200005_nomina_sueldo','202611200006_retenciones_documentos']) await db.exec(await leer(nombre))
+    '202611200004_anticipos_proveedores','202611200005_nomina_sueldo','202611200006_retenciones_documentos',
+    '202611200008_retenciones_importe_editable']) await db.exec(await leer(nombre))
   await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,'2026-11-01',$2,'<xml/>')",
     [clave,JSON.stringify({clave,serie:'F-1',fecha:'2026-11-01',proveedor:'Proveedor',ruc:'1790000000001',subtotal:'100',total:'115',items:[],impuestos:[{codigo:'2',valor:'15'}]})])
   await db.exec(`insert into fin_nomina_empleados(id,nombre,nombre_normalizado,area,activo,tipo_vinculo)
@@ -129,4 +130,26 @@ test('Una factura mixta reparte las bases de renta e IVA sin superar los totales
     {regla:'IR_MANO_OBRA_2026',base:50},{regla:'IVA_SERVICIOS',base:7.5}])
   assert.equal(Number((await cuenta()).retencion),10)
   assert.equal(Number((await cuenta()).saldo),105)
+})
+
+test('Importe manual conserva el cálculo original, ajusta el saldo y la semana y permite pagar el neto corregido',async t=>{
+  const {db,cuenta,aplicar}=await preparar(t)
+  await db.query("select fin_programar_compras('2026-11-16',$1)",[JSON.stringify([{id:'sri:'+clave,monto:115}])])
+  const lineas=[{regla:'IR_BIENES_2026',base:100,valor:1.5},{regla:'IVA_BIENES',base:15,valor:4}]
+  await aplicar(10,undefined,'GENERAL',false,lineas);await aplicar(10,undefined,'GENERAL',false,lineas)
+  assert.equal(Number((await cuenta()).retencion),5.5)
+  assert.equal(Number((await cuenta()).saldo),109.5)
+  assert.equal(Number((await db.query('select monto from fin_consultar_programaciones()')).rows[0].monto),109.5)
+  const guardada=(await db.query('select lineas from fin_retenciones_documentos')).rows[0].lineas
+  assert.deepEqual(guardada.map(l=>[l.valor,l.valor_calculado,l.ajuste_manual]),[[1.5,2,true],[4,4.5,true]])
+  await db.query("select fin_pagar_compra($1,$2,109.5,'2026-11-20','DEP-CORREGIDO','2026-11-16',false)",['sri:'+clave,id(20)])
+  assert.equal(Number((await cuenta()).saldo),0)
+})
+
+test('El ajuste manual valida límites y conserva un cero explícito sin sustituirlo por el cálculo',async t=>{
+  const {cuenta,aplicar}=await preparar(t)
+  for(const valor of [-1,10.01,1.001])await assert.rejects(aplicar(10,undefined,'GENERAL',false,[{regla:'IR_BIENES_2026',base:100,valor},{regla:'IVA_NO_APLICA',base:15}]),/importe retenido/)
+  await assert.rejects(aplicar(10,undefined,'GENERAL',false,[{regla:'IR_NO_APLICA',base:100,valor:1},{regla:'IVA_NO_APLICA',base:15}]),/importe retenido/)
+  await aplicar(10,undefined,'GENERAL',false,[{regla:'IR_BIENES_2026',base:100,valor:0},{regla:'IVA_BIENES',base:15,valor:0}])
+  assert.equal(Number((await cuenta()).retencion),0);assert.equal(Number((await cuenta()).saldo),115)
 })

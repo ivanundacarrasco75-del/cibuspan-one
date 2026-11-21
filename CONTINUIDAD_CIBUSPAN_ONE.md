@@ -1,5 +1,28 @@
 # Continuidad de CIBUSPAN ONE
 
+Importe de retención editable, 20/11/2026, preparado sobre `ffe4cb3`. El usuario
+pidió poder corregir el importe y registrar retenciones a las facturas subidas
+hoy. En Reglas de retenciones, cada línea de renta/IVA tiene un campo Retenido
+editable, que parte del cálculo y admite volver a él. Se conserva el valor
+calculado, el corregido y la marca de ajuste en el detalle; requiere motivo.
+SQL nuevo exclusivo `202611200008_retenciones_importe_editable.sql` mantiene la
+autorización, confirmación, comprobante, idempotencia y conciliación existentes.
+Valida importes no negativos, dos decimales, IVA hasta su base, renta hasta el
+10% de su base, y cero en reglas sin retención. El saldo y el plan usan el valor
+efectivo. Pasaron ocho pruebas SQL y Chrome con cambio manual 6,50 a 5,50,
+plan/pago neto 109,50 y cero explícito; `npm run build` correcto.
+Consulta de carga de hoy (20/11 en America/Guayaquil): trece XML, no trece fechas
+de emisión de hoy. La factura de transporte 1328 tiene abono 138,60 sobre 140 y
+saldo 1,40. Ninguna tiene retención activa registrada. EDUEXPRESS 33346 tiene
+IVA cero, base 490, XML sin mención RIMPE y agente 1; se informó 9,80 de renta
+condicionado a régimen general, sin registrarlo. Hay conceptos mixtos y casos
+que requieren clasificación, no aplicar una tasa general a los trece.
+Se preguntó si ya hay comprobantes emitidos o se desean cálculos editables
+pendientes de emisión. No consta respuesta todavía. Falta ese dato y, para
+registrar como emitidas, sus referencias; no inventarlas ni eludir la guarda.
+Detalle y consultas solo en `diagnosticos_privados/retenciones_2026/`.
+Pendiente instalar/publicar el cambio editable y resolver la carga de hoy.
+
 Reglas futuras por historial y sugerencia al ingresar XML, 20/11/2026.
 Preparado sobre `f7f4891`, a petición expresa de cargar reglas del PDF. Nueva
 migración `202611200007_historial_reglas_iva.sql`: fuentes y observaciones

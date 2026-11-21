@@ -18,11 +18,11 @@ export type ReglaRetencion = {
 export type RetencionDocumento = {
   id: string; documento_id: string; fecha: string; regimen: string; proveedor_especial: boolean; comprobante: string
   motivo: string; total: number; descuento: number; estado: "ACTIVA" | "ANULADA"
-  lineas: (ReglaRetencion & { base: number; valor: number })[]
+  lineas: (ReglaRetencion & { base: number; valor: number; valor_calculado?: number; ajuste_manual?: boolean })[]
 }
 export type SolicitudRetencion = {
   id: string; documento: string; fecha: string; regimen: string; especial: boolean; comprobante: string; motivo: string
-  lineas: { regla: string; base: string }[]; confirmado: boolean
+  lineas: { regla: string; base: string; valor?: string }[]; confirmado: boolean
 }
 export async function listarReglasRetencion() {
   const { data, error } = await supabase.from("fin_reglas_retencion").select("*").order("impuesto").order("porcentaje")
