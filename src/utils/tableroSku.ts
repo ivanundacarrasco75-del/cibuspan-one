@@ -6,6 +6,7 @@ import type { FacturaDetalleDb } from "../repositories/facturasRepository"
 import type { NominaMensualAreaDb } from "../repositories/nominaRepository"
 import type { PromocionDb } from "../repositories/promocionesRepository"
 import type { ReglaDistribucionDb } from "../repositories/rentabilidadRepository"
+import {distribuirCostosCompartidosSku,type RubroCompartidoSku,type ResumenCompartidoSku} from './distribucionCostosSku'
 
 export type CatalogoSku = { id: string; codigo: string; nombre: string; corto: string }
 export type CostoSku = { producto_id: string; costo_materiales_unidad: number | null; items_sin_costo: number } & Partial<CostoProducto>
@@ -24,7 +25,8 @@ export type DatosTableroSku = {
   }
   contabilidad?: {
     gastos: Array<{periodo:string; detalle_id:string; cuenta_codigo:string; cliente_id:string; valor_asignado:number}> | null
-    resumen: Array<{periodo:string; gasto_especifico_cliente:number; clasificacion_pendiente:number; cuentas_pendientes:number; cuentas_sin_matriz:number}> | null
+    resumen: Array<{periodo:string; gasto_especifico_cliente:number; clasificacion_pendiente:number; cuentas_pendientes:number; cuentas_sin_matriz:number} & ResumenCompartidoSku> | null
+    rubros?:RubroCompartidoSku[]|null
   }
 }
 export function periodoRecientePdv(ultimaFecha:string) {
@@ -193,6 +195,9 @@ export function resumirRentabilidadTableroSku(datos: DatosTableroSku, desde: str
   const contabilidadCompleta = !contable || contable.gastos!==null && contable.resumen!==null && contable.resumen.length>0 && contable.resumen.every(m=>
     Number(m.clasificacion_pendiente)===0 && Number(m.cuentas_pendientes)===0 && Number(m.cuentas_sin_matriz)===0 &&
     Math.abs(Number(m.gasto_especifico_cliente)-(contable.gastos??[]).filter(g=>g.periodo===m.periodo).reduce((s,g)=>s+Number(g.valor_asignado),0))<=.05)
+  const compartidos = distribuirCostosCompartidosSku({movimientos:calculo.filas,rubros:contable?.rubros,resumen:contable?.resumen,
+    reglas:fuentes?.reglas??[],periodo:desde,baseCif:'UNIDADES',
+    devolucionesSinImporte:(datos.devoluciones??[]).some(d=>d.detalles.some(r=>Number(r.unidades)!==0 && numero(r.valor_total_documento)===null && numero(r.precio_unitario_documento)===null))})
   const filas = base.filas.map(f => {
     const movimientos = calculo.filas.filter(r => r.productoKey === normalizarCosto(f.codigo) && permitidos.has(r.key))
     const sumar = (campo: "descuentos" | "costoMateriales" | "manoObraDirecta" | "transporte" | "gastoClienteDirecto") =>
@@ -209,11 +214,16 @@ export function resumirRentabilidadTableroSku(datos: DatosTableroSku, desde: str
     const gastoCliente = contable ? contabilidadCompleta ? asignado('directo') : null : fuentes?.facturas != null ? sumar("gastoClienteDirecto") : null
     const aporte = completo && contabilidadCompleta && neto !== null && materiales !== null && manoObra !== null && transporte !== null && gastoCliente !== null &&
       Math.abs(calculo.costosSinAsignar)+Math.abs(sinAsignarContable) < 0.005 ? neto - materiales - manoObra - transporte - gastoCliente : null
+    const repartir = (mapa:Map<string,number|null>) => movimientos.every(r=>mapa.get(r.key)!=null) ? movimientos.reduce((s,r)=>s+mapa.get(r.key)!,0) : null
+    const cif = compartidos.completo || !compartidos.controlCif.pendiente ? repartir(compartidos.cif) : null
+    const generales = compartidos.completo || !compartidos.controlGeneral.pendiente ? repartir(compartidos.generales) : null
+    const resultado = aporte!==null && cif!==null && generales!==null ? aporte-cif-generales : null
     return {...f, descuento: descuentos, devolucion: datos.devoluciones !== null && !f.devolucionesSinValor ? f.valorDevuelto : null,
       netoComercial: neto, materiales, manoObra, transporte, gastoCliente, contribucion: aporte,
-      margen: aporte !== null && neto !== null && neto > 0 ? aporte / neto * 100 : null}
+      margen: aporte !== null && neto !== null && neto > 0 ? aporte / neto * 100 : null,cif,generales,resultado,
+      margenResultado:resultado!==null && neto!==null && neto>0 ? resultado/neto*100 : null}
   })
-  return {...base, financieras: filas, costosSinAsignar: calculo.costosSinAsignar+sinAsignarContable, fuentesCompletas: completo && contabilidadCompleta, contabilidadCompleta}
+  return {...base, financieras: filas, costosSinAsignar: calculo.costosSinAsignar+sinAsignarContable, fuentesCompletas: completo && contabilidadCompleta, contabilidadCompleta,compartidos}
 }
 
 export function rangoMesTableroSku(periodo:string) {

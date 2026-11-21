@@ -56,6 +56,19 @@ async function obtenerGastosClasificados(desde:string,hasta:string) {
   }
 }
 
+async function obtenerRubrosCompartidos(desde:string,hasta:string) {
+  const filas:NonNullable<NonNullable<DatosTableroSku['contabilidad']>['rubros']> = []
+  for(let inicio=0;;inicio+=500){
+    const {data,error}=await supabase.from('fin_vw_costos_gastos_rubros_mensual')
+      .select('periodo,cuenta_codigo,clasificacion_gerencial,origen,impacta_ebitda,incluida_costo_venta_contable,valor')
+      .gte('periodo',desde).lte('periodo',hasta).in('clasificacion_gerencial',['CIF','GASTO_GENERAL'])
+      .order('periodo').order('cuenta_codigo').order('clasificacion_gerencial').order('origen').order('impacta_ebitda').order('incluida_costo_venta_contable').order('valor')
+      .range(inicio,inicio+499)
+    if(error)throw new Error(error.message)
+    filas.push(...(data??[]));if((data?.length??0)<500)return filas
+  }
+}
+
 async function leerCatalogo<T>(tabla: string, campos: string, orden: string, activo = false): Promise<T[]> {
   const filas: T[] = []
   for (let inicio = 0; ; inicio += 500) {
@@ -82,23 +95,24 @@ export async function obtenerTableroSku(desde: string, hasta: string): Promise<D
       "producto_id,producto_codigo,batch_calculado_kg,rendimiento_unidades,costo_materiales_unidad,items_sin_costo", "producto_id"),
     Promise.resolve([]), obtenerNominaMensualAreaDb(), obtenerPromocionesDb(), obtenerReglasDistribucionDb(),
     obtenerGastosClasificados(desde,hasta),
-    supabase.from('fin_vw_costos_gastos_mensual').select('periodo,gasto_especifico_cliente,clasificacion_pendiente,cuentas_pendientes,cuentas_sin_matriz').gte('periodo',desde).lte('periodo',hasta).then(r=>{if(r.error)throw new Error(r.error.message);return r.data}),
+    supabase.from('fin_vw_costos_gastos_mensual').select('periodo,gasto_especifico_cliente,clasificacion_pendiente,cuentas_pendientes,cuentas_sin_matriz,cif_total_informativo,gasto_general,depreciaciones').gte('periodo',desde).lte('periodo',hasta).then(r=>{if(r.error)throw new Error(r.error.message);return r.data}),
+    obtenerRubrosCompartidos(desde,hasta),
   ] as const)
   const errores: string[] = []
-  const nombres = ["Ventas", "Devoluciones", "Visitas", "Costos", "Facturas", "Nómina", "Promociones", "Reglas de distribución", "Gastos del libro mayor", "Conciliación del balance"]
+  const nombres = ["Ventas", "Devoluciones", "Visitas", "Costos", "Facturas", "Nómina", "Promociones", "Reglas de distribución", "Gastos del libro mayor", "Conciliación del balance", "CIF y gastos generales"]
   resultados.forEach((resultado, indice) => {
     if (resultado.status === "rejected") {
       errores.push(`${nombres[indice]} · ${resultado.reason instanceof Error ? resultado.reason.message : "No se pudo consultar esta fuente"}`)
     }
   })
-  const [ventas, devoluciones, visitas, costos, facturas, nomina, promociones, reglas, gastos, resumen] = resultados
+  const [ventas, devoluciones, visitas, costos, facturas, nomina, promociones, reglas, gastos, resumen, rubros] = resultados
   return {
     productos, clientes, asignaciones, errores,
     ventas: ventas.status === "fulfilled" ? ventas.value : null,
     devoluciones: devoluciones.status === "fulfilled" ? devoluciones.value : null,
     visitas: visitas.status === "fulfilled" ? visitas.value.registros : null,
     costos: costos.status === "fulfilled" ? costos.value : null,
-    contabilidad: {gastos:gastos.status==='fulfilled'?gastos.value:null,resumen:resumen.status==='fulfilled'?resumen.value:null},
+    contabilidad: {gastos:gastos.status==='fulfilled'?gastos.value:null,resumen:resumen.status==='fulfilled'?resumen.value:null,rubros:rubros.status==='fulfilled'?rubros.value:null},
     rentabilidad: {
       facturas: facturas.status === "fulfilled" ? facturas.value : null,
       nomina: nomina.status === "fulfilled" ? nomina.value : null,

@@ -1,6 +1,6 @@
 import type {CSSProperties, ReactNode} from 'react'
 export type FilaGrafico = {id:string; nombre:string; etiqueta?:string; detalle?:string; valor:number}
-type Desglose = {neto:number; aporte:number; materiales:number; manoObra:number; transporte:number; gastoCliente:number}
+type Desglose = {neto:number; resultado:number; materiales:number; manoObra:number; transporte:number; gastoCliente:number; cif:number; generales:number}
 const n=(v:number)=>v.toLocaleString('es-EC',{maximumFractionDigits:1})
 const usd=(v:number)=>v.toLocaleString('es-EC',{style:'currency',currency:'USD'})
 const pct=(v:number|null)=>v===null?'—':n(v)+' %'
@@ -35,16 +35,16 @@ export function Barras({filas, formato = n, tipo = 'barra'}: {filas:FilaGrafico[
   </svg>
 }
 
-export function Distribucion({filas}: {filas:Desglose[]}) {
+export function Distribucion({filas,puente}: {filas:Desglose[];puente?:{facturado:number;descuentos:number;devoluciones:number}}) {
   const sumar = (campo:keyof Desglose) => filas.reduce((s, f) => s + f[campo], 0)
-  const total = sumar('neto'), aporte = sumar('aporte')
-  const partes = [{nombre: 'Materiales', valor: sumar('materiales'), color: '#9c8bef'}, {nombre: 'Mano de obra', valor: sumar('manoObra'), color: '#73b6ec'}, {nombre: 'Transporte', valor: sumar('transporte'), color: '#e3bc7c'}, {nombre: 'Gasto cliente', valor: sumar('gastoCliente'), color: '#e58fa9'}, {nombre: 'Aporte', valor: aporte, color: '#75d5b3'}]
+  const total = sumar('neto'), resultado = sumar('resultado')
+  const partes = [{nombre: 'Materiales', valor: sumar('materiales'), color: '#9c8bef'}, {nombre: 'Mano de obra', valor: sumar('manoObra'), color: '#73b6ec'}, {nombre: 'Transporte', valor: sumar('transporte'), color: '#e3bc7c'}, {nombre: 'Gasto cliente', valor: sumar('gastoCliente'), color: '#e58fa9'}, {nombre:'CIF estimados',valor:sumar('cif'),color:'#80c9da'},{nombre:'Gastos generales',valor:sumar('generales'),color:'#cf9bdc'}, {nombre: 'Resultado', valor: resultado, color: '#75d5b3'}]
   let recorrido = 0
   const positivas = partes.filter(p => p.valor > 0), base = positivas.reduce((s, p) => s + p.valor, 0)
-  return <div className="pn-distribucion"><svg viewBox="0 0 140 140" role="img" aria-label={`Margen de contribución ${pct(ratio(aporte, total))}. Distribución de la venta neta entre costos y aporte.`}>
+  return <>{puente && <div className="pn-puente-neto"><span>Facturado <b>{usd(puente.facturado)}</b></span><span>− Descuentos <b>{usd(puente.descuentos)}</b></span><span>− Devoluciones <b>{usd(puente.devoluciones)}</b></span><span>Venta neta <b>{usd(total)}</b></span></div>}<div className="pn-distribucion"><svg viewBox="0 0 140 140" role="img" aria-label={`Margen tras CIF y gastos generales ${pct(ratio(resultado, total))}. Devoluciones y descuentos ya restados de la venta neta.`}>
     <circle cx="70" cy="70" r="51" fill="none" stroke="#ffffff09" strokeWidth="11"/>
     {positivas.map(p => {const longitud = p.valor / Math.max(1, base) * 320.442, offset = recorrido; recorrido += longitud; return <circle key={p.nombre} cx="70" cy="70" r="51" fill="none" stroke={p.color} strokeWidth="11" strokeDasharray={`${Math.max(0, longitud - 3)} ${320.442 - Math.max(0, longitud - 3)}`} strokeDashoffset={-offset} transform="rotate(-90 70 70)"><title>{p.nombre}: {usd(p.valor)}</title></circle>})}
-    <text x="70" y="69" textAnchor="middle" className="pn-donut-numero">{pct(ratio(aporte, total))}</text><text x="70" y="87" textAnchor="middle" className="pn-donut-texto">MARGEN</text>
-  </svg><ul>{partes.map(p => <li key={p.nombre}><span><i style={{background: p.color}}/>{p.nombre}</span><b className={p.valor < 0 ? 'pn-negativo' : ''}>{usd(p.valor)}</b></li>)}</ul>{aporte < 0 && <p className="pn-distribucion-aviso">Costos superiores a la venta neta. La pérdida se indica en rojo; el anillo representa los costos positivos.</p>}</div>
+    <text x="70" y="69" textAnchor="middle" className="pn-donut-numero" style={resultado<0?{fill:'#ff9ca9'}:undefined}>{pct(ratio(resultado, total))}</text><text x="70" y="87" textAnchor="middle" className="pn-donut-texto">TRAS GASTOS</text>
+  </svg><ul>{partes.map(p => <li key={p.nombre}><span><i style={{background: p.color}}/>{p.nombre}</span><b className={p.valor < 0 ? 'pn-negativo' : ''}>{usd(p.valor)}</b></li>)}</ul>{resultado < 0 && <p className="pn-distribucion-aviso">Costos superiores a la venta neta. La pérdida se indica en rojo; el anillo representa los costos positivos.</p>}</div></>
 }
 

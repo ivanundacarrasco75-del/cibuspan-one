@@ -4,6 +4,7 @@ import {createServer} from 'vite'
 const server=await createServer({server:{middlewareMode:true,hmr:false},appType:'custom'})
 try {
  const {calcularRentabilidadSku}=await server.ssrLoadModule('/src/utils/calculoRentabilidadSku.ts')
+ const {distribuirCostosCompartidosSku}=await server.ssrLoadModule('/src/utils/distribucionCostosSku.ts')
  const {resumirRentabilidadTableroSku,periodosCerradosTableroSku,rangoMesTableroSku,periodoRecientePdv}=await server.ssrLoadModule('/src/utils/tableroSku.ts')
  const base=()=>({
   productos:[{id:'p',codigo:'EAN',nombre:'Pan',corto:'Pan'},{id:'q',codigo:'OTRO',nombre:'Otro',corto:'Otro'}],
@@ -108,5 +109,56 @@ try {
   const actual=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20','c')
   assert.equal(actual.rotaciones[0].rotacion,3.5);assert.equal(actual.locales[0].rotacion,3.5)
   assert.deepEqual(actual.financieras,anterior.financieras)
+ })
+ const conCostosCompletos=()=>{
+  const d=conLibroMayor()
+  Object.assign(d.contabilidad.resumen[0],{cif_total_informativo:10,gasto_general:20,depreciaciones:5})
+  const r=(clasificacion_gerencial,valor,impacta_ebitda=true,incluida_costo_venta_contable=false)=>({periodo:'2026-11-01',cuenta_codigo:clasificacion_gerencial,clasificacion_gerencial,valor,impacta_ebitda,incluida_costo_venta_contable,origen:'ER'})
+  d.contabilidad.rubros=[r('CIF',10),r('CIF',2,false),r('GASTO_GENERAL',20),r('GASTO_GENERAL',3,false),r('COSTO_VENTA',900,true,true)]
+  return d
+ }
+ await test('CIF y gastos generales incluyen depreciación una vez y no duplican el costo de venta contable',()=>{
+  const datos=conCostosCompletos(), r=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20')
+  assert.equal(r.compartidos.controlCif.importe,12);assert.equal(r.compartidos.controlGeneral.importe,23)
+  assert.equal(r.compartidos.depreciaciones,5);assert.equal(r.compartidos.conciliado,true)
+  assert.equal(r.compartidos.controlCif.base,'UNIDADES');assert.equal(r.compartidos.controlGeneral.base,'VENTAS_NETAS')
+  assert.equal(r.financieras.reduce((s,f)=>s+f.cif,0),12)
+  assert.ok(Math.abs(r.financieras.reduce((s,f)=>s+f.generales,0)-23)<1e-9)
+  assert.ok(Math.abs(r.financieras.reduce((s,f)=>s+f.resultado,0)-215)<1e-9)
+ })
+ await test('Los descuentos y devoluciones solo se restan en la venta neta, sin volver a cobrarlos como costos',()=>{
+  const r=resumirRentabilidadTableroSku(conCostosCompletos(),'2026-11-01','2026-11-20','c')
+  const f=r.financieras[0]
+  assert.equal(f.netoComercial,160)
+  assert.ok(Math.abs(f.resultado+f.materiales+f.manoObra+f.transporte+f.gastoCliente+f.cif+f.generales+f.descuento+f.devolucion-f.venta)<1e-9)
+ })
+ await test('Filtrar después del reparto conserva exactamente los CIF y generales asignados al SKU',()=>{
+  const datos=conCostosCompletos()
+  const todos=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20')
+  const uno=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20','d','q')
+  assert.deepEqual(uno.financieras,[todos.financieras.find(f=>f.id==='q')])
+ })
+ await test('La depreciación que ya está incluida en el CIF del costo de venta no se suma otra vez',()=>{
+  const datos=conCostosCompletos()
+  datos.contabilidad.rubros[1].incluida_costo_venta_contable=true
+  datos.contabilidad.resumen[0].cif_total_informativo=12
+  const r=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20')
+  assert.equal(r.compartidos.controlCif.importe,12);assert.equal(r.compartidos.conciliado,true)
+ })
+ await test('Falta de rubros o diferencia con el balance deja el resultado completo pendiente',()=>{
+  const datos=conCostosCompletos();datos.contabilidad.rubros=null
+  let r=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20')
+  assert.ok(r.financieras.every(f=>f.resultado===null));assert.equal(r.financieras.find(f=>f.id==='q').contribucion,280)
+  const otro=conCostosCompletos();otro.contabilidad.resumen[0].gasto_general=99
+  r=resumirRentabilidadTableroSku(otro,'2026-11-01','2026-11-20')
+  assert.equal(r.compartidos.conciliado,false);assert.ok(r.financieras.every(f=>f.resultado===null))
+ })
+ await test('El reparto estimado por unidades incluye SKU históricos sin inventarles equivalencia de kilos',()=>{
+  const datos=conCostosCompletos(), input={...datos,...datos.rentabilidad,relaciones:datos.asignaciones,desde:'2026-11-01',hasta:'2026-11-20'}
+  const {filas}=calcularRentabilidadSku(input);filas.find(f=>f.codigo==='EAN').kgEquivalente=0
+  const args={movimientos:filas,rubros:datos.contabilidad.rubros,resumen:datos.contabilidad.resumen,reglas:[],periodo:'2026-11-01'}
+  assert.equal(distribuirCostosCompartidosSku(args).controlCif.pendiente,true)
+  const aprobado=distribuirCostosCompartidosSku({...args,baseCif:'UNIDADES'})
+  assert.equal(aprobado.controlCif.pendiente,false);assert.equal(aprobado.cif.get(filas[0].key),6)
  })
 } finally {await server.close()}

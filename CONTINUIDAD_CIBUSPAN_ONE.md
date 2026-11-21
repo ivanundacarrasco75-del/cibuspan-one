@@ -1,5 +1,28 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Movimiento de SKU: resultado tras CIF y gastos generales, preparado localmente**.
+Lectura del Supabase operativo confirmó que el anillo anterior mostraba contribución
+directa: las devoluciones ya reducían el neto, pero faltaban CIF y generales.
+El usuario eligió expresamente repartir CIF por unidades facturadas, indicado como
+estimación en este tablero, porque septiembre contiene 120 unidades históricas sin
+equivalencia de kilos. No cambia la regla guardada del ERP ni inventa equivalencias.
+Los rubros del balance se concilian y reparten antes de filtrar cliente/SKU;
+generales conserva su regla guardada. Depreciaciones incluidas una vez dentro de
+CIF/generales, sin sumar además el costo de venta contable completo.
+Septiembre: CIF 2.481,48; generales 11.725,08; depreciaciones incluidas 1.549,73.
+Repartos conciliados y sin costos sin asignar. Agosto mantiene ocho líneas devueltas
+sin importe comprobado: su reparto por neto y resultado completo quedan pendientes,
+con enlace para revisar el documento. No se inventan importes.
+Anillo, indicadores, rankings y tabla muestran resultado/margen tras gastos;
+conservan la contribución anterior identificada. Facturado, descuentos y devoluciones
+se muestran antes del neto para evitar una segunda deducción. Estimación gerencial
+con materiales vigentes, antes de intereses e impuestos; no es utilidad neta ni
+resultado contable oficial. DashboardV2 y periodo PDV conservados.
+52 pruebas aprobadas, auditoría real por SELECT y compilación oficial completadas.
+Publicación pendiente de verificar. Archivos: distribucionCostosSku.ts,
+tableroSku.ts, tableroSkuRepository.ts, PanoramaSku.tsx/.css, PanoramaGraficosSku.tsx
+y verificar_panorama_sku.mjs. Sin SQL de escritura ni cambios de base de datos.
+
 20/11/2026, **Rotación PDV separada del mes contable, preparada localmente**.
 Iván señaló gráficos vacíos pese a tener visitas. El código usaba el rango del
 balance para consultar PDV. La corrección local busca la última visita confirmada
