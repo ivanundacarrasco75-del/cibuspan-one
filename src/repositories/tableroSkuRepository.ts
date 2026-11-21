@@ -7,13 +7,42 @@ import { obtenerNominaMensualAreaDb } from "./nominaRepository"
 import { obtenerPromocionesDb } from "./promocionesRepository"
 import { obtenerReglasDistribucionDb } from "./rentabilidadRepository"
 import { obtenerResultadosMensualesDb } from "./costosIndirectosRepository"
-import { periodosCerradosTableroSku } from "../utils/tableroSku"
+import { periodosCerradosTableroSku,periodoRecientePdv } from "../utils/tableroSku"
 import { fechaHoyCampoDashboard } from "../utils/dashboardVisitasRotacion"
 
 export async function obtenerPeriodosTableroSku() {
   const [balances,cierres] = await Promise.all([obtenerResultadosMensualesDb(),supabase.from('fin_vw_cierre_contable_mensual').select('periodo,mes_cerrado')])
   if (cierres.error) throw new Error(`No se pudo comprobar el cierre de los balances: ${cierres.error.message}`)
   return periodosCerradosTableroSku(balances,cierres.data??[],fechaHoyCampoDashboard())
+}
+
+// La rotación operativa no se limita al mes del balance: se consulta la última
+// fecha PDV disponible para el cliente/SKU activo y los 28 días que la incluyen.
+export async function obtenerRotacionRecienteTableroSku(datos:DatosTableroSku, clienteId='', productoId='') {
+  const activos = new Set(datos.productos.map(p=>p.id))
+  const clientes = new Set(datos.clientes.map(c=>c.id))
+  const asignaciones = datos.asignaciones.filter(a=>activos.has(a.producto_id) && clientes.has(a.cliente_id) && (!clienteId || a.cliente_id===clienteId) && (!productoId || a.producto_id===productoId))
+  if (!asignaciones.length) return null
+  const permitidos = new Set(asignaciones.map(a=>`${a.cliente_id}|${a.producto_id}`))
+  const idsProducto = [...new Set(asignaciones.map(a=>a.producto_id))]
+  const idsCliente = [...new Set(asignaciones.map(a=>a.cliente_id))]
+  for(let inicio=0;;inicio+=200) {
+    const {data,error} = await supabase.from('com_visitas_campo')
+      .select('id,fecha_visita,cliente_id,mediciones:com_visitas_campo_sku!inner(producto_id,rotacion_diaria_unidades)')
+      .eq('estado','CONFIRMADA').lte('fecha_visita',fechaHoyCampoDashboard())
+      .in('cliente_id',idsCliente).in('mediciones.producto_id',idsProducto)
+      .not('mediciones.rotacion_diaria_unidades','is',null)
+      .order('fecha_visita',{ascending:false}).order('id',{ascending:false}).range(inicio,inicio+199)
+    if(error)throw new Error(`No se pudo consultar la última rotación PDV: ${error.message}`)
+    const visitas = (data??[]) as unknown as Array<{fecha_visita:string;cliente_id:string;mediciones:Array<{producto_id:string;rotacion_diaria_unidades:number|null}>}>
+    const ultima = visitas.find(v=>v.mediciones.some(m=>m.rotacion_diaria_unidades!==null && permitidos.has(`${v.cliente_id}|${m.producto_id}`)))
+    if(ultima) {
+      const periodo = periodoRecientePdv(ultima.fecha_visita)
+      const resultado = await obtenerDashboardVisitasRotacion(clienteId,periodo.desde,periodo.hasta,{soloAsignados:true})
+      return {...periodo,clienteId,productoId,registros:resultado.registros.filter(r=>permitidos.has(`${r.cliente_id}|${r.producto_id}`))}
+    }
+    if(visitas.length<200)return null
+  }
 }
 
 async function obtenerGastosClasificados(desde:string,hasta:string) {
@@ -48,7 +77,7 @@ export async function obtenerTableroSku(desde: string, hasta: string): Promise<D
   const resultados = await Promise.allSettled([
     obtenerVentasDiariasRangoDb(desde, hasta),
     obtenerDevolucionesDb(desde, hasta),
-    obtenerDashboardVisitasRotacion("", desde, hasta, { soloAsignados: true }),
+    Promise.resolve({registros:[]}),
     leerCatalogo<CostoSku>("fm_vw_productos_costo_completo",
       "producto_id,producto_codigo,batch_calculado_kg,rendimiento_unidades,costo_materiales_unidad,items_sin_costo", "producto_id"),
     Promise.resolve([]), obtenerNominaMensualAreaDb(), obtenerPromocionesDb(), obtenerReglasDistribucionDb(),

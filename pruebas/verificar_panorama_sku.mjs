@@ -4,7 +4,7 @@ import {createServer} from 'vite'
 const server=await createServer({server:{middlewareMode:true,hmr:false},appType:'custom'})
 try {
  const {calcularRentabilidadSku}=await server.ssrLoadModule('/src/utils/calculoRentabilidadSku.ts')
- const {resumirRentabilidadTableroSku,periodosCerradosTableroSku,rangoMesTableroSku}=await server.ssrLoadModule('/src/utils/tableroSku.ts')
+ const {resumirRentabilidadTableroSku,periodosCerradosTableroSku,rangoMesTableroSku,periodoRecientePdv}=await server.ssrLoadModule('/src/utils/tableroSku.ts')
  const base=()=>({
   productos:[{id:'p',codigo:'EAN',nombre:'Pan',corto:'Pan'},{id:'q',codigo:'OTRO',nombre:'Otro',corto:'Otro'}],
   clientes:[{id:'c',nombre:'Cadena'},{id:'d',nombre:'Otra cadena'}],
@@ -96,5 +96,17 @@ try {
   assert.deepEqual(rangoMesTableroSku('2024-02-01'),{desde:'2024-02-01',hasta:'2024-02-29'})
   assert.deepEqual(rangoMesTableroSku('2026-09-01'),{desde:'2026-09-01',hasta:'2026-09-30'})
   assert.deepEqual(rangoMesTableroSku('2026-13-01'),{desde:'',hasta:''})
+ })
+ await test('La ventana PDV incluye los 28 días hasta la última visita, aunque cruce de mes o año',()=>{
+  assert.deepEqual(periodoRecientePdv('2026-11-20'),{desde:'2026-10-24',hasta:'2026-11-20'})
+  assert.deepEqual(periodoRecientePdv('2026-01-10'),{desde:'2025-12-14',hasta:'2026-01-10'})
+  assert.throws(()=>periodoRecientePdv('2026-02-30'))
+ })
+ await test('Visitas PDV de otro mes conservan su rotación sin alterar el cálculo financiero seleccionado',()=>{
+  const datos=base(), anterior=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20','c')
+  datos.visitas=[{id:'pdv',cliente_id:'c',local_id:'l',local_nombre:'Local PDV',producto_id:'p',producto_nombre:'Pan',fecha:'2026-10-28',visitado_en:'2026-10-28T12:00:00Z',actualizado_en:'2026-10-28T12:00:00Z',lector_estado:'RESPALDO_MANUAL',valores:{rotacion:3.5}}]
+  const actual=resumirRentabilidadTableroSku(datos,'2026-11-01','2026-11-20','c')
+  assert.equal(actual.rotaciones[0].rotacion,3.5);assert.equal(actual.locales[0].rotacion,3.5)
+  assert.deepEqual(actual.financieras,anterior.financieras)
  })
 } finally {await server.close()}

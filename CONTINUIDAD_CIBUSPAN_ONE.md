@@ -1,5 +1,30 @@
 # Continuidad de CIBUSPAN ONE
 
+20/11/2026, **Rotación PDV separada del mes contable, preparada localmente**.
+Iván señaló gráficos vacíos pese a tener visitas. El código usaba el rango del
+balance para consultar PDV. La corrección local busca la última visita confirmada
+con rotación de un SKU activo asignado al cliente seleccionado y consulta los
+28 días inclusivos hasta esa fecha. Mantiene las validaciones existentes de cada
+medición; no inventa valores ni modifica el dashboard semanal. La pantalla indica
+por separado mes financiero y rango PDV, permite abrir Visitas PDV y distingue
+carga, error de fuente, ausencia de visitas y mediciones pendientes.
+43 pruebas locales aprobadas y compilación correcta. El bloqueo de la revisión
+automática por cuota se levantó después de su hora de reinicio; se retomaron las
+operaciones por la misma revisión, sin eludirla. Lectura SELECT del Supabase
+operativo confirmó 1.184 rotaciones guardadas de Favorita, con visitas desde
+22/09/2026 hasta 19/11/2026; Rosado 43 rotaciones hasta 13/10/2026 y Santamaría
+ocho hasta 14/10/2026. Estos conteos son de valores guardados, no certifican que
+todos estén verificados. Pendiente integrar la nueva main `3a29fd1` y completar
+publicación. Recompilar con configuración oficial: el `dist/` de validación usa
+clave de prueba. No se ejecutó SQL de escritura.
+
+La corrección anterior de margen/meses/enlaces **sí terminó su despliegue**, según
+Wrangler: `https://967c22cf.cibuspan-one.pages.dev`, fuente `c0f139e`, integrada
+con `ed0b453` (permisos SRI). Pasaron 41 pruebas de tablero/permisos y una SQL SRI
+local tras integrar main; compilación oficial correcta. La comprobación posterior
+del dominio por SHA-256 no se ejecutó debido al límite de la revisión automática.
+No afirmar que esa comprobación pública se completó. No se modificaron importes.
+
 Cálculos editables pendientes de emisión, 20/11/2026, sobre `3a29fd1`.
 El usuario confirmó expresamente que la carga de hoy debe ser de cálculos, no de
 comprobantes emitidos. Instalada y registrada solo la migración nueva

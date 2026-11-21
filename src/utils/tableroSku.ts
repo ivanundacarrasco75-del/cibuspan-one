@@ -27,6 +27,13 @@ export type DatosTableroSku = {
     resumen: Array<{periodo:string; gasto_especifico_cliente:number; clasificacion_pendiente:number; cuentas_pendientes:number; cuentas_sin_matriz:number}> | null
   }
 }
+export function periodoRecientePdv(ultimaFecha:string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ultimaFecha)) throw new Error('La fecha de la última visita PDV no es válida.')
+  const fecha = new Date(`${ultimaFecha}T12:00:00Z`)
+  if (!Number.isFinite(fecha.getTime()) || fecha.toISOString().slice(0,10)!==ultimaFecha) throw new Error('La fecha de la última visita PDV no es válida.')
+  fecha.setUTCDate(fecha.getUTCDate()-27)
+  return {desde:fecha.toISOString().slice(0,10),hasta:ultimaFecha}
+}
 export type FilaSku = CatalogoSku & {
   unidades: number; venta: number; devueltas: number; valorDevuelto: number
   devolucionesSinValor: number; neto: number | null; aporte: number | null
