@@ -28,7 +28,15 @@ La carga transaccional comprobó caja y todas las otras cuentas sin cambios.
 Lectura posterior independiente: nueve CALCULADAS por 201,32, cero EMITIDAS.
 Datos y SQL de carga solo en `diagnosticos_privados/retenciones_2026/` ignorado.
 Pasaron nueve pruebas SQL, Chrome de creación/reapertura/corrección/emisión con
-referencia, y `npm run build`. Pendiente publicar la interfaz de 009.
+referencia, y `npm run build`. También pasó la regresión de importe manual,
+neto semanal 109,50, Sueldo por mes y móvil sin desborde. Consulta con rol
+authenticated y usuario Teresa: ve nueve calculadas y cuatro revisiones tanto
+en Cuentas como en SRI; permisos Cuentas true, semanales false, huella
+`337751bc5929496e46dbf21833dc9540` sin cambios.
+Publicado desde `462aa60`, despliegue `4df34e3b`. Comprobados SHA-256 de los
+17 archivos públicos, Supabase operativo, R2 y firma. No quedan pasos de
+instalación/publicación; las cuatro clasificaciones y las confirmaciones fiscales
+indicadas en los motivos siguen pendientes de revisión antes de emitir.
 
 Importe de retención editable, 20/11/2026, preparado sobre `ffe4cb3`. El usuario
 pidió poder corregir el importe y registrar retenciones a las facturas subidas
