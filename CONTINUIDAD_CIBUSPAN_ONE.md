@@ -1,6 +1,6 @@
 # Continuidad de CIBUSPAN ONE
 
-20/11/2026, **Movimiento de SKU: resultado tras CIF y gastos generales, preparado localmente**.
+20/11/2026, **Movimiento de SKU: resultado tras CIF y gastos generales, publicado y comprobado**.
 Lectura del Supabase operativo confirmó que el anillo anterior mostraba contribución
 directa: las devoluciones ya reducían el neto, pero faltaban CIF y generales.
 El usuario eligió expresamente repartir CIF por unidades facturadas, indicado como
@@ -19,7 +19,11 @@ se muestran antes del neto para evitar una segunda deducción. Estimación geren
 con materiales vigentes, antes de intereses e impuestos; no es utilidad neta ni
 resultado contable oficial. DashboardV2 y periodo PDV conservados.
 52 pruebas aprobadas, auditoría real por SELECT y compilación oficial completadas.
-Publicación pendiente de verificar. Archivos: distribucionCostosSku.ts,
+Publicado desde `cbfd86a`, despliegue `3fbf882f-cf03-44e8-8806-3f45b8b1197e`,
+`https://3fbf882f.cibuspan-one.pages.dev`. Dominio principal comprobado por SHA-256
+del bundle principal, PanoramaSku, ReglasRetenciones y ComprasSri contra dist.
+No se completó recorrido autenticado de la interfaz; los cálculos se comprobaron
+con registros reales mediante lectura y pruebas. Archivos: distribucionCostosSku.ts,
 tableroSku.ts, tableroSkuRepository.ts, PanoramaSku.tsx/.css, PanoramaGraficosSku.tsx
 y verificar_panorama_sku.mjs. Sin SQL de escritura ni cambios de base de datos.
 
