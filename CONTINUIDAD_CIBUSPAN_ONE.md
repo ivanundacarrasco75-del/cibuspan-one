@@ -10,7 +10,9 @@ importes, los permisos ni las diez filas visibles. Chrome comprobó 11/11/2026
 como semana 46, 01/01/2027 como 53, 04/01/2027 como 01 y fecha ausente, además
 de edición con bitácora y selección/envío semanal. Archivo de aplicación
 modificado: `src/pages/FinanzasPagosCompras.tsx`; se conserva DashboardV2.
-`npm run build` correcto. Pendiente publicar.
+`npm run build` correcto. Publicado desde `906aa09`, despliegue `29ebead3`.
+Comprobados SHA-256 de 17 archivos públicos de Finanzas/SRI/Roles/índice más el
+módulo compartido del cálculo de semanas; Supabase operativo, R2 y firma correctos.
 
 23/11/2026, **CND 30199 y 30324 vinculadas entre Excel y SRI**.
 Sobre main `e4037ae`. El usuario identificó expresamente estos dos pares como
