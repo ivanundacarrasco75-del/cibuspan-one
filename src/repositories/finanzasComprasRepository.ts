@@ -27,6 +27,31 @@ export type SeleccionCompra = { id: string; monto: string; verificado: boolean }
 
 export const CUENTAS_POR_PAGINA = 40
 
+export function estadoImportes(cuenta: CuentaCompra) {
+  return Object.fromEntries((["subtotal", "iva", "total", "retencion", "neto", "pagado"] as const)
+    .map(campo => [campo, cuenta[campo] === null ? null : Number(cuenta[campo])]))
+}
+export async function corregirImportesExcel(datos: {
+  operacion: string; cuenta: CuentaCompra; subtotal: string; iva: string; total: string; retencion: string; motivo: string
+}) {
+  const { error, status } = await supabase.rpc("fin_corregir_importes_excel", {
+    p_operacion: datos.operacion, p_documento: datos.cuenta.id, p_subtotal: datos.subtotal, p_iva: datos.iva,
+    p_total: datos.total, p_retencion: datos.retencion, p_motivo: datos.motivo, p_anterior: estadoImportes(datos.cuenta),
+  })
+  if (error) throw Object.assign(error, { rechazado: status >= 400 && status < 500 })
+}
+export type CorreccionImportes = {
+  id: string; creado_en: string; responsable_email: string; motivo: string; anterior: CuentaCompra
+  subtotal: number; iva: number; total: number; retencion: number; neto: number
+}
+export async function listarCorreccionesImportes(documento: string) {
+  const { data, error } = await supabase.from("fin_correcciones_excel_importes")
+    .select("id,creado_en,responsable_email,motivo,anterior,subtotal,iva,total,retencion,neto")
+    .eq("documento_id", documento).order("creado_en", { ascending: false }).limit(50)
+  if (error) throw error
+  return data as CorreccionImportes[]
+}
+
 export async function listarCuentasCompra(pagina: number, tipo: string, busqueda: string, pendientes: boolean) {
   const inicio = pagina * CUENTAS_POR_PAGINA
   let consulta = supabase.rpc("fin_consultar_cuentas", {}, { count: "exact" }).select("*")

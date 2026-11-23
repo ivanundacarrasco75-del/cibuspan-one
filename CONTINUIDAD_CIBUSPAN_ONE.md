@@ -1,5 +1,36 @@
 # Continuidad de CIBUSPAN ONE
 
+23/11/2026, **Corrección de importes del Excel con bitácora; CND 30608 habilitada**.
+Trabajo sobre main `d5a39f3`, conservando los cambios del tablero SKU. El usuario
+confirmó retención 3,31 y solicitó editar importes contrastados con factura física
+con registro de responsable y cambios. Cuentas por pagar → Detalle → Corregir
+importes permite editar subtotal, IVA, total, retención y neto de los documentos
+importados del Excel. Abonos y saldo siguen derivados de los movimientos reales.
+Motivo y confirmación física obligatorios en la interfaz; base valida permiso
+exacto de Cuentas, importes coherentes/no negativos/dos decimales, concurrencia
+mediante valores esperados, neto suficiente para pagos/anticipos e idempotencia.
+La bitácora por documento muestra fecha, correo responsable, motivo y valores
+anteriores/nuevos. También registra `FIN_CORREGIR_IMPORTES_EXCEL` en auditoría.
+No permite modificar bases de una retención activa mediante este flujo: remite
+a Reglas de retenciones. Conserva el origen Excel y sus filas originales;
+sincroniza la proyección SRI y ajusta un plan pendiente solo si debe reducirse.
+Instalada y registrada únicamente `202611230001_correccion_importes_excel.sql`
+tras revisar historial remoto, sin db push ni migraciones antiguas.
+Corrección real ejecutada con motivo explícito de solicitud del usuario:
+SOCIEDAD CIVIL CND FACT 30608, subtotal 110,48, IVA 16,57, total 127,05,
+retención 3,31, neto/saldo 123,74, abonos cero, semana sin asignar. Antes el neto
+estaba nulo por faltar VALOR en la fila 2911. No se creó pago ni comprobante de
+retención emitido; la persona usuaria debe elegirla y enviarla a su semana.
+La transacción verificó caja y todas las otras cuentas sin cambios. Verificado
+con rol authenticated y Teresa: mismos importes en Cuentas y SRI, una corrección
+visible, responsable iunda@cibuspan.com, huella de permisos
+`337751bc5929496e46dbf21833dc9540` sin cambios. SQL de datos solo en diagnósticos
+privados ignorados. Pasaron doce pruebas SQL y comprobación adicional de lector
+solo SRI; Chrome comprobó bloqueo inicial, edición, bitácora y envío a semana;
+`npm run build` correcto. Pendiente publicar la interfaz.
+Archivos: CorreccionImportesExcel.tsx, FinanzasPagosCompras.tsx,
+finanzasComprasRepository.ts, migración nueva y verificar_sueldo_retenciones_sql.mjs.
+
 20/11/2026, **Movimiento de SKU: resultado tras CIF y gastos generales, publicado y comprobado**.
 Lectura del Supabase operativo confirmó que el anillo anterior mostraba contribución
 directa: las devoluciones ya reducían el neto, pero faltaban CIF y generales.

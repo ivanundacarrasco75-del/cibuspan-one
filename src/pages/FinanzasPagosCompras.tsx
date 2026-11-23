@@ -7,6 +7,7 @@ import {
 import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES } from "../utils/permisosAplicacion"
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
+import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 
 const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina", ANTICIPO: "Anticipo" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -32,6 +33,7 @@ type Fila = { cuenta?: CuentaCompra; plan?: CompraProgramada }
 type FilaProgramada = Awaited<ReturnType<typeof listarComprasProgramadas>>[number]
 type Pago = { cuenta: CuentaCompra; operacion: string; abono: boolean; maximo: string; semana: string | null }
 type Acciones = {
+  actualizarImportes?: (id: string) => void
   seleccionar?: (cuenta: CuentaCompra, marcada: boolean) => void
   seleccion: Map<string, Seleccion>
   cambiarMonto?: (id: string, valor: string) => void
@@ -130,6 +132,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
               {cuenta.ruc && <p>RUC {cuenta.ruc}{cuenta.id.startsWith("sri:") ? " · Clave de acceso " + cuenta.id.slice(4) : ""}</p>}
               {historica(cuenta) && <p>Origen histórico en Clasificación de gastos. Verifica el saldo contra los pagos anteriores.</p>}
               {cuenta.observaciones && <p>{cuenta.observaciones}</p>}
+              {modo === "cuentas" && cuenta.origen === "EXCEL" && <CorreccionImportesExcel cuenta={cuenta}
+                alGuardar={() => acciones.actualizarImportes?.(cuenta.id)} />}
               {cuenta.pagos.length > 0 ? <ul>{cuenta.pagos.map(pago =>
                 <li key={pago.id}>{pago.fecha} · {importe(pago.valor)} · {pago.documento || "Sin referencia"}</li>)}</ul>
                 : <p>Sin pagos registrados en este documento.</p>}
@@ -334,7 +338,11 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const totalSeleccion = seleccionadas.reduce((total, fila) => total + (centavos(fila.monto) || 0), 0)
   const saldoSemana = programadas.reduce((total, { plan }) => total + centavos(plan.monto) - centavos(plan.pagado), 0)
   const ocupado = guardando || cargando || pago !== null
-  const acciones = { seleccion, abrirPago, ocupado }
+  const acciones = { seleccion, abrirPago, ocupado, actualizarImportes: (id: string) => {
+    setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(id); return siguiente })
+    setAviso("Importes corregidos y registrados en la bitácora. Ya puedes seleccionar el documento si tiene saldo.")
+    setRevision(valor => valor + 1)
+  } }
 
   return (
     <main className="compras-sri-pagina fin-pagos">
