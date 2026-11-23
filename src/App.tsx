@@ -497,7 +497,7 @@ function App() {
         return <MateriasPrimas />
 
       case PANTALLA_FACTURAS_SRI:
-        return <ComprasSri />
+        return <ComprasSri puedeResolverVinculos={puedeAcceder(PANTALLA_CUENTAS_POR_PAGAR)} />
 
       case PANTALLA_MENU_COMPRAS:
       case "Compras · Facturas":

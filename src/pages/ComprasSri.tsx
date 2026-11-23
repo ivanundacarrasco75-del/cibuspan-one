@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import {
-  guardarCompraSri, listarComprasSri, marcarRideLeido,
+  guardarCompraSri, listarComprasSri, marcarRideLeido, consultarVinculoSri,
   type CompraGuardada,
 } from "../repositories/comprasSriRepository"
 import { leerFacturaSri } from "../utils/comprasSri"
 import ComprasSriTabla from "./ComprasSriTabla"
+import VinculosExcelSri from "../components/VinculosExcelSri"
 
 const sri = "https://srienlinea.sri.gob.ec/sri-en-linea/inicio/NAT"
 const porPagina = 25
@@ -14,7 +15,7 @@ function mensajeError(error: unknown) {
   return "No se pudo completar la operación."
 }
 
-export default function ComprasSri() {
+export default function ComprasSri({ puedeResolverVinculos = false }: { puedeResolverVinculos?: boolean }) {
   const [compras, setCompras] = useState<CompraGuardada[]>([])
   const [pagina, setPagina] = useState(0)
   const [proveedor, setProveedor] = useState<string | null>(null)
@@ -66,8 +67,15 @@ export default function ComprasSri() {
           if (/\.xml$/i.test(archivo.name)) {
             if (archivo.size > 2 * 1024 * 1024) throw new Error("El XML supera 2 MB.")
             const xml = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await archivo.arrayBuffer())
-            const creada = await guardarCompraSri(leerFacturaSri(xml), xml)
-            salida.push(`${archivo.name} · ${creada ? "Factura registrada" : "La factura ya estaba registrada"}`)
+            const datos = leerFacturaSri(xml)
+            const creada = await guardarCompraSri(datos, xml)
+            let detalle = ""
+            try {
+              const vinculo = await consultarVinculoSri(datos.clave)
+              if (vinculo?.estado === "VINCULADA") detalle = " · Vinculada con Excel; pagos conservados"
+              if (vinculo?.estado === "REVISION") detalle = " · Revisar coincidencia con Excel antes de pagar"
+            } catch { detalle = " · No se pudo consultar la vinculación; revisa las coincidencias con Excel" }
+            salida.push(`${archivo.name} · ${creada ? "Factura registrada" : "La factura ya estaba registrada"}${detalle}`)
           } else if (/\.pdf$/i.test(archivo.name)) {
             if (archivo.size > 20 * 1024 * 1024) throw new Error("El PDF supera 20 MB.")
             const { leerClaveRide } = await import("../utils/comprasSriRide")
@@ -113,6 +121,7 @@ export default function ComprasSri() {
         </ul>
       )}
       {errorTabla && <p role="alert">No se pudieron consultar las compras. {errorTabla}</p>}
+      <VinculosExcelSri revision={revision} puedeResolver={puedeResolverVinculos} alResolver={() => setRevision(valor => valor + 1)} />
       {proveedor !== null && <p className="compras-sri-filtro-activo">
         <span>Proveedor: {proveedor}</span>
         <button type="button" onClick={() => elegirProveedor(null)}>Quitar filtro</button>

@@ -16,6 +16,33 @@ export type CompraGuardada = ControlCompra & {
   documento_excel?: string | null
 }
 
+export type VinculoExcelSri = {
+  clave: string; revision: string; estado: "REVISION" | "VINCULADA" | "DISTINTAS"; motivo: string
+  datos_sri: { numero: string; proveedor: string; ruc: string; fecha: string; total: string }
+  candidatos: { id: string; numero: string; proveedor: string; fecha: string | null; total: number | null; neto: number | null; pagado: number }[]
+}
+export async function listarVinculosPendientes() {
+  const { data, error } = await supabase.from("compras_vinculos_excel").select("clave,revision,estado,motivo,datos_sri,candidatos")
+    .eq("estado", "REVISION").order("actualizado_en").limit(50)
+  if (error) throw error
+  return data as VinculoExcelSri[]
+}
+export async function consultarVinculoSri(clave: string) {
+  const { data, error } = await supabase.from("compras_vinculos_excel").select("estado").eq("clave", clave).maybeSingle()
+  if (error) throw error
+  return data as Pick<VinculoExcelSri, "estado"> | null
+}
+export async function resolverVinculoSri(vinculo: VinculoExcelSri, excel: string | null, motivo: string) {
+  const { error } = await supabase.rpc("compras_resolver_vinculo_excel", {
+    p_clave: vinculo.clave, p_revision: vinculo.revision, p_excel: excel, p_motivo: motivo, p_confirmado: true,
+  })
+  if (error) throw error
+}
+export async function refrescarVinculoSri(vinculo: VinculoExcelSri) {
+  const { error } = await supabase.rpc("compras_refrescar_vinculo_excel", { p_clave: vinculo.clave, p_revision: vinculo.revision })
+  if (error) throw error
+}
+
 export async function listarComprasSri(desde: number, limite: number, proveedor: string | null) {
   let consulta = supabase.from("compras_vw_facturas")
     .select("datos,ride_leido,edicion,abonos,neto_excel,origen_excel,observaciones_excel,documento_excel")

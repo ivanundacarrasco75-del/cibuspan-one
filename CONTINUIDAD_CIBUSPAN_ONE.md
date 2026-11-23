@@ -1,5 +1,37 @@
 # Continuidad de CIBUSPAN ONE
 
+23/11/2026, **Vinculación automática de nuevas facturas SRI con Excel**.
+Sobre main `6507996`, a petición del usuario para prevenir duplicados futuros.
+Instalada y registrada solo `202611230002_vinculos_automaticos_sri_excel.sql`
+después de revisar historial remoto (última 001). Trigger AFTER INSERT en SRI:
+busca facturas Excel no vinculadas por número completo o secuencial abreviado.
+Autoenlaza solo una candidata con proveedor identificado (nombre normalizado
+no trivial o alias previamente vinculado a un único RUC), identidad de XML/clave
+coherente, fecha y total coincidentes; valida también IVA y bases. Un alias con
+RUC distinto, otra serie con el mismo secuencial, varias candidatas, diferencias
+de fecha/importes o movimientos propios del XML pasan a revisión. Usa locks de
+documento sin esperar un Excel ocupado desde el trigger; ese caso queda pendiente.
+Conserva ID financiero, neto, abonos, referencias y plan del Excel; conserva XML.
+Solo completa total/IVA faltantes y adopta número/fecha del XML al vincular.
+El importador informa Vinculada con Excel o Revisar coincidencia. Sección nueva
+en Facturas SRI permite confirmar el Excel elegido o declarar facturas distintas,
+con motivo y revisión física obligatorios; exige permisos SRI y Cuentas en servidor
+y pantalla. Detecta cambios concurrentes por versión y permite refrescar los datos
+antes de resolver. Operaciones idempotentes y decisiones auditadas con responsable.
+Los XML pendientes siguen visibles con advertencia; no se pueden seleccionar,
+programar ni abonar mientras se decide, con protección también en la base.
+No se fusiona automáticamente por secuencial solo ni se reclasifica el histórico
+al instalar: tabla de revisiones inicialmente vacía; procesa nuevos ingresos.
+Conciliación real antes/después: misma huella de cuentas
+`ffe7288255b0eb9a388f9515af0ed566`, 26 pagos y 26 planes, permisos de Teresa
+`337751bc5929496e46dbf21833dc9540`, cuatro triggers activos, RPC anónimo bloqueado
+y helper de enlace privado. No se insertaron facturas ni pagos de prueba en la base.
+Pasaron 20 pruebas SQL (suite de 18 y dos casos adicionales), Chrome de importación
+automática/revisión/permisos/bloqueo/móvil, regresión de semana de emisión,
+corrección y envío semanal, y `npm run build`. Pendiente publicar interfaz.
+Archivos: App.tsx, ComprasSri.tsx, FinanzasPagosCompras.tsx,
+comprasSriRepository.ts, VinculosExcelSri.tsx, migración nueva y pruebas SQL.
+
 23/11/2026, **Columna Semana de emisión en Cuentas por pagar**.
 Sobre main `b4fa681`. Se agregó la columna junto a Emisión en la tabla principal,
 calculada desde `fecha_documento` con la función de semana ISO ya usada por la

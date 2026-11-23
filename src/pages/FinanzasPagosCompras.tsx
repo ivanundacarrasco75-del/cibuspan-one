@@ -93,17 +93,19 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
           const elegida = acciones.seleccion.get(cuenta.id)
           const nombre = cuenta.numero_documento || cuenta.proveedor || tipos[cuenta.tipo]
           const restante = plan ? centavos(plan.monto) - centavos(plan.pagado) : centavos(cuenta.saldo)
-          const puedePagar = cuenta.saldo !== null && restante > 0 && (plan ? restante <= centavos(cuenta.saldo) : !cuenta.semana_activa)
+          const vinculoPendiente = cuenta.observaciones?.includes("Revisar coincidencia con Excel antes de programar pagos")
+          const puedePagar = !vinculoPendiente && cuenta.saldo !== null && restante > 0 && (plan ? restante <= centavos(cuenta.saldo) : !cuenta.semana_activa)
           let estado = cuenta.pagado > 0 ? "Abonada" : "Pendiente"
           if (cuenta.saldo === null) estado = "Importe por completar"
           else if (cuenta.saldo <= 0) estado = cuenta.pagado > 0 ? "Pagada" : "Sin saldo"
           else if (historica(cuenta) && cuenta.pagado === 0) estado = "Verificar saldo"
           if (cuenta.semana_activa) estado = `Semana ${cuenta.semana_activa}`
           if (plan) estado = restante === 0 ? "Ejecutado" : puedePagar ? "Programado" : "Revisar saldo"
+          if (vinculoPendiente) estado = "Revisar vínculo con Excel"
           return <Fragment key={cuenta.id}>
             <tr className={restante === 0 && (plan || cuenta.pagado > 0) ? "compras-sri-pagada" : elegida ? "fin-pagos-elegida" : undefined}>
               {modo === "cuentas" && acciones.seleccionar && <td><input type="checkbox" aria-label={`Seleccionar ${nombre}`} checked={Boolean(elegida)}
-                disabled={acciones.ocupado || (!elegida && (cuenta.saldo === null || cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
+                disabled={acciones.ocupado || (!elegida && (vinculoPendiente || cuenta.saldo === null || cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
                 onChange={evento => acciones.seleccionar?.(cuenta, evento.target.checked)} /></td>}
               <td>{cuenta.fecha_documento || "—"}</td>
               {modo === "cuentas" && <td>{cuenta.fecha_documento ? etiquetaAgrupacion(cuenta.fecha_documento, "SEMANA") : "—"}</td>}

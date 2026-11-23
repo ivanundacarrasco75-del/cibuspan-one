@@ -43,7 +43,7 @@ async function preparar(t) {
     '202611200002_finanzas_permisos_asignados','202611200003_finanzas_seleccion_por_modulo',
     '202611200004_anticipos_proveedores','202611200005_nomina_sueldo','202611200006_retenciones_documentos',
     '202611200008_retenciones_importe_editable','202611200009_retenciones_calculadas',
-    '202611230001_correccion_importes_excel']) await db.exec(await leer(nombre))
+    '202611230001_correccion_importes_excel','202611230002_vinculos_automaticos_sri_excel']) await db.exec(await leer(nombre))
   await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,'2026-11-01',$2,'<xml/>')",
     [clave,JSON.stringify({clave,serie:'F-1',fecha:'2026-11-01',proveedor:'Proveedor',ruc:'1790000000001',subtotal:'100',total:'115',items:[],impuestos:[{codigo:'2',valor:'15'}]})])
   await db.exec(`insert into fin_nomina_empleados(id,nombre,nombre_normalizado,area,activo,tipo_vinculo)
@@ -238,4 +238,116 @@ test('La corrección respeta pagos existentes, ajusta la semana y no permite alt
   assert.equal(Number((await db.query('select monto from fin_consultar_programaciones()')).rows[0].monto),123.05)
   await aplicar(50,documento,'GENERAL',false,[{regla:'IR_BIENES_2026',base:110.48},{regla:'IVA_NO_APLICA',base:16.57}])
   await assert.rejects(corregir(32,4,estado(await cuenta(documento))),/retención revisada/)
+})
+
+async function prepararVinculo(t,{proveedor='SOCIEDAD CIVIL CND',fecha='2026-10-07',total=115.43}={}) {
+  const resultado=await preparar(t),{db}=resultado
+  await db.exec(`reset role; insert into compras_excel_cargas values('${'b'.repeat(64)}','Historico.xlsx','Hoja1',2026,'{}',now());`)
+  await db.query(`insert into compras_excel_documentos(id,archivo_hash,tipo,numero,proveedor,descripcion,fecha,total,iva,neto,pagado,pagos,observaciones,filas)
+    values($1,$2,'FACTURA','FACT 30199',$3,'Servicio',$4,$5,15.06,112.42,112.42,'[]','','[]')`,[id(2),'b'.repeat(64),proveedor,fecha,total])
+  await db.exec('set role authenticated')
+  const cargar=async({ruc='1792651654001',serie='002-200-000030199',proveedorSri='SOCIEDAD CIVIL CND',fechaSri='2026-10-07'}={})=>{
+    const claveNueva=fechaSri.split('-').reverse().join('')+'01'+ruc+'2'+serie.replaceAll('-','')+'1234567810'
+    const datos={clave:claveNueva,fecha:fechaSri,serie,proveedor:proveedorSri,ruc,subtotal:'100.37',total:'115.43',impuestos:[{codigo:'2',valor:'15.06'}],items:[]}
+    await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,$2,$3,'<xml/>') on conflict do nothing",[claveNueva,fechaSri,JSON.stringify(datos)])
+    return claveNueva
+  }
+  const revision=async c=>(await db.query('select * from compras_vinculos_excel where clave=$1',[c])).rows[0]
+  const resolver=async(c,excel=id(2),rev)=>db.query("select compras_resolver_vinculo_excel($1,$2,$3,'Identidad verificada con factura física',true)",[c,rev??(await revision(c)).revision,excel])
+  return {...resultado,cargar,revision,resolver}
+}
+
+test('SRI enlaza automáticamente un Excel inequívoco, conserva pagos y no duplica al reimportar',async t=>{
+  const {db,cuenta,cargar,revision}=await prepararVinculo(t)
+  const c=await cargar();await cargar()
+  assert.equal((await revision(c)).estado,'VINCULADA')
+  assert.equal((await revision(c)).automatico,true)
+  const unificada=await cuenta('excel:'+id(2))
+  assert.equal(Number(unificada.pagado),112.42);assert.equal(Number(unificada.saldo),0)
+  assert.equal(unificada.ruc,'1792651654001');assert.equal(await cuenta('sri:'+c),undefined)
+  await db.exec('reset role')
+  assert.equal((await db.query("select count(*)::int n from app_audit_log where accion='COMPRAS_VINCULAR_EXCEL_SRI'")).rows[0].n,1)
+  assert.equal((await db.query('select count(*)::int n from fin_pagos_compras')).rows[0].n,0)
+})
+
+test('Un alias previamente vinculado permite el cruce por RUC; un RUC diferente exige revisión',async t=>{
+  const {db,cargar,revision}=await prepararVinculo(t,{proveedor:'CND'})
+  await db.exec(`reset role; insert into compras_excel_documentos(id,archivo_hash,tipo,numero,proveedor,descripcion,neto,pagado,pagos,observaciones,filas,sri_clave)
+    values('${id(3)}','${'b'.repeat(64)}','FACTURA','ANTERIOR','CND','Servicio',0,0,'[]','','[]','${clave}');set role authenticated;`)
+  const c=await cargar({ruc:'1790000000001',proveedorSri:'NOMBRE OFICIAL DEL RUC'})
+  assert.equal((await revision(c)).estado,'VINCULADA')
+  await db.exec(`reset role; update compras_excel_documentos set sri_clave=null where id='${id(2)}';update compras_excel_documentos set numero='FACT 30199' where id='${id(2)}';set role authenticated;`)
+  const otro=await cargar({ruc:'1799999999001',proveedorSri:'CND'})
+  assert.equal((await revision(otro)).estado,'REVISION')
+})
+
+test('Fecha diferente queda pendiente, bloquea programar/abonar y se vincula tras revisión explícita',async t=>{
+  const {db,cargar,revision,resolver,cuenta}=await prepararVinculo(t,{fecha:'2026-10-18'})
+  const c=await cargar();assert.equal((await revision(c)).estado,'REVISION')
+  assert.match((await cuenta('sri:'+c)).observaciones,/Revisar coincidencia con Excel/)
+  await assert.rejects(db.query("select fin_programar_compras('2026-11-23',$1)",[JSON.stringify([{id:'sri:'+c,monto:115.43}])]),/coincidencia con Excel/)
+  await assert.rejects(db.query("select compras_sri_abonar($1,$2,1,'2026-11-23','DEP')",[c,id(60)]),/coincidencia con Excel/)
+  await resolver(c);await resolver(c)
+  assert.equal((await revision(c)).estado,'VINCULADA')
+  assert.equal(Number((await cuenta('excel:'+id(2))).saldo),0)
+  assert.equal((await cuenta('excel:'+id(2))).fecha_documento.toISOString().slice(0,10),'2026-10-07')
+})
+
+test('Colisiones de proveedor o de serie no se fusionan y pueden declararse facturas distintas',async t=>{
+  const {db,cargar,revision,resolver,cuenta}=await prepararVinculo(t,{proveedor:'OTRO PROVEEDOR'})
+  const c=await cargar();assert.equal((await revision(c)).estado,'REVISION')
+  await resolver(c,null)
+  assert.equal((await revision(c)).estado,'DISTINTAS')
+  assert.equal(Number((await cuenta('sri:'+c)).saldo),115.43)
+  await db.query("select fin_programar_compras('2026-11-23',$1)",[JSON.stringify([{id:'sri:'+c,monto:115.43}])])
+})
+
+test('Una revisión detecta cambios concurrentes, permite refrescarlos y exige permiso de Cuentas',async t=>{
+  const {db,cargar,revision,resolver}=await prepararVinculo(t,{fecha:'2026-10-18'})
+  const c=await cargar();const previa=await revision(c)
+  await db.exec(`reset role;update compras_excel_documentos set observaciones='Factura verificada' where id='${id(2)}';set role authenticated`)
+  await assert.rejects(resolver(c),/Excel cambió/)
+  await db.query('select compras_refrescar_vinculo_excel($1,$2)',[c,previa.revision])
+  await assert.rejects(resolver(c,id(2),previa.revision),/revisión cambió/)
+  await db.exec("reset role;update app_user_permissions set permitido=false where pantalla='Pagos y Finanzas · Cuentas por Pagar';set role authenticated")
+  await assert.rejects(resolver(c),/Necesitas permiso/)
+  await db.exec("reset role;update app_user_permissions set permitido=true where pantalla='Pagos y Finanzas · Cuentas por Pagar';set role authenticated")
+  await resolver(c);assert.equal((await revision(c)).estado,'VINCULADA')
+})
+
+test('No enlaza importes discrepantes ni varias candidatas; mantiene la factura en revisión',async t=>{
+  const {db,cargar,revision,resolver}=await prepararVinculo(t,{total:116})
+  const c=await cargar();assert.equal((await revision(c)).estado,'REVISION')
+  await assert.rejects(resolver(c),/importes difieren/)
+  assert.equal((await revision(c)).estado,'REVISION')
+  await db.exec(`reset role;update compras_excel_documentos set total=115.43 where id='${id(2)}';
+   insert into compras_excel_documentos(id,archivo_hash,tipo,numero,proveedor,descripcion,total,iva,neto,pagado,pagos,observaciones,filas,fecha)
+    select '${id(4)}',archivo_hash,tipo,numero,proveedor,descripcion,total,iva,neto,pagado,pagos,observaciones,filas,fecha from compras_excel_documentos where id='${id(2)}';
+   set role authenticated;`)
+  const otra=await cargar({serie:'003-200-000030199'})
+  assert.equal((await revision(otra)).estado,'REVISION');assert.equal((await revision(otra)).candidatos.length,2)
+})
+
+test('El mismo secuencial en dos series de un RUC no se vincula automáticamente al número abreviado',async t=>{
+  const {db,cargar,revision}=await prepararVinculo(t)
+  await db.exec(`reset role;update compras_excel_documentos set numero='OTRA' where id='${id(2)}';set role authenticated`)
+  await cargar({serie:'001-001-000030199'})
+  await db.exec(`reset role;update compras_excel_documentos set numero='FACT 30199' where id='${id(2)}';set role authenticated`)
+  const nueva=await cargar()
+  assert.equal((await revision(nueva)).estado,'REVISION')
+  assert.match((await revision(nueva)).motivo,/otra serie/)
+})
+
+test('El enlace conserva abono y plan del Excel y el pago final se registra una sola vez por la identidad consolidada',async t=>{
+  const {db,cargar,revision,cuenta}=await prepararVinculo(t)
+  await db.exec(`reset role;update compras_excel_documentos set pagado=100,pagos='[{"id":"historico","valor":"100","fecha":"2026-11-13","documento":"DEP-HISTORICO"}]' where id='${id(2)}';set role authenticated`)
+  await db.query("select fin_programar_compras('2026-11-23',$1)",[JSON.stringify([{id:'excel:'+id(2),monto:12.42}])])
+  const c=await cargar();assert.equal((await revision(c)).estado,'VINCULADA')
+  const unificada=await cuenta('excel:'+id(2))
+  assert.equal(Number(unificada.pagado),100);assert.equal(Number(unificada.saldo),12.42)
+  assert.equal(unificada.pagos[0].documento,'DEP-HISTORICO')
+  assert.equal(Number((await db.query('select monto from fin_consultar_programaciones()')).rows[0].monto),12.42)
+  await assert.rejects(db.query("select compras_sri_abonar($1,$2,1,'2026-11-23','DEP-DUPLICADO')",[c,id(70)]),/vinculada al Excel/)
+  await db.query("select fin_pagar_compra($1,$2,12.42,'2026-11-23','DEP-FINAL','2026-11-23',false)",['excel:'+id(2),id(71)])
+  assert.equal(Number((await cuenta('excel:'+id(2))).saldo),0)
 })
