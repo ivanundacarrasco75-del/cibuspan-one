@@ -9,6 +9,7 @@ import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
+import { useColumnasAjustables } from "../hooks/useColumnasAjustables"
 
 const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina", ANTICIPO: "Anticipo" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -50,7 +51,16 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
 }) {
   const [detalle, setDetalle] = useState<string | null>(null)
   const contenedor = useRef<HTMLDivElement>(null)
-  const columnas = 13 + (modo === "semana" ? 2 : 1) + (modo === "cuentas" ? 1 : 0) - (modo === "cuentas" && !acciones.seleccionar ? 1 : 0)
+  const tabla = useRef<HTMLTableElement>(null)
+  const titulos = [
+    ...(modo === "cuentas" && acciones.seleccionar ? ["Elegir"] : []), "Emisión",
+    ...(modo === "cuentas" ? ["Semana de emisión"] : []), "Tipo", "Documento", "Proveedor", "Descripción",
+    "Subtotal", "IVA", "Retención", "Total", "Abonado", "Saldo",
+    ...(modo === "cuentas" ? [] : [modo === "semana" ? "Programado" : "Monto a pagar"]),
+    ...(modo === "semana" ? ["Pagado en plan"] : []), "Estado", "Pagos",
+  ]
+  const columnas = titulos.length
+  const anchos = useColumnasAjustables(modo, titulos, tabla)
 
   useEffect(() => {
     const elemento = contenedor.current
@@ -68,19 +78,19 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   return (
     <div ref={contenedor} className={`compras-sri-contenedor${modo === "cuentas" ? " fin-pagos-cuentas-scroll" : ""}`}
       tabIndex={0} role="region" aria-label={titulo} onScroll={alDesplazar}>
-      <table className="compras-sri-tabla fin-pagos-tabla" aria-label={titulo}>
-        <thead><tr>
-          {modo === "cuentas" && acciones.seleccionar && <th scope="col">Elegir</th>}
-          <th scope="col">Emisión</th>
-          {modo === "cuentas" && <th scope="col" title="Semana ISO de la fecha de emisión: de lunes a domingo">Semana de emisión</th>}
-          <th scope="col">Tipo</th><th scope="col">Documento</th>
-          <th scope="col">Proveedor</th><th scope="col">Descripción</th><th scope="col">Subtotal</th>
-          <th scope="col">IVA</th><th scope="col">Retención</th><th scope="col">Total</th>
-          <th scope="col">Abonado</th><th scope="col">Saldo</th>
-          {modo !== "cuentas" && <th scope="col">{modo === "semana" ? "Programado" : "Monto a pagar"}</th>}
-          {modo === "semana" && <th scope="col">Pagado en plan</th>}
-          <th scope="col">Estado</th><th scope="col">Pagos</th>
-        </tr></thead>
+      <table ref={tabla} className={`compras-sri-tabla fin-pagos-tabla${anchos.ajustada ? " fin-pagos-ajustada" : ""}`} aria-label={titulo}
+        style={anchos.ajustada ? { width: anchos.total, minWidth: anchos.total, tableLayout: "fixed" } : undefined}>
+        <colgroup>{titulos.map(columna => <col key={columna} style={anchos.ajustada ? { width: anchos.ancho(columna) } : undefined} />)}</colgroup>
+        <thead><tr>{titulos.map(columna => <th key={columna} scope="col" aria-label={columna}
+          title={columna === "Semana de emisión" ? "Semana ISO de la fecha de emisión: de lunes a domingo" : columna}>
+          <span className="fin-pagos-titulo-columna">{columna}</span>
+          <span className="fin-pagos-ajustar-columna" role="separator" aria-orientation="vertical" tabIndex={0}
+            aria-label={`Cambiar ancho de ${columna}`} aria-valuemin={40} aria-valuemax={900} aria-valuenow={anchos.ancho(columna)}
+            title="Arrastra para cambiar el ancho. También puedes usar las flechas. Doble clic para restablecer esta columna."
+            onPointerDown={evento => anchos.iniciar(evento, columna)} onPointerMove={anchos.mover}
+            onPointerUp={anchos.terminar} onPointerCancel={anchos.terminar} onLostPointerCapture={anchos.terminar}
+            onKeyDown={evento => anchos.teclado(evento, columna)} onDoubleClick={() => anchos.restablecer(columna)} />
+        </th>)}</tr></thead>
         <tbody>{filas.map(({ cuenta, plan }) => {
           if (!cuenta && plan) {
             return <tr key={plan.documento_id}>

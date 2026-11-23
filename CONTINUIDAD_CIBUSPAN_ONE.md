@@ -1,5 +1,23 @@
 # Continuidad de CIBUSPAN ONE
 
+23/11/2026, **Ancho de columnas ajustable en las tablas de Finanzas**.
+Sobre main `dcfb515`. Los bordes derechos de los encabezados permiten arrastrar
+el ancho en Cuentas por pagar, Documentos seleccionados y Pagos semanales.
+Se guarda en localStorage una preferencia independiente por tabla en este
+navegador. Primera interacción captura los anchos visibles y fija el layout;
+el arrastre de una columna conserva los demás. Admite flechas (10 px, Shift 25),
+Home y doble clic para restablecer la columna; límites 40–900 px, captura de
+puntero y soporte táctil. Almacenamiento bloqueado o inválido no rompe la tabla.
+Los encabezados mantienen nombres accesibles y el número de columnas del detalle
+se deriva de la misma lista. Se mantienen diez filas visibles y el desplazamiento
+horizontal dentro del contenedor. No cambia datos, SQL ni permisos.
+Chrome comprobó aumentar/reducir, otras columnas sin cambio, persistencia tras
+recarga, teclado, doble clic, preferencias independientes en las tres tablas y
+móvil sin desbordar la página, además de corrección auditada y envío semanal.
+Regresión de semana de emisión/cambio de año/detalles también correcta.
+`npm run build` correcto. Archivos de aplicación: FinanzasPagosCompras.tsx,
+finanzasPagosCompras.css y hooks/useColumnasAjustables.ts. Pendiente publicar.
+
 23/11/2026, **Vinculación automática de nuevas facturas SRI con Excel**.
 Sobre main `6507996`, a petición del usuario para prevenir duplicados futuros.
 Instalada y registrada solo `202611230002_vinculos_automaticos_sri_excel.sql`

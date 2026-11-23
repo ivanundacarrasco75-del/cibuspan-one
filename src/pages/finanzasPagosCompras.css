@@ -27,6 +27,19 @@
 
 .fin-pagos-filtros input[type="search"] { width: min(238px, 54vw); }
 .fin-pagos .fin-pagos-tabla { table-layout: auto; min-width: 1110px; }
+.fin-pagos-tabla th { padding-right: 13px; overflow: hidden; }
+.fin-pagos-titulo-columna { display: block; overflow: hidden; text-overflow: ellipsis; }
+.fin-pagos-ajustar-columna {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+.fin-pagos-ajustar-columna:hover,
+.fin-pagos-ajustar-columna:focus-visible { background: #167a8a55; outline: 1px solid #167a8a; outline-offset: -1px; }
+.fin-pagos-ajustada td:not(.compras-sri-detalle) { max-width: none; }
 .fin-pagos .fin-pagos-cuentas-scroll {
   --fin-pagos-cabecera: 28px;
   --fin-pagos-fila: 27px;
