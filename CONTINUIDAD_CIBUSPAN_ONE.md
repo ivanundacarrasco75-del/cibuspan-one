@@ -1,5 +1,27 @@
 # Continuidad de CIBUSPAN ONE
 
+23/11/2026, **CND 30199 y 30324 vinculadas entre Excel y SRI**.
+Sobre main `e4037ae`. El usuario identificó expresamente estos dos pares como
+las mismas facturas. Lectura operativa confirmó que Excel tenía los pagos de
+112,42 y 11,09 del 13/11, mientras los XML aparecían como deudas nuevas por
+115,43 y 11,39. Se usó el vínculo existente `compras_excel_documentos.sri_clave`,
+sin eliminar registros, sin crear reglas automáticas por secuencial y sin cambiar
+vistas, permisos, código de la aplicación ni esquema. Se conservaron los IDs de
+Excel, netos, pagos, referencias y filas originales. Número completo, fecha de
+emisión y datos faltantes de total/IVA se completaron según los XML autorizados.
+30324 tenía fecha Excel 18/10 frente a emisión XML 13/10: se usa 13/10 y se
+conserva la diferencia en observaciones y auditoría. Los XML quedaron intactos.
+Transacción con bloqueo de los cuatro documentos y guardas de importes, ausencia
+de movimientos adicionales, caja y otras cuentas; dos auditorías
+`COMPRAS_VINCULAR_EXCEL_SRI` con responsable y antes/después.
+Verificación independiente con rol authenticated/Teresa: dos filas en Cuentas
+y dos en Facturas SRI, una por factura. 30199 pagado/neto 112,42; 30324 pagado/neto
+11,09; ambos saldos cero. Se suprimió de la proyección la deuda duplicada de
+126,82; no se registró dinero adicional ni se borraron pagos. Permisos conservan
+la huella `337751bc5929496e46dbf21833dc9540`. `npm run build` correcto. Datos y
+SQL solo en `diagnosticos_privados/` ignorado; único archivo versionado modificado:
+esta continuidad. No requiere despliegue; la corrección está en la base operativa.
+
 23/11/2026, **Corrección de importes del Excel con bitácora; CND 30608 habilitada**.
 Trabajo sobre main `d5a39f3`, conservando los cambios del tablero SKU. El usuario
 confirmó retención 3,31 y solicitó editar importes contrastados con factura física
