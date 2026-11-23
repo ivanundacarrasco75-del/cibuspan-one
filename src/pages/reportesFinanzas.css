@@ -1,0 +1,9 @@
+.fin-reportes h1 { font-size: 23px; margin: 0 0 14px; }
+.fin-reportes h2 { font-size: 18px; margin: 18px 0 8px; }
+.fin-reportes-filtros { min-width: 0; border: 1px solid #bac5d1; border-radius: 5px; padding: 10px; }
+.fin-reportes-filtros select { max-width: min(360px, 75vw); }
+.fin-reportes-resumen { padding: 10px; background: #e9f4f2; border-left: 3px solid #167a8a; font-weight: bold; }
+.fin-reportes-unidad { display: inline-block; margin: 0 12px 8px 0; }
+.fin-reportes .fin-reportes-tabla { table-layout: auto; }
+.fin-reportes-tabla td { max-width: 320px; overflow-wrap: anywhere; }
+.fin-reportes-tabla td.fin-reportes-numero { text-align: right; white-space: nowrap; }

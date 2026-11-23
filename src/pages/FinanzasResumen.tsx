@@ -1,4 +1,4 @@
-import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES } from "../utils/permisosAplicacion"
+import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES, PANTALLA_REPORTES_FINANZAS } from "../utils/permisosAplicacion"
 import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
 
 const documento = "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7"
@@ -7,6 +7,7 @@ const grafico = "M4 4v16h16M8 16v-4m4 4V8m4 8V5"
 const secciones: Tarjeta[] = [
   { nombre: "Cuentas por pagar", ruta: PANTALLA_CUENTAS_POR_PAGAR, descripcion: "Reúne los documentos de Compras y selecciona los pagos.", icono: documento },
   { nombre: "Pagos semanales", ruta: PANTALLA_PAGOS_SEMANALES, descripcion: "Consulta y registra los pagos programados para cada semana.", icono: calendario },
+  { nombre: "Reportes", ruta: PANTALLA_REPORTES_FINANZAS, descripcion: "Consulta, imprime y descarga pagos realizados y recepciones de MP por fechas.", icono: grafico },
   { nombre: "Reglas de retenciones", ruta: PANTALLA_RETENCIONES, descripcion: "Calcula renta e IVA y registra el descuento de cada documento.", icono: documento },
   { nombre: "Roles de pago", ruta: "Pagos y Finanzas · Roles de pago", descripcion: "Carga y consulta los roles mensuales.", icono: documento },
   { nombre: "Importación contable", ruta: "Pagos y Finanzas · Importación contable", descripcion: "Carga los documentos y controla el cierre mensual.", icono: calendario },

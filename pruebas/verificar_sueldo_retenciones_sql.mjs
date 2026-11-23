@@ -43,7 +43,8 @@ async function preparar(t) {
     '202611200002_finanzas_permisos_asignados','202611200003_finanzas_seleccion_por_modulo',
     '202611200004_anticipos_proveedores','202611200005_nomina_sueldo','202611200006_retenciones_documentos',
     '202611200008_retenciones_importe_editable','202611200009_retenciones_calculadas',
-    '202611230001_correccion_importes_excel','202611230002_vinculos_automaticos_sri_excel']) await db.exec(await leer(nombre))
+    '202611230001_correccion_importes_excel','202611230002_vinculos_automaticos_sri_excel',
+    '202611230003_reportes_finanzas']) await db.exec(await leer(nombre))
   await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,'2026-11-01',$2,'<xml/>')",
     [clave,JSON.stringify({clave,serie:'F-1',fecha:'2026-11-01',proveedor:'Proveedor',ruc:'1790000000001',subtotal:'100',total:'115',items:[],impuestos:[{codigo:'2',valor:'15'}]})])
   await db.exec(`insert into fin_nomina_empleados(id,nombre,nombre_normalizado,area,activo,tipo_vinculo)
@@ -350,4 +351,61 @@ test('El enlace conserva abono y plan del Excel y el pago final se registra una 
   await assert.rejects(db.query("select compras_sri_abonar($1,$2,1,'2026-11-23','DEP-DUPLICADO')",[c,id(70)]),/vinculada al Excel/)
   await db.query("select fin_pagar_compra($1,$2,12.42,'2026-11-23','DEP-FINAL','2026-11-23',false)",['excel:'+id(2),id(71)])
   assert.equal(Number((await cuenta('excel:'+id(2))).saldo),0)
+})
+
+test('Reporte mensual cuenta pagos por fecha, incluye anticipo real y excluye el cruce sin duplicar el dinero',async t=>{
+  const {db}=await preparar(t)
+  await db.query("select fin_guardar_anticipo($1,'2026-11-01','Proveedor','1790000000001','Compra futura',30)",[id(10)])
+  await db.query("select fin_pagar_compra($1,$2,30,'2026-11-01','DEP-ANTICIPO',null,false)",['anticipo:'+id(10),id(20)])
+  await db.query("select fin_aplicar_anticipo($1,$2,$3,30,true)",[id(30),id(10),'sri:'+clave])
+  await db.query("select fin_pagar_compra($1,$2,25,'2026-11-30','DEP-NOVIEMBRE',null,false)",['sri:'+clave,id(21)])
+  await db.query("select fin_pagar_compra($1,$2,10,'2026-12-01','DEP-DICIEMBRE',null,false)",['sri:'+clave,id(22)])
+  const resultado=(await db.query("select fin_reporte_pagos('2026-11-01','2026-11-30') datos")).rows[0].datos
+  assert.equal(resultado.total,55);assert.equal(resultado.movimientos,2);assert.equal(resultado.documentos,2)
+  assert.deepEqual(resultado.filas.map(f=>f.referencia),['DEP-ANTICIPO','DEP-NOVIEMBRE'])
+  assert.equal(resultado.sin_fecha,0)
+})
+
+test('Reporte conserva pagos históricos de Excel una sola vez tras vincular el XML',async t=>{
+  const {db,cargar}=await prepararVinculo(t)
+  await db.exec(`reset role;update compras_excel_documentos set pagos='[{"id":"historico","valor":"112.42","fecha":"2026-11-13","documento":"DEP-HISTORICO"}]' where id='${id(2)}';set role authenticated`)
+  await cargar()
+  const datos=(await db.query("select fin_reporte_pagos('2026-11-01','2026-11-30') datos")).rows[0].datos
+  assert.equal(datos.total,112.42);assert.equal(datos.movimientos,1);assert.equal(datos.filas[0].numero_documento,'002-200-000030199')
+  await assert.rejects(db.query("select fin_reporte_pagos('2026-12-01','2026-11-01')"),/rango de fechas/)
+  await db.exec("reset role;update app_user_permissions set permitido=false where pantalla='Pagos y Finanzas · Cuentas por Pagar';set role authenticated")
+  await assert.rejects(db.query("select fin_reporte_pagos('2026-11-01','2026-11-30')"),/No tienes permiso/)
+  await assert.rejects(db.query("select fin_reporte_recepciones_mp('2026-11-01','2026-11-30')"),/No tienes permiso/)
+})
+
+test('Reporte de MP usa la fecha física, conserva las cantidades por unidad y no suma toda la factura',async t=>{
+  const {db}=await preparar(t)
+  await db.exec(`reset role;
+    create table materias_primas(id uuid primary key,codigo text,nombre text,unidad_base text);
+    insert into materias_primas values('${id(1)}','MP-1','Harina','kg'),('${id(2)}','MP-2','Azúcar','saco');
+    alter table compras_recepciones_mp add column documento_id text,add column fecha date,add column factura jsonb,add column movimientos jsonb;
+  `)
+  const factura={factura:{fecha:'2026-10-15',serie:'F-MP',proveedor:'Proveedor MP',items:[{subtotal:'100'},{subtotal:'50'},{subtotal:'999'}]},edicion:{}}
+  const movimientos=[{linea:0,articulo_id:id(1),cantidad:25,movimiento_id:1,nombre:'Harina',unidad:'kg'},
+    {linea:1,articulo_id:id(2),cantidad:2,movimiento_id:2,nombre:'Azúcar',unidad:'saco'}]
+  await db.query("insert into compras_recepciones_mp(documento_id,fecha,factura,movimientos) values('sri:mp','2026-11-30',$1,$2),('sri:fuera','2026-12-01',$1,$2)",[JSON.stringify(factura),JSON.stringify(movimientos)])
+  await db.exec('set role authenticated')
+  const datos=(await db.query("select fin_reporte_recepciones_mp('2026-11-01','2026-11-30') datos")).rows[0].datos
+  assert.equal(datos.recepciones,1);assert.equal(datos.lineas,2)
+  assert.deepEqual(datos.cantidades,[{unidad:'kg',cantidad:25},{unidad:'saco',cantidad:2}])
+  assert.deepEqual(datos.filas.map(f=>f.subtotal_facturado),[100,50])
+  assert.equal(datos.filas[0].fecha_ingreso,'2026-11-30')
+  const vacio=(await db.query("select fin_reporte_recepciones_mp('2026-09-01','2026-09-30') datos")).rows[0].datos
+  assert.deepEqual(vacio.filas,[])
+})
+
+test('Reporte devuelve más de mil pagos sin truncar, evita repetir IDs e identifica fechas inválidas',async t=>{
+  const {db}=await preparar(t)
+  const pagos=Array.from({length:1005},(_,i)=>({id:'p-'+i,valor:'1',fecha:'2026-11-23',documento:'DEP-'+i}))
+  pagos.push({...pagos[0]},{id:'fecha-invalida',valor:'10',fecha:'2026-02-30',documento:'REVISAR'})
+  await db.exec('reset role')
+  await db.query("update compras_sri set datos=jsonb_set(jsonb_set(datos,'{total}','\"2000\"'),'{subtotal}','\"1985\"'),abonos=$1 where clave_acceso=$2",[JSON.stringify(pagos),clave])
+  await db.exec('set role authenticated')
+  const datos=(await db.query("select fin_reporte_pagos('2026-11-01','2026-11-30') datos")).rows[0].datos
+  assert.equal(datos.filas.length,1005);assert.equal(datos.total,1005);assert.equal(datos.sin_fecha,1)
 })

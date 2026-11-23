@@ -14,6 +14,14 @@ const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
 const compilar = (source) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 
+test('Reportes financieros hereda lectura de Cuentas por pagar y respeta una denegación explícita', () => {
+  const cuentas=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,reporte=utilPermisos.PANTALLA_REPORTES_FINANZAS
+  assert.equal(puedeAbrirPantalla(reporte,'JEFA_FACTURACION',[cuentas]),true)
+  assert.equal(puedeAbrirPantalla(reporte,'JEFA_FACTURACION',[cuentas],[cuentas]),false)
+  assert.equal(puedeAbrirPantalla(reporte,'KAM',['KPI KAM']),false)
+  assert.equal(puedeAbrirPantalla(reporte,'ADMINISTRADOR',[]),true)
+})
+
 test('Reglas de retenciones comparte el permiso exacto de Cuentas por pagar sin habilitar pagos semanales', () => {
   for (const rol of ['ADMINISTRADOR', 'JEFA_FACTURACION', 'KAM']) {
     const cuentas = utilPermisos.PANTALLA_CUENTAS_POR_PAGAR

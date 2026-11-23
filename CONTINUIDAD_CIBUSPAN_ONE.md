@@ -1,5 +1,41 @@
 # Continuidad de CIBUSPAN ONE
 
+23/11/2026, **Tarjeta Reportes en Pagos y Finanzas**.
+Sobre main `92fc11d`. Dos reportes iniciales: pagos realizados por fecha del pago
+y compras de MP por fecha de recepción física (elección explícita del usuario).
+Selector, mes completo, rango de fechas, vista previa de 100 filas por página,
+descarga Excel e impresión/Guardar PDF con todas las filas. Cambiar filtros limpia
+la vista anterior. Excel mantiene importes numéricos y referencias como texto;
+la impresión construye texto seguro sin interpolar HTML de proveedores.
+Pagos usa el registro consolidado activo de Excel/SRI/manual/nómina/anticipos:
+no cuenta programación, retenciones ni cruces APPLICACION_ANTICIPO como dinero
+nuevo. Excluye `APLICACION_ANTICIPO`, deduplica ID dentro de documento y advierte
+los pagos sin fecha válida. La advertencia se conserva también en Excel/PDF.
+Conciliación real de noviembre coincide con fuentes independientes deduplicadas
+por documento e ID: se comprobó que dos pagos constan tanto en SRI como en la
+tabla de pagos nuevos y no deben sumarse dos veces. Datos/consultas solo privados.
+Hay cuatro pagos de origen sin fecha válida, no asignables a ningún rango, y no
+hay recepciones físicas confirmadas actualmente. MP muestra solo esas recepciones,
+cantidades por unidad separada y subtotal de línea facturada informativo, sin
+inventar valoración de recepciones parciales, compras o entradas desde el saldo inicial.
+Instalada y registrada solo `202611230003_reportes_finanzas.sql` tras comprobar
+historial; agrega funciones de lectura, sin modificar vistas ni movimientos.
+Huella de cuentas `a97484d19962d9124dacacedc8049dd2`, 26 pagos nuevos y permisos
+de Teresa conservados. RPC con rol authenticated/Teresa coincide con administrador;
+semanales continúa false. Reportes comparte el permiso de Cuentas por pagar.
+Pasaron 24 pruebas SQL y 26 de permisos, caso con 1.005 pagos sin truncar, Chrome
+con paginación, Excel completo (incluye advertencia), ventana de impresión con
+todas las filas, unidades MP, vacío, rango inválido y móvil, y `npm run build`.
+Archivos: ReportesFinanzas.tsx/.css, reportesFinanzasRepository.ts,
+utils/reportesFinanzas.ts, FinanzasResumen.tsx, App.tsx, permisosAplicacion.ts,
+catalogoPermisos.ts, migración y pruebas. Pendiente publicar.
+
+Incidencia de sesión durante este trabajo: iunda recibió permission denied en
+Cuentas, vista SRI y tabla de vínculos. Las concesiones authenticated y el rol
+de autenticación estaban correctos; anon seguía sin acceso. El usuario confirmó
+que cerrar sesión y volver a ingresar recuperó los datos. No se ampliaron
+permisos ni se cambió autenticación para corregirlo.
+
 23/11/2026, **Ancho de columnas ajustable en las tablas de Finanzas**.
 Sobre main `dcfb515`. Los bordes derechos de los encabezados permiten arrastrar
 el ancho en Cuentas por pagar, Documentos seleccionados y Pagos semanales.
