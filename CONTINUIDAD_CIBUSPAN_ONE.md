@@ -16,7 +16,9 @@ recarga, teclado, doble clic, preferencias independientes en las tres tablas y
 móvil sin desbordar la página, además de corrección auditada y envío semanal.
 Regresión de semana de emisión/cambio de año/detalles también correcta.
 `npm run build` correcto. Archivos de aplicación: FinanzasPagosCompras.tsx,
-finanzasPagosCompras.css y hooks/useColumnasAjustables.ts. Pendiente publicar.
+finanzasPagosCompras.css y hooks/useColumnasAjustables.ts. Publicado desde
+`c542fe9`, despliegue `863205f4`. Comprobados SHA-256 de 17 archivos públicos
+de Finanzas/SRI/Roles/índice, Supabase operativo, R2 y firma.
 
 23/11/2026, **Vinculación automática de nuevas facturas SRI con Excel**.
 Sobre main `6507996`, a petición del usuario para prevenir duplicados futuros.
