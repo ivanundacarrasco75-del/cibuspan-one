@@ -28,7 +28,10 @@ Conciliación real antes/después: misma huella de cuentas
 y helper de enlace privado. No se insertaron facturas ni pagos de prueba en la base.
 Pasaron 20 pruebas SQL (suite de 18 y dos casos adicionales), Chrome de importación
 automática/revisión/permisos/bloqueo/móvil, regresión de semana de emisión,
-corrección y envío semanal, y `npm run build`. Pendiente publicar interfaz.
+corrección y envío semanal, y `npm run build`. Publicado desde `f6124b2`,
+despliegue `242dc40a`. SHA-256 de 17 archivos públicos de Finanzas/SRI/Roles/índice
+y el módulo compartido de semanas coincidentes; Supabase operativo, R2 y firma
+comprobados. No quedan pasos de instalación o publicación.
 Archivos: App.tsx, ComprasSri.tsx, FinanzasPagosCompras.tsx,
 comprasSriRepository.ts, VinculosExcelSri.tsx, migración nueva y pruebas SQL.
 
