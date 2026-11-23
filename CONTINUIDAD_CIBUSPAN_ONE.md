@@ -27,7 +27,11 @@ visible, responsable iunda@cibuspan.com, huella de permisos
 `337751bc5929496e46dbf21833dc9540` sin cambios. SQL de datos solo en diagnósticos
 privados ignorados. Pasaron doce pruebas SQL y comprobación adicional de lector
 solo SRI; Chrome comprobó bloqueo inicial, edición, bitácora y envío a semana;
-`npm run build` correcto. Pendiente publicar la interfaz.
+`npm run build` correcto. Publicado desde `5ee448f`, despliegue `00f8ab6a`.
+SHA-256 de 17 archivos públicos de Finanzas/SRI/Roles/índice y dos de PanoramaSku
+coincidentes; Supabase operativo, R2 y firma comprobados. No quedan pasos de
+instalación o publicación para esta corrección. La factura está lista para que
+el usuario la seleccione y asigne a la semana que corresponda, sin pago ejecutado.
 Archivos: CorreccionImportesExcel.tsx, FinanzasPagosCompras.tsx,
 finanzasComprasRepository.ts, migración nueva y verificar_sueldo_retenciones_sql.mjs.
 
