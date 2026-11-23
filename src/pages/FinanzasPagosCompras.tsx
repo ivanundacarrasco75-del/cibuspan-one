@@ -8,6 +8,7 @@ import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALE
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
+import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
 
 const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina", ANTICIPO: "Anticipo" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -49,7 +50,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
 }) {
   const [detalle, setDetalle] = useState<string | null>(null)
   const contenedor = useRef<HTMLDivElement>(null)
-  const columnas = 13 + (modo === "semana" ? 2 : 1) - (modo === "cuentas" && !acciones.seleccionar ? 1 : 0)
+  const columnas = 13 + (modo === "semana" ? 2 : 1) + (modo === "cuentas" ? 1 : 0) - (modo === "cuentas" && !acciones.seleccionar ? 1 : 0)
 
   useEffect(() => {
     const elemento = contenedor.current
@@ -70,7 +71,9 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
       <table className="compras-sri-tabla fin-pagos-tabla" aria-label={titulo}>
         <thead><tr>
           {modo === "cuentas" && acciones.seleccionar && <th scope="col">Elegir</th>}
-          <th scope="col">Emisión</th><th scope="col">Tipo</th><th scope="col">Documento</th>
+          <th scope="col">Emisión</th>
+          {modo === "cuentas" && <th scope="col" title="Semana ISO de la fecha de emisión: de lunes a domingo">Semana de emisión</th>}
+          <th scope="col">Tipo</th><th scope="col">Documento</th>
           <th scope="col">Proveedor</th><th scope="col">Descripción</th><th scope="col">Subtotal</th>
           <th scope="col">IVA</th><th scope="col">Retención</th><th scope="col">Total</th>
           <th scope="col">Abonado</th><th scope="col">Saldo</th>
@@ -102,7 +105,9 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
               {modo === "cuentas" && acciones.seleccionar && <td><input type="checkbox" aria-label={`Seleccionar ${nombre}`} checked={Boolean(elegida)}
                 disabled={acciones.ocupado || (!elegida && (cuenta.saldo === null || cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
                 onChange={evento => acciones.seleccionar?.(cuenta, evento.target.checked)} /></td>}
-              <td>{cuenta.fecha_documento || "—"}</td><td>{tipos[cuenta.tipo]}</td>
+              <td>{cuenta.fecha_documento || "—"}</td>
+              {modo === "cuentas" && <td>{cuenta.fecha_documento ? etiquetaAgrupacion(cuenta.fecha_documento, "SEMANA") : "—"}</td>}
+              <td>{tipos[cuenta.tipo]}</td>
               <td>{cuenta.numero_documento || "—"}</td><td title={cuenta.proveedor ?? undefined}>{cuenta.proveedor || "—"}</td>
               <td title={cuenta.concepto ?? undefined}>{cuenta.concepto || "—"}</td>
               {[cuenta.subtotal, cuenta.iva, cuenta.retencion, cuenta.total, cuenta.pagado, cuenta.saldo].map((valor, indice) =>

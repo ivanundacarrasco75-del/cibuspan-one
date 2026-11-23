@@ -1,5 +1,17 @@
 # Continuidad de CIBUSPAN ONE
 
+23/11/2026, **Columna Semana de emisión en Cuentas por pagar**.
+Sobre main `b4fa681`. Se agregó la columna junto a Emisión en la tabla principal,
+calculada desde `fecha_documento` con la función de semana ISO ya usada por la
+aplicación (lunes a domingo, semanas 01–53). Sin fecha muestra guion. El valor
+se recalcula al cargar los documentos; no necesita importación ni escritura SQL.
+Se ajustó el colspan del detalle. No cambian las tablas inferior/semanal, los
+importes, los permisos ni las diez filas visibles. Chrome comprobó 11/11/2026
+como semana 46, 01/01/2027 como 53, 04/01/2027 como 01 y fecha ausente, además
+de edición con bitácora y selección/envío semanal. Archivo de aplicación
+modificado: `src/pages/FinanzasPagosCompras.tsx`; se conserva DashboardV2.
+`npm run build` correcto. Pendiente publicar.
+
 23/11/2026, **CND 30199 y 30324 vinculadas entre Excel y SRI**.
 Sobre main `e4037ae`. El usuario identificó expresamente estos dos pares como
 las mismas facturas. Lectura operativa confirmó que Excel tenía los pagos de
