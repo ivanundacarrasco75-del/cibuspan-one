@@ -8,7 +8,7 @@ descarga Excel e impresión/Guardar PDF con todas las filas. Cambiar filtros lim
 la vista anterior. Excel mantiene importes numéricos y referencias como texto;
 la impresión construye texto seguro sin interpolar HTML de proveedores.
 Pagos usa el registro consolidado activo de Excel/SRI/manual/nómina/anticipos:
-no cuenta programación, retenciones ni cruces APPLICACION_ANTICIPO como dinero
+no cuenta programación, retenciones ni cruces de anticipos como dinero
 nuevo. Excluye `APLICACION_ANTICIPO`, deduplica ID dentro de documento y advierte
 los pagos sin fecha válida. La advertencia se conserva también en Excel/PDF.
 Conciliación real de noviembre coincide con fuentes independientes deduplicadas
@@ -28,7 +28,10 @@ con paginación, Excel completo (incluye advertencia), ventana de impresión con
 todas las filas, unidades MP, vacío, rango inválido y móvil, y `npm run build`.
 Archivos: ReportesFinanzas.tsx/.css, reportesFinanzasRepository.ts,
 utils/reportesFinanzas.ts, FinanzasResumen.tsx, App.tsx, permisosAplicacion.ts,
-catalogoPermisos.ts, migración y pruebas. Pendiente publicar.
+catalogoPermisos.ts, migración y pruebas. Publicado desde `74292b9`, despliegue
+`c995ad9e`. Verificados SHA-256 de 17 archivos públicos de Finanzas/SRI/Roles/
+índice, los dos del nuevo módulo Reportes y el cálculo compartido de semanas;
+Supabase operativo, R2 y firma correctos. Se ignora la caché generada `.wrangler/`.
 
 Incidencia de sesión durante este trabajo: iunda recibió permission denied en
 Cuentas, vista SRI y tabla de vínculos. Las concesiones authenticated y el rol
