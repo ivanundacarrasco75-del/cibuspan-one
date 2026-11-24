@@ -14,7 +14,9 @@ Solo se modificaron CobrosConciliacion.tsx y cobrosConciliacion.css; sin SQL,
 permisos ni cálculos financieros nuevos. Chrome comprobó cuatro tablas,
 persistencia tras recarga, independencia, teclado, tamaño móvil, Escape/foco,
 guardado de total y flujo completo depósito/retención/reintento/anulación.
-`npm run build` correcto. Publicación pendiente al registrar este estado.
+`npm run build` correcto. Publicado desde `9cc66cb`, despliegue `1c3e37d1`.
+Verificados SHA-256 de 27 archivos públicos, incluido el hook compartido de
+columnas y Cobros JS/CSS; Supabase operativo, R2 y firma correctos.
 
 24/11/2026, **Cuentas por cobrar y conciliación con retenciones de clientes**.
 Sobre main `ed56cc8` (se incorporó por fast-forward la entrada de Comercial en
