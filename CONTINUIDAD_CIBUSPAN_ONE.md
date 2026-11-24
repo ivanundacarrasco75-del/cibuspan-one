@@ -36,7 +36,10 @@ tres facturas + depósito 580 + retención 20, pérdida de respuesta/reintento s
 duplicación, historial y anulación; build final correcto.
 Archivos: CobrosConciliacion.tsx/.css, cobrosRepository.ts, migración,
 App.tsx, FinanzasResumen.tsx, permisosAplicacion.ts y dos suites de pruebas.
-Publicación pendiente al registrar este estado.
+Publicado desde `0b3d6b3`, despliegue `551ae2d5`. Comprobados SHA-256 de los 26
+archivos públicos de Finanzas/Cobros/SRI/Roles/Comercial/índice y configuración
+Supabase operativo, R2 y firma. Chrome también recorrió el flujo completo con
+1.070 facturas simuladas, cargadas por páginas de 500 sin truncar.
 
 24/11/2026, **Entrada de Comercial en tarjetas**.
 Sobre main `dbfb254`. Nuevo ComercialMenu reutiliza MenuTarjetas y sus estilos:
