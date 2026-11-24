@@ -1,5 +1,26 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Carga de depósitos de Produbanco, enero–octubre de 2026**.
+Sobre main `50b98c8`. El usuario adjuntó diez estados XLSX de su cuenta corriente
+terminada en 1686 y autorizó cargarlos en Depósitos recibidos. Se extrajeron todas
+las filas físicas: los archivos declaran dimensión hasta H10, por lo que una
+lectura que respete esa dimensión omite los movimientos. Lectura completa y
+control independiente contra XML del XLSX. Fechas fuente en MM/DD/YYYY, importes
+positivos, referencias conservadas como texto y procedencia archivo/hoja/fila
+registrada en observaciones. Se cargaron 281 depósitos/transferencias recibidas,
+sin duplicados; se excluyeron seis traspasos explícitos entre cuentas propias y
+cuatro reversos de cargos, que no son cobros de clientes. Se identificó SUPERMAXI
+solo cuando la causal lo dice; los demás depositantes quedan sin inventar.
+Carga atómica con fin_cxc_crear_deposito y UUID deterministas; todas las entradas
+quedaron pendientes de identificar, sin aplicaciones a facturas ni retenciones.
+Verificados 281 registros de auditoría distintos con responsable y lectura del
+RPC de depósitos como authenticated/iunda. Cada fecha/referencia/importe/cuenta,
+totales mensuales y disponible conciliados contra la selección revisada; Excel
+originales sin cambios por SHA-256. Huellas de facturas, aplicaciones, ventas y
+permisos iguales antes/después. Detalles bancarios, extracción, selección,
+exclusiones, consultas y verificaciones solo en diagnosticos_privados/ ignorado.
+Sin cambios de código ni SQL de esquema; no requiere build ni nuevo despliegue.
+
 24/11/2026, **Columnas ajustables y ventanas auxiliares en Cobros**.
 Sobre main `66a4d3d`. Las tablas de facturas (ambas pestañas), depósitos,
 distribución y detalle reutilizan useColumnasAjustables, con preferencias
