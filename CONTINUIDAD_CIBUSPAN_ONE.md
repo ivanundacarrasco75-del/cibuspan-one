@@ -16,7 +16,9 @@ de coincidencias por parte del agente. Bloqueo local evita dobles clics en curso
 Archivos: components/VinculosExcelSri.tsx y pages/comprasSriTabla.css.
 Chrome verificó Sí/No sin campos extra, candidata exacta entre varias, conflicto
 y actualización, permisos y móvil; tres pruebas SQL de vinculación/colisiones/
-concurrencia y `npm run build` correctos. Publicación pendiente al registrar esto.
+concurrencia y `npm run build` correctos. Publicado desde `35172bc`, despliegue
+`e716904b`; SHA-256 de 27 archivos públicos, incluidos SRI/CSS y el filtro semanal
+de Cobros, y configuración Supabase operativo/R2/firma verificados.
 
 24/11/2026, **Plazos de clientes y depósitos por semanas de pago previstas**.
 Sobre main `4a34a2e`. Usuario indicó 21 días desde emisión para Favorita, Rosado
