@@ -16,7 +16,9 @@ Archivos: FinanzasPagosCompras.tsx y finanzasPagosCompras.css. Sin SQL ni cambio
 de datos reales. Build correcto; Chrome/móvil comprobó siete encabezados,
 acciones, importes programados/parciales, pago de 300 de factura de 1000,
 pendiente de 275 en plan de 400 con 125 ya pagados, detalle, retiro seguro,
-anchos y regresión de columnas en Cuentas por pagar. Publicación pendiente.
+anchos y regresión de columnas en Cuentas por pagar. Publicado desde `fd7c529`,
+despliegue `ba4c650f`; SHA-256 de 27 archivos públicos y configuración Supabase
+operativo/R2/firma verificados.
 
 24/11/2026, **Revisión SRI/Excel simplificada a Sí o No**.
 Sobre main `63e2ae0`. El usuario pidió eliminar la revisión confusa con radios,
