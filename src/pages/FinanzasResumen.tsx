@@ -1,4 +1,4 @@
-import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES, PANTALLA_REPORTES_FINANZAS, PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS } from "../utils/permisosAplicacion"
+import { PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES, PANTALLA_REPORTES_FINANZAS, PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS, PANTALLA_CXC, PANTALLA_COBROS } from "../utils/permisosAplicacion"
 import { MenuTarjetas, type Tarjeta } from "./ComprasResumen"
 
 const documento = "M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7"
@@ -18,7 +18,7 @@ const secciones: Tarjeta[] = [
   { nombre: "Rentabilidad", ruta: "Pagos y Finanzas · Rentabilidad", descripcion: "Analiza la rentabilidad comercial.", icono: grafico },
   { nombre: "Análisis", ruta: "Pagos y Finanzas · Análisis", descripcion: "Abre los reportes financieros.", icono: grafico },
   { nombre: "Facturas y pagos anteriores", ruta: "Pagos y Finanzas · Historial", descripcion: "Abre el registro anterior de facturas, pagos e importaciones de Excel.", icono: documento },
-  ...["Cuentas por Cobrar", "Cobros y Conciliación", "Tesorería"].map(nombre => ({
+  ...["Tesorería"].map(nombre => ({
     nombre, ruta: `Pagos y Finanzas · ${nombre}`, pendiente: true, icono: documento,
   })),
 ]
@@ -27,6 +27,6 @@ export default function FinanzasResumen({ puedeAcceder, cambiarPantalla }: {
   puedeAcceder: (pantalla: string) => boolean
   cambiarPantalla: (pantalla: string) => void
 }) {
-  return <MenuTarjetas titulo="Pagos y Finanzas" tarjetas={secciones.filter(tarjeta => puedeAcceder(tarjeta.ruta))}
+  return <MenuTarjetas titulo="Pagos y Finanzas" tarjetas={[{ nombre: "Cuentas por cobrar y conciliación", ruta: puedeAcceder(PANTALLA_CXC) ? PANTALLA_CXC : PANTALLA_COBROS, descripcion: "Consulta facturas, registra depósitos y concilia cobros y retenciones.", icono: documento }, ...secciones].filter(tarjeta => puedeAcceder(tarjeta.ruta))}
     cambiarPantalla={cambiarPantalla} />
 }

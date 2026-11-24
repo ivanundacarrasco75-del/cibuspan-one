@@ -8,6 +8,8 @@ export const PANTALLA_ANTICIPOS = "Compras · Anticipos"
 export const PANTALLA_RETENCIONES = "Pagos y Finanzas · Reglas de retenciones"
 export const PANTALLA_REPORTES_FINANZAS = "Pagos y Finanzas · Reportes"
 export const PANTALLA_IMPUESTOS = "Pagos y Finanzas · Impuestos"
+export const PANTALLA_CXC = "Pagos y Finanzas · Cuentas por Cobrar"
+export const PANTALLA_COBROS = "Pagos y Finanzas · Cobros y Conciliación"
 export const PANTALLA_PRESTAMOS = "Pagos y Finanzas · Préstamos"
 export const PANTALLA_NOTAS_VENTA = "Compras · Notas de venta"
 export const PANTALLA_NO_DEDUCIBLES = "Compras · Gastos no deducibles"
@@ -77,7 +79,7 @@ export function puedeAbrirPantalla(
     return rol === "ADMINISTRADOR" || permitidas.includes("Administración") || permitidas.includes("Reportes")
   }
   if (pantalla === PANTALLA_PAGOS_SEMANALES) return rol === "ADMINISTRADOR"
-  if ([PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_ANTERIOR, PANTALLA_REPORTES_FINANZAS, PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS].includes(pantalla) && rol === "ADMINISTRADOR") return true
+  if ([PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_ANTERIOR, PANTALLA_REPORTES_FINANZAS, PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS, PANTALLA_CXC, PANTALLA_COBROS].includes(pantalla) && rol === "ADMINISTRADOR") return true
   if (pantalla === PANTALLA_MENU_COMPRAS) {
     return permitidas.includes("Administración") || permitidas.includes("Materias primas") || rol === "ADMINISTRADOR"
   }

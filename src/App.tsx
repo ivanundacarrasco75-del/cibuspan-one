@@ -14,7 +14,7 @@ import {
   PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
   PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES,
   PANTALLA_REPORTES_FINANZAS,
-  PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS,
+  PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS, PANTALLA_CXC, PANTALLA_COBROS,
   PANTALLA_MENU_COMERCIAL,
 } from "./utils/permisosAplicacion"
 
@@ -27,6 +27,7 @@ const CasaMasa = lazy(() => import("./pages/CasaMasa"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
 const ReportesFinanzas = lazy(() => import("./pages/ReportesFinanzas"))
+const CobrosConciliacion = lazy(() => import("./pages/CobrosConciliacion"))
 const Impuestos = lazy(() => import("./pages/Impuestos"))
 const Prestamos = lazy(() => import("./pages/Prestamos"))
 const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
@@ -588,8 +589,9 @@ function App() {
       case "Reportes":
         return <Reportes cambiarPantalla={setPantalla} />
 
-      case "Pagos y Finanzas · Cuentas por Cobrar":
-      case "Pagos y Finanzas · Cobros y Conciliación":
+      case PANTALLA_CXC:
+      case PANTALLA_COBROS:
+        return <CobrosConciliacion key={pantalla} puedeEditar={puedeAcceder(PANTALLA_CXC)} puedeConciliar={puedeAcceder(PANTALLA_COBROS)} tabInicial={pantalla === PANTALLA_COBROS ? "Conciliar" : "Facturas y saldos"} />
       case "Pagos y Finanzas · Tesorería":
         return <PantallaEnConstruccion titulo={pantalla} />
 

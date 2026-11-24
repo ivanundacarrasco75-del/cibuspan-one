@@ -1,0 +1,14 @@
+.cxc-pagina h1 { font-size: 23px; margin: 0; }
+.cxc-pagina h2 { font-size: 18px; margin: 8px 0; }
+.cxc-pagina .cxc-tabla { min-width: 1200px; table-layout: auto; }
+.cxc-tabla td { white-space: nowrap; }
+.cxc-tabla input { min-width: 100px; }
+.cxc-tabla input[type=checkbox] { min-width: 0; }
+.cxc-scroll { max-height: 340px; }
+.cxc-panel { margin: 18px 0; padding: 12px; border: 1px solid #bac5d1; min-width: 0; }
+.cxc-pagina fieldset { display: flex; gap: 12px; flex-wrap: wrap; min-width: 0; border: 0; margin: 0 0 10px; padding: 0; }
+.cxc-panel fieldset { display: block; }
+.cxc-panel label { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 5px 12px 5px 0; }
+.cxc-pagina select { max-width: min(620px, 80vw); }
+.cxc-pagina label input { max-width: 70vw; }
+.cxc-pagina nav button[aria-pressed=true] { background: #001440; color: white; }

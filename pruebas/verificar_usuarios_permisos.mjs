@@ -28,6 +28,18 @@ test('El menú Comercial conserva permisos exactos y antiguos sin conceder opcio
   assert.equal(puedeAbrirPantalla('Comercial · Pedidos', 'KAM', ['KPI KAM']), false)
 })
 
+test('Cuentas por cobrar y Cobros mantienen permisos independientes y denegaciones explícitas', () => {
+  const c=utilPermisos.PANTALLA_CXC,b=utilPermisos.PANTALLA_COBROS
+  for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']) {
+    assert.equal(puedeAbrirPantalla(c,rol,[c]),true)
+    assert.equal(puedeAbrirPantalla(b,rol,[b]),true)
+    assert.equal(puedeAbrirPantalla(c,rol,[c],[c]),false)
+    assert.equal(puedeAbrirPantalla(b,rol,[b],[b]),false)
+    if(rol!=='ADMINISTRADOR') assert.equal(puedeAbrirPantalla(b,rol,[c]),false)
+  }
+  assert.equal(puedeAbrirPantalla(c,'ADMINISTRADOR',[]),true)
+  assert.equal(puedeAbrirPantalla(b,'ADMINISTRADOR',[]),true)
+})
 test('Impuestos comparte Cuentas por pagar y respeta denegaciones', () => {
   const c=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,i=utilPermisos.PANTALLA_IMPUESTOS
   for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']) {

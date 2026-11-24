@@ -1,5 +1,43 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Cuentas por cobrar y conciliación con retenciones de clientes**.
+Sobre main `ed56cc8` (se incorporó por fast-forward la entrada de Comercial en
+tarjetas antes de editar). Una tarjeta reúne Facturas y saldos, Depósitos recibidos
+y Conciliar; conserva las dos rutas antiguas y sus permisos independientes:
+Cuentas permite confirmar total/vencimiento, Cobros permite depósitos, cruces y
+anulaciones; ambos leen el módulo. Administrador respeta denegaciones explícitas.
+Reutiliza `com_ventas_detalle`, agrupado por comprobante. La fuente contiene
+ventas sin impuestos: total real y vencimiento se confirman manualmente contra
+la factura, sin inferir IVA. Huella de las líneas obliga a revisar si cambia la
+importación. Clientes/fechas inconsistentes bloquean conciliar. Lectura real
+authenticated/iunda: 1.070 comprobantes, dos inconsistentes, ninguno confirmado
+todavía y cero depósitos; no se crearon cobros de prueba en producción.
+Depósitos manuales con banco/cuenta, número, fecha, importe y depositante; pueden
+quedar sin identificar o aplicarse parcialmente. Conciliación de hasta 100
+facturas distintas por operación: dinero recibido y retención se ingresan por
+separado. La retención requiere comprobante y fecha; puede registrarse sin
+depósito. Saldo factura=total-cobros-retenciones; disponible banco=monto-cobros.
+No se consumen depósitos con retenciones. Previene excesos, duplicados de
+depósito/retención e intentos con saldos desactualizados; operación idempotente
+y bloqueos por depósito/facturas ordenadas. Anular conserva aplicaciones,
+restaura saldos y audita responsable/motivo; depósitos solo se anulan sin cruces
+activos. Detalle por factura muestra responsables, depósitos y retenciones.
+Saldos solo consideran cobros registrados en este módulo: cargar los históricos
+antes de interpretar la cartera; la pantalla lo indica. No importa aún estados
+bancarios, notas de crédito ni comprobantes de retención automáticamente.
+Instalada y registrada únicamente `202611240003_cobros_conciliacion.sql` después
+de revisar historial. Huellas antes/después conservadas: ventas
+`31e941306b6a32bae91fe16812e55478` (4.902 líneas), cuentas por pagar
+`889af40d32a90ed4e943123d0ae9064e`, permisos globales
+`51ed71cf9745cc58dbc3b4b24ba35fd4`, 26 pagos existentes. No cambió vistas ni
+funciones de Compras/Dashboard/pagos a proveedores; anon y escrituras directas
+quedan bloqueados. Pasaron cinco pruebas SQL y 30 de permisos, Chrome/móvil con
+tres facturas + depósito 580 + retención 20, pérdida de respuesta/reintento sin
+duplicación, historial y anulación; build final correcto.
+Archivos: CobrosConciliacion.tsx/.css, cobrosRepository.ts, migración,
+App.tsx, FinanzasResumen.tsx, permisosAplicacion.ts y dos suites de pruebas.
+Publicación pendiente al registrar este estado.
+
 24/11/2026, **Entrada de Comercial en tarjetas**.
 Sobre main `dbfb254`. Nuevo ComercialMenu reutiliza MenuTarjetas y sus estilos:
 Pedidos, Ventas, Devoluciones, Descuentos, Visitas y rotación, Visitas diarias,
