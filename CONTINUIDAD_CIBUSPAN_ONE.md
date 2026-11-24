@@ -20,7 +20,8 @@ Archivos: CobrosConciliacion.tsx, utils/retencionesCobros.ts y prueba específic
 Tres pruebas unitarias correctas; Chrome comprobó las tasas, base con IVA,
 edición/restauración de sugerencia, ventanas, columnas, móvil y conciliación
 completa con importe manual, reintento y anulación. Sin SQL ni datos reales
-modificados. `npm run build` correcto; publicación pendiente al registrar este estado.
+modificados. `npm run build` correcto. Publicado desde `38fe96c`, despliegue
+`9ec853f6`; SHA-256 de 27 archivos públicos y Supabase operativo/R2/firma verificados.
 
 24/11/2026, **Carga de depósitos de Produbanco, enero–octubre de 2026**.
 Sobre main `50b98c8`. El usuario adjuntó diez estados XLSX de su cuenta corriente
