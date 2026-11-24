@@ -1,5 +1,18 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Orden por fecha en Cuentas por cobrar y depósitos**.
+Sobre main `3f49ca9`. Selector Más antiguo primero / Más reciente primero en
+las tres pestañas de Cobros. Facturas y Conciliar comparten orden por emisión;
+Depósitos usa su fecha y conserva una selección de orden independiente. Se
+mantienen los valores iniciales anteriores (facturas antiguas, depósitos recientes).
+También ordena la lista de depósitos disponibles para distribuir. Ordena copias
+de todos los registros cargados, con desempate estable por comprobante/referencia
+e ID; no consulta de nuevo ni cambia selección, montos ni retenciones ingresadas.
+Solo cambió CobrosConciliacion.tsx. Sin SQL ni datos modificados. Chrome comprobó
+ambas direcciones en facturas/depósitos, continuidad entre pestañas, selección
+e importes al ordenar y móvil sin desbordamiento; `npm run build` correcto.
+Publicación pendiente al registrar este estado.
+
 24/11/2026, **Sugerencias editables de retención de clientes en Cobros**.
 Sobre main `c31eb7f`. El usuario informó Favorita/Santa María 2 % y Tuti 1,75 %,
 y confirmó explícitamente que la base solicitada es el total con IVA. Se usan
