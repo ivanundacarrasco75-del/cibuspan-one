@@ -11,7 +11,8 @@ e ID; no consulta de nuevo ni cambia selección, montos ni retenciones ingresada
 Solo cambió CobrosConciliacion.tsx. Sin SQL ni datos modificados. Chrome comprobó
 ambas direcciones en facturas/depósitos, continuidad entre pestañas, selección
 e importes al ordenar y móvil sin desbordamiento; `npm run build` correcto.
-Publicación pendiente al registrar este estado.
+Publicado desde `9066d25`, despliegue `1ab2ca0c`; SHA-256 de 27 archivos públicos
+y configuración Supabase operativo/R2/firma verificados.
 
 24/11/2026, **Sugerencias editables de retención de clientes en Cobros**.
 Sobre main `c31eb7f`. El usuario informó Favorita/Santa María 2 % y Tuti 1,75 %,
