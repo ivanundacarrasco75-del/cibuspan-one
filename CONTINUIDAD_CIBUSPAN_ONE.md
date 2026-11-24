@@ -1,5 +1,32 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Plazos de clientes y depósitos por semanas de pago previstas**.
+Sobre main `4a34a2e`. Usuario indicó 21 días desde emisión para Favorita, Rosado
+y Santa María, 60 para Tuti y contra factura emitida para Soldmer. Se interpretan
+como días calendario (informado al usuario). Razones sociales contrastadas con
+ventas, incluyendo CORPORACION EL ROSADO S.A. y SOLDMER S.A.A.; no se aplican
+reglas a clientes desconocidos ni a fuentes inconsistentes.
+Mes de emisión aplica automáticamente el rango de facturas del mes completo;
+cliente/rango siguen disponibles en las tres pestañas. El filtro predeterminado
+Solo depósitos de semanas de pago esperadas afecta tabla y selector de depósitos.
+Desplaza cada semana completa de emisión por su plazo y amplía a lunes–domingo;
+21 días equivale a tres semanas; 60 días puede abarcar dos semanas de pago.
+Une intervalos contiguos sin rellenar huecos entre ventanas distantes. Desmarcar
+el filtro muestra todos los depósitos para anticipos/atrasos; no vincula ni aplica
+cobros automáticamente. Depósito ya seleccionado fuera de las ventanas queda
+visible con aviso y requiere desmarcar el filtro antes de confirmar.
+Semana ISO de emisión y ventana de pago visibles en facturas. Vencimiento nuevo
+se propone según plazo en Verificar total y sigue editable; vencimientos manuales
+existentes distintos a la regla prevalecen y filtran su propia semana. Clientes
+sin plazo/vencimiento exponen aviso para completar o ver todos, sin inventar fecha.
+Fechas calculadas en UTC para evitar cambios por zona horaria. No se modificaron
+vencimientos guardados ni datos financieros en lote; sin SQL ni permisos nuevos.
+Archivos: CobrosConciliacion.tsx, utils/plazosCobros.ts y su prueba. Ocho pruebas
+de plazos/retenciones pasaron, incluidos cierres de mes/año, bisiesto, ISO, manuales
+y huecos; Chrome/móvil verificó mes, cliente, semanas, selector, ver todos,
+vencimiento sugerido y validación fuera de plazo. `npm run build` correcto;
+publicación pendiente al registrar este estado.
+
 24/11/2026, **Orden por fecha en Cuentas por cobrar y depósitos**.
 Sobre main `3f49ca9`. Selector Más antiguo primero / Más reciente primero en
 las tres pestañas de Cobros. Facturas y Conciliar comparten orden por emisión;
