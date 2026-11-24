@@ -16,7 +16,7 @@ préstamo antes del bloqueo por cuota también en pago/programación. Cuotas con
 programación o pagos conservan sus datos; se pueden retirar las no programadas
 ni pagadas para corregir y reenviar con la misma identidad. Préstamos comparte
 el permiso exacto de Cuentas, sin otorgar Pagos semanales.
-Instalada solo `202611240001_prestamos_cuotas.sql` tras revisar historial remoto;
+Instalada y registrada solo `202611240001_prestamos_cuotas.sql` tras revisar historial remoto;
 se preservó OID de la vista de cuentas 30866. Huellas antes/después iguales:
 cuentas `457997f50af3625ccdbc50eeb43347ec`, permisos globales
 `51ed71cf9745cc58dbc3b4b24ba35fd4`, 26 pagos existentes. Lectura con rol
@@ -26,8 +26,9 @@ SQL y 27 de permisos, Chrome con alta/pago previo/selección parcial/reintento d
 envío sin duplicados/Cuentas/cuotas protegidas y móvil, y `npm run build`.
 Archivos: Prestamos.tsx/.css, prestamosRepository.ts, App.tsx, FinanzasResumen.tsx,
 FinanzasPagosCompras.tsx, finanzasComprasRepository.ts, permisosAplicacion.ts,
-catalogoPermisos.ts, migración y dos suites de pruebas. Publicación pendiente
-al registrar este estado; actualizar con el despliegue y las verificaciones.
+catalogoPermisos.ts, migración y dos suites de pruebas. Publicado desde `a961ff2`,
+despliegue `b858b261`. Comprobados SHA-256 de 22 archivos públicos de Finanzas,
+Préstamos, Reportes, SRI, Roles e índice, además de Supabase operativo, R2 y firma.
 
 23/11/2026, **Tarjeta Reportes en Pagos y Finanzas**.
 Sobre main `92fc11d`. Dos reportes iniciales: pagos realizados por fecha del pago
