@@ -1,5 +1,21 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Columnas ajustables y ventanas auxiliares en Cobros**.
+Sobre main `66a4d3d`. Las tablas de facturas (ambas pestañas), depósitos,
+distribución y detalle reutilizan useColumnasAjustables, con preferencias
+independientes por tabla en localStorage. Arrastre, flechas y doble clic para
+restablecer; facturas conserva sus anchos al entrar en Conciliar. Layout fijo
+tras el primer ajuste y entradas limitadas a la celda para permitir reducirla.
+Verificar/Editar total y Detalle se abren en dialog nativo modal de hasta 640px,
+adaptable al móvil, con cierre por ×, Escape o fondo, foco contenido y regreso al
+botón de origen. Bloquea cerrar mientras guarda. Anular desde Detalle cierra ese
+diálogo y abre otro pequeño, manteniendo el error dentro de la ventana.
+Solo se modificaron CobrosConciliacion.tsx y cobrosConciliacion.css; sin SQL,
+permisos ni cálculos financieros nuevos. Chrome comprobó cuatro tablas,
+persistencia tras recarga, independencia, teclado, tamaño móvil, Escape/foco,
+guardado de total y flujo completo depósito/retención/reintento/anulación.
+`npm run build` correcto. Publicación pendiente al registrar este estado.
+
 24/11/2026, **Cuentas por cobrar y conciliación con retenciones de clientes**.
 Sobre main `ed56cc8` (se incorporó por fast-forward la entrada de Comercial en
 tarjetas antes de editar). Una tarjeta reúne Facturas y saldos, Depósitos recibidos

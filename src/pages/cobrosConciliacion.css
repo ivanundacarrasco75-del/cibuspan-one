@@ -12,3 +12,13 @@
 .cxc-pagina select { max-width: min(620px, 80vw); }
 .cxc-pagina label input { max-width: 70vw; }
 .cxc-pagina nav button[aria-pressed=true] { background: #001440; color: white; }
+.cxc-ventana { width: min(640px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 40px); box-sizing: border-box; padding: 16px; border: 1px solid #bac5d1; border-radius: 10px; background: #fff; color: #122c48; box-shadow: 0 12px 50px #00144040; overflow: auto; }
+.cxc-ventana::backdrop { background: #00144066; }
+.cxc-ventana > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.cxc-ventana > header h2 { margin: 0; font-size: 18px; }
+.cxc-ventana > header button { flex-shrink: 0; font-size: 20px; padding: 3px 10px; }
+.cxc-ventana .cxc-panel { margin: 0; padding: 0; border: 0; }
+.cxc-ventana .cxc-panel label { display: flex; align-items: flex-start; flex-direction: column; margin: 10px 0; }
+.cxc-ventana .cxc-panel label input { box-sizing: border-box; width: 100%; max-width: 100%; }
+.cxc-pagina .fin-pagos-ajustada td { overflow: hidden; text-overflow: ellipsis; }
+.cxc-pagina .fin-pagos-ajustada td input:not([type=checkbox]) { box-sizing: border-box; min-width: 0; width: 100%; }
