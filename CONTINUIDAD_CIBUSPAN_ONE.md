@@ -1,5 +1,23 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Revisión SRI/Excel simplificada a Sí o No**.
+Sobre main `63e2ae0`. El usuario pidió eliminar la revisión confusa con radios,
+motivo obligatorio y casilla de verificación. Ahora se comparan SRI y Excel en
+filas de una misma tabla: número, proveedor/RUC disponible, emisión, total, neto
+y pagado Excel. Con una candidata aparecen únicamente Sí, es la misma: vincular
+y No, son diferentes: guardar separadas. Con varias, cada candidata tiene su
+botón explícito de vincular y el No indica que ninguna coincide; nunca se escoge
+una candidata automáticamente. Si los datos cambiaron, se muestra el error y
+Actualizar comparación para obtener nueva revisión.
+Se conservan RPC, permisos, revisiones, validación de importes, pagos y auditoría:
+la decisión explícita genera un motivo estándar veraz (confirmación del usuario,
+sin afirmar haber visto documentos físicos). No hay nueva SQL ni resolución real
+de coincidencias por parte del agente. Bloqueo local evita dobles clics en curso.
+Archivos: components/VinculosExcelSri.tsx y pages/comprasSriTabla.css.
+Chrome verificó Sí/No sin campos extra, candidata exacta entre varias, conflicto
+y actualización, permisos y móvil; tres pruebas SQL de vinculación/colisiones/
+concurrencia y `npm run build` correctos. Publicación pendiente al registrar esto.
+
 24/11/2026, **Plazos de clientes y depósitos por semanas de pago previstas**.
 Sobre main `4a34a2e`. Usuario indicó 21 días desde emisión para Favorita, Rosado
 y Santa María, 60 para Tuti y contra factura emitida para Soldmer. Se interpretan
