@@ -14,6 +14,14 @@ const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
 const compilar = (source) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 
+test('Impuestos comparte Cuentas por pagar y respeta denegaciones', () => {
+  const c=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,i=utilPermisos.PANTALLA_IMPUESTOS
+  for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']) {
+    assert.equal(puedeAbrirPantalla(i,rol,[c]),true)
+    assert.equal(puedeAbrirPantalla(i,rol,[c],[c]),false)
+  }
+  assert.equal(puedeAbrirPantalla(i,'KAM',[]),false)
+})
 test('Préstamos comparte Cuentas por pagar sin conceder Pagos semanales', () => {
   const cuentas=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,prestamos=utilPermisos.PANTALLA_PRESTAMOS
   for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']) {

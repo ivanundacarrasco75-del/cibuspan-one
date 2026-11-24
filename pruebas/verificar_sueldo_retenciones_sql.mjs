@@ -44,7 +44,7 @@ async function preparar(t) {
     '202611200004_anticipos_proveedores','202611200005_nomina_sueldo','202611200006_retenciones_documentos',
     '202611200008_retenciones_importe_editable','202611200009_retenciones_calculadas',
     '202611230001_correccion_importes_excel','202611230002_vinculos_automaticos_sri_excel',
-    '202611230003_reportes_finanzas','202611240001_prestamos_cuotas']) await db.exec(await leer(nombre))
+    '202611230003_reportes_finanzas','202611240001_prestamos_cuotas','202611240002_impuestos']) await db.exec(await leer(nombre))
   await db.query("insert into compras_sri(clave_acceso,fecha_emision,datos,xml_original) values($1,'2026-11-01',$2,'<xml/>')",
     [clave,JSON.stringify({clave,serie:'F-1',fecha:'2026-11-01',proveedor:'Proveedor',ruc:'1790000000001',subtotal:'100',total:'115',items:[],impuestos:[{codigo:'2',valor:'15'}]})])
   await db.exec(`insert into fin_nomina_empleados(id,nombre,nombre_normalizado,area,activo,tipo_vinculo)
@@ -408,6 +408,45 @@ test('Reporte devuelve más de mil pagos sin truncar, evita repetir IDs e identi
   await db.exec('set role authenticated')
   const datos=(await db.query("select fin_reporte_pagos('2026-11-01','2026-11-30') datos")).rows[0].datos
   assert.equal(datos.filas.length,1005);assert.equal(datos.total,1005);assert.equal(datos.sin_fecha,1)
+})
+
+async function prepararImpuestos(t) {
+  const r=await preparar(t),{db}=r
+  const fila=(n,impuesto,monto,enviar=false,revision=0)=>({id:id(n),impuesto,monto,enviar,revision,periodo:'2026-11-01',vencimiento:'2026-12-15',referencia:'DECLARACION',detalle:'Ingreso manual'})
+  const guardar=(n,filas)=>db.query("select fin_guardar_impuestos($1,$2,'Impuestos verificados manualmente')",[id(n),JSON.stringify(filas)])
+  const listar=async()=>(await db.query("select * from fin_consultar_impuestos('2026-11-01') order by impuesto")).rows
+  return {...r,fila,guardar,listar}
+}
+test('Impuestos guarda renta e IVA manuales, publica solo seleccionados y contabiliza únicamente pagos reales',async t=>{
+  const {db,fila,guardar,listar,cuenta}=await prepararImpuestos(t)
+  const filas=[fila(70,'RENTA',100,true),fila(71,'IVA',150)]
+  await guardar(75,filas);await guardar(75,filas)
+  assert.equal((await listar()).length,2)
+  assert.equal((await cuenta('impuesto:'+id(70))).tipo,'IMPUESTO')
+  assert.equal(await cuenta('impuesto:'+id(71)),undefined)
+  await db.query("select fin_programar_compras('2026-11-23',$1)",[JSON.stringify([{id:'impuesto:'+id(70),monto:100}])])
+  await db.query("select fin_pagar_compra($1,$2,40,'2026-11-24','DEP-IMPUESTO','2026-11-23',false)",['impuesto:'+id(70),id(76)])
+  assert.equal(Number((await cuenta('impuesto:'+id(70))).saldo),60)
+  const reporte=(await db.query("select fin_reporte_pagos('2026-11-01','2026-11-30') datos")).rows[0].datos
+  assert.equal(reporte.total,40);assert.equal(reporte.filas[0].tipo,'IMPUESTO')
+  await db.exec('reset role')
+  assert.equal((await db.query("select count(*)::int n from app_audit_log where accion='FIN_IMPUESTO_GUARDAR'")).rows[0].n,2)
+})
+test('Impuestos rechaza duplicados, importes inválidos, cambios concurrentes y cambios de obligaciones programadas',async t=>{
+  const {db,fila,guardar,listar}=await prepararImpuestos(t)
+  await assert.rejects(guardar(75,[fila(70,'IVA',0)]),/importe manual/)
+  await assert.rejects(guardar(75,[fila(70,'IVA',1.001)]),/importe manual/)
+  await guardar(75,[fila(70,'IVA',100,true)])
+  await assert.rejects(guardar(76,[fila(71,'IVA',100)]),/Ya está registrado/)
+  await assert.rejects(guardar(76,[fila(70,'IVA',120,true,0)]),/impuesto cambió/)
+  await guardar(76,[fila(70,'IVA',120,true,1)])
+  assert.equal(Number((await listar())[0].monto),120)
+  await db.query("select fin_programar_compras('2026-11-23',$1)",[JSON.stringify([{id:'impuesto:'+id(70),monto:120}])])
+  await assert.rejects(guardar(77,[fila(70,'IVA',130,true,2)]),/pagos o programación/)
+  await assert.rejects(guardar(76,[fila(70,'IVA',140)]),/otros datos/)
+  await db.exec("reset role;update app_user_permissions set permitido=false where pantalla='Pagos y Finanzas · Cuentas por Pagar';set role authenticated")
+  await assert.rejects(listar(),/No tienes permiso/)
+  await assert.rejects(guardar(77,[fila(71,'RENTA',10)]),/No tienes permiso/)
 })
 
 async function prepararPrestamo(t) {

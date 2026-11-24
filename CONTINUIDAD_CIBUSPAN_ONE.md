@@ -1,5 +1,29 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Tarjeta Impuestos mensuales**.
+Sobre main `972b970`. Tabla compacta con período mensual, renta e IVA por separado,
+vencimiento, referencia/declaración, detalle, importe manual, pagado, saldo y estado.
+Valores inicialmente en blanco: no se calculan tarifas ni se descargan del SRI.
+Guardar conserva borradores; enviar publica solo casillas seleccionadas en Cuentas
+por pagar. Continúan a Pagos semanales por el flujo existente; solo el pago real
+reduce saldo y aparece en Reportes. Un impuesto de cada tipo por mes, revisiones
+contra cambios concurrentes, envíos idempotentes y auditoría con responsable/motivo.
+Importes/datos se pueden corregir antes de tener programación o pagos. Comparte
+el permiso exacto de Cuentas sin habilitar Pagos semanales.
+Instalada y registrada únicamente `202611240002_impuestos.sql`, tras comprobar el
+historial remoto. Sin registros de prueba en producción. Huellas conservadas:
+cuentas `457997f50af3625ccdbc50eeb43347ec`, permisos
+`51ed71cf9745cc58dbc3b4b24ba35fd4`, 26 pagos y OID 30866 de vista consolidada.
+Lectura authenticated/Teresa correcta, Cuentas=true/semanales=false, anon bloqueado.
+Build correcto y Chrome con importes vacíos/editables, selección parcial, mes,
+reintento seguro y móvil. Cubiertas 30 pruebas SQL y 28 de permisos: en la primera
+ejecución la consulta interna de auditoría del test usaba rol sin lectura de bitácora;
+corregido solo el test y reejecutados los tres casos de impuestos correctamente.
+Los otros 57 casos de regresión pasaron. Publicación pendiente al registrar este estado.
+Archivos: Impuestos.tsx, impuestosRepository.ts, migración, App.tsx,
+FinanzasResumen.tsx, FinanzasPagosCompras.tsx, finanzasComprasRepository.ts,
+permisosAplicacion.ts, catalogoPermisos.ts y las dos suites de pruebas.
+
 24/11/2026, **Tarjeta Préstamos y cuotas a Cuentas por pagar**.
 Sobre main `da59511`. El usuario eligió controlar el total de cuotas por pagar,
 sin separar capital e intereses. Acreedor, referencia, fecha, total pactado,

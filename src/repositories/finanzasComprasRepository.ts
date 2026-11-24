@@ -1,10 +1,10 @@
 import { supabase } from "../lib/supabase"
 
-export type TipoCuentaCompra = "SRI" | "NOTA_VENTA" | "NO_DEDUCIBLE" | "NOMINA" | "ANTICIPO" | "PRESTAMO"
+export type TipoCuentaCompra = "SRI" | "NOTA_VENTA" | "NO_DEDUCIBLE" | "NOMINA" | "ANTICIPO" | "PRESTAMO" | "IMPUESTO"
 export type CuentaCompra = {
   id: string
   tipo: TipoCuentaCompra
-  origen: "SRI" | "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS" | "EXCEL" | "NOMINA" | "ANTICIPO" | "PRESTAMO"
+  origen: "SRI" | "MANUAL_COMPRAS" | "CLASIFICACION_GASTOS" | "EXCEL" | "NOMINA" | "ANTICIPO" | "PRESTAMO" | "IMPUESTO"
   fecha_documento: string | null
   numero_documento: string | null
   proveedor: string | null
