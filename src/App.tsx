@@ -15,6 +15,7 @@ import {
   PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES,
   PANTALLA_REPORTES_FINANZAS,
   PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS,
+  PANTALLA_MENU_COMERCIAL,
 } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
@@ -29,6 +30,7 @@ const ReportesFinanzas = lazy(() => import("./pages/ReportesFinanzas"))
 const Impuestos = lazy(() => import("./pages/Impuestos"))
 const Prestamos = lazy(() => import("./pages/Prestamos"))
 const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
+const ComercialMenu = lazy(() => import("./pages/ComercialMenu"))
 const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
 const Anticipos = lazy(() => import("./pages/Anticipos"))
 const ReglasRetenciones = lazy(() => import("./pages/ReglasRetenciones"))
@@ -370,6 +372,9 @@ function App() {
       // ---------------------------------------------------------
       case "Casa Masa · Pedidos y empaque":
         return <CasaMasa puedeDespachar={puedeAcceder("Despachos")} />
+
+      case PANTALLA_MENU_COMERCIAL:
+        return <ComercialMenu puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
 
       case "Comercial · Pedidos":
       case "Pedidos":

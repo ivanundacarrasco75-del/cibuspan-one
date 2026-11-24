@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { filtrarModulosPermitidos, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLA_MENU_FINANZAS, PANTALLA_MENU_PRODUCCION, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
+import { filtrarModulosPermitidos, PANTALLA_MENU_COMERCIAL, PANTALLA_FACTURAS_COMPRAS, PANTALLA_MENU_COMPRAS, PANTALLA_MENU_FINANZAS, PANTALLA_MENU_PRODUCCION, PANTALLAS_DOCUMENTOS_COMPRAS } from "../../utils/permisosAplicacion"
 import LogoCibuspan from "../LogoCibuspan"
 
 type LayoutProps = {
@@ -64,18 +64,8 @@ const modulos: Modulo[] = [
     id: "Comercial",
     etiqueta: "Comercial",
     icono: "comercial",
-    entrada: "Comercial · Pedidos",
-    items: [
-      
-      { pantalla: "Comercial · Pedidos", etiqueta: "Pedidos" },
-      { pantalla: "Comercial · Ventas", etiqueta: "Ventas" },
-      { pantalla: "Comercial · Devoluciones", etiqueta: "Devoluciones" },
-      { pantalla: "Comercial · Descuentos", etiqueta: "Descuentos" },
-      { pantalla: "Comercial · Visitas y rotación", etiqueta: "Visitas y rotación" },
-      { pantalla: "Comercial · Visitas diarias", etiqueta: "Visitas diarias" },
-      { pantalla: "Comercial · Revisión de datos", etiqueta: "Revisión de datos" },
-      { pantalla: "Comercial · KPI KAM", etiqueta: "Gestión Comercial" },
-    ],
+    entrada: PANTALLA_MENU_COMERCIAL,
+    items: [],
   },
   {
     id: "Casa Masa",
@@ -286,6 +276,13 @@ export default function Layout({
       </header>
 
       <main className="c1-content">
+        {moduloActualId === "Comercial" && pantalla !== PANTALLA_MENU_COMERCIAL && puedeAcceder(PANTALLA_MENU_COMERCIAL) && (
+          <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Comercial">
+            <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_COMERCIAL)}>
+              <span aria-hidden="true">← </span>Volver a Comercial
+            </button>
+          </nav>
+        )}
         {moduloActualId === "Producción" && pantalla !== PANTALLA_MENU_PRODUCCION && puedeAcceder(PANTALLA_MENU_PRODUCCION) && (
           <nav className="c1-subnav-shell c1-compras-regreso" aria-label="Navegación de Producción">
             <button type="button" className="c1-subnav-item" onClick={() => navegar(PANTALLA_MENU_PRODUCCION)}>

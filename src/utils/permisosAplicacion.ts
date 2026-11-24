@@ -13,6 +13,8 @@ export const PANTALLA_NOTAS_VENTA = "Compras · Notas de venta"
 export const PANTALLA_NO_DEDUCIBLES = "Compras · Gastos no deducibles"
 export const PANTALLA_MENU_FINANZAS = "Pagos y Finanzas · Resumen"
 export const PANTALLA_MENU_PRODUCCION = "Producción · Resumen"
+export const PANTALLA_MENU_COMERCIAL = "Comercial · Menú"
+export const PANTALLAS_MENU_COMERCIAL = ["Pedidos", "Ventas", "Devoluciones", "Descuentos", "Visitas y rotación", "Visitas diarias", "Revisión de datos", "KPI KAM"].map(nombre => `Comercial · ${nombre}`)
 export const PANTALLA_CUENTAS_POR_PAGAR = "Pagos y Finanzas · Cuentas por Pagar"
 export const PANTALLA_PAGOS_SEMANALES = "Pagos y Finanzas · Pagos semanales"
 export const PANTALLA_PAGOS_ANTERIOR = "Pagos y Finanzas · Pagos"
@@ -53,6 +55,7 @@ export function puedeAbrirPantalla(
   pantalla: string, rol: string, permitidas: readonly string[], denegadas: readonly string[] = [],
 ): boolean {
   const ruta = ALIASES_PERMISOS[pantalla] ?? pantalla
+  if (ruta === PANTALLA_MENU_COMERCIAL) return !denegadas.includes(ruta) && PANTALLAS_MENU_COMERCIAL.some(hijo => puedeAbrirPantalla(hijo, rol, permitidas, denegadas))
   if (ruta === "Administración · Usuarios y Permisos") return rol === "ADMINISTRADOR"
   if (RUTAS_SOLO_ADMIN.includes(ruta) && rol !== "ADMINISTRADOR") return false
   const menus: Record<string, string[]> = {

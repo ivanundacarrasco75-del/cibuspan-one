@@ -14,6 +14,20 @@ const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
 const compilar = (source) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 
+test('El menú Comercial conserva permisos exactos y antiguos sin conceder opciones hermanas', () => {
+  const menu = utilPermisos.PANTALLA_MENU_COMERCIAL
+  for (const permiso of ['Comercial · Ventas', 'Pedidos', 'Campo comercial', 'KPI KAM']) {
+    const puede = ruta => puedeAbrirPantalla(ruta, 'KAM', [permiso])
+    assert.equal(puede(menu), true, permiso)
+    assert.deepEqual(filtrarModulosPermitidos([{entrada:menu,items:[]}],puede), [{entrada:menu,items:[]}])
+    assert.equal(puedeAbrirPantalla(menu, 'KAM', [permiso], utilPermisos.PANTALLAS_MENU_COMERCIAL), false)
+  }
+  assert.equal(puedeAbrirPantalla(menu, 'KAM', ['KPI KAM'], [menu]), false)
+  assert.equal(puedeAbrirPantalla(menu, 'KAM', []), false)
+  assert.equal(puedeAbrirPantalla(menu, 'KAM', ['Dashboard']), false)
+  assert.equal(puedeAbrirPantalla('Comercial · Pedidos', 'KAM', ['KPI KAM']), false)
+})
+
 test('Impuestos comparte Cuentas por pagar y respeta denegaciones', () => {
   const c=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,i=utilPermisos.PANTALLA_IMPUESTOS
   for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']) {

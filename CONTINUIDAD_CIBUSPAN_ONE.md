@@ -1,5 +1,17 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Entrada de Comercial en tarjetas**.
+Sobre main `dbfb254`. Nuevo ComercialMenu reutiliza MenuTarjetas y sus estilos:
+Pedidos, Ventas, Devoluciones, Descuentos, Visitas y rotación, Visitas diarias,
+Revisión de datos y Gestión Comercial. Sustituye la fila de pestañas por tarjetas
+y agrega Volver a Comercial dentro de las pantallas. Las rutas anteriores y el
+contenido de cada pantalla se conservan; los tableros permanecen en Dashboards.
+El menú se habilita si existe al menos una opción autorizada y cada tarjeta se
+filtra por el permiso existente, sin ampliar acceso. Conserva Campo comercial móvil.
+Archivos: ComercialMenu.tsx, App.tsx, Layout.tsx, permisosAplicacion.ts y la prueba
+de permisos. 29 pruebas de permisos y compilación oficial aprobadas. Publicación pendiente;
+no se ejecutó SQL ni se modificó la base de datos.
+
 24/11/2026, **Tarjeta Impuestos mensuales**.
 Sobre main `972b970`. Tabla compacta con período mensual, renta e IVA por separado,
 vencimiento, referencia/declaración, detalle, importe manual, pagado, saldo y estado.
