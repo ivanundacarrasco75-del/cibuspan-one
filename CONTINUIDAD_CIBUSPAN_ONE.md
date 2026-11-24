@@ -19,7 +19,9 @@ Build correcto y Chrome con importes vacíos/editables, selección parcial, mes,
 reintento seguro y móvil. Cubiertas 30 pruebas SQL y 28 de permisos: en la primera
 ejecución la consulta interna de auditoría del test usaba rol sin lectura de bitácora;
 corregido solo el test y reejecutados los tres casos de impuestos correctamente.
-Los otros 57 casos de regresión pasaron. Publicación pendiente al registrar este estado.
+Los otros 57 casos de regresión pasaron. Publicado desde `aca3705`, despliegue
+`0b1f7db2`. Comprobados SHA-256 de los 23 archivos públicos de Finanzas/Impuestos/
+Préstamos/Reportes/SRI/Roles/índice y configuración Supabase operativo, R2 y firma.
 Archivos: Impuestos.tsx, impuestosRepository.ts, migración, App.tsx,
 FinanzasResumen.tsx, FinanzasPagosCompras.tsx, finanzasComprasRepository.ts,
 permisosAplicacion.ts, catalogoPermisos.ts y las dos suites de pruebas.
