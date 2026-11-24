@@ -1,5 +1,27 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Sugerencias editables de retención de clientes en Cobros**.
+Sobre main `c31eb7f`. El usuario informó Favorita/Santa María 2 % y Tuti 1,75 %,
+y confirmó explícitamente que la base solicitada es el total con IVA. Se usan
+como referencias del usuario para conciliación, no como tabla fiscal certificada
+del SRI. No se interpretan como autorizaciones para registrar retenciones reales
+en lote ni para cambiar las ya existentes. Coincidencia por nombres/razones
+sociales conocidos, sin aplicar tasas a otros clientes por coincidencia parcial.
+Al marcar una factura verificada se propone importe sobre total confirmado,
+menos retenciones ya registradas, redondeado a centavos; si supera el saldo no
+se rellena. Campo editable y botón Usar sugerencia; se muestran porcentaje e
+importe por separado de la retención que se va a registrar. Continúan siendo
+obligatorios comprobante/fecha y confirmación antes de afectar saldos.
+Se consultó la resolución SRI NAC-DGERCGC26-00000009 y el comunicado oficial:
+la norma de marzo 2026 fija 2 % para bienes muebles corporales. Esto no demuestra
+por qué Tuti usa 1,75 %; falta revisar fecha, base y código de su comprobante.
+La configuración solicitada no se presenta como validación de esa diferencia.
+Archivos: CobrosConciliacion.tsx, utils/retencionesCobros.ts y prueba específica.
+Tres pruebas unitarias correctas; Chrome comprobó las tasas, base con IVA,
+edición/restauración de sugerencia, ventanas, columnas, móvil y conciliación
+completa con importe manual, reintento y anulación. Sin SQL ni datos reales
+modificados. `npm run build` correcto; publicación pendiente al registrar este estado.
+
 24/11/2026, **Carga de depósitos de Produbanco, enero–octubre de 2026**.
 Sobre main `50b98c8`. El usuario adjuntó diez estados XLSX de su cuenta corriente
 terminada en 1686 y autorizó cargarlos en Depósitos recibidos. Se extrajeron todas
