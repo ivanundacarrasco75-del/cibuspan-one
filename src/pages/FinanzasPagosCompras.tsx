@@ -52,12 +52,11 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   const [detalle, setDetalle] = useState<string | null>(null)
   const contenedor = useRef<HTMLDivElement>(null)
   const tabla = useRef<HTMLTableElement>(null)
-  const titulos = [
+  const titulos = modo === "semana" ? ["Emisión", "Tipo", "Documento", "Proveedor", "Descripción", "Pago programado", "Pagos"] : [
     ...(modo === "cuentas" && acciones.seleccionar ? ["Elegir"] : []), "Emisión",
     ...(modo === "cuentas" ? ["Semana de emisión"] : []), "Tipo", "Documento", "Proveedor", "Descripción",
     "Subtotal", "IVA", "Retención", "Total", "Abonado", "Saldo",
-    ...(modo === "cuentas" ? [] : [modo === "semana" ? "Programado" : "Monto a pagar"]),
-    ...(modo === "semana" ? ["Pagado en plan"] : []), "Estado", "Pagos",
+    ...(modo === "cuentas" ? [] : ["Monto a pagar"]), "Estado", "Pagos",
   ]
   const columnas = titulos.length
   const anchos = useColumnasAjustables(modo, titulos, tabla)
@@ -78,7 +77,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   return (
     <div ref={contenedor} className={`compras-sri-contenedor${modo === "cuentas" ? " fin-pagos-cuentas-scroll" : ""}`}
       tabIndex={0} role="region" aria-label={titulo} onScroll={alDesplazar}>
-      <table ref={tabla} className={`compras-sri-tabla fin-pagos-tabla${anchos.ajustada ? " fin-pagos-ajustada" : ""}`} aria-label={titulo}
+      <table ref={tabla} className={`compras-sri-tabla fin-pagos-tabla${modo === "semana" ? " fin-pagos-semana" : ""}${anchos.ajustada ? " fin-pagos-ajustada" : ""}`} aria-label={titulo}
         style={anchos.ajustada ? { width: anchos.total, minWidth: anchos.total, tableLayout: "fixed" } : undefined}>
         <colgroup>{titulos.map(columna => <col key={columna} style={anchos.ajustada ? { width: anchos.ancho(columna) } : undefined} />)}</colgroup>
         <thead><tr>{titulos.map(columna => <th key={columna} scope="col" aria-label={columna}
@@ -94,9 +93,9 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
         <tbody>{filas.map(({ cuenta, plan }) => {
           if (!cuenta && plan) {
             return <tr key={plan.documento_id}>
-              <td colSpan={11}>Documento de origen no disponible</td>
-              <td>{importe(plan.monto)}</td><td>{importe(plan.pagado)}</td><td>Revisar</td>
-              <td>{plan.pagado === 0 && <button disabled={acciones.ocupado} onClick={() => acciones.quitar?.(plan.documento_id)}>Retirar</button>}</td>
+              <td colSpan={columnas - 2}>Documento de origen no disponible. Revisa el documento antes de pagar.</td>
+              <td>{importe(plan.monto)}</td>
+              <td><button type="button" disabled={acciones.ocupado || plan.pagado > 0} onClick={() => acciones.quitar?.(plan.documento_id)}>Quitar</button></td>
             </tr>
           }
           if (!cuenta) return null
@@ -122,30 +121,34 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
               <td>{tipos[cuenta.tipo]}</td>
               <td>{cuenta.numero_documento || "—"}</td><td title={cuenta.proveedor ?? undefined}>{cuenta.proveedor || "—"}</td>
               <td title={cuenta.concepto ?? undefined}>{cuenta.concepto || "—"}</td>
-              {[cuenta.subtotal, cuenta.iva, cuenta.retencion, cuenta.total, cuenta.pagado, cuenta.saldo].map((valor, indice) =>
+              {modo !== "semana" && [cuenta.subtotal, cuenta.iva, cuenta.retencion, cuenta.total, cuenta.pagado, cuenta.saldo].map((valor, indice) =>
                 <td className="compras-sri-monto" key={indice}>{importe(valor)}</td>)}
               {modo === "seleccion" && <td>
                 <input type="number" aria-label={`Monto a pagar de ${nombre}`} min="0.01" max={monto(centavos(cuenta.saldo))} step="0.01"
                   value={elegida?.monto ?? ""} required disabled={acciones.ocupado}
                   onChange={evento => acciones.cambiarMonto?.(cuenta.id, evento.target.value)} />
               </td>}
-              {plan && <><td className="compras-sri-monto">{importe(plan.monto)}</td><td className="compras-sri-monto">{importe(plan.pagado)}</td></>}
-              <td>{modo === "seleccion" && historica(cuenta)
+              {modo === "semana" && <td className="compras-sri-monto">{plan ? importe(plan.monto) : "—"}</td>}
+              {modo !== "semana" && <td>{modo === "seleccion" && historica(cuenta)
                 ? <label className="fin-pagos-verificar"><input type="checkbox" checked={elegida?.verificado ?? false}
                   disabled={acciones.ocupado} onChange={evento => acciones.verificar?.(cuenta.id, evento.target.checked)} /> Saldo verificado</label>
-                : estado}</td>
+                : estado}</td>}
               <td className="compras-sri-acciones"><div>
-                {modo === "semana" && puedePagar && <>
-                  <button type="button" disabled={acciones.ocupado} onClick={() => acciones.abrirPago(cuenta, true, plan)}>Abonar</button>
-                  <button type="button" disabled={acciones.ocupado} onClick={() => acciones.abrirPago(cuenta, false, plan)}>Pagar</button>
-                </>}
+                {modo === "semana" && <button type="button" disabled={acciones.ocupado || !puedePagar || !plan}
+                  title={puedePagar ? "Pagar el importe pendiente del plan" : estado} onClick={() => acciones.abrirPago(cuenta, false, plan)}>Pagar</button>}
                 <button type="button" aria-expanded={detalle === cuenta.id} onClick={() => setDetalle(detalle === cuenta.id ? null : cuenta.id)}>Detalle</button>
-                {(modo === "seleccion" || (plan && plan.pagado === 0)) &&
-                  <button type="button" disabled={acciones.ocupado} onClick={() => acciones.quitar?.(cuenta.id)}>Quitar</button>}
+                {(modo === "seleccion" || modo === "semana") &&
+                  <button type="button" disabled={acciones.ocupado || (modo === "semana" && (!plan || plan.pagado > 0))}
+                    title={modo === "semana" && plan && plan.pagado > 0 ? "El plan ya tiene pagos registrados" : undefined} onClick={() => acciones.quitar?.(cuenta.id)}>Quitar</button>}
               </div></td>
             </tr>
             {detalle === cuenta.id && <tr><td colSpan={columnas} className="compras-sri-detalle">
               <strong>{nombre}</strong><p>{cuenta.concepto || "Sin descripción"}</p>
+              {modo === "semana" && <>
+                <p>Estado: {estado} · Subtotal: {importe(cuenta.subtotal)} · IVA: {importe(cuenta.iva)} · Retención: {importe(cuenta.retencion)} · Total: {importe(cuenta.total)}</p>
+                <p>Abonado al documento: {importe(cuenta.pagado)} · Saldo del documento: {importe(cuenta.saldo)}</p>
+                {plan && <p>Pago programado desde Cuentas por pagar: {importe(plan.monto)} · Pagado en plan: {importe(plan.pagado)} · Pendiente del plan: {importe(monto(restante))}</p>}
+              </>}
               {cuenta.ruc && <p>RUC {cuenta.ruc}{cuenta.id.startsWith("sri:") ? " · Clave de acceso " + cuenta.id.slice(4) : ""}</p>}
               {historica(cuenta) && <p>Origen histórico en Clasificación de gastos. Verifica el saldo contra los pagos anteriores.</p>}
               {cuenta.observaciones && <p>{cuenta.observaciones}</p>}

@@ -1,5 +1,23 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Tabla compacta de Pagos semanales**.
+Sobre main `159a172`. A pedido del usuario se dejan únicamente Emisión, Tipo,
+Documento, Proveedor, Descripción, Pago programado y Pagos. Pago programado
+muestra el monto aprobado/enviado desde Cuentas por pagar, no el total de la
+factura ni un saldo recalculado. Solo botones Pagar, Detalle y Quitar; se retira
+Abonar de esta vista. Pagar usa el pendiente del plan (monto menos pagado),
+conservando el modal y sus validaciones. Pagar se deshabilita si está ejecutado
+o requiere revisión; Quitar sigue deshabilitado cuando hay pagos registrados.
+Detalle conserva subtotal, IVA, retención, total, abonado/saldo del documento,
+programado, pagado en plan, pendiente y estado. Fila sin origen no permite pagar
+y su colspan se adapta a siete columnas. Conserva anchos ajustables y scroll;
+Cuentas por pagar y Documentos seleccionados mantienen sus columnas completas.
+Archivos: FinanzasPagosCompras.tsx y finanzasPagosCompras.css. Sin SQL ni cambios
+de datos reales. Build correcto; Chrome/móvil comprobó siete encabezados,
+acciones, importes programados/parciales, pago de 300 de factura de 1000,
+pendiente de 275 en plan de 400 con 125 ya pagados, detalle, retiro seguro,
+anchos y regresión de columnas en Cuentas por pagar. Publicación pendiente.
+
 24/11/2026, **Revisión SRI/Excel simplificada a Sí o No**.
 Sobre main `63e2ae0`. El usuario pidió eliminar la revisión confusa con radios,
 motivo obligatorio y casilla de verificación. Ahora se comparan SRI y Excel en

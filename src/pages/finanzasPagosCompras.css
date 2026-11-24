@@ -27,6 +27,7 @@
 
 .fin-pagos-filtros input[type="search"] { width: min(238px, 54vw); }
 .fin-pagos .fin-pagos-tabla { table-layout: auto; min-width: 1110px; }
+.fin-pagos .fin-pagos-tabla.fin-pagos-semana { min-width: 900px; }
 .fin-pagos-tabla th { padding-right: 13px; overflow: hidden; }
 .fin-pagos-titulo-columna { display: block; overflow: hidden; text-overflow: ellipsis; }
 .fin-pagos-ajustar-columna {
