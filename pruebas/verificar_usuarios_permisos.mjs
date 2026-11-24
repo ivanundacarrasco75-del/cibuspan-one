@@ -14,6 +14,16 @@ const root = new URL('../', import.meta.url)
 const leer = (path) => fs.readFileSync(new URL(path, root), 'utf8')
 const compilar = (source) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
 
+test('Préstamos comparte Cuentas por pagar sin conceder Pagos semanales', () => {
+  const cuentas=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,prestamos=utilPermisos.PANTALLA_PRESTAMOS
+  for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']) {
+    assert.equal(puedeAbrirPantalla(prestamos,rol,[cuentas]),true)
+    assert.equal(puedeAbrirPantalla(prestamos,rol,[cuentas],[cuentas]),false)
+    if(rol!=='ADMINISTRADOR') assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_PAGOS_SEMANALES,rol,[cuentas]),false)
+  }
+  assert.equal(puedeAbrirPantalla(prestamos,'KAM',[]),false)
+})
+
 test('Reportes financieros hereda lectura de Cuentas por pagar y respeta una denegación explícita', () => {
   const cuentas=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,reporte=utilPermisos.PANTALLA_REPORTES_FINANZAS
   assert.equal(puedeAbrirPantalla(reporte,'JEFA_FACTURACION',[cuentas]),true)

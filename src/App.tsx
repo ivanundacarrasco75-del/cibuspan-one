@@ -14,6 +14,7 @@ import {
   PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
   PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES,
   PANTALLA_REPORTES_FINANZAS,
+  PANTALLA_PRESTAMOS,
 } from "./utils/permisosAplicacion"
 
 // V12.11: cada módulo se descarga solo cuando el usuario lo abre.
@@ -25,6 +26,7 @@ const CasaMasa = lazy(() => import("./pages/CasaMasa"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
 const ReportesFinanzas = lazy(() => import("./pages/ReportesFinanzas"))
+const Prestamos = lazy(() => import("./pages/Prestamos"))
 const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
 const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
 const Anticipos = lazy(() => import("./pages/Anticipos"))
@@ -540,6 +542,8 @@ function App() {
         return <FinanzasResumen puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
       case PANTALLA_REPORTES_FINANZAS:
         return <ReportesFinanzas />
+      case PANTALLA_PRESTAMOS:
+        return <Prestamos alEnviar={() => setPantalla(PANTALLA_CUENTAS_POR_PAGAR)} />
 
       case PANTALLA_CUENTAS_POR_PAGAR:
       case PANTALLA_PAGOS_SEMANALES:

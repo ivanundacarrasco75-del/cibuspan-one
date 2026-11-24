@@ -1,5 +1,34 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Tarjeta Préstamos y cuotas a Cuentas por pagar**.
+Sobre main `da59511`. El usuario eligió controlar el total de cuotas por pagar,
+sin separar capital e intereses. Acreedor, referencia, fecha, total pactado,
+número de cuotas, pago previo y observaciones; cuotas en tabla compacta con
+casilla, número real, vencimiento, importe, detalle, pagado y saldo. Solo cuotas
+seleccionadas pasan a Cuentas por pagar como PRESTAMO y siguen el flujo existente
+de selección → Pagos semanales → pago real. Guardar/enviar/programar no reduce
+la deuda. Pagos reales reducen cuota y préstamo y aparecen en reporte mensual;
+pago previo es saldo histórico, sin generar desembolsos nuevos. Registrar solo
+cuotas pendientes; la suma de estas más el pago previo no puede superar el total.
+Bitácora de altas/correcciones/envíos/retiros con responsable y motivo. Revisiones
+optimistas y operaciones idempotentes evitan duplicar al reintentar. Bloqueo por
+préstamo antes del bloqueo por cuota también en pago/programación. Cuotas con
+programación o pagos conservan sus datos; se pueden retirar las no programadas
+ni pagadas para corregir y reenviar con la misma identidad. Préstamos comparte
+el permiso exacto de Cuentas, sin otorgar Pagos semanales.
+Instalada solo `202611240001_prestamos_cuotas.sql` tras revisar historial remoto;
+se preservó OID de la vista de cuentas 30866. Huellas antes/después iguales:
+cuentas `457997f50af3625ccdbc50eeb43347ec`, permisos globales
+`51ed71cf9745cc58dbc3b4b24ba35fd4`, 26 pagos existentes. Lectura con rol
+authenticated/Teresa correcta, Cuentas=true y semanales=false; anon sin acceso.
+No se crearon préstamos ni cuotas de prueba en la base real. Pasaron 28 pruebas
+SQL y 27 de permisos, Chrome con alta/pago previo/selección parcial/reintento de
+envío sin duplicados/Cuentas/cuotas protegidas y móvil, y `npm run build`.
+Archivos: Prestamos.tsx/.css, prestamosRepository.ts, App.tsx, FinanzasResumen.tsx,
+FinanzasPagosCompras.tsx, finanzasComprasRepository.ts, permisosAplicacion.ts,
+catalogoPermisos.ts, migración y dos suites de pruebas. Publicación pendiente
+al registrar este estado; actualizar con el despliegue y las verificaciones.
+
 23/11/2026, **Tarjeta Reportes en Pagos y Finanzas**.
 Sobre main `92fc11d`. Dos reportes iniciales: pagos realizados por fecha del pago
 y compras de MP por fecha de recepción física (elección explícita del usuario).

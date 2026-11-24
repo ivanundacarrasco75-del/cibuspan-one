@@ -62,6 +62,7 @@ export function rutasDeNodo(nodo: NodoPermiso): string[] {
 export const RUTAS_PERMISOS = ARBOL_PERMISOS.flatMap(rutasDeNodo)
 
 export const ALIASES_PERMISOS: Record<string, string> = {
+  "Pagos y Finanzas · Préstamos": "Pagos y Finanzas · Cuentas por Pagar",
   "Pagos y Finanzas · Reportes": "Pagos y Finanzas · Cuentas por Pagar",
   "Compras · Anticipos": "Pagos y Finanzas · Cuentas por Pagar",
   "Pagos y Finanzas · Reglas de retenciones": "Pagos y Finanzas · Cuentas por Pagar",

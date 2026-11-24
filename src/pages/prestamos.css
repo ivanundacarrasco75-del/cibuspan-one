@@ -1,0 +1,13 @@
+.prestamos-pagina h1 { font-size: 23px; margin: 0; }
+.prestamos-pagina h2 { font-size: 18px; margin: 18px 0 8px; }
+.prestamos-editor { margin-top: 18px; }
+.prestamos-editor fieldset { min-width: 0; padding: 10px; border: 1px solid #bac5d1; }
+.prestamos-editor input { max-width: min(300px, 75vw); }
+.prestamos-cuotas-campos { border: 0; margin: 0; padding: 0; min-width: 0; }
+.prestamos-pagina .prestamos-tabla { table-layout: auto; min-width: 1100px; }
+.prestamos-tabla td { white-space: nowrap; }
+.prestamos-tabla td > input { min-width: 80px; }
+.prestamos-tabla td > input[type="checkbox"] { min-width: 0; width: 14px; }
+.prestamos-tabla td > input[type="date"] { min-width: 125px; }
+.prestamos-cuotas-scroll { max-height: 340px; }
+.prestamos-resumen { background: #e9f4f2; border-left: 3px solid #167a8a; padding: 10px; }

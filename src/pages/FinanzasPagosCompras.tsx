@@ -11,7 +11,7 @@ import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
 import { useColumnasAjustables } from "../hooks/useColumnasAjustables"
 
-const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina", ANTICIPO: "Anticipo" }
+const tipos: Record<TipoCuentaCompra, string> = { SRI: "Factura SRI", NOTA_VENTA: "Nota de venta", NO_DEDUCIBLE: "Gasto no deducible", NOMINA: "Pago nómina", ANTICIPO: "Anticipo", PRESTAMO: "Cuota de préstamo" }
 const moneda = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const importe = (valor: number | string | null) => valor === null ? "—" : moneda.format(Number(valor))
 const centavos = (valor: number | string | null) => Math.round(Number(valor) * 100)
