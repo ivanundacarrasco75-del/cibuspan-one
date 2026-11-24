@@ -9,8 +9,12 @@ contenido de cada pantalla se conservan; los tableros permanecen en Dashboards.
 El menú se habilita si existe al menos una opción autorizada y cada tarjeta se
 filtra por el permiso existente, sin ampliar acceso. Conserva Campo comercial móvil.
 Archivos: ComercialMenu.tsx, App.tsx, Layout.tsx, permisosAplicacion.ts y la prueba
-de permisos. 29 pruebas de permisos y compilación oficial aprobadas. Publicación pendiente;
-no se ejecutó SQL ni se modificó la base de datos.
+de permisos. 29 pruebas de permisos y compilación oficial aprobadas.
+Publicado desde `aeb654e`, despliegue `3e6893cc-6782-4aeb-8ac1-be8b0c516a50`,
+`https://3e6893cc.cibuspan-one.pages.dev`. Dominio principal comprobado por SHA-256
+del bundle principal, ComercialMenu, ComprasResumen, Impuestos y Prestamos contra
+dist. Sin recorrido autenticado de interfaz; reutiliza el componente de tarjetas
+existente. No se ejecutó SQL ni se modificó la base de datos.
 
 24/11/2026, **Tarjeta Impuestos mensuales**.
 Sobre main `972b970`. Tabla compacta con período mensual, renta e IVA por separado,
