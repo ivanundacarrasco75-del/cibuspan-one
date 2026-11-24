@@ -25,7 +25,8 @@ Archivos: CobrosConciliacion.tsx, utils/plazosCobros.ts y su prueba. Ocho prueba
 de plazos/retenciones pasaron, incluidos cierres de mes/año, bisiesto, ISO, manuales
 y huecos; Chrome/móvil verificó mes, cliente, semanas, selector, ver todos,
 vencimiento sugerido y validación fuera de plazo. `npm run build` correcto;
-publicación pendiente al registrar este estado.
+publicado desde `8d19783`, despliegue `a018eba4`; SHA-256 de 27 archivos públicos
+y configuración Supabase operativo/R2/firma verificados.
 
 24/11/2026, **Orden por fecha en Cuentas por cobrar y depósitos**.
 Sobre main `3f49ca9`. Selector Más antiguo primero / Más reciente primero en
