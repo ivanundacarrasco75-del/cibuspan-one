@@ -19,7 +19,8 @@ Seis pruebas de plazos correctas. Chrome reprodujo el caso con nombre/número/
 fecha/importe equivalentes: casilla habilitada, selección neta, fecha y ventana
 correctas; cliente sin plazo abre ventana con fecha obligatoria y fuente inválida
 permanece bloqueada. Sin SQL ni conciliaciones reales ejecutadas por el agente.
-Build correcto; publicación pendiente al preparar este registro.
+Build correcto. Publicado desde `f06e7a3`, despliegue `57738839`; SHA-256 de
+29 archivos públicos y Supabase operativo/R2/firma verificados.
 
 
 24/11/2026, **Fondo azul en filas conciliadas**.
