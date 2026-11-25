@@ -1,5 +1,17 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Fondo azul en filas conciliadas**.
+Sobre main `cb3a3c3`. Filas de facturas verificadas con saldo registrado cero
+usan fondo azul #9edbfa en Conciliar y Facturas y saldos; depósitos activos
+completamente aplicados también. Se basa en saldo real, no en neto estimado ni
+selección: pendientes, parciales, anulados y facturas sin verificar conservan
+el fondo normal. Clase cxc-conciliada aplicada a celdas para coherencia con SRI.
+Solo CobrosConciliacion.tsx/CSS y esta guía; sin SQL ni cambios de datos.
+Chrome local confirmó azul RGB(158,219,250) solo en conciliadas de las tres
+vistas, con pendientes/parciales/anuladas sin azul y sin errores de pantalla.
+Build correcto; publicación pendiente al preparar este registro.
+
+
 24/11/2026, **Conciliación para control de caja sin soporte obligatorio**.
 Sobre main `6ced5e0`. Usuario explica que Contabilidad gestiona comprobantes y
 quiere conciliar cobros para flujo de caja. Se retiran número/fecha de retención
