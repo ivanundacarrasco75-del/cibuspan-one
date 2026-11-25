@@ -48,3 +48,14 @@ test('Semanas ISO y meses cruzan año, febrero y años bisiestos sin depender de
  assert.equal(rangoMesCobros('2026-12').hasta,'2026-12-31')
  assert.equal(rangoMesCobros('2026-13'),null)
 })
+
+test('Reconoce el prefijo Emisión importado sin extender el plazo a otros clientes ni cambiar su fuente',()=>{
+ for(const cliente of ['Emisión TIENDAS TUTI TTDE S. A.','Emision: TIENDAS TUTI TTDE S. A.',' EMISIÓN TIENDAS TUTI TTDE S. A.'])assert.equal(plazoClienteCobro(cliente),60)
+ assert.equal(plazoClienteCobro('Emisión CORPORACION FAVORITA C.A.'),21)
+ assert.equal(plazoClienteCobro('Emisión SOLDMER S.A.A.'),0)
+ for(const cliente of ['Otra Emisión TIENDAS TUTI TTDE S. A.','Emisión TIENDAS TUTI TTDE S. A. / OTRO','EMISIONES TUTI','Emisión Cliente nuevo'])assert.equal(plazoClienteCobro(cliente),null)
+ const factura=f('Emisión TIENDAS TUTI TTDE S. A.','2026-08-01')
+ const previsto=previsionCobro(factura)
+ assert.equal(previsto.fecha,'2026-09-30');assert.equal(previsto.desde,'2026-09-21');assert.equal(previsto.hasta,'2026-10-04');assert.equal(factura.cliente,'Emisión TIENDAS TUTI TTDE S. A.')
+ assert.equal(previsionCobro({...factura,fuente_valida:false}),null)
+})

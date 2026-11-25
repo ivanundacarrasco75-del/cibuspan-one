@@ -1,5 +1,27 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Desbloqueo de Tuti con prefijo Emisión y clientes sin plazo**.
+Sobre main `bdacb04`. Se consultó solo lectura la factura 002-001-000016866:
+cliente guardado Emisión TIENDAS TUTI TTDE S. A., emisión 01/08/2026, venta
+3840, fuente coherente, sin total/vencimiento confirmados ni aplicaciones.
+El alias exacto no reconocía el prefijo importado, dejaba Sin plazo y el checkbox
+exigía una previsión antes de permitir completar la factura. Normalización de
+plazos ignora únicamente prefijo inicial Emisión/Emision con espacio o dos puntos;
+conserva coincidencia exacta del resto y no modifica ventas, nombres ni huellas.
+Tuti reconoce 60 días: vencimiento 30/09/2026, ventana 21/09 al 04/10, neto con
+2 % 3763,20. La confirmación la hace el usuario al seleccionar, con RPC/actor.
+Para otros clientes nuevos sin plazo, la casilla permite abrir Verificar factura
+para completar vencimiento obligatorio; no inventa fecha, no confirma ni aplica
+pagos hasta completarla. Fuentes inconsistentes, falta de permiso, saldos cero
+siguen bloqueados. Mensaje en la ventana explica el dato pendiente.
+Archivos: plazosCobros.ts, CobrosConciliacion.tsx, prueba de plazos y esta guía.
+Seis pruebas de plazos correctas. Chrome reprodujo el caso con nombre/número/
+fecha/importe equivalentes: casilla habilitada, selección neta, fecha y ventana
+correctas; cliente sin plazo abre ventana con fecha obligatoria y fuente inválida
+permanece bloqueada. Sin SQL ni conciliaciones reales ejecutadas por el agente.
+Build correcto; publicación pendiente al preparar este registro.
+
+
 24/11/2026, **Fondo azul en filas conciliadas**.
 Sobre main `cb3a3c3`. Filas de facturas verificadas con saldo registrado cero
 usan fondo azul #9edbfa en Conciliar y Facturas y saldos; depósitos activos

@@ -28,7 +28,7 @@ export function semanaEmisionCobro(valor: string) {
   return { desde, hasta, etiqueta: `${anio}-S${String(numero).padStart(2, "0")}` }
 }
 export function plazoClienteCobro(cliente: string) {
-  const nombre = cliente.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "")
+  const nombre = cliente.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/^\s*emision(?:\s*:\s*|\s+)/i, "").toUpperCase().replace(/[^A-Z0-9]/g, "")
   return reglas.find(r => r.nombres.includes(nombre))?.dias ?? null
 }
 type FuentePlazo = Pick<FacturaCobro, "cliente" | "fecha_emision" | "vencimiento" | "fuente_valida">
