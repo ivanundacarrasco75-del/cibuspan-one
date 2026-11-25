@@ -27,3 +27,12 @@ test('No estima importes de facturas sin confirmar o inconsistentes, y redondea 
  assert.equal(sugerir(factura('TUTI',{total:114.99})).importe,'2.01')
  assert.equal(sugerir(factura('FAVORITA',{total:0.25})).importe,'0.01')
 })
+
+const sinIva=module.exports.facturaSinIvaCobro
+test('Producto sin IVA propone total y retención desde ventas nuevas sin confirmar, sin sustituir correcciones ni fuentes cambiadas',()=>{
+ const f={...factura('CORPORACION FAVORITA C.A.'),total:null,saldo:null,revision:0,subtotal_importado:1327.10,cobrado:0}
+ const propuesta=sinIva(f)
+ assert.equal(propuesta.total,1327.10);assert.equal(propuesta.saldo,1327.10);assert.equal(sugerir(propuesta).importe,'26.54');assert.equal(f.total,null)
+ assert.equal(sugerir(sinIva({...f,cliente:'TUTI',subtotal_importado:2059.20})).importe,'36.04')
+ for(const extras of [{total:1400},{revision:1},{fuente_valida:false},{subtotal_importado:-1},{cobrado:1},{retenido:1}]){const original={...f,...extras};assert.equal(sinIva(original),original)}
+})

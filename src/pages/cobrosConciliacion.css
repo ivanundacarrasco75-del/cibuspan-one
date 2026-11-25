@@ -22,3 +22,7 @@
 .cxc-ventana .cxc-panel label input { box-sizing: border-box; width: 100%; max-width: 100%; }
 .cxc-pagina .fin-pagos-ajustada td { overflow: hidden; text-overflow: ellipsis; }
 .cxc-pagina .fin-pagos-ajustada td input:not([type=checkbox]) { box-sizing: border-box; min-width: 0; width: 100%; }
+.cxc-importacion { width: min(960px, calc(100vw - 32px)); }
+.cxc-importacion .cxc-importacion-campos { display: block; margin-top: 10px; }
+.cxc-importacion input[type=file] { max-width: 100%; }
+.cxc-importacion td { white-space: normal; }

@@ -7,6 +7,14 @@ const referencias = [
   { cliente: "Santa María", porcentaje: 2, aliases: ["SANTAMARIA", "MEGASANTAMARIA", "MEGASANTAMARIASA"] },
   { cliente: "Tuti", porcentaje: 1.75, aliases: ["TUTI", "TIENDASTUTI", "TIENDASTUTITTDESA"] },
 ]
+// Solo propone el total para facturas nuevas y fuentes coherentes. Una edición
+// previa o un cambio en Ventas siempre requiere revisión expresa.
+export function facturaSinIvaCobro(f: FacturaCobro): FacturaCobro {
+  const total = Number(f.subtotal_importado)
+  if (f.total !== null || f.revision !== 0 || !f.fuente_valida || !Number.isFinite(total) || total <= 0 || total >= 1000000000 || Number(f.cobrado) !== 0 || Number(f.retenido) !== 0) return f
+  return { ...f, total, saldo: total, verificada: true }
+}
+
 type BaseFactura = Pick<FacturaCobro, "cliente" | "total" | "retenido" | "saldo" | "verificada" | "fuente_valida">
 export function sugerirRetencionCobro(factura: BaseFactura) {
   const nombre = factura.cliente.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "")

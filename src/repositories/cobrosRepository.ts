@@ -42,3 +42,10 @@ export async function conciliarCobro(d: ConciliacionCobro) {
 export async function anularCobro(aplicacion: string | null, deposito: string | null, motivo: string) {
   await ejecutar("fin_cxc_anular", { p_aplicacion: aplicacion, p_deposito: deposito, p_motivo: motivo })
 }
+export type ImportacionDepositos = { operacion: string; archivo: string; huella: string; cuenta: string; tipo: "CORRIENTE" | "AHORROS"; filas: Omit<NuevoDeposito, "banco">[] }
+export type ResultadoImportacionDepositos = { creados: number; duplicados: number; importe_creado: number; importe_duplicado: number }
+export async function importarDepositos(datos: ImportacionDepositos) {
+  const { data, error, status } = await supabase.rpc("fin_cxc_importar_depositos", { p_operacion: datos.operacion, p_archivo: datos.archivo, p_huella: datos.huella, p_cuenta: datos.cuenta, p_tipo: datos.tipo, p_filas: datos.filas })
+  if (error) throw Object.assign(error, { rechazado: status >= 400 && status < 500 })
+  return data as ResultadoImportacionDepositos
+}

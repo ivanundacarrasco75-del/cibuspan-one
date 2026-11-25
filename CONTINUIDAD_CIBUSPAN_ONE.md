@@ -1,5 +1,53 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Importación bancaria autónoma y retenciones visibles en Cobros**.
+Sobre main `da8a09e`. En Depósitos recibidos se agrega Importar estado de cuenta
+para XLSX de Produbanco, con vista previa, elección de ingresos y comprobación
+contra depósitos existentes. Lee XML por namespace y filas físicas (los estados
+reales tienen prefijo x:, celdas sin dirección y dimension incompleto A3:H10);
+fflate ya existente, sin dependencias nuevas. Conserva fechas MM/DD/YYYY,
+referencias con ceros y UUID v5 compatibles con la carga histórica. Se admiten
+decimales adicionales solo si son ceros. Excluye débitos, traspasos propios y
+reversos; códigos de ingreso desconocidos requieren elección expresa. Duplicados
+no se insertan; importes distintos o referencias repetidas requieren revisión.
+RPC nueva fin_cxc_importar_depositos: lote atómico, permiso de Cobros, operación
+idempotente con reintento del mismo contenido, auditoría de archivo/huella/actor
+y creación mediante RPC existente. No aplica dinero a facturas automáticamente.
+Migración 202611240004 instalada y verificada en eodcwkuexldsbomflthe mediante
+SQL puntual; registrada únicamente esa versión. No se aplicaron pendientes
+antiguos ni se alteraron vistas de otros módulos o permisos asignados. Huellas
+de depósitos, aplicaciones, facturas, ventas y permisos idénticas antes/después;
+281 depósitos y ninguna aplicación real. Noviembre NO se ha cargado: falta que
+el usuario seleccione su archivo en el botón. Importar/registro manual muestran
+todos los depósitos al guardar para evitar ocultarlos por el filtro semanal.
+
+A pedido del usuario se muestra Retención calculada editable en la tabla de
+facturas, separada de Retención registrada. Favorita/Santa María 2 %, Tuti
+1,75 %: referencias del usuario sobre total, producto sin IVA. Para facturas
+nuevas coherentes sin confirmación se propone subtotal de Ventas como total;
+al seleccionarlas se confirma con RPC, plazo conocido y auditoría responsable,
+solo con permiso de Cuentas por Cobrar. No sobrescribe totales manuales ni
+fuentes cambiadas; inconsistentes y clientes sin plazo requieren Verificar total.
+Modal propone también venta sin IVA como total editable. Correcciones locales
+de retención se mantienen durante la vista y se sincronizan con Distribución;
+se invalidan si cambia la fuente, total, cobros o retenciones registradas.
+Seleccionar propone cobro neto; editar retención reajusta el dinero solo si
+estaba cubriendo el saldo completo, preservando cobros parciales manuales.
+La estimación no constituye una retención real ni reduce saldo hasta confirmar
+conciliación con número y fecha de comprobante. No se registraron retenciones
+ni confirmaciones reales en lote ni se escogieron facturas/depositantes reales.
+
+Archivos: CobrosConciliacion.tsx/CSS, cobrosRepository, retencionesCobros,
+ImportarDepositosBancarios, estadoCuentaProdubanco, SQL 004 y pruebas. Build
+correcto; 8 pruebas SQL de conciliación/importación, 2 del parser, 4 de retención
+y 5 de plazos. Chrome verificó edición antes/después de seleccionar, total IVA0,
+cobro neto, conciliación completa/reintento/anulación; los diez XLSX reales
+reprodujeron los 281 UUID/fechas/referencias/filas/importes exactos (587114,12)
+y diez exclusiones, sin escrituras reales. Vista previa verificó duplicados,
+selección de código desconocido, exclusiones, reintento, móvil y permisos.
+Publicación pendiente al preparar este estado; registrar resultado al terminar.
+
+
 24/11/2026, **Tabla compacta de Pagos semanales**.
 Sobre main `159a172`. A pedido del usuario se dejan únicamente Emisión, Tipo,
 Documento, Proveedor, Descripción, Pago programado y Pagos. Pago programado

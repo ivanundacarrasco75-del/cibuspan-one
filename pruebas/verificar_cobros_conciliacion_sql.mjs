@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
 const id=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0')
-async function preparar(t){
+export async function preparar(t){
  const db=new PGlite();t.after(()=>db.close())
  await db.exec(`create role anon;create role authenticated;create schema auth;
  create function auth.uid() returns uuid language sql stable as $$select '${id(1)}'::uuid$$;
