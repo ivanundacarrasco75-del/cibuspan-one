@@ -18,11 +18,12 @@ Se revisó historial remoto (hasta 004) y restricción exacta antes de instalar
 solo SQL 005 en eodcwkuexldsbomflthe; quedó verificado y marcado aplicado.
 Huellas de depósitos, aplicaciones, facturas, ventas y permisos idénticas antes
 y después; no se conciliaron movimientos reales desde el agente.
-Archivos: CobrosConciliacion.tsx, SQL 005, prueba verificar_cobros_control_caja_sql
- y esta guía. Ocho pruebas SQL (incluye regresión anterior), cinco de retención
+Archivos: CobrosConciliacion.tsx, SQL 005, prueba verificar_cobros_control_caja_sql.mjs
+y esta guía. Ocho pruebas SQL (incluye regresión anterior), cinco de retención
 correctas. Chrome verificó confirmación con metadatos vacíos, 2 % para Tuti y
 cliente nuevo, netos/coincidencias, edición, parcial, reintento y permisos.
-Build final correcto; publicación pendiente al preparar este registro.
+Build final correcto. Publicado desde `6293ff1`, despliegue `b7cc9523`;
+SHA-256 de 29 archivos públicos y Supabase operativo/R2/firma verificados.
 
 
 24/11/2026, **Retención predeterminada de Cobros: 2 % para todos**.
@@ -34,8 +35,8 @@ Tuti 2400 propone ahora 48 y neto 2352. No altera retenciones ya registradas,
 conciliaciones ni reglas SRI de compras. Sin SQL. Archivos: retencionesCobros.ts,
 pruebas/verificar_retenciones_cobros.mjs y esta guía. Cinco pruebas unitarias
 correctas; Chrome verificó Tuti y cliente nuevo, netos, coincidencia agrupada,
-edición manual, parcial, reintento y permisos. Build correcto; comprobación
-pública pendiente al preparar este estado.
+edición manual, parcial, reintento y permisos. Build correcto; publicación y
+comprobación pública completadas junto con la actualización de control de caja.
 
 
 24/11/2026, **Conciliar por neto y depósitos de pagos agrupados**.
