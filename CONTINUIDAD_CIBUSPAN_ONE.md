@@ -30,7 +30,8 @@ de plazos correctas. Chrome verificó siete columnas sin bruto, netos de tres
 facturas Tuti y coincidencia agrupada 6838,20, exclusión de bruto/depósito parcial/
 anulado/fuera de semana, edición modal, parcial, referencias, reintento sin
 repetir aplicación, actualización a saldo neto 39,24, anchos, móvil y permisos.
-Compilación final correcta; publicación pendiente al preparar este registro.
+Compilación final correcta. Publicado desde `7e4a38e`, despliegue `bd50f609`;
+SHA-256 de 29 archivos públicos y Supabase operativo/R2/firma verificados.
 
 
 24/11/2026, **Importación bancaria autónoma y retenciones visibles en Cobros**.
