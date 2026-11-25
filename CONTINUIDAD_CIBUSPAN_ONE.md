@@ -1,5 +1,18 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Retención predeterminada de Cobros: 2 % para todos**.
+Sobre main `d3cf6c9`. El usuario reemplaza las tasas por cliente por 2 % general,
+incluidos Tuti, Rosado, Soldmer y clientes nuevos. Cambia solo la sugerencia de
+retención de ventas/cobros, sobre el total, descontando lo ya retenido. Mantiene
+importe editable en Detalle, correcciones manuales y neto para comparar depósitos.
+Tuti 2400 propone ahora 48 y neto 2352. No altera retenciones ya registradas,
+conciliaciones ni reglas SRI de compras. Sin SQL. Archivos: retencionesCobros.ts,
+pruebas/verificar_retenciones_cobros.mjs y esta guía. Cinco pruebas unitarias
+correctas; Chrome verificó Tuti y cliente nuevo, netos, coincidencia agrupada,
+edición manual, parcial, reintento y permisos. Build correcto; comprobación
+pública pendiente al preparar este estado.
+
+
 24/11/2026, **Conciliar por neto y depósitos de pagos agrupados**.
 Sobre main `26eed7b`. Usuario corrigió la vista: requiere ver el importe que
 recibirá después de retención, sin subtotal/IVA/total/saldo bruto en Conciliar.
