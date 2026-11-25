@@ -9,7 +9,8 @@ el fondo normal. Clase cxc-conciliada aplicada a celdas para coherencia con SRI.
 Solo CobrosConciliacion.tsx/CSS y esta guía; sin SQL ni cambios de datos.
 Chrome local confirmó azul RGB(158,219,250) solo en conciliadas de las tres
 vistas, con pendientes/parciales/anuladas sin azul y sin errores de pantalla.
-Build correcto; publicación pendiente al preparar este registro.
+Build correcto. Publicado desde `5b190ff`, despliegue `86c179d7`; SHA-256 de
+29 archivos públicos y Supabase operativo/R2/firma verificados.
 
 
 24/11/2026, **Conciliación para control de caja sin soporte obligatorio**.
