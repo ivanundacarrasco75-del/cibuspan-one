@@ -1,5 +1,16 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Retiro del módulo Casa Masa solicitado por Iván**.
+Sobre main `5f9d35a`. Retirados la entrada de navegación, la carga/ruta de
+la pantalla, el nodo del editor de permisos y los permisos predeterminados.
+Las rutas y permisos históricos de Casa Masa quedan bloqueados en la app,
+incluida una pantalla guardada, que utiliza el retorno existente a otra pantalla
+autorizada. Se conservan los registros y SQL históricos en la base, junto con
+los servicios compartidos de pedidos y despachos. Alcance de frontend.
+32 pruebas de permisos y Casa Masa aprobadas. Renderizado del menú completo y
+árbol de permisos comprueba ausencia del módulo y presencia de los módulos
+principales. Publicación pendiente de verificar.
+
 24/11/2026, **Desbloqueo de Tuti con prefijo Emisión y clientes sin plazo**.
 Sobre main `bdacb04`. Se consultó solo lectura la factura 002-001-000016866:
 cliente guardado Emisión TIENDAS TUTI TTDE S. A., emisión 01/08/2026, venta

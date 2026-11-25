@@ -23,7 +23,6 @@ import {
 // PDF/Excel y pantallas pesadas que no se están usando.
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"))
 const ComprasSri = lazy(() => import("./pages/ComprasSri"))
-const CasaMasa = lazy(() => import("./pages/CasaMasa"))
 const ComprasResumen = lazy(() => import("./pages/ComprasResumen"))
 const FinanzasResumen = lazy(() => import("./pages/FinanzasResumen"))
 const ReportesFinanzas = lazy(() => import("./pages/ReportesFinanzas"))
@@ -371,9 +370,6 @@ function App() {
       // ---------------------------------------------------------
       // COMERCIAL
       // ---------------------------------------------------------
-      case "Casa Masa · Pedidos y empaque":
-        return <CasaMasa puedeDespachar={puedeAcceder("Despachos")} />
-
       case PANTALLA_MENU_COMERCIAL:
         return <ComercialMenu puedeAcceder={puedeAcceder} cambiarPantalla={setPantalla} />
 

@@ -12,12 +12,13 @@ test('Sólo SKU CM y cantidades válidas, sin repetir códigos',()=>{
  for(const p of [[],[{codigo:'OTRO',cantidad:1,manejo:1}],[{codigo:'CM-001',cantidad:1.5,manejo:1}],[{codigo:'CM-001',cantidad:0,manejo:1}],[{codigo:'CM-001',cantidad:5,manejo:3}],[{codigo:'CM-001',cantidad:2,manejo:1},{codigo:'cm-001',cantidad:1,manejo:1}]]) assert.throws(()=>validarPedidoCM(p))
  assert.match(fechaLocalCM(),/^\d{4}-\d{2}-\d{2}$/)
 })
-test('Casa Masa exige permiso propio y acceso operativo; no amplía accesos existentes',()=>{
+test('Casa Masa retirado bloquea rutas y permisos guardados de sesiones anteriores',()=>{
  const ruta='Casa Masa · Pedidos y empaque'
- assert.equal(puedeAbrirPantalla(ruta,'BODEGUERO',['Casa Masa','Despachos']),true)
- assert.equal(puedeAbrirPantalla(ruta,'GERENTE',['Casa Masa','Pedidos']),true)
- assert.equal(puedeAbrirPantalla(ruta,'GERENTE',['Casa Masa','Pedidos'],[ruta]),false)
- assert.equal(puedeAbrirPantalla(ruta,'GERENTE',[ruta,'Pedidos']),true)
- for(const permisos of [[],['Casa Masa'],['Pedidos'],['Despachos']]) assert.equal(puedeAbrirPantalla(ruta,'ADMINISTRADOR',permisos),false)
+ for (const rol of ['ADMINISTRADOR','GERENTE','BODEGUERO','GERENTE_OPERACIONES','JEFA_FACTURACION','KAM','MERCADERISTA']) {
+   const permisos = ['Casa Masa',ruta,'Pedidos','Despachos']
+   assert.equal(puedeAbrirPantalla(ruta,rol,permisos),false)
+   assert.equal(puedeAbrirPantalla('Casa Masa',rol,permisos),false)
+ }
  assert.equal(puedeAbrirPantalla('Comercial · Pedidos','BODEGUERO',['Casa Masa','Despachos']),false)
+ assert.equal(puedeAbrirPantalla('Despachos','BODEGUERO',['Casa Masa','Despachos']),true)
 })

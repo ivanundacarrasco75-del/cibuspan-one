@@ -26,7 +26,6 @@ export const PANTALLAS_DOCUMENTOS_COMPRAS = [PANTALLA_FACTURAS_SRI, PANTALLA_NOT
 const grupos: Array<[string, string[]]> = [
   ["Dashboard", ["Dashboard · SKU", "Dashboard · Comercial", "Dashboard · Costos y gastos", "Dashboard · Devoluciones", "Dashboard · Rentabilidad", "Comercial · Análisis"]],
   ["Pedidos", ["Comercial · Pedidos", "Producción · Pedidos"]],
-  ["Casa Masa", ["Casa Masa · Pedidos y empaque"]],
   ["Inventario", ["Inventario y Despachos · Resumen", "Inventario y Despachos · Inventario", "Inventario y Despachos · Kardex"]],
   ["Producción", ["Producción · Resumen", "Producción · Planificación", "Producción · Producción", "Producción · Historial"]],
   ["Preformulación", ["Producción · Fórmulas"]],
@@ -57,6 +56,7 @@ export function puedeAbrirPantalla(
   pantalla: string, rol: string, permitidas: readonly string[], denegadas: readonly string[] = [],
 ): boolean {
   const ruta = ALIASES_PERMISOS[pantalla] ?? pantalla
+  if (ruta === "Casa Masa" || ruta.startsWith("Casa Masa ·")) return false
   if (ruta === PANTALLA_MENU_COMERCIAL) return !denegadas.includes(ruta) && PANTALLAS_MENU_COMERCIAL.some(hijo => puedeAbrirPantalla(hijo, rol, permitidas, denegadas))
   if (ruta === "Administración · Usuarios y Permisos") return rol === "ADMINISTRADOR"
   if (RUTAS_SOLO_ADMIN.includes(ruta) && rol !== "ADMINISTRADOR") return false
@@ -73,7 +73,6 @@ export function puedeAbrirPantalla(
   if (menus[ruta]?.some((hijo) => permitidas.includes(hijo) && !denegadas.includes(hijo) &&
     (!RUTAS_SOLO_ADMIN.includes(hijo) || rol === "ADMINISTRADOR"))) return true
   if (denegadas.includes(ruta)) return false
-  if (permisoDePantalla(pantalla) === "Casa Masa") return (permitidas.includes(ruta) || permitidas.includes("Casa Masa")) && permitidas.some(p => p === "Pedidos" || p === "Despachos")
   if (permitidas.includes(ruta)) return true
   if (pantalla === PANTALLA_MENU_FINANZAS) {
     return rol === "ADMINISTRADOR" || permitidas.includes("Administración") || permitidas.includes("Reportes")

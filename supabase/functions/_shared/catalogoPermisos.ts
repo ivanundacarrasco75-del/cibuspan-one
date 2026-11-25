@@ -52,9 +52,6 @@ export const ARBOL_PERMISOS: NodoPermiso[] = [
   ] },
 ]
 
-// Agregar al final conserva los índices históricos utilizados por los menús.
-ARBOL_PERMISOS.push({ etiqueta: "Casa Masa", hijos: [opcion("Casa Masa · Pedidos y empaque", "Pedidos y empaque")] })
-
 export function rutasDeNodo(nodo: NodoPermiso): string[] {
   return [...(nodo.ruta ? [nodo.ruta] : []), ...(nodo.hijos ?? []).flatMap(rutasDeNodo)]
 }
