@@ -27,3 +27,10 @@ export function sugerirRetencionCobro(factura: BaseFactura) {
   return { cliente: referencia.cliente, porcentaje: referencia.porcentaje, totalEsperado: (esperado / 100).toFixed(2),
     importe: pendiente <= Math.round(saldo * 100) ? (pendiente / 100).toFixed(2) : null }
 }
+
+// Saldo contable ya descuenta retenciones registradas; resta solo la pendiente.
+export function netoPendienteCobro(factura: FacturaCobro, retencionPendiente: string): number | null {
+  const f = facturaSinIvaCobro(factura), retencion = Number(retencionPendiente || 0), saldo = Number(f.saldo)
+  if (!f.verificada || f.saldo === null || !Number.isFinite(saldo) || !Number.isFinite(retencion) || retencion < 0 || !/^\d*(\.\d{1,2})?$/.test(retencionPendiente) || Math.round(retencion * 100) > Math.round(saldo * 100)) return null
+  return (Math.round(saldo * 100) - Math.round(retencion * 100)) / 100
+}

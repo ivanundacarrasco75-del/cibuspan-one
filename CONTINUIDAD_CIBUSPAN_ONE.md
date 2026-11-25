@@ -1,5 +1,38 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Conciliar por neto y depósitos de pagos agrupados**.
+Sobre main `26eed7b`. Usuario corrigió la vista: requiere ver el importe que
+recibirá después de retención, sin subtotal/IVA/total/saldo bruto en Conciliar.
+Tabla exclusiva de siete columnas: Elegir, Emisión, Factura, Cliente, Semana de
+pago, Neto por cobrar y Acciones (Detalle). Facturas y saldos conserva su vista
+completa. Neto = saldo contable menos retención pendiente; saldo contable ya
+resta cobros y retenciones registrados, por lo que no los descuenta dos veces.
+Usa importes en centavos, tasas y correcciones existentes, también en facturas
+nuevas sin IVA. Tuti 2400 - 42 = 2358; 1872 - 32,76 = 1839,24. Neto sin base
+válida/retención inválida requiere revisión. No cambia el saldo real al estimar.
+Distribución se reduce a Factura, Cliente, Neto por cobrar, Pago a aplicar y
+Acciones. Suma los pagos netos seleccionados y muestra depósitos activos cuyo
+disponible coincide exactamente, respetando las semanas filtradas. Compara
+sumas de varias facturas para depósitos agrupados. Usar depósito elige solo la
+referencia; nunca concilia automáticamente ni supone identidad del depositante.
+Conserva selector para importes parciales/diferentes. Las correcciones de cobro
+parcial cambian el importe buscado sin alterar el neto completo de la factura.
+Detalle abre ventana pequeña con desglose, retención pendiente editable,
+restaurar sugerencia, comprobante/fecha y movimientos con responsable/anulación.
+El número y fecha se validan expresamente antes de enviar la conciliación,
+ya que esos campos se movieron del formulario principal a la ventana. Conserva
+permisos de editar total/conciliar, revisión de fuente/saldos, reintento del mismo
+UUID e historial. Columnas ajustables y tablas con scroll; anchos de Conciliar
+se guardan separados de Facturas y saldos. No hay SQL ni datos reales editados.
+Archivos: CobrosConciliacion.tsx, cobrosConciliacion.css, retencionesCobros.ts y
+pruebas/verificar_retenciones_cobros.mjs. Cinco pruebas de retención/neto y cinco
+de plazos correctas. Chrome verificó siete columnas sin bruto, netos de tres
+facturas Tuti y coincidencia agrupada 6838,20, exclusión de bruto/depósito parcial/
+anulado/fuera de semana, edición modal, parcial, referencias, reintento sin
+repetir aplicación, actualización a saldo neto 39,24, anchos, móvil y permisos.
+Compilación final correcta; publicación pendiente al preparar este registro.
+
+
 24/11/2026, **Importación bancaria autónoma y retenciones visibles en Cobros**.
 Sobre main `da8a09e`. En Depósitos recibidos se agrega Importar estado de cuenta
 para XLSX de Produbanco, con vista previa, elección de ingresos y comprobación

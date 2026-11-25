@@ -26,3 +26,9 @@
 .cxc-importacion .cxc-importacion-campos { display: block; margin-top: 10px; }
 .cxc-importacion input[type=file] { max-width: 100%; }
 .cxc-importacion td { white-space: normal; }
+
+.cxc-pagina .cxc-compacta .cxc-tabla { min-width: 760px; }
+.cxc-neto { font-weight: 700; color: #00594f; text-align: right; }
+.cxc-comparacion { padding: 10px; background: #e5f7f4; }
+.cxc-desglose { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; }
+.cxc-desglose dd { margin: 0; text-align: right; }

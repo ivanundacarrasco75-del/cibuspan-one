@@ -36,3 +36,13 @@ test('Producto sin IVA propone total y retención desde ventas nuevas sin confir
  assert.equal(sugerir(sinIva({...f,cliente:'TUTI',subtotal_importado:2059.20})).importe,'36.04')
  for(const extras of [{total:1400},{revision:1},{fuente_valida:false},{subtotal_importado:-1},{cobrado:1},{retenido:1}]){const original={...f,...extras};assert.equal(sinIva(original),original)}
 })
+
+const neto=module.exports.netoPendienteCobro
+test('Conciliación busca netos de Tuti y descuenta retenciones una sola vez, incluso con cobros parciales',()=>{
+ for(const [total,retencion,esperado] of [[2400,'42.00',2358],[1872,'32.76',1839.24],[2688,'47.04',2640.96],[2630.4,'46.03',2584.37]])assert.equal(neto(factura('TUTI',{total,saldo:total}),retencion),esperado)
+ assert.equal(neto(factura('FAVORITA',{total:1000,retenido:20,saldo:980}),'0'),980)
+ assert.equal(neto(factura('FAVORITA',{total:1000,cobrado:400,retenido:10,saldo:590}),'10'),580)
+ assert.equal(neto(factura('FAVORITA'),'3.21'),111.79)
+ for(const retencion of ['-1','116','1.001','NaN'])assert.equal(neto(factura('TUTI'),retencion),null)
+ assert.equal(neto(factura('TUTI',{fuente_valida:false,verificada:false}),'2'),null)
+})
