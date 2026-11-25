@@ -45,7 +45,9 @@ cobro neto, conciliación completa/reintento/anulación; los diez XLSX reales
 reprodujeron los 281 UUID/fechas/referencias/filas/importes exactos (587114,12)
 y diez exclusiones, sin escrituras reales. Vista previa verificó duplicados,
 selección de código desconocido, exclusiones, reintento, móvil y permisos.
-Publicación pendiente al preparar este estado; registrar resultado al terminar.
+Publicado desde `88db3e1`, despliegue `e0965e20`; SHA-256 de 29 archivos
+públicos (incluido el módulo compartido de lectura bancaria), Supabase
+operativo/R2/firma verificados.
 
 
 24/11/2026, **Tabla compacta de Pagos semanales**.
