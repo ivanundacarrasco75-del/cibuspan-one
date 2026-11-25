@@ -12,7 +12,7 @@ const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaqui
 const dinero = (n: number | string | null) => n === null ? "—" : Number(n).toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const centavos = (n: string | number) => Math.round(Number(n || 0) * 100)
 const errorTexto = (e: unknown) => e && typeof e === "object" && "message" in e ? String(e.message) : "No se pudo completar la operación."
-type Reparto = { efectivo: string; retencion: string; referencia_retencion: string; fecha_retencion: string }
+type Reparto = { efectivo: string; retencion: string }
 function TablaCobros({ modo, titulo, columnas, children }: { modo: string; titulo: string; columnas: string[]; children: ReactNode }) {
   const tabla = useRef<HTMLTableElement>(null)
   const anchos = useColumnasAjustables(`cxc-${modo}`, columnas, tabla)
@@ -84,7 +84,7 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
   const [cargando, setCargando] = useState(true), [error, setError] = useState(""), [aviso, setAviso] = useState("")
   const [editar, setEditar] = useState<FacturaCobro | null>(null), [historia, setHistoria] = useState<{ comprobante: string; factura: FacturaCobro; filas: AplicacionCobro[] } | null>(null)
   const [retenciones, setRetenciones] = useState<Record<string, { base: string; valor: string }>>({})
-  const [deposito, setDeposito] = useState(""), [seleccion, setSeleccion] = useState<Record<string, Reparto>>({}), [motivo, setMotivo] = useState("Cobro y retención comprobados con sus documentos")
+  const [deposito, setDeposito] = useState(""), [seleccion, setSeleccion] = useState<Record<string, Reparto>>({}), [motivo, setMotivo] = useState("Cobro conciliado para control de caja")
   const [pendiente, setPendiente] = useState<ConciliacionCobro | null>(null), [ocupado, setOcupado] = useState(false), [anular, setAnular] = useState<{ aplicacion: string | null; deposito: string | null } | null>(null)
   const [motivoAnular, setMotivoAnular] = useState(""), bloqueo = useRef(false)
   useEffect(() => {
@@ -146,18 +146,17 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
         setFacturas(filas => filas.map(a => a.comprobante === f.comprobante ? actual : a))
       } catch (e) { setError(errorTexto(e)); return } finally { bloqueo.current = false; setOcupado(false) }
     }
-    setSeleccion(actual => ({ ...actual, [f.comprobante]: { efectivo: ((centavos(confirmada.saldo ?? 0) - centavos(retencion)) / 100).toFixed(2), retencion, referencia_retencion: "", fecha_retencion: "" } }))
+    setSeleccion(actual => ({ ...actual, [f.comprobante]: { efectivo: ((centavos(confirmada.saldo ?? 0) - centavos(retencion)) / 100).toFixed(2), retencion } }))
   }
   async function confirmar(e: FormEvent) {
     e.preventDefault(); if (bloqueo.current) return
     if (!pendiente && depositoFuera) { setError("El depósito seleccionado queda fuera de las semanas previstas. Desmarca el filtro semanal para usarlo expresamente."); return }
     if (!pendiente && elegidas.some(f => netoPendienteCobro(f, seleccion[f.comprobante].retencion) === null)) { setError("Revisa la retención de las facturas seleccionadas en Detalle."); return }
     if (!pendiente && (!elegidas.length || totalEfectivo > centavos(dep?.disponible ?? 0))) { setError("Selecciona facturas y revisa el disponible del depósito."); return }
-    const solicitud = pendiente ?? { id: crypto.randomUUID(), deposito: deposito || null, motivo, filas: elegidas.map(f => ({ comprobante: f.comprobante, revision: f.revision, huella: f.huella, saldo: Number(f.saldo), efectivo: seleccion[f.comprobante].efectivo || "0", retencion: seleccion[f.comprobante].retencion || "0", referencia_retencion: seleccion[f.comprobante].referencia_retencion, fecha_retencion: seleccion[f.comprobante].fecha_retencion || null })) }
+    const solicitud = pendiente ?? { id: crypto.randomUUID(), deposito: deposito || null, motivo, filas: elegidas.map(f => ({ comprobante: f.comprobante, revision: f.revision, huella: f.huella, saldo: Number(f.saldo), efectivo: seleccion[f.comprobante].efectivo || "0", retencion: seleccion[f.comprobante].retencion || "0", referencia_retencion: "", fecha_retencion: null })) }
     if (!pendiente && solicitud.filas.some(f => centavos(f.efectivo) + centavos(f.retencion) <= 0 || centavos(f.efectivo) + centavos(f.retencion) > centavos(f.saldo))) { setError("El cobro más la retención debe ser mayor que cero y no superar el saldo de cada factura."); return }
-    if (!pendiente && solicitud.filas.some(f => Number(f.retencion) > 0 && (!f.referencia_retencion.trim() || !f.fecha_retencion))) { setError("Completa el número y la fecha del comprobante de retención en Detalle de las facturas seleccionadas."); return }
     bloqueo.current = true; setOcupado(true); setPendiente(solicitud); setEditar(null); setAnular(null); setHistoria(null); setError("")
-    try { await conciliarCobro(solicitud); setPendiente(null); setAviso("Conciliación registrada. Los saldos se actualizaron con el cobro más la retención."); actualizar() }
+    try { await conciliarCobro(solicitud); setPendiente(null); setAviso("Conciliación registrada para control de caja. Se aplicaron el dinero recibido y la retención descontada."); actualizar() }
     catch (fallo) { if (fallo && typeof fallo === "object" && "rechazado" in fallo && fallo.rechazado) setPendiente(null); setError(errorTexto(fallo)) }
     finally { bloqueo.current = false; setOcupado(false) }
   }
@@ -167,6 +166,7 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
     catch (fallo) { setError(errorTexto(fallo)) } finally { bloqueo.current = false; setOcupado(false) }
   }
   return <main className="compras-sri-pagina fin-pagos cxc-pagina"><header className="compras-sri-cabecera"><h1>Cuentas por cobrar y conciliación</h1><button disabled={bloqueado} onClick={actualizar}>Actualizar</button></header>
+    {tab === "Conciliar" && <p>Control de caja: el depósito es el dinero recibido; la retención se descuenta de la factura. Contabilidad gestiona sus comprobantes.</p>}
     {tab !== "Conciliar" && <p>Saldo de factura = total confirmado − cobros − retenciones. Las retenciones no son depósitos bancarios.</p>}
     <p>Los saldos consideran únicamente los cobros y retenciones registrados aquí. Ingresa los cobros históricos correspondientes antes de usar estos saldos como cartera pendiente.</p>
     <nav className="fin-pagos-filtros" aria-label="Secciones de cobros">{["Facturas y saldos", "Depósitos recibidos", "Conciliar"].map(t => <button key={t} disabled={bloqueado} aria-pressed={tab === t} onClick={() => { setTab(t); setHistoria(null); setEditar(null) }}>{t}</button>)}</nav>
@@ -217,7 +217,7 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
       <fieldset disabled={bloqueado}><div className="compras-sri-contenedor cxc-compacta"><TablaCobros modo="distribucion-neta" titulo="Distribución del depósito" columnas={["Factura", "Cliente", "Neto por cobrar", "Pago a aplicar", "Acciones"]}>
         <tbody>{elegidas.map(f => { const r = seleccion[f.comprobante]; return <tr key={f.comprobante}><td>{f.comprobante}</td><td>{f.cliente}</td><td>{dinero(netoPendienteCobro(f, r.retencion))}</td>
           <td><input aria-label={`Cobro ${f.comprobante}`} type="number" min="0" step="0.01" max={netoPendienteCobro(f, r.retencion) ?? 0} value={r.efectivo} onChange={e => cambiar(f.comprobante, "efectivo", e.target.value)} /></td>
-          <td><button type="button" onClick={() => void detalle(f)}>{Number(r.retencion) > 0 && (!r.referencia_retencion.trim() || !r.fecha_retencion) ? "Completar retención" : "Detalle"}</button></td></tr> })}{!elegidas.length && <tr><td colSpan={5}>Marca las facturas que corresponden al pago.</td></tr>}</tbody></TablaCobros></div>
+          <td><button type="button" onClick={() => void detalle(f)}>Detalle</button></td></tr> })}{!elegidas.length && <tr><td colSpan={5}>Marca las facturas que corresponden al pago.</td></tr>}</tbody></TablaCobros></div>
         <p>Pago a aplicar: USD {dinero(totalEfectivo / 100)} · Depósito por identificar: USD {dinero((centavos(dep?.disponible ?? 0) - totalEfectivo) / 100)}</p>
         <label>Motivo / verificación <input required minLength={5} maxLength={500} value={motivo} onChange={e => setMotivo(e.target.value)} /></label></fieldset>
       <button disabled={ocupado || cargando || (!pendiente && !elegidas.length)}>{pendiente ? "Reintentar conciliación" : "Confirmar conciliación"}</button></form>}
@@ -227,10 +227,9 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
       <label>Retención pendiente USD <input aria-label={`Retención ${historia.comprobante}`} type="number" min="0" step="0.01" max={facturaSinIvaCobro(historia.factura).saldo ?? 0} value={retencionActual(historia.factura)} disabled={bloqueado || !puedeConciliar || !facturaSinIvaCobro(historia.factura).verificada} onChange={e => cambiarRetencion(historia.factura, e.target.value)} /></label>
       {sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))?.importe != null && <button type="button" disabled={bloqueado || !puedeConciliar} onClick={() => cambiarRetencion(historia.factura, sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))!.importe!)}>Usar retención sugerida</button>}
       <p>Neto por cobrar: <strong>USD {dinero(netoPendienteCobro(historia.factura, retencionActual(historia.factura)))}</strong></p>
-      {seleccion[historia.comprobante] && <><label>N.º comprobante retención <input aria-label={`Comprobante retención ${historia.comprobante}`} maxLength={100} disabled={bloqueado || !puedeConciliar} value={seleccion[historia.comprobante].referencia_retencion} onChange={e => cambiar(historia.comprobante, "referencia_retencion", e.target.value)} /></label><label>Fecha retención <input aria-label={`Fecha retención ${historia.comprobante}`} type="date" disabled={bloqueado || !puedeConciliar} value={seleccion[historia.comprobante].fecha_retencion} onChange={e => cambiar(historia.comprobante, "fecha_retencion", e.target.value)} /></label></>}
       {puedeEditar && <button type="button" disabled={bloqueado || !historia.factura.fuente_valida} onClick={() => { setEditar(historia.factura); setHistoria(null) }}>{historia.factura.verificada ? "Editar total" : "Verificar total"}</button>}
-      <h3>Movimientos registrados</h3><div className="compras-sri-contenedor"><TablaCobros modo="detalle" titulo="Detalle de cobros" columnas={["Registro", "Responsable", "Depósito / fecha", "Cobro", "Retención", "Comprobante / fecha retención", "Estado", "Acciones"]}><tbody>
-      {historia.filas.map(a => <tr key={a.id}><td>{new Date(a.creado_en).toLocaleString("es-EC", { timeZone: "America/Guayaquil" })}</td><td>{a.responsable}</td><td>{a.banco} {a.referencia_deposito ?? "—"} · {a.fecha_deposito ?? "—"}</td><td>{dinero(a.efectivo)}</td><td>{dinero(a.retencion)}</td><td>{a.referencia_retencion || "—"} · {a.fecha_retencion ?? "—"}</td><td>{a.anulada ? "Anulado" : "Aplicado"}</td><td>{!a.anulada && puedeConciliar && <button disabled={bloqueado} onClick={() => { setHistoria(null); setAnular({ aplicacion: a.id, deposito: null }) }}>Anular aplicación</button>}</td></tr>)}{!historia.filas.length && <tr><td colSpan={8}>Sin cobros ni retenciones registrados.</td></tr>}</tbody></TablaCobros></div><button onClick={() => setHistoria(null)}>Cerrar detalle</button></section></VentanaCobros>}
+      <h3>Movimientos registrados</h3><div className="compras-sri-contenedor"><TablaCobros modo="detalle" titulo="Detalle de cobros" columnas={["Registro", "Responsable", "Depósito / fecha", "Cobro", "Retención", "Soporte contable", "Estado", "Acciones"]}><tbody>
+      {historia.filas.map(a => <tr key={a.id}><td>{new Date(a.creado_en).toLocaleString("es-EC", { timeZone: "America/Guayaquil" })}</td><td>{a.responsable}</td><td>{a.banco} {a.referencia_deposito ?? "—"} · {a.fecha_deposito ?? "—"}</td><td>{dinero(a.efectivo)}</td><td>{dinero(a.retencion)}</td><td>{a.referencia_retencion ? `${a.referencia_retencion} · ${a.fecha_retencion ?? "—"}` : Number(a.retencion) > 0 ? "Gestionado por Contabilidad" : "—"}</td><td>{a.anulada ? "Anulado" : "Aplicado"}</td><td>{!a.anulada && puedeConciliar && <button disabled={bloqueado} onClick={() => { setHistoria(null); setAnular({ aplicacion: a.id, deposito: null }) }}>Anular aplicación</button>}</td></tr>)}{!historia.filas.length && <tr><td colSpan={8}>Sin cobros ni retenciones registrados.</td></tr>}</tbody></TablaCobros></div><button onClick={() => setHistoria(null)}>Cerrar detalle</button></section></VentanaCobros>}
     {anular && <VentanaCobros titulo="Anular movimiento" cerrar={() => setAnular(null)} bloqueado={ocupado}><form className="cxc-panel" onSubmit={confirmarAnulacion}><p>La anulación conserva el historial y restaura los saldos correspondientes.</p><label>Motivo de anulación <input aria-label="Motivo de anulación" required minLength={5} maxLength={500} disabled={ocupado} value={motivoAnular} onChange={e => setMotivoAnular(e.target.value)} /></label>{" "}{error && <p role="alert">{error}</p>}<button disabled={ocupado}>Confirmar anulación</button>{" "}<button type="button" disabled={ocupado} onClick={() => setAnular(null)}>Cancelar</button></form></VentanaCobros>}
   </main>
 }

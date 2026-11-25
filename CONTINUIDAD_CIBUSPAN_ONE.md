@@ -1,5 +1,30 @@
 # Continuidad de CIBUSPAN ONE
 
+24/11/2026, **Conciliación para control de caja sin soporte obligatorio**.
+Sobre main `6ced5e0`. Usuario explica que Contabilidad gestiona comprobantes y
+quiere conciliar cobros para flujo de caja. Se retiran número/fecha de retención
+y su validación de la pantalla, manteniendo 2 % predeterminado general e importe
+editable. Distribución conserva Detalle; desaparece Completar retención.
+Motivo predeterminado describe control de caja, sin afirmar documentos revisados.
+El depósito sigue contando únicamente el efectivo; retención reduce el saldo
+de factura pero no se suma al ingreso bancario. Sin crear reporte de flujo nuevo.
+La nueva migración 202611240005 permite soporte vacío en aplicaciones y RPC,
+conservando soportes anteriores y validación de pares completos cuando existan.
+Índice único conserva números contables reales y permite aplicaciones parciales
+sin documento; revisión de factura/saldo, bloqueo, permisos y reintento impiden
+repeticiones. Auditoría incluye CONTROL_CAJA y cantidad sin comprobante; no se
+inventan números ni fechas. Historial distingue soporte a cargo de Contabilidad.
+Se revisó historial remoto (hasta 004) y restricción exacta antes de instalar
+solo SQL 005 en eodcwkuexldsbomflthe; quedó verificado y marcado aplicado.
+Huellas de depósitos, aplicaciones, facturas, ventas y permisos idénticas antes
+y después; no se conciliaron movimientos reales desde el agente.
+Archivos: CobrosConciliacion.tsx, SQL 005, prueba verificar_cobros_control_caja_sql
+ y esta guía. Ocho pruebas SQL (incluye regresión anterior), cinco de retención
+correctas. Chrome verificó confirmación con metadatos vacíos, 2 % para Tuti y
+cliente nuevo, netos/coincidencias, edición, parcial, reintento y permisos.
+Build final correcto; publicación pendiente al preparar este registro.
+
+
 24/11/2026, **Retención predeterminada de Cobros: 2 % para todos**.
 Sobre main `d3cf6c9`. El usuario reemplaza las tasas por cliente por 2 % general,
 incluidos Tuti, Rosado, Soldmer y clientes nuevos. Cambia solo la sugerencia de
