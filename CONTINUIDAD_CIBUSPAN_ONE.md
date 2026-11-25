@@ -9,7 +9,12 @@ autorizada. Se conservan los registros y SQL históricos en la base, junto con
 los servicios compartidos de pedidos y despachos. Alcance de frontend.
 32 pruebas de permisos y Casa Masa aprobadas. Renderizado del menú completo y
 árbol de permisos comprueba ausencia del módulo y presencia de los módulos
-principales. Publicación pendiente de verificar.
+principales. `npm run build` correcto con configuración pública del Supabase
+operativo; el paquete generado excluye el módulo CasaMasa.
+Publicado desde `b1242b1`, despliegue `35899013`. Dominio principal comprobado
+por SHA-256 del índice, bundle principal y UsuariosPermisos. Supabase operativo,
+R2 y firma verificados. Código guardado en main. Pendiente que Iván reabra
+la PWA y confirme la navegación en su sesión real.
 
 24/11/2026, **Desbloqueo de Tuti con prefijo Emisión y clientes sin plazo**.
 Sobre main `bdacb04`. Se consultó solo lectura la factura 002-001-000016866:
