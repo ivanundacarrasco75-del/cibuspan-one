@@ -394,3 +394,10 @@ test('Restaurar permisos borra cambios locales incluso si el usuario ya tenía l
   await e.terminado
   assert.equal(arbol().props.seleccionadas.has('Comercial · KPI KAM'), true)
 })
+
+test('Retenciones de Compras hereda Cuentas, conserva denegaciones y no habilita Pagos semanales',()=>{
+ const c=utilPermisos.PANTALLA_CUENTAS_POR_PAGAR,r=utilPermisos.PANTALLA_RETENCIONES_COMPRAS
+ for(const rol of ['ADMINISTRADOR','JEFA_FACTURACION','KAM']){assert(puedeAbrirPantalla(r,rol,[c]));assert.equal(puedeAbrirPantalla(r,rol,[c],[c]),false)}
+ assert.equal(puedeAbrirPantalla(r,'KAM',[utilPermisos.PANTALLA_FACTURAS_SRI]),false)
+ assert.equal(puedeAbrirPantalla(utilPermisos.PANTALLA_PAGOS_SEMANALES,'KAM',[c]),false)
+})

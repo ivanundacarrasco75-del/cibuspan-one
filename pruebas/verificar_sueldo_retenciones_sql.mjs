@@ -6,7 +6,7 @@ const leer = nombre => readFile(new URL('../supabase/migrations/'+nombre+'.sql',
 const uid='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const id=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0')
 const clave='1'.repeat(49)
-async function preparar(t) {
+export async function preparar(t) {
   const db=new PGlite(); t.after(()=>db.close())
   await db.exec(`
     create role anon; create role authenticated; create schema auth;

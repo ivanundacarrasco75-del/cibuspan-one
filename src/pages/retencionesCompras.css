@@ -1,0 +1,5 @@
+.retenciones-compras-scroll { max-height: 340px; }
+.retenciones-compras .fin-pagos-tabla { min-width: 1750px; }
+.retenciones-compras select { max-width: 290px; font: inherit; }
+.retenciones-compras-dialogo { width: min(650px, calc(100vw - 32px)); }
+.retenciones-compras-dialogo form > button { margin-block: 12px; }

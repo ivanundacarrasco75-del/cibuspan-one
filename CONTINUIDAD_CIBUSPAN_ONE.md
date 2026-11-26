@@ -1,5 +1,47 @@
 # Continuidad de CIBUSPAN ONE
 
+26/11/2026, **Tarjeta Retenciones en Compras y cruce de reporte contable**.
+Sobre main `b1630d1`. Tarjeta en Compras y Facturas de compras, con el mismo
+permiso exacto de Cuentas por pagar; no concede Pagos semanales. Subir reporte
+PDF del formato CUADRE REPORTE RESUMEN DE RETENCIONES lee celdas por posición,
+reconstruye números partidos y valida numeración y totales antes de importar.
+Iván aclaró que el valor retenido es el total de impuestos: se suma el importe
+del reporte sin exigir desglose renta/IVA ni inferir reglas o régimen tributario.
+Selección de coincidencias seguras (RUC, número completo, fecha y sin rebajar
+un descuento anterior), búsqueda/mes, elección explícita de coincidencias por
+revisar y ventana con saldo resultante antes del botón Confirmar cruce.
+Tablas compactas con anchos ajustables, detalle en ventana y filas cruzadas azules.
+Archivo repetido y reportes superpuestos no duplican documentos. Un reporte
+corregido puede actualizar pendientes y conserva cada detalle original por
+archivo; una retención ya cruzada no cambia sin revisión/anulación previa.
+El cruce reutiliza fin_retenciones_documentos y los saldos existentes; descuenta
+solo la diferencia frente al neto previo, sustituye cálculos pendientes y ajusta
+programaciones sin crear pagos bancarios. Una emisión existente compatible se
+vincula sin volver a descontar. Pagos superiores al neto, otra retención emitida,
+importes incompletos o vínculos Excel/SRI pendientes bloquean el cruce.
+Revisiones de factura y reporte, bloqueo, reintento idempotente, transacción de
+lote y bitácora con responsable. No se modifica Dashboard ni módulos de cobros.
+Instalado y marcado únicamente SQL 202611260003 en eodcwkuexldsbomflthe, tras
+revisar historial/estructura. OID 30866, 805 cuentas, 42 pagos, 44 programaciones
+y 149 permisos conservaron cantidades y huellas exactas antes/después.
+Cargado el PDF proporcionado: 47 registros y USD 466,65 retenidos, contrastados
+contra una segunda extracción independiente y el SHA-256 del archivo. Quedaron
+por cruzar en la tarjeta: 9 coincidencias seguras, 21 por revisar, 6 bloqueadas
+por datos/saldos, 4 sin factura y 7 sin importe retenido. No se ejecutó ningún
+cruce real desde el agente; se espera selección y confirmación del usuario.
+El archivo no incluye TRAMAR, que continúa pendiente del comprobante correspondiente.
+Siete pruebas SQL nuevas y 30 regresiones financieras correctas; 31 pruebas de
+permisos correctas. Chrome comprobó PDF real, selección, ventanas, reintento,
+filas azules, bloqueo por revisión, anchos y móvil. Build final correcto.
+Archivos: src/pages/RetencionesCompras.tsx, retencionesCompras.css,
+ComprasResumen.tsx, ReglasRetenciones.tsx; src/repositories/retencionesComprasRepository.ts,
+retencionesRepository.ts; src/utils/retencionesComprasPdf.ts, permisosAplicacion.ts;
+src/App.tsx; supabase/functions/_shared/catalogoPermisos.ts;
+supabase/migrations/202611260003_compras_retenciones_reportes.sql;
+pruebas/verificar_retenciones_reportes_sql.mjs, verificar_sueldo_retenciones_sql.mjs,
+verificar_usuarios_permisos.mjs y esta guía. PDF y diagnósticos fuera de Git.
+Pendiente en este punto: publicación y comprobación del dominio principal.
+
 26/11/2026, **Semana de pago prevista editable en documentos de compras**.
 Sobre main `d40f626`, en rama aislada `codex/semanas-pago`.
 Campo opcional al importar XML SRI y al crear notas de venta, gastos no deducibles

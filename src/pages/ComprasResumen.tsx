@@ -1,7 +1,7 @@
 import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
   PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA,
-  PANTALLA_ANTICIPOS,
+  PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES_COMPRAS,
 } from "../utils/permisosAplicacion"
 import "./comprasResumen.css"
 
@@ -18,12 +18,14 @@ const secciones = [
 ].map(seccion => ({ ...seccion, ruta: `Compras · ${seccion.ruta}` }))
 
 const tarjetasCompras: Tarjeta[] = [
+  { nombre: "Retenciones", ruta: PANTALLA_RETENCIONES_COMPRAS, descripcion: "Importa el reporte contable y cruza retenciones con facturas y saldos.", icono: iconoFactura },
   { nombre: "Compras por anticipar", ruta: PANTALLA_ANTICIPAR_COMPRAS, descripcion: "Revisa el stock y la cobertura para priorizar pedidos.", icono: "M5 4h14v16H5zM8 2v4m8-4v4M5 9h14m-9 5 2 2 4-4" },
   { nombre: "Facturas de compras", ruta: PANTALLA_FACTURAS_COMPRAS, descripcion: "Abre las secciones de documentos de compra.", icono: iconoFactura },
   ...secciones,
 ]
 
 const tarjetasFacturas: Tarjeta[] = [
+  { nombre: "Retenciones", ruta: PANTALLA_RETENCIONES_COMPRAS, descripcion: "Cruza los comprobantes del reporte contable con las facturas.", icono: iconoFactura },
   { nombre: "Anticipos", ruta: PANTALLA_ANTICIPOS, descripcion: "Prepara pagos previos a la factura y cruza los anticipos pagados.", icono: iconoFactura },
   { nombre: "Facturas SRI", ruta: PANTALLA_FACTURAS_SRI, descripcion: "Gestiona los XML y los RIDE de las facturas recibidas.", icono: iconoFactura },
   { nombre: "Notas de venta", ruta: PANTALLA_NOTAS_VENTA, descripcion: "Consulta las notas de venta registradas en contabilidad.", icono: "M5 3h14v18l-3-2-4 2-4-2-3 2zM8 8h8m-8 4h8m-8 4h4" },

@@ -62,6 +62,7 @@ export const ALIASES_PERMISOS: Record<string, string> = {
   "Pagos y Finanzas · Impuestos": "Pagos y Finanzas · Cuentas por Pagar",
   "Pagos y Finanzas · Préstamos": "Pagos y Finanzas · Cuentas por Pagar",
   "Pagos y Finanzas · Reportes": "Pagos y Finanzas · Cuentas por Pagar",
+  "Compras · Retenciones": "Pagos y Finanzas · Cuentas por Pagar",
   "Compras · Anticipos": "Pagos y Finanzas · Cuentas por Pagar",
   "Pagos y Finanzas · Reglas de retenciones": "Pagos y Finanzas · Cuentas por Pagar",
   "Dashboard · SKU": "Dashboard · Comercial",

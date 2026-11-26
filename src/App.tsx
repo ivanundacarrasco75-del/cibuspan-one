@@ -12,7 +12,7 @@ import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
   PANTALLA_MENU_COMPRAS, PANTALLA_NO_DEDUCIBLES, PANTALLA_NOTAS_VENTA, puedeAbrirPantalla,
   PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_MENU_FINANZAS, PANTALLA_PAGOS_ANTERIOR, PANTALLA_PAGOS_SEMANALES,
-  PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES,
+  PANTALLA_ANTICIPOS, PANTALLA_RETENCIONES, PANTALLA_RETENCIONES_COMPRAS,
   PANTALLA_REPORTES_FINANZAS,
   PANTALLA_PRESTAMOS, PANTALLA_IMPUESTOS, PANTALLA_CXC, PANTALLA_COBROS,
   PANTALLA_MENU_COMERCIAL,
@@ -33,6 +33,7 @@ const ProduccionResumen = lazy(() => import("./pages/ProduccionResumen"))
 const ComercialMenu = lazy(() => import("./pages/ComercialMenu"))
 const FinanzasPagosCompras = lazy(() => import("./pages/FinanzasPagosCompras"))
 const Anticipos = lazy(() => import("./pages/Anticipos"))
+const RetencionesCompras = lazy(() => import("./pages/RetencionesCompras"))
 const ReglasRetenciones = lazy(() => import("./pages/ReglasRetenciones"))
 const ComprasAnticipar = lazy(() => import("./pages/ComprasAnticipar"))
 const ComprasDocumentos = lazy(() => import("./pages/ComprasDocumentos"))
@@ -502,6 +503,9 @@ function App() {
       case "Compras · Materias Primas y Empaques":
       case "Materias primas":
         return <MateriasPrimas />
+
+      case PANTALLA_RETENCIONES_COMPRAS:
+        return <RetencionesCompras />
 
       case PANTALLA_FACTURAS_SRI:
         return <ComprasSri puedeResolverVinculos={puedeAcceder(PANTALLA_CUENTAS_POR_PAGAR)} />

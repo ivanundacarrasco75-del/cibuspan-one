@@ -45,9 +45,9 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
       setHistorial(filas)
       const actual = filas.find(fila => fila.estado === "ACTIVA" && fila.tipo_registro === "CALCULADA")
       if (actual) {
-        setCalculada(true); setFecha(actual.fecha); setRegimen(actual.regimen); setEspecial(actual.proveedor_especial); setMotivo(actual.motivo)
-        setLineas(actual.lineas.map(linea => ({ impuesto: linea.impuesto, regla: linea.id, base: Number(linea.base).toFixed(2),
-          ...(linea.ajuste_manual ? { valor: Number(linea.valor).toFixed(2) } : {}) })))
+        setCalculada(true); setFecha(actual.fecha); setRegimen(actual.regimen ?? ""); setEspecial(actual.proveedor_especial ?? false); setMotivo(actual.motivo)
+        setLineas(actual.lineas.flatMap(linea => linea.impuesto === "SEGUN_REPORTE" || !linea.id ? [] : [{ impuesto: linea.impuesto, regla: linea.id, base: Number(linea.base).toFixed(2),
+          ...(linea.ajuste_manual ? { valor: Number(linea.valor).toFixed(2) } : {}) }]))
       }
     })
       .catch(fallo => { if (vigente) setError(textoError(fallo)) }).finally(() => { if (vigente) setCargando(false) })
