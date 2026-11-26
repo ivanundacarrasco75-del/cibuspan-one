@@ -1,5 +1,32 @@
 # Continuidad de CIBUSPAN ONE
 
+26/11/2026, **Vinculación 286550: subtotal XML con seis decimales**.
+Sobre main `380ae1c`. Caso confirmado por Iván: XML 001-001-000286550 de
+CARTONERA PICHINCHA / ESCOBAR RUIZ, RUC 1790934918001, y Excel FACT 286550.
+El subtotal XML 171.860000 era rechazado por el límite artificial de cinco
+decimales de compras_enlazar_excel_sri; total 197,64 e IVA 25,78 eran idénticos
+en ambos orígenes. SQL 202611260004 admite texto decimal no negativo sin ese
+límite, preserva el dato original y mantiene comprobación a centavos de subtotal
+más IVA, total/IVA de Excel y controles de pagos, identidad y movimientos.
+Cambio exclusivo de la función existente, también usada por el enlace automático;
+no se alteran vistas, permisos, frontend ni el procedimiento de confirmación.
+Instalado y marcado solo 202611260004 en eodcwkuexldsbomflthe, tras revisar
+historial remoto y estructura. Se ejecutó compras_resolver_vinculo_excel con la
+confirmación explícita de Iván y el número de revisión vigente. Estado VINCULADA,
+Excel conserva su identidad y queda una sola cuenta 001-001-000286550: total
+197,64, IVA 25,78, neto/saldo 194,20, pagado 0. La diferencia 3,44 que ya contenía
+el neto de Excel permanece; no se registró un nuevo pago ni retención.
+Huellas antes/después idénticas para las demás cuentas, pagos, programaciones,
+retenciones, semanas previstas y permisos; registro SRI completo, incluido XML,
+idéntico. Vinculación y decisión registradas mediante la bitácora existente.
+Tres pruebas SQL correctas: reproduce el bloqueo y lo corrige sin cambiar XML,
+neto, pagos ni plan; enlace automático con seis decimales; rechaza texto inválido
+y discrepancias monetarias reales. npm run build correcto. Sin publicación de
+frontend necesaria: corrección de base ya activa. Pendiente refrescar la lista
+de Facturas SRI en la sesión del usuario para retirar la comparación anterior.
+Archivos: supabase/migrations/202611260004_vinculos_subtotal_precision.sql,
+pruebas/verificar_vinculos_subtotal_precision_sql.mjs y esta guía.
+
 26/11/2026, **Filtro de semana de pago por número del año**.
 Sobre main `cc9a4c2`. Cuentas por pagar sustituye el calendario del filtro por
 selectores de año y Semana 01…52/53, según calendario ISO ya usado en el sistema.
