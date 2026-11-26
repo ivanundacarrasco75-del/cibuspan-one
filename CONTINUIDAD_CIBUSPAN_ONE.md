@@ -40,7 +40,11 @@ src/App.tsx; supabase/functions/_shared/catalogoPermisos.ts;
 supabase/migrations/202611260003_compras_retenciones_reportes.sql;
 pruebas/verificar_retenciones_reportes_sql.mjs, verificar_sueldo_retenciones_sql.mjs,
 verificar_usuarios_permisos.mjs y esta guía. PDF y diagnósticos fuera de Git.
-Pendiente en este punto: publicación y comprobación del dominio principal.
+Publicado desde `3f622ee`, despliegue `9561000e`. Dominio principal comprobado
+por SHA-256 de 38 archivos, incluidos la tarjeta, menú, lector y motor PDF.
+Supabase operativo, R2 y firma verificados; API disponible y acceso anónimo
+bloqueado. Código guardado en main. Pendiente que Iván reabra la PWA, revise
+las coincidencias y confirme los cruces que correspondan.
 
 26/11/2026, **Semana de pago prevista editable en documentos de compras**.
 Sobre main `d40f626`, en rama aislada `codex/semanas-pago`.
