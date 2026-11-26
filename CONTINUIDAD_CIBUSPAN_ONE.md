@@ -22,7 +22,10 @@ altura compacta, selección/limpieza, guardado, reintento, año/semana 1 y 53,
 notas/gastos/anticipos/XML, reimportación sin cambios y filtro con paginación.
 Regresión de Pagos semanales correcta: siete columnas, pago/retiro, detalle,
 anchos y móvil conservados. Datos simulados, sin pagos/programaciones reales.
-npm run build correcto. Pendiente en este punto: publicación y comprobación.
+npm run build correcto. Publicado desde `c21ff78`, despliegue `72777a5e`.
+Dominio principal comprobado por SHA-256 de 35 archivos, incluido el selector
+compartido de las columnas. Supabase operativo, R2 y firma verificados.
+Código guardado en main. Pendiente reabrir la PWA en la sesión de Iván.
 
 26/11/2026, **Vinculación 286550: subtotal XML con seis decimales**.
 Sobre main `380ae1c`. Caso confirmado por Iván: XML 001-001-000286550 de
