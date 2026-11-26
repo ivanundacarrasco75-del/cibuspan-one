@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react"
 import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
+import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { guardarDocumentoCompra, listarDocumentosCompra, type DocumentoCompra } from "../repositories/comprasDocumentosRepository"
 import "./comprasSriTabla.css"
 
@@ -23,6 +24,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
   const [error, setError] = useState(false)
   const [detalle, setDetalle] = useState<string | null>(null)
   const [formulario, setFormulario] = useState(false)
+  const [semanaPago, setSemanaPago] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState("")
   const [mensaje, setMensaje] = useState("")
@@ -89,6 +91,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
         <h1 id="compras-documentos-titulo">{titulo}</h1>
         <button type="button" className="compras-sri-alta" disabled={formulario || error || !documentos} onClick={() => {
           solicitud.current = crypto.randomUUID()
+          setSemanaPago("")
           setMensaje("")
           setErrorGuardar("")
           setFormulario(true)
@@ -99,7 +102,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
           <fieldset disabled={guardando}>
           {tipo === "notas" && <p>Nota de venta: verifica el régimen RIMPE y su tratamiento. No se presume retención de renta ni de IVA a partir del nombre del proveedor.</p>}
             <label>Fecha de emisión <input name="fecha" type="date" defaultValue={hoy()} required /></label>
-            <label>Semana de pago <input name="semana_pago" aria-label="Semana de pago del documento" type="date" /></label>
+            <label>Semana de pago <SelectorSemanaPago name="semana_pago" etiqueta="Semana de pago del documento" value={semanaPago} onChange={setSemanaPago} /></label>
             <label>N.º documento <input name="numero" maxLength={80} required={tipo === "notas"} /></label>
             <label>Proveedor <input name="proveedor" maxLength={200} required /></label>
             <label>Descripción <input name="concepto" maxLength={500} required /></label>

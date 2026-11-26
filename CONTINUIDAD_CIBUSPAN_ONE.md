@@ -1,5 +1,29 @@
 # Continuidad de CIBUSPAN ONE
 
+26/11/2026, **Semana de pago por número también en columnas y formularios**.
+Sobre main `3f06071`. Iván señaló que la columna editable de Facturas SRI
+seguía mostrando calendario, aunque ya se había cambiado el filtro de Cuentas.
+Nuevo SelectorSemanaPago muestra año y Semana 01…52/53 en las columnas de SRI,
+Cuentas, notas/gastos y anticipos; también en altas/importación y en la selección
+de semana de Pagos semanales/envío. Conserva el calendario de fechas de emisión
+y fecha real del pago, que son fechas distintas de la semana prevista.
+Sin SQL ni cambio de valores existentes: convierte el número elegido al lunes
+que ya espera el repositorio. Selección de semana guarda automáticamente en
+las columnas con responsable, control concurrente y reintento idempotente.
+Permite Sin semana en asignaciones opcionales; destinos obligatorios requieren
+semana válida. Maneja semana 1 cuyo lunes cae en diciembre del año anterior,
+años de 53/52 semanas y valores guardados de años fuera de la lista habitual.
+Controles compactos recuperan diez filas visibles en Cuentas por pagar.
+Archivos: src/components/SelectorSemanaPago.tsx, SemanaPagoDocumento.tsx;
+src/pages/ComprasSri.tsx, ComprasDocumentos.tsx, Anticipos.tsx,
+FinanzasPagosCompras.tsx, comprasSriTabla.css y esta guía.
+Dos pruebas ISO correctas. Chrome verificó ausencia de calendarios en columna,
+altura compacta, selección/limpieza, guardado, reintento, año/semana 1 y 53,
+notas/gastos/anticipos/XML, reimportación sin cambios y filtro con paginación.
+Regresión de Pagos semanales correcta: siete columnas, pago/retiro, detalle,
+anchos y móvil conservados. Datos simulados, sin pagos/programaciones reales.
+npm run build correcto. Pendiente en este punto: publicación y comprobación.
+
 26/11/2026, **Vinculación 286550: subtotal XML con seis decimales**.
 Sobre main `380ae1c`. Caso confirmado por Iván: XML 001-001-000286550 de
 CARTONERA PICHINCHA / ESCOBAR RUIZ, RUC 1790934918001, y Excel FACT 286550.

@@ -8,6 +8,7 @@ import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALE
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
 import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
+import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { semanasDelAnio } from "../utils/semanasPago"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
@@ -388,8 +389,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
       {semanal ? (
         <>
           <div className="fin-pagos-filtros">
-            <label>Semana del <input type="date" value={semana} disabled={guardando || pago !== null}
-              onChange={evento => evento.target.value && setSemana(lunes(evento.target.value))} /></label>
+            <label>Semana del <SelectorSemanaPago etiqueta="Semana del" required value={semana} disabled={guardando || pago !== null} onChange={setSemana} /></label>
             {!cargando && <strong>Pendiente programado: {importe(monto(saldoSemana))}</strong>}
           </div>
           {cargando ? <p role="status">Cargando pagos semanales…</p> :
@@ -451,8 +451,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
                 }),
               }} />
               <div className="fin-pagos-filtros">
-                <label>Semana del <input type="date" value={semana} disabled={ocupado}
-                  onChange={evento => evento.target.value && setSemana(lunes(evento.target.value))} /></label>
+                <label>Semana del <SelectorSemanaPago etiqueta="Semana del" required value={semana} disabled={ocupado} onChange={setSemana} /></label>
                 <strong>{seleccionadas.length} seleccionados · {importe(monto(totalSeleccion))}</strong>
                 <button type="submit" className="fin-pagos-principal" disabled={ocupado || seleccionadas.length === 0
                   || seleccionadas.some(fila => historica(fila.cuenta) && !fila.verificado)}>

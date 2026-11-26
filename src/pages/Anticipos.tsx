@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react"
-import SemanaPagoDocumento, { lunesPago } from "../components/SemanaPagoDocumento"
+import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
+import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { createPortal } from "react-dom"
 import { aplicarAnticipo, guardarAnticipo, listarAnticipos, type Anticipo, type CruceAnticipo, type DatosAnticipo } from "../repositories/anticiposRepository"
 import { CUENTAS_POR_PAGINA, listarCuentasCompra, programarCompras, type CuentaCompra } from "../repositories/finanzasComprasRepository"
@@ -174,7 +175,7 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
     {edicion && <form className="compras-sri-formulario" onSubmit={guardar}>
       <fieldset disabled={guardando || guardarPendiente !== null} className="anticipos-campos">
         <label>Fecha <input type="date" required value={edicion.fecha} onChange={evento => setEdicion({ ...edicion, fecha: evento.target.value })} /></label>
-        <label>Semana de pago <input aria-label="Semana de pago del anticipo" type="date" value={edicion.semana_pago ?? ""} onChange={e => setEdicion({ ...edicion, semana_pago: lunesPago(e.target.value) })} /></label>
+        <label>Semana de pago <SelectorSemanaPago etiqueta="Semana de pago del anticipo" value={edicion.semana_pago ?? ""} onChange={semana_pago => setEdicion({ ...edicion, semana_pago })} /></label>
         <label>Proveedor <input required minLength={2} maxLength={200} value={edicion.proveedor} onChange={evento => setEdicion({ ...edicion, proveedor: evento.target.value })} /></label>
         <label>RUC (opcional) <input pattern="[0-9]{13}" maxLength={13} value={edicion.ruc} onChange={evento => setEdicion({ ...edicion, ruc: evento.target.value })} /></label>
         <label>Concepto <input required maxLength={500} value={edicion.concepto} onChange={evento => setEdicion({ ...edicion, concepto: evento.target.value })} /></label>
@@ -223,7 +224,7 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
           </tr>)}
           {elegidas.length === 0 && <tr><td colSpan={5}>No hay anticipos seleccionados.</td></tr>}
           </tbody></table></div>
-        <div className="fin-pagos-filtros"><label>Semana del <input type="date" required value={semana} disabled={bloqueado} onChange={evento => evento.target.value && setSemana(lunes(evento.target.value))} /></label>
+        <div className="fin-pagos-filtros"><label>Semana del <SelectorSemanaPago etiqueta="Semana del" required value={semana} disabled={bloqueado} onChange={setSemana} /></label>
           <strong>Total USD {dinero(total)}</strong><button type="submit" disabled={bloqueado || elegidas.length === 0}>Enviar a Pagos semanales</button></div>
       </form>
     </section>

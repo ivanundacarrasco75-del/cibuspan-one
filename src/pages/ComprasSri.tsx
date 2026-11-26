@@ -4,7 +4,7 @@ import {
   type CompraGuardada,
 } from "../repositories/comprasSriRepository"
 import { guardarSemanaAlIngresar } from "../repositories/semanasPagoRepository"
-import { lunesPago } from "../components/SemanaPagoDocumento"
+import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { leerFacturaSri } from "../utils/comprasSri"
 import ComprasSriTabla from "./ComprasSriTabla"
 import VinculosExcelSri from "../components/VinculosExcelSri"
@@ -109,7 +109,7 @@ export default function ComprasSri({ puedeResolverVinculos = false }: { puedeRes
         <h1>Facturas de compra del SRI</h1>
         <div className="compras-sri-herramientas">
           <a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a>
-          <label>Semana de pago <input aria-label="Semana de pago al importar" type="date" value={semanaPago} disabled={importando} onChange={e => setSemanaPago(lunesPago(e.target.value))} /></label>
+          <label>Semana de pago <SelectorSemanaPago etiqueta="Semana de pago al importar" value={semanaPago} disabled={importando} onChange={setSemanaPago} /></label>
           <label className="compras-sri-importar">
             <input type="file" accept=".xml,.pdf" multiple disabled={importando}
               aria-label="Importar XML y PDF del SRI"
