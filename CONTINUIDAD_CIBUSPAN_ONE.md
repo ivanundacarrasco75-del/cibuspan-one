@@ -12,7 +12,10 @@ pruebas/verificar_semanas_pago.mjs y esta guía. Dos pruebas de límites ISO
 correctas, incluidos semana 1 de 2026 en diciembre de 2025 y años de 52/53 semanas.
 Chrome comprobó selectores sin calendario, semanas 48/53/01, cambio de año,
 paginación con el mismo filtro, sin semana y limpieza; ninguna escritura.
-Build final correcto. Pendiente en este punto: publicación verificada.
+Build final correcto. Publicado desde `91e1031`, despliegue `e3c6c2e0`.
+Dominio principal comprobado por SHA-256 de 35 archivos de Finanzas/Compras;
+Supabase operativo, R2 y firma verificados. Código guardado en main.
+Pendiente que Iván reabra la PWA y utilice el filtro en su sesión real.
 
 26/11/2026, **Tarjeta Retenciones en Compras y cruce de reporte contable**.
 Sobre main `b1630d1`. Tarjeta en Compras y Facturas de compras, con el mismo
