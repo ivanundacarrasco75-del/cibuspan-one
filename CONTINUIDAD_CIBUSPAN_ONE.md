@@ -1,5 +1,19 @@
 # Continuidad de CIBUSPAN ONE
 
+26/11/2026, **Filtro de semana de pago por número del año**.
+Sobre main `cc9a4c2`. Cuentas por pagar sustituye el calendario del filtro por
+selectores de año y Semana 01…52/53, según calendario ISO ya usado en el sistema.
+La semana 48 de 2026 consulta el lunes 23/11/2026 internamente y conserva el
+filtro al cargar más documentos. Cambiar de año mantiene el número si existe;
+si la semana 53 no existe en el nuevo año, queda sin filtro. Conserva Sin semana
+asignada y Todas las semanas. Sin SQL ni cambios a documentos, saldos o permisos.
+Archivos: src/pages/FinanzasPagosCompras.tsx, src/utils/semanasPago.ts,
+pruebas/verificar_semanas_pago.mjs y esta guía. Dos pruebas de límites ISO
+correctas, incluidos semana 1 de 2026 en diciembre de 2025 y años de 52/53 semanas.
+Chrome comprobó selectores sin calendario, semanas 48/53/01, cambio de año,
+paginación con el mismo filtro, sin semana y limpieza; ninguna escritura.
+Build final correcto. Pendiente en este punto: publicación verificada.
+
 26/11/2026, **Tarjeta Retenciones en Compras y cruce de reporte contable**.
 Sobre main `b1630d1`. Tarjeta en Compras y Facturas de compras, con el mismo
 permiso exacto de Cuentas por pagar; no concede Pagos semanales. Subir reporte

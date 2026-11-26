@@ -7,7 +7,8 @@ import {
 import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES } from "../utils/permisosAplicacion"
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
-import SemanaPagoDocumento, { lunesPago } from "../components/SemanaPagoDocumento"
+import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
+import { semanasDelAnio } from "../utils/semanasPago"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
 import { useColumnasAjustables } from "../hooks/useColumnasAjustables"
@@ -173,6 +174,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean; semanaInicial?: string
 }) {
   const [semanaPago, setSemanaPago] = useState("")
+  const [anioSemanaPago, setAnioSemanaPago] = useState(() => Number(hoy().slice(0, 4)))
   const [sinSemana, setSinSemana] = useState(false)
   const [semana, setSemana] = useState(() => semanaInicial ?? lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
@@ -406,7 +408,16 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
               <option value="">Todos</option>
               {Object.entries(tipos).map(([codigo, nombre]) => <option key={codigo} value={codigo}>{nombre}</option>)}
             </select></label>
-            <label>Semana de pago <input aria-label="Filtrar semana de pago" type="date" value={semanaPago} disabled={guardando || pago !== null || sinSemana} onChange={e => setSemanaPago(lunesPago(e.target.value))} /></label>
+            <label>Año de la semana <select aria-label="Año de la semana" value={anioSemanaPago} disabled={guardando || pago !== null || sinSemana} onChange={e => {
+              const anio = Number(e.target.value)
+              const numero = semanasDelAnio(anioSemanaPago).find(s => s.desde === semanaPago)?.numero
+              setAnioSemanaPago(anio)
+              setSemanaPago(numero ? semanasDelAnio(anio)[numero - 1]?.desde ?? "" : "")
+            }}>{Array.from({ length: 21 }, (_, i) => Number(hoy().slice(0, 4)) - 10 + i).map(anio => <option key={anio} value={anio}>{anio}</option>)}</select></label>
+            <label>Semana de pago <select aria-label="Filtrar semana de pago" value={semanaPago} disabled={guardando || pago !== null || sinSemana} onChange={e => setSemanaPago(e.target.value)}>
+              <option value="">Sin filtro de semana</option>
+              {semanasDelAnio(anioSemanaPago).map(s => <option key={s.numero} value={s.desde}>Semana {String(s.numero).padStart(2, "0")}</option>)}
+            </select></label>
             <label><input type="checkbox" checked={sinSemana} disabled={guardando || pago !== null} onChange={e => setSinSemana(e.target.checked)} /> Sin semana asignada</label>
             <button type="button" disabled={guardando || pago !== null} onClick={() => { setSemanaPago(""); setSinSemana(false) }}>Todas las semanas</button>
             <label>Buscar <input type="search" value={buscar} disabled={guardando || pago !== null}
