@@ -27,7 +27,13 @@ src/pages/FinanzasPagosCompras.tsx, ComprasSri.tsx, ComprasSriTabla.tsx,
 ComprasDocumentos.tsx, Anticipos.tsx, comprasSriTabla.css;
 supabase/migrations/202611260002_semanas_pago_documentos.sql;
 pruebas/verificar_semanas_pago_sql.mjs, verificar_anticipos_sql.mjs y esta guía.
-Build final correcto; Chrome confirmó también las siete columnas, pago, retiro, detalle, anchos y móvil de Pagos semanales. Pendiente en este punto: publicación del frontend y su comprobación pública.
+Build final correcto; Chrome confirmó también las siete columnas, pago, retiro,
+detalle, anchos y móvil de Pagos semanales. Publicado desde `b13afdb`, despliegue
+`4975cc64`. Dominio principal comprobado por SHA-256 de 31 archivos, incluidos
+el componente de semanas y su dependencia de calendario. Supabase operativo,
+R2 y firma verificados; API nueva disponible con acceso anónimo bloqueado.
+Código guardado en main. Pendiente únicamente que Iván reabra la PWA y use
+el campo y filtro en su sesión real.
 La corrección de retención del anticipo TRAMAR sigue pendiente del soporte contable;
 el borrador local 202611260001 en .codex-pagos-semanales no fue instalado ni publicado.
 
@@ -2014,4 +2020,3 @@ Iván compartió el correo automático de Supabase que asigna SU-540390 a la sol
 Se leyó la guía oficial solicitada en el acuse: https://supabase.com/docs/guides/troubleshooting/formatting-support-requests-for-faster-resolution-616717.md (contenido accesible también en https://supabase.com/kb/troubleshooting/formatting-support-requests-for-faster-resolution-616717). En cualquier ampliación de SU-540390: priorizar hechos verificados y brevedad, menos de 300 palabras sin contar logs esenciales, con resumen, impacto, comportamiento esperado/actual, reproducción mínima, entorno, pruebas realizadas, evidencia breve y petición concreta. Conservar error exacto, identificadores y fecha/zona conocidas; señalar incertidumbre, no inventar detalles ni incluir claves, tokens o datos sensibles. No añadir saludos, disculpas o explicaciones sobre la IA. Actualizar el mismo caso, no enviar otro por rutina. El agente no ha enviado mensajes externos.
 
 Hechos disponibles para el seguimiento: proyecto mkntfvsbmlgobettavnu, CIBUSPAN Free, inicio de sesión y Storage CLI bloqueados por exceed_storage_size_quota; Usage reporta 4,244/1 GB; diagnóstico de solo lectura identifica 959 fotos percha descartables (~3792,91 MiB) y 1817 rutas de capturas protegidas; borrado rechazado HTTP 402, sin eliminación confirmada; R2 configurado/publicado sin traslado confirmado. Pedir evaluación de acceso temporal o procedimiento soportado para retirar solo fotos descartables, conservando capturas y datos de negocio. No prometer que se puede mantener Free o abrir el lunes antes de recuperar y verificar el servicio. Pro sigue sin autorización/contratación. Registro documental; no requiere nueva publicación ni comandos.
-
