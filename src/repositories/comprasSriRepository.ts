@@ -1,3 +1,4 @@
+import { consultarSemanasPago, idSemanaSri } from "./semanasPagoRepository"
 import { supabase } from "../lib/supabase"
 import type { FacturaSri } from "../utils/comprasSri"
 
@@ -8,6 +9,7 @@ export type ControlCompra = {
   abonos: AbonoCompra[]
 }
 export type CompraGuardada = ControlCompra & {
+  semana_pago?: string | null
   datos: FacturaSri
   ride_leido: boolean
   neto_excel?: number | null
@@ -51,7 +53,8 @@ export async function listarComprasSri(desde: number, limite: number, proveedor:
   if (proveedor !== null) consulta = consulta.eq("proveedor_filtro", proveedor)
   const { data, error } = await consulta
   if (error) throw error
-  return data as CompraGuardada[]
+  const semanas = await consultarSemanasPago((data as CompraGuardada[]).map(f => idSemanaSri(f.datos.clave)))
+  return (data as CompraGuardada[]).map(f => ({ ...f, semana_pago: semanas[idSemanaSri(f.datos.clave)] ?? null }))
 }
 
 export async function buscarProveedoresSri(texto: string) {

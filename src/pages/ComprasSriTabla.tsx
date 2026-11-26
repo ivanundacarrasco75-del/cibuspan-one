@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react"
+import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
+import { idSemanaSri } from "../repositories/semanasPagoRepository"
 import SugerenciaRetencionIva from "../components/SugerenciaRetencionIva"
 import { listarPerfilesRetencionIva } from "../repositories/retencionesRepository"
 import type { PerfilRetencionIva } from "../utils/sugerenciasRetencionIva"
@@ -25,7 +27,7 @@ const columnas: { campo: CampoCompra; titulo: string; tipo?: "date" | "importe" 
 const formato = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const moneda = (centavos: number) => formato.format(centavos / 100)
 const centavos = (valor: string) => Math.round(Number(valor) * 100)
-const totalColumnas = columnas.length + 3
+const totalColumnas = columnas.length + 4
 
 function FilaCompra({ compra, alCambiarProveedor, perfiles }: { compra: CompraGuardada; alCambiarProveedor: () => void; perfiles: PerfilRetencionIva[] | null }) {
   const { datos, ride_leido } = compra
@@ -103,6 +105,7 @@ function FilaCompra({ compra, alCambiarProveedor, perfiles }: { compra: CompraGu
             </td>
           )
         })}
+        <td><SemanaPagoDocumento documento={idSemanaSri(datos.clave)} inicial={compra.semana_pago} nombre={campos.serie} disabled={guardando} /></td>
         <td className="compras-sri-estado">{saldo === null ? "Por revisar" : liquidada ? "Pagada" : saldo === 0 ? "Sin saldo" : pagado ? "Abonada" : "Pendiente"}</td>
         <td>{perfiles === null ? "Consultando historial…" : <SugerenciaRetencionIva
           perfil={perfiles.find(p => p.ruc === datos.ruc)} ruc={datos.ruc} fecha={campos.fecha}
@@ -137,13 +140,13 @@ function FilaCompra({ compra, alCambiarProveedor, perfiles }: { compra: CompraGu
         <tr className="compras-sri-pagada compras-sri-movimiento" key={abono.id}>
           <td>{abono.fecha || "Fecha pendiente"}</td><td colSpan={6}>Pago de {campos.serie}</td>
           <td className="compras-sri-monto">{moneda(centavos(abono.valor))}</td>
-          <td>{abono.documento}</td><td colSpan={3}>Pagado</td>
+          <td>{abono.documento}</td><td colSpan={4}>Pagado</td>
         </tr>
       ))}
       {control.abonos.length > 0 && saldo !== null && saldo > 0 && (
         <tr className="compras-sri-saldo">
           <td colSpan={7}>Saldo pendiente de {campos.serie}</td>
-          <td className="compras-sri-monto">{moneda(saldo)}</td><td colSpan={4} />
+          <td className="compras-sri-monto">{moneda(saldo)}</td><td colSpan={5} />
         </tr>
       )}
       {error && <tr><td colSpan={totalColumnas} role="alert" className="compras-sri-error">{error}</td></tr>}
@@ -172,6 +175,7 @@ export default function ComprasSriTabla({ compras, proveedor, elegirProveedor, a
       <table className="compras-sri-tabla compras-sri-tabla-con-sugerencias" aria-label="Facturas de compra">
         <colgroup>
           {columnas.map(({ campo }) => <col key={campo} className={`compras-sri-col-${campo}`} />)}
+          <col className="compras-sri-col-semana-pago" />
           <col className="compras-sri-col-estado" />
           <col className="compras-sri-col-sugerencia" />
           <col className="compras-sri-col-detalle" />
@@ -180,6 +184,7 @@ export default function ComprasSriTabla({ compras, proveedor, elegirProveedor, a
           {columnas.map(({ campo, titulo }) => <th key={campo} scope="col">
             {campo === "proveedor" ? <ComprasSriFiltroProveedor proveedor={proveedor} elegir={elegirProveedor} /> : titulo}
           </th>)}
+          <th scope="col">Semana de pago</th>
           <th scope="col">Estado</th>
           <th scope="col">IVA sugerido por historial</th>
           <th scope="col">Detalle</th>

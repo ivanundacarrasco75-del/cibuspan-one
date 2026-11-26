@@ -1,8 +1,10 @@
+import { consultarSemanasPago, guardarSemanaAlIngresar } from "./semanasPagoRepository"
 import { supabase } from "../lib/supabase"
 
 export type TipoCompraManual = "NOTA_VENTA" | "NO_DEDUCIBLE"
 
 export type DocumentoManual = {
+  semana_pago?: string | null
   id: string
   tipo: TipoCompraManual
   fecha_documento: string
@@ -16,6 +18,7 @@ export type DocumentoManual = {
 }
 
 export type DocumentoCompra = {
+  semana_pago?: string | null
   id: string
   periodo: string
   fecha_documento: string | null
@@ -43,7 +46,8 @@ export async function listarDocumentosCompra(tipo: TipoCompraManual, inicio: num
       .order("id")
       .range(inicio, inicio + limite - 1)
     if (error) throw error
-    return (data ?? []) as DocumentoCompra[]
+    const semanas = await consultarSemanasPago((data ?? []).map(f => f.id))
+    return ((data ?? []) as DocumentoCompra[]).map(f => ({ ...f, semana_pago: semanas[f.id] ?? null }))
   }
 
   const { data, error } = await supabase.from("compras_vw_documentos_tabla")
@@ -54,10 +58,16 @@ export async function listarDocumentosCompra(tipo: TipoCompraManual, inicio: num
     .order("id")
     .range(inicio, inicio + limite - 1)
   if (error) throw error
-  return (data ?? []) as DocumentoCompra[]
+  const semanas = await consultarSemanasPago((data ?? []).map(f => f.id))
+  return ((data ?? []) as DocumentoCompra[]).map(f => ({ ...f, semana_pago: semanas[f.id] ?? null }))
 }
 
-export async function guardarDocumentoCompra(documento: DocumentoManual) {
+export async function guardarDocumentoCompra(datos: DocumentoManual) {
+  const { semana_pago, ...documento } = datos
+  await guardarSoloDocumento(documento)
+  await guardarSemanaAlIngresar("manual:" + documento.id, semana_pago ?? undefined, documento.id)
+}
+async function guardarSoloDocumento(documento: Omit<DocumentoManual, "semana_pago">) {
   const { data, error } = await supabase.from("compras_documentos_manuales")
     .upsert(documento, { onConflict: "id", ignoreDuplicates: true }).select("id")
   if (error) throw error
@@ -68,7 +78,7 @@ export async function guardarDocumentoCompra(documento: DocumentoManual) {
     .select("id,tipo,fecha_documento,numero_documento,proveedor,concepto,subtotal,iva,retencion,observaciones")
     .eq("id", documento.id).single()
   if (errorLectura) throw errorLectura
-  if (!guardado || !Object.entries(documento).every(([campo, valor]) => guardado[campo as keyof DocumentoManual] === valor)) {
+  if (!guardado || !Object.entries(documento).every(([campo, valor]) => guardado[campo as keyof typeof documento] === valor)) {
     throw new Error("Ya se guardó un documento con otros datos. Revisa la tabla antes de volver a ingresarlo.")
   }
 }

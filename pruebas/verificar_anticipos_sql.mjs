@@ -7,7 +7,7 @@ const uid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 const id = n => "00000000-0000-0000-0000-"+String(n).padStart(12,"0")
 const clave = n => String(n).repeat(49)
 
-async function preparar(t) {
+export async function preparar(t) {
   const db = new PGlite()
   t.after(()=>db.close())
   await db.exec(`

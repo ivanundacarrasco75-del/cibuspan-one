@@ -1,5 +1,36 @@
 # Continuidad de CIBUSPAN ONE
 
+26/11/2026, **Semana de pago prevista editable en documentos de compras**.
+Sobre main `d40f626`, en rama aislada `codex/semanas-pago`.
+Campo opcional al importar XML SRI y al crear notas de venta, gastos no deducibles
+y anticipos; edición posterior en sus tablas y en Cuentas por pagar. Seleccionar
+cualquier día guarda el lunes y muestra la semana ISO. Cuentas permite filtrar por
+semana, sin semana asignada o todas; aplica el filtro también al cargar más filas.
+La semana prevista no crea programaciones ni pagos: la selección de documentos
+y montos y su envío a Pagos semanales mantienen el flujo existente.
+Metadatos separados, bitácora con responsable, control de cambios concurrentes
+y reintentos idempotentes. Facturas vinculadas Excel/SRI comparten una semana;
+reimportar XML existente conserva su previsión. Permisos exactos de Cuentas o
+su módulo de origen; Pagos semanales por sí solo permite únicamente lectura.
+SQL nuevo 202611260002 instalado en eodcwkuexldsbomflthe tras revisar historial
+y estructura remota; registrado aplicado solo después de ejecutar y verificar.
+805 documentos, 42 pagos, 44 programaciones y 149 permisos conservaron cantidades
+y huellas exactas. Se conserva el OID y todas las columnas previas de la vista.
+No se asignaron semanas a documentos reales desde el agente.
+Ocho pruebas SQL correctas (incluye regresión de anticipos, vinculación y permisos).
+Chrome comprobó altas XML/notas/gastos/anticipos, edición, limpieza, semana ISO,
+filtros con paginación, reintento y conservación de XML reimportado.
+Archivos: src/components/SemanaPagoDocumento.tsx;
+src/repositories/semanasPagoRepository.ts, finanzasComprasRepository.ts,
+comprasSriRepository.ts, comprasDocumentosRepository.ts, anticiposRepository.ts;
+src/pages/FinanzasPagosCompras.tsx, ComprasSri.tsx, ComprasSriTabla.tsx,
+ComprasDocumentos.tsx, Anticipos.tsx, comprasSriTabla.css;
+supabase/migrations/202611260002_semanas_pago_documentos.sql;
+pruebas/verificar_semanas_pago_sql.mjs, verificar_anticipos_sql.mjs y esta guía.
+Build final correcto; Chrome confirmó también las siete columnas, pago, retiro, detalle, anchos y móvil de Pagos semanales. Pendiente en este punto: publicación del frontend y su comprobación pública.
+La corrección de retención del anticipo TRAMAR sigue pendiente del soporte contable;
+el borrador local 202611260001 en .codex-pagos-semanales no fue instalado ni publicado.
+
 24/11/2026, **Retiro del módulo Casa Masa solicitado por Iván**.
 Sobre main `5f9d35a`. Retirados la entrada de navegación, la carga/ruta de
 la pantalla, el nodo del editor de permisos y los permisos predeterminados.
@@ -1983,3 +2014,4 @@ Iván compartió el correo automático de Supabase que asigna SU-540390 a la sol
 Se leyó la guía oficial solicitada en el acuse: https://supabase.com/docs/guides/troubleshooting/formatting-support-requests-for-faster-resolution-616717.md (contenido accesible también en https://supabase.com/kb/troubleshooting/formatting-support-requests-for-faster-resolution-616717). En cualquier ampliación de SU-540390: priorizar hechos verificados y brevedad, menos de 300 palabras sin contar logs esenciales, con resumen, impacto, comportamiento esperado/actual, reproducción mínima, entorno, pruebas realizadas, evidencia breve y petición concreta. Conservar error exacto, identificadores y fecha/zona conocidas; señalar incertidumbre, no inventar detalles ni incluir claves, tokens o datos sensibles. No añadir saludos, disculpas o explicaciones sobre la IA. Actualizar el mismo caso, no enviar otro por rutina. El agente no ha enviado mensajes externos.
 
 Hechos disponibles para el seguimiento: proyecto mkntfvsbmlgobettavnu, CIBUSPAN Free, inicio de sesión y Storage CLI bloqueados por exceed_storage_size_quota; Usage reporta 4,244/1 GB; diagnóstico de solo lectura identifica 959 fotos percha descartables (~3792,91 MiB) y 1817 rutas de capturas protegidas; borrado rechazado HTTP 402, sin eliminación confirmada; R2 configurado/publicado sin traslado confirmado. Pedir evaluación de acceso temporal o procedimiento soportado para retirar solo fotos descartables, conservando capturas y datos de negocio. No prometer que se puede mantener Free o abrir el lunes antes de recuperar y verificar el servicio. Pro sigue sin autorización/contratación. Registro documental; no requiere nueva publicación ni comandos.
+

@@ -3,6 +3,8 @@ import {
   guardarCompraSri, listarComprasSri, marcarRideLeido, consultarVinculoSri,
   type CompraGuardada,
 } from "../repositories/comprasSriRepository"
+import { guardarSemanaAlIngresar } from "../repositories/semanasPagoRepository"
+import { lunesPago } from "../components/SemanaPagoDocumento"
 import { leerFacturaSri } from "../utils/comprasSri"
 import ComprasSriTabla from "./ComprasSriTabla"
 import VinculosExcelSri from "../components/VinculosExcelSri"
@@ -16,6 +18,7 @@ function mensajeError(error: unknown) {
 }
 
 export default function ComprasSri({ puedeResolverVinculos = false }: { puedeResolverVinculos?: boolean }) {
+  const [semanaPago, setSemanaPago] = useState("")
   const [compras, setCompras] = useState<CompraGuardada[]>([])
   const [pagina, setPagina] = useState(0)
   const [proveedor, setProveedor] = useState<string | null>(null)
@@ -70,11 +73,15 @@ export default function ComprasSri({ puedeResolverVinculos = false }: { puedeRes
             const datos = leerFacturaSri(xml)
             const creada = await guardarCompraSri(datos, xml)
             let detalle = ""
+            if (creada && semanaPago) {
+              try { await guardarSemanaAlIngresar("sri:" + datos.clave, semanaPago, crypto.randomUUID()) }
+              catch { detalle = " · Factura guardada; no se pudo asignar la semana. Edítala en la tabla." }
+            }
             try {
               const vinculo = await consultarVinculoSri(datos.clave)
-              if (vinculo?.estado === "VINCULADA") detalle = " · Vinculada con Excel; pagos conservados"
-              if (vinculo?.estado === "REVISION") detalle = " · Revisar coincidencia con Excel antes de pagar"
-            } catch { detalle = " · No se pudo consultar la vinculación; revisa las coincidencias con Excel" }
+              if (vinculo?.estado === "VINCULADA") detalle += " · Vinculada con Excel; pagos conservados"
+              if (vinculo?.estado === "REVISION") detalle += " · Revisar coincidencia con Excel antes de pagar"
+            } catch { detalle += " · No se pudo consultar la vinculación; revisa las coincidencias con Excel" }
             salida.push(`${archivo.name} · ${creada ? "Factura registrada" : "La factura ya estaba registrada"}${detalle}`)
           } else if (/\.pdf$/i.test(archivo.name)) {
             if (archivo.size > 20 * 1024 * 1024) throw new Error("El PDF supera 20 MB.")
@@ -102,6 +109,7 @@ export default function ComprasSri({ puedeResolverVinculos = false }: { puedeRes
         <h1>Facturas de compra del SRI</h1>
         <div className="compras-sri-herramientas">
           <a href={sri} target="_blank" rel="noopener noreferrer">Abrir SRI en Línea</a>
+          <label>Semana de pago <input aria-label="Semana de pago al importar" type="date" value={semanaPago} disabled={importando} onChange={e => setSemanaPago(lunesPago(e.target.value))} /></label>
           <label className="compras-sri-importar">
             <input type="file" accept=".xml,.pdf" multiple disabled={importando}
               aria-label="Importar XML y PDF del SRI"

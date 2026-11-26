@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react"
+import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
 import { guardarDocumentoCompra, listarDocumentosCompra, type DocumentoCompra } from "../repositories/comprasDocumentosRepository"
 import "./comprasSriTabla.css"
 
@@ -10,7 +11,7 @@ const periodo = new Intl.DateTimeFormat("es-EC", { month: "short", year: "numeri
 const columnas = [
   ["fecha", "Fecha emisión"], ["serie", "N.º documento"], ["proveedor", "Proveedor"],
   ["descripcion", "Descripción"], ["subtotal", "Subtotal"], ["iva", "IVA"], ["retencion", "Retención"],
-  ["total", "Total"], ["estado", "Estado"], ["detalle", "Detalle"],
+  ["total", "Total"], ["semana_pago", "Semana de pago"], ["estado", "Estado"], ["detalle", "Detalle"],
 ]
 const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaquil" }).format()
 const importe = (valor: number | null) => valor === null ? "—" : moneda.format(valor)
@@ -67,7 +68,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
       await guardarDocumentoCompra({
         id: solicitud.current, tipo: tipoDocumento, fecha_documento: texto("fecha"),
         numero_documento: texto("numero") || null, proveedor, concepto, subtotal,
-        iva: numero("iva"), retencion: numero("retencion"), observaciones: texto("observaciones") || null,
+        iva: numero("iva"), retencion: numero("retencion"), semana_pago: texto("semana_pago") || undefined, observaciones: texto("observaciones") || null,
       })
       setFormulario(false)
       setMensaje("Documento guardado.")
@@ -98,6 +99,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
           <fieldset disabled={guardando}>
           {tipo === "notas" && <p>Nota de venta: verifica el régimen RIMPE y su tratamiento. No se presume retención de renta ni de IVA a partir del nombre del proveedor.</p>}
             <label>Fecha de emisión <input name="fecha" type="date" defaultValue={hoy()} required /></label>
+            <label>Semana de pago <input name="semana_pago" aria-label="Semana de pago del documento" type="date" /></label>
             <label>N.º documento <input name="numero" maxLength={80} required={tipo === "notas"} /></label>
             <label>Proveedor <input name="proveedor" maxLength={200} required /></label>
             <label>Descripción <input name="concepto" maxLength={500} required /></label>
@@ -137,6 +139,7 @@ export default function ComprasDocumentos({ tipo }: { tipo: "notas" | "noDeducib
                       <td className="compras-sri-monto">{importe(documento.iva)}</td>
                       <td className="compras-sri-monto">{importe(documento.retencion)}</td>
                       <td className="compras-sri-monto">{importe(documento.total)}</td>
+                      <td>{documento.origen === "CLASIFICACION_GASTOS" ? "—" : <SemanaPagoDocumento documento={documento.id} inicial={documento.semana_pago} nombre={documento.numero_documento ?? documento.id} />}</td>
                       <td className="compras-sri-estado">{documento.origen !== "EXCEL" ? "Registrado"
                         : documento.saldo_excel === null ? "Por revisar"
                         : documento.saldo_excel === 0 ? "Pagada"

@@ -18,6 +18,7 @@ export type CuentaCompra = {
   saldo: number | null
   ruc: string | null
   observaciones: string | null
+  semana_pago?: string | null
   semana_activa: string | null
   pagos: { id: string; valor: string | number; fecha: string; documento: string }[]
 }
@@ -52,7 +53,7 @@ export async function listarCorreccionesImportes(documento: string) {
   return data as CorreccionImportes[]
 }
 
-export async function listarCuentasCompra(pagina: number, tipo: string, busqueda: string, pendientes: boolean) {
+export async function listarCuentasCompra(pagina: number, tipo: string, busqueda: string, pendientes: boolean, semanaPago = "") {
   const inicio = pagina * CUENTAS_POR_PAGINA
   let consulta = supabase.rpc("fin_consultar_cuentas", {}, { count: "exact" }).select("*")
     .order("fecha_documento", { ascending: false, nullsFirst: false }).order("id")
@@ -60,6 +61,8 @@ export async function listarCuentasCompra(pagina: number, tipo: string, busqueda
   if (tipo) consulta = consulta.eq("tipo", tipo)
   if (busqueda) consulta = consulta.ilike("busqueda", `%${busqueda.replace(/[\\%_*]/g, "\\$&")}%`)
   if (pendientes) consulta = consulta.gt("saldo", 0)
+  if (semanaPago === "SIN_SEMANA") consulta = consulta.is("semana_pago", null)
+  else if (semanaPago) consulta = consulta.eq("semana_pago", semanaPago)
   const { data, count, error } = await consulta
   if (error) throw error
   return { cuentas: (data ?? []) as CuentaCompra[], total: count ?? 0 }

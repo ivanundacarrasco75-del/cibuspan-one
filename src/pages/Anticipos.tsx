@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react"
+import SemanaPagoDocumento, { lunesPago } from "../components/SemanaPagoDocumento"
 import { createPortal } from "react-dom"
 import { aplicarAnticipo, guardarAnticipo, listarAnticipos, type Anticipo, type CruceAnticipo, type DatosAnticipo } from "../repositories/anticiposRepository"
 import { CUENTAS_POR_PAGINA, listarCuentasCompra, programarCompras, type CuentaCompra } from "../repositories/finanzasComprasRepository"
@@ -163,7 +164,7 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
   return <main className="compras-sri-pagina fin-pagos anticipos-pagina">
     <header className="compras-sri-cabecera"><h1>Anticipos a proveedores</h1><div className="compras-sri-herramientas">
       <button disabled={bloqueado} onClick={() => {
-        setEdicion({ id: crypto.randomUUID(), fecha: hoy(), proveedor: "", ruc: "", concepto: "", monto: "" })
+        setEdicion({ id: crypto.randomUUID(), semana_operacion: crypto.randomUUID(), fecha: hoy(), proveedor: "", ruc: "", concepto: "", monto: "" })
         setGuardarPendiente(null); setError("")
       }}>Nuevo anticipo</button>
       <button disabled={guardando} onClick={() => setRevision(valor => valor + 1)}>Actualizar</button>
@@ -173,6 +174,7 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
     {edicion && <form className="compras-sri-formulario" onSubmit={guardar}>
       <fieldset disabled={guardando || guardarPendiente !== null} className="anticipos-campos">
         <label>Fecha <input type="date" required value={edicion.fecha} onChange={evento => setEdicion({ ...edicion, fecha: evento.target.value })} /></label>
+        <label>Semana de pago <input aria-label="Semana de pago del anticipo" type="date" value={edicion.semana_pago ?? ""} onChange={e => setEdicion({ ...edicion, semana_pago: lunesPago(e.target.value) })} /></label>
         <label>Proveedor <input required minLength={2} maxLength={200} value={edicion.proveedor} onChange={evento => setEdicion({ ...edicion, proveedor: evento.target.value })} /></label>
         <label>RUC (opcional) <input pattern="[0-9]{13}" maxLength={13} value={edicion.ruc} onChange={evento => setEdicion({ ...edicion, ruc: evento.target.value })} /></label>
         <label>Concepto <input required maxLength={500} value={edicion.concepto} onChange={evento => setEdicion({ ...edicion, concepto: evento.target.value })} /></label>
@@ -183,7 +185,7 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
     </form>}
     {cargando ? <p role="status">Cargando anticipos…</p> : <div className="compras-sri-contenedor" role="region" tabIndex={0} aria-label="Anticipos a proveedores">
       <table className="compras-sri-tabla anticipos-tabla"><thead><tr><th>Elegir</th><th>Fecha</th><th>Anticipo</th><th>Proveedor</th><th>Concepto</th>
-        <th>Monto</th><th>Pagado</th><th>Cruzado</th><th>Disponible para cruzar</th><th>Pendiente de pago</th><th>Acciones</th></tr></thead>
+        <th>Monto</th><th>Pagado</th><th>Cruzado</th><th>Disponible para cruzar</th><th>Pendiente de pago</th><th>Semana de pago</th><th>Acciones</th></tr></thead>
         <tbody>{filas.map(fila => <Fragment key={fila.id}>
           <tr><td><input type="checkbox" aria-label={`Seleccionar ${fila.numero}`} checked={fila.id in seleccion}
             disabled={bloqueado || fila.saldo <= 0 || Boolean(fila.semana_activa)}
@@ -195,13 +197,14 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
             })} /></td>
             <td>{fila.fecha}</td><td>{fila.numero}</td><td>{fila.proveedor}</td><td>{fila.concepto}</td>
             {[fila.monto, fila.pagado, fila.aplicado, fila.disponible, fila.saldo].map((valor, indice) => <td key={indice} className="compras-sri-monto">{dinero(valor)}</td>)}
+            <td><SemanaPagoDocumento documento={"anticipo:" + fila.id} inicial={fila.semana_pago} nombre={fila.numero} disabled={bloqueado} alGuardar={semana_pago => setFilas(actuales => actuales.map(f => f.id === fila.id ? { ...f, semana_pago } : f))} /></td>
             <td><div className="anticipos-acciones">
               {fila.disponible > 0 && <button disabled={bloqueado} onClick={() => setCruce(fila)}>Cruzar con factura</button>}
-              {fila.pagado === 0 && !fila.semana_activa && <button disabled={bloqueado} onClick={() => { setGuardarPendiente(null); setEdicion({ ...fila, monto: Number(fila.monto).toFixed(2) }) }}>Editar</button>}
+              {fila.pagado === 0 && !fila.semana_activa && <button disabled={bloqueado} onClick={() => { setGuardarPendiente(null); setEdicion({ ...fila, semana_operacion: crypto.randomUUID(), monto: Number(fila.monto).toFixed(2) }) }}>Editar</button>}
               <button onClick={() => setDetalle(detalle === fila.id ? null : fila.id)}>Detalle</button>
             </div></td>
           </tr>
-          {detalle === fila.id && <tr><td colSpan={11} className="compras-sri-detalle">
+          {detalle === fila.id && <tr><td colSpan={12} className="compras-sri-detalle">
             <p>{fila.proveedor} · Identificación {fila.ruc || "pendiente"}{fila.semana_activa ? " · Programado para " + fila.semana_activa : ""}</p>
             {fila.pagos.map(pago => <p key={pago.id}>Pago {pago.fecha} · USD {dinero(pago.valor)} · {pago.documento}</p>)}
             {fila.aplicaciones.map(aplicacion => <p key={aplicacion.id}>Factura {aplicacion.numero} · {aplicacion.proveedor} · Cruzado USD {dinero(aplicacion.monto)}</p>)}

@@ -277,3 +277,9 @@
 .compras-vinculo-revision h3 { margin: 0 0 8px; font-size: 15px; }
 .compras-vinculo-decisiones { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .compras-vinculo-revision small { color: #42566d; }
+
+.compras-sri-col-semana-pago { width: 182px; }
+.semana-pago-editor { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; flex-wrap: wrap; white-space: normal; }
+.semana-pago-editor input[type=date] { width: 112px; max-width: 100%; height: 22px; box-sizing: border-box; font: inherit; }
+.semana-pago-editor small { font-size: 10px; white-space: nowrap; }
+.semana-pago-editor [role=alert] { display: block; width: 100%; max-width: 180px; white-space: normal; overflow-wrap: anywhere; }

@@ -7,6 +7,7 @@ import {
 import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES } from "../utils/permisosAplicacion"
 import "./comprasSriTabla.css"
 import "./finanzasPagosCompras.css"
+import SemanaPagoDocumento, { lunesPago } from "../components/SemanaPagoDocumento"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
 import { useColumnasAjustables } from "../hooks/useColumnasAjustables"
@@ -35,6 +36,7 @@ type Fila = { cuenta?: CuentaCompra; plan?: CompraProgramada }
 type FilaProgramada = Awaited<ReturnType<typeof listarComprasProgramadas>>[number]
 type Pago = { cuenta: CuentaCompra; operacion: string; abono: boolean; maximo: string; semana: string | null }
 type Acciones = {
+  actualizarSemana?: (id: string) => void
   actualizarImportes?: (id: string) => void
   seleccionar?: (cuenta: CuentaCompra, marcada: boolean) => void
   seleccion: Map<string, Seleccion>
@@ -54,7 +56,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   const tabla = useRef<HTMLTableElement>(null)
   const titulos = modo === "semana" ? ["Emisión", "Tipo", "Documento", "Proveedor", "Descripción", "Pago programado", "Pagos"] : [
     ...(modo === "cuentas" && acciones.seleccionar ? ["Elegir"] : []), "Emisión",
-    ...(modo === "cuentas" ? ["Semana de emisión"] : []), "Tipo", "Documento", "Proveedor", "Descripción",
+    ...(modo === "cuentas" ? ["Semana de emisión", "Semana de pago"] : []), "Tipo", "Documento", "Proveedor", "Descripción",
     "Subtotal", "IVA", "Retención", "Total", "Abonado", "Saldo",
     ...(modo === "cuentas" ? [] : ["Monto a pagar"]), "Estado", "Pagos",
   ]
@@ -117,7 +119,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
                 disabled={acciones.ocupado || (!elegida && (vinculoPendiente || cuenta.saldo === null || cuenta.saldo <= 0 || Boolean(cuenta.semana_activa)))}
                 onChange={evento => acciones.seleccionar?.(cuenta, evento.target.checked)} /></td>}
               <td>{cuenta.fecha_documento || "—"}</td>
-              {modo === "cuentas" && <td>{cuenta.fecha_documento ? etiquetaAgrupacion(cuenta.fecha_documento, "SEMANA") : "—"}</td>}
+              {modo === "cuentas" && <><td>{cuenta.fecha_documento ? etiquetaAgrupacion(cuenta.fecha_documento, "SEMANA") : "—"}</td><td>{["SRI", "NOTA_VENTA", "NO_DEDUCIBLE", "ANTICIPO"].includes(cuenta.tipo) && !historica(cuenta) ? <SemanaPagoDocumento documento={cuenta.id} inicial={cuenta.semana_pago} nombre={nombre} disabled={acciones.ocupado} alGuardar={() => acciones.actualizarSemana?.(cuenta.id)} /> : cuenta.semana_pago ?? "—"}</td></>}
               <td>{tipos[cuenta.tipo]}</td>
               <td>{cuenta.numero_documento || "—"}</td><td title={cuenta.proveedor ?? undefined}>{cuenta.proveedor || "—"}</td>
               <td title={cuenta.concepto ?? undefined}>{cuenta.concepto || "—"}</td>
@@ -170,6 +172,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
 export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAbrirPagosSemanales, semanaInicial }: {
   semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean; semanaInicial?: string
 }) {
+  const [semanaPago, setSemanaPago] = useState("")
+  const [sinSemana, setSinSemana] = useState(false)
   const [semana, setSemana] = useState(() => semanaInicial ?? lunes(hoy()))
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
   const [programadas, setProgramadas] = useState<FilaProgramada[]>([])
@@ -217,7 +221,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
           const filas = await listarComprasProgramadas(semana)
           if (vigente) setProgramadas(filas)
         } else {
-          const resultado = await listarCuentasCompra(0, tipo, buscar.trim(), pendientes)
+          const resultado = await listarCuentasCompra(0, tipo, buscar.trim(), pendientes, sinSemana ? "SIN_SEMANA" : semanaPago)
           if (vigente) {
             setCuentas(resultado.cuentas)
             setTotal(resultado.total)
@@ -239,7 +243,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
       if (consultaCuentas.current === consulta) consultaCuentas.current = null
       clearTimeout(demora)
     }
-  }, [semanal, semana, tipo, buscar, pendientes, revision])
+  }, [semanal, semana, tipo, buscar, pendientes, revision, semanaPago, sinSemana])
 
   async function cargarMas() {
     const consulta = consultaCuentas.current
@@ -248,7 +252,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
     setCargandoMas(true)
     setErrorCargaMas("")
     try {
-      const resultado = await listarCuentasCompra(consulta.pagina, tipo, buscar.trim(), pendientes)
+      const resultado = await listarCuentasCompra(consulta.pagina, tipo, buscar.trim(), pendientes, sinSemana ? "SIN_SEMANA" : semanaPago)
       if (consultaCuentas.current !== consulta) return
       consulta.pagina += 1
       consulta.agotada = resultado.cuentas.length === 0
@@ -358,7 +362,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const totalSeleccion = seleccionadas.reduce((total, fila) => total + (centavos(fila.monto) || 0), 0)
   const saldoSemana = programadas.reduce((total, { plan }) => total + centavos(plan.monto) - centavos(plan.pagado), 0)
   const ocupado = guardando || cargando || pago !== null
-  const acciones = { seleccion, abrirPago, ocupado, actualizarImportes: (id: string) => {
+  const acciones = { seleccion, abrirPago, ocupado, actualizarSemana: (id: string) => { setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setAviso("Semana de pago guardada con registro del responsable."); setRevision(v => v + 1) }, actualizarImportes: (id: string) => {
     setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(id); return siguiente })
     setAviso("Importes corregidos y registrados en la bitácora. Ya puedes seleccionar el documento si tiene saldo.")
     setRevision(valor => valor + 1)
@@ -402,6 +406,9 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
               <option value="">Todos</option>
               {Object.entries(tipos).map(([codigo, nombre]) => <option key={codigo} value={codigo}>{nombre}</option>)}
             </select></label>
+            <label>Semana de pago <input aria-label="Filtrar semana de pago" type="date" value={semanaPago} disabled={guardando || pago !== null || sinSemana} onChange={e => setSemanaPago(lunesPago(e.target.value))} /></label>
+            <label><input type="checkbox" checked={sinSemana} disabled={guardando || pago !== null} onChange={e => setSinSemana(e.target.checked)} /> Sin semana asignada</label>
+            <button type="button" disabled={guardando || pago !== null} onClick={() => { setSemanaPago(""); setSinSemana(false) }}>Todas las semanas</button>
             <label>Buscar <input type="search" value={buscar} disabled={guardando || pago !== null}
               placeholder="Proveedor, documento o descripción" onChange={evento => setBuscar(evento.target.value)} /></label>
             <label><input type="checkbox" checked={pendientes} disabled={guardando || pago !== null}
