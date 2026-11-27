@@ -28,7 +28,10 @@ confirmación/reintento, compensación sin banco, anulación, azul y anchos.
 npm run build correcto. No se importaron ni conciliaron documentos reales.
 Archivos: src/components/ImportarDocumentosPagoClientes.tsx,
 src/pages/DocumentosPagoClientes.tsx y esta guía. Dashboard intacto.
-Publicación pendiente en este estado; no afirmar publicada todavía.
+Publicado desde `809b72e`, despliegue `c9edb37a`. Dominio principal verificado
+por SHA-256 de 40 archivos. Supabase operativo, R2 y firma comprobados.
+Código en main. Pendiente que Iván reabra la app para utilizar Elegir archivos
+y seleccione varios PDF o CSV en la tarjeta del cliente correspondiente.
 
 27/11/2026, **Retenciones históricas 1,75 % / 2 % en conciliación de cobros**.
 Sobre main `eaa7eb7`. Iván indica que sus facturas pasaron de 1,75 % a 2 %
