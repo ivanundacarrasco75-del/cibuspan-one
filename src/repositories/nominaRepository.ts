@@ -95,6 +95,14 @@ export async function cargarNominaCuentas(datos: CargaNominaCuentas) {
   if (error) throw Object.assign(error, { cargaRechazada: status >= 400 && status < 500 })
 }
 
+export type RetiroCuentaNomina = { operacion: string; documento: string; monto: number; motivo: string }
+export async function quitarCuentaNomina(datos: RetiroCuentaNomina) {
+  const { error, status } = await supabase.rpc("fin_quitar_cuenta_nomina", {
+    p_operacion: datos.operacion, p_documento: datos.documento, p_monto: datos.monto, p_motivo: datos.motivo,
+  })
+  if (error) throw Object.assign(error, { rechazado: status >= 400 && status < 500 })
+}
+
 export async function obtenerImportacionesNominaDb() {
   const { data, error } = await supabase
     .rpc("fin_consultar_roles_importados")

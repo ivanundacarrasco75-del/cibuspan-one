@@ -11,6 +11,7 @@ import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
 import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { semanasDelAnio } from "../utils/semanasPago"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
+import QuitarCuentaNomina from "../components/QuitarCuentaNomina"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
 import { useColumnasAjustables } from "../hooks/useColumnasAjustables"
 
@@ -38,6 +39,7 @@ type Fila = { cuenta?: CuentaCompra; plan?: CompraProgramada }
 type FilaProgramada = Awaited<ReturnType<typeof listarComprasProgramadas>>[number]
 type Pago = { cuenta: CuentaCompra; operacion: string; abono: boolean; maximo: string; semana: string | null }
 type Acciones = {
+  quitarNomina?: (cuenta: CuentaCompra) => void
   actualizarSemana?: (id: string) => void
   actualizarImportes?: (id: string) => void
   seleccionar?: (cuenta: CuentaCompra, marcada: boolean) => void
@@ -141,6 +143,11 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
                 {modo === "semana" && <button type="button" disabled={acciones.ocupado || !puedePagar || !plan}
                   title={puedePagar ? "Pagar el importe pendiente del plan" : estado} onClick={() => acciones.abrirPago(cuenta, false, plan)}>Pagar</button>}
                 <button type="button" aria-expanded={detalle === cuenta.id} onClick={() => setDetalle(detalle === cuenta.id ? null : cuenta.id)}>Detalle</button>
+                {modo === "cuentas" && cuenta.tipo === "NOMINA" && acciones.quitarNomina &&
+                  <button type="button" aria-label={`Quitar cuenta de nómina de ${cuenta.proveedor} · ${cuenta.numero_documento}`}
+                    disabled={acciones.ocupado || Number(cuenta.pagado) > 0 || cuenta.pagos.length > 0 || Boolean(cuenta.semana_activa)}
+                    title={Number(cuenta.pagado) > 0 || cuenta.pagos.length > 0 ? "Tiene pagos registrados; revisa el detalle" : cuenta.semana_activa ? "Quita primero esta cuenta de Pagos semanales" : "Retirar la cuenta para volver a cargarla con los datos correctos"}
+                    onClick={() => acciones.quitarNomina?.(cuenta)}>Quitar cuenta de nómina</button>}
                 {(modo === "seleccion" || modo === "semana") &&
                   <button type="button" disabled={acciones.ocupado || (modo === "semana" && (!plan || plan.pagado > 0))}
                     title={modo === "semana" && plan && plan.pagado > 0 ? "El plan ya tiene pagos registrados" : undefined} onClick={() => acciones.quitar?.(cuenta.id)}>Quitar</button>}
@@ -193,6 +200,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const [error, setError] = useState("")
   const [aviso, setAviso] = useState("")
   const [pago, setPago] = useState<Pago | null>(null)
+  const [retiroNomina, setRetiroNomina] = useState<CuentaCompra | null>(null)
   const [intentoPago, setIntentoPago] = useState<Parameters<typeof pagarCompra>[0] | null>(null)
   const bloqueo = useRef(false)
   const consultaCuentas = useRef<{ pagina: number; enCurso: boolean; agotada: boolean } | null>(null)
@@ -364,7 +372,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const seleccionadas = Array.from(seleccion.values())
   const totalSeleccion = seleccionadas.reduce((total, fila) => total + (centavos(fila.monto) || 0), 0)
   const saldoSemana = programadas.reduce((total, { plan }) => total + centavos(plan.monto) - centavos(plan.pagado), 0)
-  const ocupado = guardando || cargando || pago !== null
+  const ocupado = guardando || cargando || pago !== null || retiroNomina !== null
   const acciones = { seleccion, abrirPago, ocupado, actualizarSemana: (id: string) => { setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setAviso("Semana de pago guardada con registro del responsable."); setRevision(v => v + 1) }, actualizarImportes: (id: string) => {
     setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(id); return siguiente })
     setAviso("Importes corregidos y registrados en la bitácora. Ya puedes seleccionar el documento si tiene saldo.")
@@ -428,7 +436,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
           <div aria-busy={cargando || cargandoMas}>
             {cargando ? <p role="status">Cargando documentos…</p> :
               <TablaCompras filas={cuentas.map(cuenta => ({ cuenta }))} titulo="Cuentas por pagar consolidadas" modo="cuentas"
-                acciones={{ ...acciones, seleccionar }} alDesplazar={cargarAlDesplazar} />}
+                acciones={{ ...acciones, seleccionar, quitarNomina: setRetiroNomina }} alDesplazar={cargarAlDesplazar} />}
           </div>
           <div className="compras-sri-paginas">
             {!cargando && <span>{total} documentos</span>}
@@ -462,6 +470,12 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
           </section>
         </>
       )}
+      {retiroNomina && <QuitarCuentaNomina cuenta={retiroNomina} cerrar={() => setRetiroNomina(null)} alQuitar={() => {
+        setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(retiroNomina.id); return siguiente })
+        setRetiroNomina(null)
+        setAviso("Cuenta de nómina retirada y registrada en la bitácora. Vuelve a Roles de pago → Pagos nómina para cargar el concepto correcto.")
+        setRevision(valor => valor + 1)
+      }} />}
       {pago && createPortal(<dialog ref={dialogo} className="fin-pagos-dialogo" aria-labelledby="registrar-pago-compra"
         onClose={() => { if (!dialogo.current?.open) cerrarPago() }}
         onCancel={evento => { evento.preventDefault(); cerrarPago() }}>

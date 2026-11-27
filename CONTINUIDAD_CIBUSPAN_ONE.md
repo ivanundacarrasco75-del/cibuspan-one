@@ -1,5 +1,43 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Quitar cuenta de nómina cargada por error**.
+Sobre main `93d61e1`. Solicitud de Iván: Teresa Samaniego se cargó como Primera
+quincena de noviembre en lugar de Sueldo. Nueva acción Quitar cuenta de nómina
+solo en la primera tabla de Cuentas por pagar. Ventana con cuenta, importe,
+motivo editable y confirmación. Retira una obligación sin pagos ni programación;
+conserva el documento original en fin_nomina_obligaciones_retiradas y registra
+operación, motivo y responsable en la bitácora. Permite volver a cargar desde
+Roles de pago > Pagos nómina, con Sueldo u otro concepto y nueva identidad.
+Se libera también la combinación empleado/mes/concepto para repetir el mismo
+concepto. Reintento con la misma operación conserva una carga posterior y no
+duplica el registro. Bloquea monto cambiado, cualquier pago registrado y toda
+programación existente; si está programada, quitar primero de Pagos semanales.
+Comparte el permiso exacto de Cuentas por pagar, sin conceder Roles ni Pagos.
+No cambia las vistas ni el procedimiento existente de carga, ni las acciones de
+selección o Pagos semanales. Bloqueo de persona y documento coordina la carga,
+programación y pago concurrentes. La selección inferior se limpia tras retirar.
+SQL nuevo 202611270001 instalado y registrado exclusivamente en
+ eodcwkuexldsbomflthe, tras comprobar el historial y contrato actuales.
+Cuenta real de Teresa: nomina:2e72bd35-45bc-4fba-98f6-84fc62b9ece8,
+noviembre 2026, PRIMERA_QUINCENA, USD 200. Consultada sin pagos ni plan.
+No se retiró ni se generó Sueldo en la base real: Iván confirmará en la app.
+Huellas de obligaciones, pagos y permisos y definición de vista iguales antes
+y después de instalar. Otras programaciones variaron entre ambas lecturas;
+la instalación solo crea tabla/función/permisos, no modifica programaciones,
+y la cuenta de Teresa sigue sin plan. No atribuir esa variación a una persona
+sin evidencia ni afirmar que todas las programaciones permanecieron idénticas.
+Cinco pruebas SQL correctas: retiro con regeneración, idempotencia ante nueva
+carga, pagos parciales/completos, plan previo y validaciones/permisos. Chrome
+con datos simulados: cancelar/confirmar, motivo, selección, reintento idéntico,
+bloqueo de cierre sin respuesta, pagos/planes protegidos, SRI sin acción de
+retiro, recreación con SUELDO, rol con permisos asignados y móvil. Regresión de
+Pagos semanales aprobada: siete columnas y Pagar/Detalle/Quitar conservados.
+npm run build correcto. Archivos: src/pages/FinanzasPagosCompras.tsx,
+src/components/QuitarCuentaNomina.tsx, src/repositories/nominaRepository.ts,
+supabase/migrations/202611270001_quitar_cuenta_nomina.sql,
+pruebas/verificar_quitar_cuenta_nomina_sql.mjs y esta guía. Dashboard intacto.
+Publicación pendiente en este estado; no afirmar publicada todavía.
+
 26/11/2026, **Documentos de pago de Favorita y Santa María en Conciliaciones**.
 Sobre main `c9df998`. Tarjeta dentro de Cobros y Conciliación > Conciliar >
 Documentos de pago, con cargas separadas: Comprobante de Egreso de Favorita
