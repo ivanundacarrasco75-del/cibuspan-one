@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react"
 import {
   cargarNominaCuentas, CONCEPTOS_PAGO_NOMINA, type CargaNominaCuentas,
-  type ConceptoPagoNomina, type EmpleadoNominaDb,
+  type ConceptoPagoNomina, type EmpleadoNominaDb, type ResultadoCargaNomina,
 } from "../repositories/nominaRepository"
 import { ETIQUETAS_AREA_NOMINA } from "../utils/rolesPagoPdf"
 import "./nominaGestion.css"
@@ -10,7 +10,7 @@ const hoy = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Guayaqui
 type Borrador = { elegidos: Set<string>; montos: Record<string, string> }
 
 export default function PagosNomina({ empleados, alCargar }: {
-  empleados: EmpleadoNominaDb[]; alCargar: () => void
+  empleados: EmpleadoNominaDb[]; alCargar: (resultado: ResultadoCargaNomina) => void
 }) {
   const [mes, setMes] = useState(() => hoy().slice(0, 7))
   const [concepto, setConcepto] = useState<ConceptoPagoNomina>("PRIMERA_QUINCENA")
@@ -36,6 +36,7 @@ export default function PagosNomina({ empleados, alCargar }: {
     evento.preventDefault()
     if (bloqueo.current) return
     const solicitud = pendiente ?? {
+      operacion: crypto.randomUUID(),
       periodo: `${mes}-01`, concepto,
       filas: seleccionadas.map(persona => ({ empleado_id: persona.id, monto: valorPersona(persona.id) })),
     }
@@ -45,9 +46,9 @@ export default function PagosNomina({ empleados, alCargar }: {
     setError("")
     try {
       setPendiente(solicitud)
-      await cargarNominaCuentas(solicitud)
+      const resultado = await cargarNominaCuentas(solicitud)
       setPendiente(null)
-      alCargar()
+      alCargar(resultado)
     } catch (fallo) {
       if (typeof fallo === "object" && fallo !== null && "cargaRechazada" in fallo && fallo.cargaRechazada) setPendiente(null)
       setError(typeof fallo === "object" && fallo && "message" in fallo ? String(fallo.message) : "No se pudo cargar la nómina.")

@@ -85,17 +85,26 @@ export const CONCEPTOS_PAGO_NOMINA = {
 } as const
 export type ConceptoPagoNomina = keyof typeof CONCEPTOS_PAGO_NOMINA
 export type CargaNominaCuentas = {
+  operacion: string
   periodo: string; concepto: ConceptoPagoNomina
   filas: { empleado_id: string; monto: string }[]
 }
+export type ResultadoCargaNomina = { operacion:string; filas:{id:string;nombre:string;periodo:string;concepto:ConceptoPagoNomina;monto:number;estado:"CREADA"|"ACTUALIZADA"|"YA_PAGADA"|"YA_EXISTIA"}[] }
 export async function cargarNominaCuentas(datos: CargaNominaCuentas) {
-  const { error, status } = await supabase.rpc("fin_cargar_nomina_cuentas", {
+  const { data, error, status } = await supabase.rpc("fin_cargar_nomina_verificada", {
+    p_operacion: datos.operacion,
     p_periodo: datos.periodo, p_concepto: datos.concepto, p_filas: datos.filas,
   })
   if (error) throw Object.assign(error, { cargaRechazada: status >= 400 && status < 500 })
+  return data as ResultadoCargaNomina
 }
 
 export type RetiroCuentaNomina = { operacion: string; documento: string; monto: number; motivo: string }
+export type CorreccionMontoNomina = { operacion:string; documento:string; anterior:number; total:string; motivo:string }
+export async function corregirMontoNomina(d:CorreccionMontoNomina) {
+  const {error,status}=await supabase.rpc("fin_corregir_monto_nomina",{p_operacion:d.operacion,p_documento:d.documento,p_anterior:d.anterior,p_total:d.total,p_motivo:d.motivo})
+  if(error)throw Object.assign(error,{rechazado:status>=400&&status<500})
+}
 export async function quitarCuentaNomina(datos: RetiroCuentaNomina) {
   const { error, status } = await supabase.rpc("fin_quitar_cuenta_nomina", {
     p_operacion: datos.operacion, p_documento: datos.documento, p_monto: datos.monto, p_motivo: datos.motivo,

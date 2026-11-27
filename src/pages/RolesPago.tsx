@@ -15,6 +15,7 @@ import {
   type EmpleadoNominaDb,
   type ImportacionNominaDb,
   type NominaMensualAreaDb,
+  type ResultadoCargaNomina,
 } from "../repositories/nominaRepository"
 import {
   AREAS_NOMINA,
@@ -58,7 +59,7 @@ function mesPeriodo(periodo: string) {
 }
 
 export default function RolesPago({ alCargarPagos, vista, setVista }: {
-  alCargarPagos: () => void
+  alCargarPagos: (resultado: ResultadoCargaNomina) => void
   vista: VistaRolesPago
   setVista: (vista: VistaRolesPago) => void
 }) {

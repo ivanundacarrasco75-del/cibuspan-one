@@ -7,6 +7,7 @@ import Layout from "./components/layout/Layout"
 import LogoCibuspan from "./components/LogoCibuspan"
 import Login from "./pages/Login"
 import type { VistaRolesPago } from "./pages/RolesPago"
+import type { ResultadoCargaNomina } from "./repositories/nominaRepository"
 import { obtenerAccesoActual, type PerfilAplicacion } from "./services/usuarioService"
 import {
   PANTALLA_ANTICIPAR_COMPRAS, PANTALLA_FACTURAS_COMPRAS, PANTALLA_FACTURAS_SRI,
@@ -142,6 +143,8 @@ function App() {
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
   const [pantalla, setPantalla] = useState(obtenerPantallaGuardada)
   const [semanaPagosAnticipos, setSemanaPagosAnticipos] = useState<string>()
+  const [cargaNomina, setCargaNomina] = useState<ResultadoCargaNomina>()
+  useEffect(() => { if (pantalla !== PANTALLA_CUENTAS_POR_PAGAR) setCargaNomina(undefined) }, [pantalla])
   const [revisionDevolucionId,setRevisionDevolucionId] = useState('')
   useEffect(()=>{if(pantalla!=='Comercial · Devoluciones' && pantalla!=='Devoluciones')setRevisionDevolucionId('')},[pantalla])
   const [vistaRolesPago, setVistaRolesPago] = useState<VistaRolesPago>("MENU")
@@ -558,6 +561,7 @@ function App() {
       case PANTALLA_PAGOS_SEMANALES:
       case PANTALLA_PAGOS_ANTERIOR:
         return <FinanzasPagosCompras semanal={pantalla !== PANTALLA_CUENTAS_POR_PAGAR} semanaInicial={semanaPagosAnticipos}
+          cargaNomina={cargaNomina}
           puedeAbrirPagosSemanales={puedeAcceder(PANTALLA_PAGOS_SEMANALES)}
           cambiarPantalla={setPantalla} />
 
@@ -574,7 +578,7 @@ function App() {
 
       case "Pagos y Finanzas · Roles de pago":
       case "Roles de pago":
-        return <RolesPago alCargarPagos={() => setPantalla(PANTALLA_CUENTAS_POR_PAGAR)} vista={vistaRolesPago} setVista={setVistaRolesPago} />
+        return <RolesPago alCargarPagos={resultado => { setCargaNomina(resultado); setPantalla(PANTALLA_CUENTAS_POR_PAGAR) }} vista={vistaRolesPago} setVista={setVistaRolesPago} />
 
       case "Costos indirectos":
         return <CostosIndirectos />

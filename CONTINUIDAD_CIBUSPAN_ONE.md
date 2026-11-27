@@ -1,5 +1,43 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Iván: primera quincena de octubre, monto y búsqueda de nómina**.
+Sobre main `b82a80c`. Iván aclara que necesita el saldo de primera quincena de
+octubre y que su quincena completa es USD 1.500. La obligación existente estaba
+creada por USD 300 y pagada completamente por esos USD 300. Repetir mes/concepto
+y monto no creaba otra cuenta y la función antigua no comunicaba ese resultado.
+Corrección real mediante RPC auditada: nomina:1bd2e167-19d5-41e8-9038-89eb9b436193,
+UNDA CARRASCO IVAN, PRIMERA_QUINCENA, 01/10/2026: total 1.500, pagado 300, saldo
+1.200. Conserva misma identidad y pago 0ef7a372-9af9-449a-8a86-b0be89ae9ea8,
+referencia 446689020900 del 23/11. No se creó pago, otra obligación ni programación.
+Huellas antes/después iguales para pagos completos, planes, otras obligaciones,
+permisos y definición de la vista de Cuentas. No retirar/recrear esta cuenta ni
+cargar un concepto de saldo separado: se corrigió el total informado por Iván.
+Acción Corregir monto en filas de nómina de Cuentas; ventana con total correcto,
+abonos, saldo resultante y motivo. Rechaza total inferior al pagado o insuficiente
+para planes activos, verifica monto anterior y conserva reintentos idempotentes.
+Historial en fin_nomina_correcciones_monto y bitácora con responsable/motivo.
+Nuevo cargador fin_cargar_nomina_verificada envuelve la función previa y devuelve
+cuentas creadas, actualizadas, ya existentes o ya pagadas, con idempotencia por
+operación y auditoría. El cliente muestra el resultado y abre Cuentas filtrando
+las identidades de la carga; Ver todas las cuentas recupera el listado completo.
+No informa una nueva obligación cuando solo encontró una cuenta ya pagada.
+Buscador fin_buscar_cuentas usa palabras sin distinguir tildes ni orden: IVAN
+UNDA, UNDA IVÁN y CARRASCO IVAN. Conserva filtros de tipo, saldo, semana y
+paginación, así como el permiso original de consulta (Cuentas o Pagos semanales).
+SQL nuevo 202611270002 instalado y registrado solo tras revisar historial actual;
+no ejecuta migraciones antiguas ni sustituye vistas. Funciones anteriores de carga,
+pago, retiro y programación conservadas. No crea nuevos conceptos de nómina.
+Seis pruebas SQL aprobadas (cinco nuevas y una regresión coincidente con filtro).
+Chrome con simulaciones comprobó corrección 1500/300/1200 y referencia intacta,
+reintento idéntico de corrección/carga, filtro por identidades nuevas, ver todas,
+aviso ya pagada, búsqueda con tildes/palabras invertidas, permisos y móvil.
+Regresión semanal aprobada: siete columnas, Pagar/Detalle/Quitar, parciales y
+retiro conservados. npm run build correcto. Diagnósticos privados fuera de Git.
+Archivos: src/App.tsx; pages/FinanzasPagosCompras.tsx, PagosNomina.tsx,
+RolesPago.tsx; components/CorregirMontoNomina.tsx; repositories/nominaRepository.ts,
+finanzasComprasRepository.ts; SQL 202611270002 y prueba de resultado/búsqueda.
+Dashboard intacto. Publicación pendiente en este estado; no afirmar publicada.
+
 27/11/2026, **Quitar cuenta de nómina cargada por error**.
 Sobre main `93d61e1`. Solicitud de Iván: Teresa Samaniego se cargó como Primera
 quincena de noviembre en lugar de Sueldo. Nueva acción Quitar cuenta de nómina

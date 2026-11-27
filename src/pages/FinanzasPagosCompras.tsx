@@ -12,6 +12,8 @@ import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { semanasDelAnio } from "../utils/semanasPago"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
 import QuitarCuentaNomina from "../components/QuitarCuentaNomina"
+import CorregirMontoNomina from "../components/CorregirMontoNomina"
+import type { ResultadoCargaNomina } from "../repositories/nominaRepository"
 import { etiquetaAgrupacion } from "../utils/dashboardPeriodos"
 import { useColumnasAjustables } from "../hooks/useColumnasAjustables"
 
@@ -40,6 +42,7 @@ type FilaProgramada = Awaited<ReturnType<typeof listarComprasProgramadas>>[numbe
 type Pago = { cuenta: CuentaCompra; operacion: string; abono: boolean; maximo: string; semana: string | null }
 type Acciones = {
   quitarNomina?: (cuenta: CuentaCompra) => void
+  corregirNomina?: (cuenta: CuentaCompra) => void
   actualizarSemana?: (id: string) => void
   actualizarImportes?: (id: string) => void
   seleccionar?: (cuenta: CuentaCompra, marcada: boolean) => void
@@ -143,6 +146,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
                 {modo === "semana" && <button type="button" disabled={acciones.ocupado || !puedePagar || !plan}
                   title={puedePagar ? "Pagar el importe pendiente del plan" : estado} onClick={() => acciones.abrirPago(cuenta, false, plan)}>Pagar</button>}
                 <button type="button" aria-expanded={detalle === cuenta.id} onClick={() => setDetalle(detalle === cuenta.id ? null : cuenta.id)}>Detalle</button>
+                {modo === "cuentas" && cuenta.tipo === "NOMINA" && acciones.corregirNomina && <button type="button" disabled={acciones.ocupado} onClick={() => acciones.corregirNomina?.(cuenta)}>Corregir monto</button>}
                 {modo === "cuentas" && cuenta.tipo === "NOMINA" && acciones.quitarNomina &&
                   <button type="button" aria-label={`Quitar cuenta de nómina de ${cuenta.proveedor} · ${cuenta.numero_documento}`}
                     disabled={acciones.ocupado || Number(cuenta.pagado) > 0 || cuenta.pagos.length > 0 || Boolean(cuenta.semana_activa)}
@@ -178,8 +182,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
   )
 }
 
-export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAbrirPagosSemanales, semanaInicial }: {
-  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean; semanaInicial?: string
+export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAbrirPagosSemanales, semanaInicial, cargaNomina }: {
+  semanal: boolean; cambiarPantalla: (pantalla: string) => void; puedeAbrirPagosSemanales: boolean; semanaInicial?: string; cargaNomina?: ResultadoCargaNomina
 }) {
   const [semanaPago, setSemanaPago] = useState("")
   const [anioSemanaPago, setAnioSemanaPago] = useState(() => Number(hoy().slice(0, 4)))
@@ -188,7 +192,9 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const [cuentas, setCuentas] = useState<CuentaCompra[]>([])
   const [programadas, setProgramadas] = useState<FilaProgramada[]>([])
   const [seleccion, setSeleccion] = useState(new Map<string, Seleccion>())
-  const [tipo, setTipo] = useState("")
+  const [tipo, setTipo] = useState(cargaNomina ? "NOMINA" : "")
+  const [documentosCarga, setDocumentosCarga] = useState<string[] | undefined>(() => cargaNomina?.filas.map(f => f.id))
+  useEffect(() => { setDocumentosCarga(cargaNomina?.filas.map(f => f.id)) }, [cargaNomina])
   const [buscar, setBuscar] = useState("")
   const [pendientes, setPendientes] = useState(false)
   const [total, setTotal] = useState(0)
@@ -201,6 +207,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const [aviso, setAviso] = useState("")
   const [pago, setPago] = useState<Pago | null>(null)
   const [retiroNomina, setRetiroNomina] = useState<CuentaCompra | null>(null)
+  const [correccionNomina, setCorreccionNomina] = useState<CuentaCompra | null>(null)
   const [intentoPago, setIntentoPago] = useState<Parameters<typeof pagarCompra>[0] | null>(null)
   const bloqueo = useRef(false)
   const consultaCuentas = useRef<{ pagina: number; enCurso: boolean; agotada: boolean } | null>(null)
@@ -232,7 +239,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
           const filas = await listarComprasProgramadas(semana)
           if (vigente) setProgramadas(filas)
         } else {
-          const resultado = await listarCuentasCompra(0, tipo, buscar.trim(), pendientes, sinSemana ? "SIN_SEMANA" : semanaPago)
+          const resultado = await listarCuentasCompra(0, tipo, buscar.trim(), pendientes, sinSemana ? "SIN_SEMANA" : semanaPago, documentosCarga)
           if (vigente) {
             setCuentas(resultado.cuentas)
             setTotal(resultado.total)
@@ -254,7 +261,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
       if (consultaCuentas.current === consulta) consultaCuentas.current = null
       clearTimeout(demora)
     }
-  }, [semanal, semana, tipo, buscar, pendientes, revision, semanaPago, sinSemana])
+  }, [semanal, semana, tipo, buscar, pendientes, revision, semanaPago, sinSemana, documentosCarga])
 
   async function cargarMas() {
     const consulta = consultaCuentas.current
@@ -263,7 +270,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
     setCargandoMas(true)
     setErrorCargaMas("")
     try {
-      const resultado = await listarCuentasCompra(consulta.pagina, tipo, buscar.trim(), pendientes, sinSemana ? "SIN_SEMANA" : semanaPago)
+      const resultado = await listarCuentasCompra(consulta.pagina, tipo, buscar.trim(), pendientes, sinSemana ? "SIN_SEMANA" : semanaPago, documentosCarga)
       if (consultaCuentas.current !== consulta) return
       consulta.pagina += 1
       consulta.agotada = resultado.cuentas.length === 0
@@ -372,7 +379,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const seleccionadas = Array.from(seleccion.values())
   const totalSeleccion = seleccionadas.reduce((total, fila) => total + (centavos(fila.monto) || 0), 0)
   const saldoSemana = programadas.reduce((total, { plan }) => total + centavos(plan.monto) - centavos(plan.pagado), 0)
-  const ocupado = guardando || cargando || pago !== null || retiroNomina !== null
+  const ocupado = guardando || cargando || pago !== null || retiroNomina !== null || correccionNomina !== null
   const acciones = { seleccion, abrirPago, ocupado, actualizarSemana: (id: string) => { setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setAviso("Semana de pago guardada con registro del responsable."); setRevision(v => v + 1) }, actualizarImportes: (id: string) => {
     setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(id); return siguiente })
     setAviso("Importes corregidos y registrados en la bitácora. Ya puedes seleccionar el documento si tiene saldo.")
@@ -394,6 +401,11 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
       </header>
       {error && !pago && <p className="compras-sri-error" role="alert">{error}</p>}
       {aviso && <p role="status">{aviso}</p>}
+      {!semanal && cargaNomina && <section className="fin-pagos-seleccion" aria-label="Resultado de carga de nómina">
+        <p role="status">Resultado de la carga: {cargaNomina.filas.filter(f => f.estado === "CREADA").length} creadas · {cargaNomina.filas.filter(f => f.estado === "ACTUALIZADA").length} actualizadas · {cargaNomina.filas.filter(f => f.estado === "YA_EXISTIA").length} ya existentes · {cargaNomina.filas.filter(f => f.estado === "YA_PAGADA").length} ya pagadas.</p>
+        {cargaNomina.filas.some(f => f.estado === "YA_PAGADA") && <p>Estas cuentas ya estaban pagadas. Volver a cargar el mismo mes y concepto no genera otro pago; revisa el mes y concepto elegidos.</p>}
+        {documentosCarga && <><p>Mostrando las cuentas de la última carga. Los demás pagos siguen disponibles al quitar este filtro.</p><button type="button" disabled={ocupado} onClick={() => { setDocumentosCarga(undefined); setTipo(""); setBuscar(""); setPendientes(false); setSinSemana(false); setSemanaPago("") }}>Ver todas las cuentas</button></>}
+      </section>}
       {semanal ? (
         <>
           <div className="fin-pagos-filtros">
@@ -436,7 +448,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
           <div aria-busy={cargando || cargandoMas}>
             {cargando ? <p role="status">Cargando documentos…</p> :
               <TablaCompras filas={cuentas.map(cuenta => ({ cuenta }))} titulo="Cuentas por pagar consolidadas" modo="cuentas"
-                acciones={{ ...acciones, seleccionar, quitarNomina: setRetiroNomina }} alDesplazar={cargarAlDesplazar} />}
+                acciones={{ ...acciones, seleccionar, quitarNomina: setRetiroNomina, corregirNomina: setCorreccionNomina }} alDesplazar={cargarAlDesplazar} />}
           </div>
           <div className="compras-sri-paginas">
             {!cargando && <span>{total} documentos</span>}
@@ -475,6 +487,10 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
         setRetiroNomina(null)
         setAviso("Cuenta de nómina retirada y registrada en la bitácora. Vuelve a Roles de pago → Pagos nómina para cargar el concepto correcto.")
         setRevision(valor => valor + 1)
+      }} />}
+      {correccionNomina && <CorregirMontoNomina cuenta={correccionNomina} cerrar={() => setCorreccionNomina(null)} alGuardar={() => {
+        setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(correccionNomina.id); return siguiente })
+        setCorreccionNomina(null); setAviso("Monto de nómina corregido en la bitácora. Se conservaron los pagos registrados y se actualizó el saldo."); setRevision(v => v + 1)
       }} />}
       {pago && createPortal(<dialog ref={dialogo} className="fin-pagos-dialogo" aria-labelledby="registrar-pago-compra"
         onClose={() => { if (!dialogo.current?.open) cerrarPago() }}
