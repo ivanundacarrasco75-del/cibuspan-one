@@ -1,5 +1,27 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Depósitos recientes y selección al filtrar facturas**.
+Sobre main `723fd0a`. Iván informa que no aparecen los últimos depósitos para
+conciliar. Consulta real de solo lectura confirma importación del estado (2).xlsx:
+cinco ingresos del 24 al 26/11, USD 10.063,56, todos con disponible completo.
+La captura de Iván confirma los cinco en Depósitos recibidos. Se reproduce que
+Consultar/cambiar mes borra el depósito elegido y reactiva el filtro semanal.
+SOLDMER tiene facturas del 18/11 cuya semana prevista termina el 22/11, de modo
+que un depósito del 24/11 queda fuera del filtro aunque esté guardado y disponible.
+CobrosConciliacion.tsx ahora conserva el depósito seleccionado al filtrar cliente,
+factura, mes o rango; si hay una elección explícita muestra todas las semanas.
+Conciliar desde la fila bancaria abre con ese depósito y sin restricción semanal.
+Sin depósito elegido se conserva el filtro semanal predeterminado. Nuevo aviso
+cuenta depósitos activos con saldo fuera de las semanas, con botón Mostrar todos
+los depósitos disponibles. No identifica al cliente ni aplica dinero al elegirlo.
+Chrome simulado verifica depósitos del 24/26, botón ver todos, preservación por
+cliente/mes y desde la fila bancaria, coincidencia neta y conciliación con 2% de
+retención, y móvil. No se conciliaron ni modificaron registros bancarios reales.
+Archivo funcional modificado: src/pages/CobrosConciliacion.tsx; también esta guía.
+Regresión Chrome de semanas/plazos, filtro por cliente, selector, aviso de fuera
+de plazo y móvil correcta. Build correcto. Sin SQL nuevo ni cambios en Dashboard.
+Publicación y verificación pública: pendientes de completar.
+
 27/11/2026, **Liquidación de anticipos cuya diferencia es retención**.
 Sobre main `f59e4c4`. Iván confirma que el saldo de TRAMAR corresponde a retención.
 Consulta real: anticipo 224,83, desembolso/cruce 212,12 y factura
