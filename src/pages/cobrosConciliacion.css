@@ -34,3 +34,7 @@
 .cxc-desglose dd { margin: 0; text-align: right; }
 
 .cxc-pagina .cxc-tabla .cxc-conciliada > td { background: #9edbfa; color: #10304b; }
+.cxc-documentos-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.cxc-documentos-tarjetas input[type=file] { max-width: 100%; }
+.cxc-documentos-tarjeta, .cxc-documentos-tarjetas .cxc-panel { background: white; border-radius: 8px; }
+.cxc-documento-revision { white-space: normal !important; min-width: 180px; }

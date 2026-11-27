@@ -1,5 +1,53 @@
 # Continuidad de CIBUSPAN ONE
 
+26/11/2026, **Documentos de pago de Favorita y Santa María en Conciliaciones**.
+Sobre main `c9df998`. Tarjeta dentro de Cobros y Conciliación > Conciliar >
+Documentos de pago, con cargas separadas: Comprobante de Egreso de Favorita
+(PDF con texto, incluida su rotación) y Control de pagos - Detalle de Santa
+María (CSV). Conserva cada comprobante completo, hash del archivo, fuente de
+cada línea CSV y detalle de facturas, retenciones, devoluciones y notas de
+crédito. Importa pendiente; no crea ni aplica depósitos por subir el archivo.
+El neto es el importe bancario final: no se descuentan de él otra vez las
+retenciones y créditos. Vista previa identifica facturas por número completo
+y cliente; valida totales, saldos y cambios concurrentes. Solo confirma total
+nuevo sin IVA si coincide con Ventas, no tiene movimientos previos y existe
+permiso de Cuentas por cobrar; conserva edición previa y plazo informado.
+Descuentos globales: propone reparto proporcional al centavo, explícitamente
+editable antes de confirmar. Las referencias de facturas asociadas a créditos
+son procedencia; no se saldan también esas facturas antiguas. Requiere repartir
+el descuento exacto y seleccionar expresamente el depósito. Neto cero registra
+compensación sin banco y mantiene los saldos parciales. El detalle conciliado
+muestra la distribución registrada y depósito; anulación completa restaura
+saldo, banco y consumo de notas, conservando auditoría. Anulación individual
+bloqueada para aplicaciones de comprobantes. Reintento idempotente, protección
+de créditos reutilizados, permisos exactos de Cobros, tablas ajustables y azul.
+SQL nuevos `202611260005` y `202611260006` instalados y registrados en eodcwkuexldsbomflthe;
+no se ejecutó db push ni se marcaron versiones anteriores. La segunda versión
+vincula la anulación a operación/versión e impide afectar otro cruce posterior. Conserva el OID,
+columnas previas y acceso de fin_cxc_saldos; añade ajustado para descuentos.
+Huella de todas las filas de saldos antes/después idéntica (descontando la
+columna nueva en cero), igual que ventas, depósitos, aplicaciones previas,
+confirmaciones, permisos y definición de la vista de Cuentas por pagar.
+Dos documentos reales entregados importados PENDIENTES bajo iunda:
+Favorita, referencia 26089426, pago 04/11/2026, seis facturas y neto 5.788,01;
+Santa María, referencia 1064680, pago 29/10/2026, tres facturas y neto 0,00.
+Santa usa Monto pago aplicado, no el valor original de la nota: compensa
+642,41; factura 17093 aplica 53,07 más retención 2,81 y quedaría 84,76 pendiente
+si no recibe otro movimiento. Favorita tiene un depósito disponible exacto.
+Nueve coincidencias reales verificadas sin bloqueos. Ninguna conciliación real
+confirmada por el agente; Iván debe revisar el reparto y confirmar en la app.
+16 pruebas correctas (3 lectura/reparto, 8 SQL nuevo y 5 regresiones); Chrome
+con ambos archivos reales y datos simulados comprobó carga, importación repetida,
+netos, edición, reparto inválido, ventana previa, reintento, compensación sin
+banco, detalle registrado, anulación completa, azul, anchos, permisos y móvil.
+Regresión de conciliación manual correcta. Documentos originales y diagnósticos
+privados fuera de Git. Archivos: pages/CobrosConciliacion.tsx,
+DocumentosPagoClientes.tsx, cobrosConciliacion.css; components/TablasCobros.tsx;
+repositories/cobrosRepository.ts, documentosPagoClientesRepository.ts;
+utils/documentosPagoClientes.ts, documentosPagoClientesPdf.ts,
+retencionesCobros.ts; SQL nuevo y dos archivos de pruebas. Dashboard intacto.
+npm run build final correcto. Publicación pendiente en este estado; no afirmar publicada.
+
 26/11/2026, **Semana de pago por número también en columnas y formularios**.
 Sobre main `3f06071`. Iván señaló que la columna editable de Facturas SRI
 seguía mostrando calendario, aunque ya se había cambiado el filtro de Cuentas.

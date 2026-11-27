@@ -1,8 +1,8 @@
 import { supabase } from "../lib/supabase"
-export type FacturaCobro = { comprobante: string; fecha_emision: string; cliente: string; subtotal_importado: number; huella: string; fuente_valida: boolean; total: number | null; vencimiento: string | null; revision: number; verificada: boolean; cobrado: number; retenido: number; saldo: number | null }
+export type FacturaCobro = { comprobante: string; fecha_emision: string; cliente: string; subtotal_importado: number; huella: string; fuente_valida: boolean; total: number | null; vencimiento: string | null; revision: number; verificada: boolean; cobrado: number; retenido: number; ajustado?: number; saldo: number | null }
 export type DepositoCobro = { id: string; banco: string; referencia: string; fecha: string; monto: number; ordenante: string; observaciones: string; anulado: boolean; aplicado: number; disponible: number }
 export type NuevoDeposito = { id: string; banco: string; referencia: string; fecha: string; monto: string; ordenante: string; observaciones: string }
-export type AplicacionCobro = { id: string; efectivo: number; retencion: number; referencia_retencion: string; fecha_retencion: string | null; referencia_deposito: string | null; fecha_deposito: string | null; banco: string | null; anulada: boolean; responsable: string | null; creado_en: string }
+export type AplicacionCobro = { id: string; efectivo: number; retencion: number; ajuste?: number; documento_pago?: string | null; referencia_retencion: string; fecha_retencion: string | null; referencia_deposito: string | null; fecha_deposito: string | null; banco: string | null; anulada: boolean; responsable: string | null; creado_en: string }
 export type DistribucionCobro = { comprobante: string; revision: number; huella: string; saldo: number; efectivo: string; retencion: string; referencia_retencion: string; fecha_retencion: string | null }
 export type ConciliacionCobro = { id: string; deposito: string | null; filas: DistribucionCobro[]; motivo: string }
 export async function consultarFacturasCobro(desde: string, hasta: string, buscar: string) {

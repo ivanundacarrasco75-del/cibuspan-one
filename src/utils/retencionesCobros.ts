@@ -7,7 +7,7 @@ const porcentajePredeterminado = 2
 // previa o un cambio en Ventas siempre requiere revisión expresa.
 export function facturaSinIvaCobro(f: FacturaCobro): FacturaCobro {
   const total = Number(f.subtotal_importado)
-  if (f.total !== null || f.revision !== 0 || !f.fuente_valida || !Number.isFinite(total) || total <= 0 || total >= 1000000000 || Number(f.cobrado) !== 0 || Number(f.retenido) !== 0) return f
+  if (f.total !== null || f.revision !== 0 || !f.fuente_valida || !Number.isFinite(total) || total <= 0 || total >= 1000000000 || Number(f.cobrado) !== 0 || Number(f.retenido) !== 0 || Number(f.ajustado ?? 0) !== 0) return f
   return { ...f, total, saldo: total, verificada: true }
 }
 
