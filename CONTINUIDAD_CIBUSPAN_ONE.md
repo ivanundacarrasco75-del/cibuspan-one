@@ -36,7 +36,11 @@ retiro conservados. npm run build correcto. Diagnósticos privados fuera de Git.
 Archivos: src/App.tsx; pages/FinanzasPagosCompras.tsx, PagosNomina.tsx,
 RolesPago.tsx; components/CorregirMontoNomina.tsx; repositories/nominaRepository.ts,
 finanzasComprasRepository.ts; SQL 202611270002 y prueba de resultado/búsqueda.
-Dashboard intacto. Publicación pendiente en este estado; no afirmar publicada.
+Dashboard intacto. Publicado desde `94cbbe8`, despliegue `4dd795b7`.
+Dominio principal verificado por SHA-256 de 40 archivos. Supabase operativo,
+R2 y firma comprobados. Búsqueda autenticada real IVAN UNDA / UNDA IVÁN
+confirmó la misma cuenta con total 1500, pagado 300 y saldo 1200.
+Código en main. Pendiente refrescar Cuentas por pagar en la sesión de Iván.
 
 27/11/2026, **Quitar cuenta de nómina cargada por error**.
 Sobre main `93d61e1`. Solicitud de Iván: Teresa Samaniego se cargó como Primera
