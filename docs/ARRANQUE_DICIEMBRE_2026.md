@@ -47,7 +47,7 @@ formato JSON y guardar su salida privada en `supabase/.temp/`. Definir
 El ensayo antiguo basado en el exportador de octubre no carga todas las dependencias
 actuales; su fallo de preparación no demuestra una falla de la app.
 
-## Corrección preparada, pendiente de publicación
+## Corrección publicada el 27/11/2026
 
 La restauración dejó TRUNCATE, REFERENCES y TRIGGER para authenticated/service_role
 en cinco tablas privadas de comprobantes de reintentos. La nueva migración
@@ -59,9 +59,12 @@ perdieron durante la restauración; los verificadores antiguos pueden reportarlo
 como pendientes aunque sus funciones existan. No reinstalar migraciones antiguas
 para silenciar esos avisos.
 
-Tras aprobación: comprobar historial remoto, aplicar únicamente este SQL nuevo,
-exigir `verificar_privadas_produccion_despachos.sql` correcto y registrar únicamente
-su versión después del éxito. No ejecutar `db push` de todo el historial.
+Iván aprobó su publicación. Se revisó el historial remoto, se aplicó únicamente
+este SQL nuevo y se registró su versión después del éxito. El diagnóstico real
+pasó sus cinco controles. Las huellas de 17 tablas, funciones y vistas públicas
+coincidieron antes y después. La app principal conserva el proyecto operativo,
+R2 y firma. No se ejecutó `db push` del historial ni se cambiaron archivos de
+interfaz; no fue necesario un nuevo despliegue de Cloudflare.
 
 ## Pendientes de operación
 

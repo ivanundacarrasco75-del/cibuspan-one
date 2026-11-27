@@ -12,8 +12,13 @@ consumo/entrada atómicos, reserva y despacho, con reintentos e insuficiencia.
 Regresión de apertura MP/PT y controles locales: 76 pruebas correctas. Build correcto.
 Preparada 202611270004_privadas_produccion_despachos: revoca accesos directos sobrantes
 de cinco tablas privadas de comprobantes, sin tocar sus filas ni cuerpos operativos.
-Probadas conservación, reaplicación y denegación de TRUNCATE. SQL NO instalado ni
-registrado, código NO publicado; esperar aprobación expresa de Iván.
+Probadas conservación, reaplicación y denegación de TRUNCATE. Publicación aprobada
+por Iván: instalada únicamente 202611270004 y registrada tras ejecución correcta.
+Diagnóstico real correcto: 5 controles, sin pendientes. Huellas antes/después
+idénticas de 17 tablas, todas las funciones y vistas públicas; inventarios, pedidos,
+documentos y permisos de usuario conservados. /api/capturas/estado confirma el
+proyecto operativo, R2 y firma. Cambio exclusivo de permisos SQL, sin cambios de
+interfaz ni nuevo despliegue de Cloudflare. Código y evidencia enviados a main.
 Pendientes: revisar antiguos pedidos, completar fórmulas necesarias, cargar físicos
 el 01/12 y validar documentos/interfaz con el primer caso real. Empaque al etiquetar
 y reposición de micros aún requieren movimientos manuales de Kardex.
