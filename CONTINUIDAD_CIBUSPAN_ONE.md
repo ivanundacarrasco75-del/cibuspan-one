@@ -20,7 +20,11 @@ retención, y móvil. No se conciliaron ni modificaron registros bancarios reale
 Archivo funcional modificado: src/pages/CobrosConciliacion.tsx; también esta guía.
 Regresión Chrome de semanas/plazos, filtro por cliente, selector, aviso de fuera
 de plazo y móvil correcta. Build correcto. Sin SQL nuevo ni cambios en Dashboard.
-Publicación y verificación pública: pendientes de completar.
+Fuente cff8201 enviada a main; publicada en Cloudflare a65887ba. SHA-256 de
+41 archivos públicos y proyecto operativo/R2/firma comprobados. Los cinco
+depósitos de la última importación ya estaban guardados: no se reimportaron,
+anularon ni aplicaron a facturas. La identificación y confirmación de cada
+conciliación corresponden al usuario después de verificar los documentos.
 
 27/11/2026, **Liquidación de anticipos cuya diferencia es retención**.
 Sobre main `f59e4c4`. Iván confirma que el saldo de TRAMAR corresponde a retención.
