@@ -34,7 +34,15 @@ pago con nueva fecha/referencia, siete columnas y móvil. npm run build correcto
 Archivos: pages/FinanzasPagosCompras.tsx, PagosNomina.tsx;
 repositories/finanzasComprasRepository.ts, nominaRepository.ts; SQL 202611270003,
 pruebas/verificar_nomina_abonos_semanales_sql.mjs y esta guía. Dashboard intacto.
-Publicación y recuperación de la selección real de Iván pendientes en este estado.
+Publicado desde `f6bf7a8`, despliegue `e0fc80de`. Dominio principal verificado
+por SHA-256 de 40 archivos; Supabase operativo, R2 y firma comprobados.
+Recuperación real del intento explícito de Iván: propuesta300 guardada para la
+primera quincena de octubre; nuevo pendiente300 programado en semana48, lunes
+23/11. Plan acumulado600, abonado300, pendiente300; no interpretar acumulado600
+como importe nuevo a pagar. Nómina sigue total1500, abonado300, saldo1200.
+Huellas de todas las obligaciones, pagos y definición de la vista conservadas.
+Pago anterior de 23/11, referencia446689020900, intacto. No se registró otro pago.
+Queda que Iván reabra la app y registre fecha y referencia reales desde Pagar.
 No afirmar pago nuevo realizado: requiere fecha y referencia bancaria en la app.
 
 27/11/2026, **Iván: primera quincena de octubre, monto y búsqueda de nómina**.
