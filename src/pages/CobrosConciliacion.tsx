@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { TablaCobros, VentanaCobros } from "../components/TablasCobros"
 import DocumentosPagoClientes from "./DocumentosPagoClientes"
 import ImportarDepositosBancarios from "../components/ImportarDepositosBancarios"
-import { facturaSinIvaCobro, netoPendienteCobro, sugerirRetencionCobro } from "../utils/retencionesCobros"
+import { facturaSinIvaCobro, netoPendienteCobro, sugerirRetencionCobro, type PorcentajeRetencionCobro } from "../utils/retencionesCobros"
 import { depositoEnSemanasCobro, plazoClienteCobro, previsionCobro, rangoMesCobros, semanaEmisionCobro, ventanasCobros } from "../utils/plazosCobros"
 import { anularCobro, conciliarCobro, confirmarFacturaCobro, consultarDepositosCobro, consultarFacturasCobro, crearDepositoCobro, historialCobro,
   type AplicacionCobro, type ConciliacionCobro, type DepositoCobro, type FacturaCobro, type NuevoDeposito } from "../repositories/cobrosRepository"
@@ -60,7 +60,7 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
   const [ordenFacturas, setOrdenFacturas] = useState("antiguo"), [ordenDepositos, setOrdenDepositos] = useState("reciente")
   const [cargando, setCargando] = useState(true), [error, setError] = useState(""), [aviso, setAviso] = useState("")
   const [editar, setEditar] = useState<FacturaCobro | null>(null), [historia, setHistoria] = useState<{ comprobante: string; factura: FacturaCobro; filas: AplicacionCobro[] } | null>(null)
-  const [retenciones, setRetenciones] = useState<Record<string, { base: string; valor: string }>>({})
+  const [retenciones, setRetenciones] = useState<Record<string, { base: string; valor: string; porcentaje?: PorcentajeRetencionCobro }>>({})
   const [deposito, setDeposito] = useState(""), [seleccion, setSeleccion] = useState<Record<string, Reparto>>({}), [motivo, setMotivo] = useState("Cobro conciliado para control de caja")
   const [pendiente, setPendiente] = useState<ConciliacionCobro | null>(null), [ocupado, setOcupado] = useState(false), [anular, setAnular] = useState<{ aplicacion: string | null; deposito: string | null } | null>(null)
   const [motivoAnular, setMotivoAnular] = useState(""), bloqueo = useRef(false)
@@ -88,10 +88,11 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
     setFiltro({ desde: inicio, hasta: fin, buscar }); setSoloSemanas(true); setDeposito("")
   }
   async function detalle(f: FacturaCobro) { setError(""); try { setEditar(null); setHistoria({ comprobante: f.comprobante, factura: f, filas: await historialCobro(f.comprobante) }) } catch (e) { setError(errorTexto(e)) } }
-  const baseRetencion = (f: FacturaCobro) => JSON.stringify([f.huella, f.total ?? f.subtotal_importado, f.cobrado, f.retenido, f.ajustado ?? 0])
+  const baseRetencion = (f: FacturaCobro) => JSON.stringify([f.huella, f.total ?? f.subtotal_importado, f.cobrado, f.retenido, f.ajustado ?? 0, f.fecha_emision])
   const retencionActual = (f: FacturaCobro) => retenciones[f.comprobante]?.base === baseRetencion(f) ? retenciones[f.comprobante].valor : sugerirRetencionCobro(facturaSinIvaCobro(f))?.importe ?? ""
-  function cambiarRetencion(f: FacturaCobro, valor: string) {
-    setRetenciones(actual => ({ ...actual, [f.comprobante]: { base: baseRetencion(f), valor } }))
+  const porcentajeActual = (f: FacturaCobro) => retenciones[f.comprobante]?.base === baseRetencion(f) ? retenciones[f.comprobante].porcentaje : sugerirRetencionCobro(facturaSinIvaCobro(f))?.porcentaje
+  function cambiarRetencion(f: FacturaCobro, valor: string, porcentaje?: PorcentajeRetencionCobro) {
+    setRetenciones(actual => ({ ...actual, [f.comprobante]: { base: baseRetencion(f), valor, porcentaje } }))
     setSeleccion(actual => {
       const r = actual[f.comprobante]
       if (!r) return actual
@@ -99,6 +100,20 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
       return { ...actual, [f.comprobante]: { ...r, retencion: valor, efectivo: completo ? ((centavos(f.saldo ?? 0) - centavos(valor)) / 100).toFixed(2) : r.efectivo } }
     })
   }
+  function aplicarPorcentaje(filas: FacturaCobro[], porcentaje: PorcentajeRetencionCobro) {
+    const propuestas = filas.map(f => ({ f, propuesta: sugerirRetencionCobro(facturaSinIvaCobro(f), porcentaje) }))
+    if (propuestas.some(p => p.propuesta?.importe == null)) { setError("Revisa el saldo y las retenciones de las facturas antes de aplicar ese porcentaje."); return }
+    for (const p of propuestas) cambiarRetencion(p.f, p.propuesta!.importe!, porcentaje)
+    setError("")
+  }
+  const seleccionCompleta = elegidas.length > 0 && elegidas.every(f => centavos(seleccion[f.comprobante].efectivo) + centavos(seleccion[f.comprobante].retencion) === centavos(f.saldo ?? 0))
+  const alternativas = seleccionCompleta ? ([1.75,2] as const).flatMap(porcentaje => {
+    const propuestas = elegidas.map(f => sugerirRetencionCobro(f, porcentaje))
+    if (propuestas.some(p => p?.importe == null)) return []
+    const neto = elegidas.reduce((s,f,i) => s + centavos(f.saldo ?? 0) - centavos(propuestas[i]!.importe!), 0)
+    if (neto === totalEfectivo || neto <= 0) return []
+    return depositosVisibles.filter(d => !d.anulado && centavos(d.disponible) === neto).map(d => ({ porcentaje, neto, deposito:d }))
+  }) : []
   function cambiar(comprobante: string, campo: keyof Reparto, valor: string) {
     const f = facturas.find(f => f.comprobante === comprobante)
     if (campo === "retencion" && f) cambiarRetencion(f, valor)
@@ -145,6 +160,7 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
   if (tab === "Documentos de pago" && puedeConciliar) return <DocumentosPagoClientes documentoInicial={documentoInicial} alVolver={() => { setDocumentoInicial(undefined); setTab("Conciliar"); actualizar() }} />
   return <main className="compras-sri-pagina fin-pagos cxc-pagina"><header className="compras-sri-cabecera"><h1>Cuentas por cobrar y conciliación</h1><button disabled={bloqueado} onClick={actualizar}>Actualizar</button></header>
     {tab === "Conciliar" && <p>Control de caja: el depósito es el dinero recibido; la retención se descuenta de la factura. Contabilidad gestiona sus comprobantes.</p>}
+    {tab !== "Depósitos recibidos" && <p>Retención histórica sugerida: 1,75 % antes del 01/03/2026 y 2 % desde esa fecha. La emisión es una referencia; confirma lo retenido por el cliente en Detalle. Puedes combinar ambos porcentajes en un mismo depósito.</p>}
     {tab !== "Conciliar" && <p>Saldo de factura = total confirmado − cobros − retenciones − descuentos del cliente. Las retenciones no son depósitos bancarios.</p>}
     <p>Los saldos consideran los cobros, retenciones y descuentos registrados aquí. Ingresa los cobros históricos correspondientes antes de usar estos saldos como cartera pendiente.</p>
     <nav className="fin-pagos-filtros" aria-label="Secciones de cobros">{["Facturas y saldos", "Depósitos recibidos", "Conciliar"].map(t => <button key={t} disabled={bloqueado} aria-pressed={tab === t} onClick={() => { setTab(t); setHistoria(null); setEditar(null) }}>{t}</button>)}</nav>
@@ -175,8 +191,8 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
           <td>{f.fecha_emision}</td><td>{f.comprobante}</td><td>{f.cliente}</td><td>{previsto ? `${previsto.desde} al ${previsto.hasta}` : "Sin plazo"}</td><td className="cxc-neto" aria-label={`Neto por cobrar ${f.comprobante}`}>{neto === null ? "Revisar en Detalle" : dinero(neto)}</td>
           <td><button disabled={bloqueado} onClick={() => void detalle(f)}>Detalle</button></td></tr> })}{!facturas.length && !cargando && <tr><td colSpan={7}>No hay facturas en este rango.</td></tr>}</tbody></TablaCobros></div> : <>
       <div className="compras-sri-contenedor cxc-scroll"><TablaCobros modo="facturas" titulo="Facturas por cobrar" columnas={["Emisión", "Semana de emisión", "Factura", "Cliente", "Venta sin impuestos", "Total de factura", "Vencimiento", "Semana de pago", "Cobrado", "Retención registrada", "Retención calculada", "Saldo", "Estado", "Acciones"]}>
-        <tbody>{facturasOrdenadas.map(f => { const previsto = previsiones.get(f.comprobante), calculada = facturaSinIvaCobro(f), sugerencia = sugerirRetencionCobro(calculada); return <tr key={f.comprobante} className={f.verificada && f.saldo !== null && centavos(f.saldo) === 0 ? "cxc-conciliada" : undefined}>
-          <td>{f.fecha_emision}</td><td>{semanaEmisionCobro(f.fecha_emision)?.etiqueta ?? "—"}</td><td>{f.comprobante}</td><td>{f.cliente}</td><td>{dinero(f.subtotal_importado)}</td><td>{dinero(calculada.total)}{!f.verificada && calculada.verificada && " (IVA 0 %)"}</td><td>{f.vencimiento ?? (previsto ? `${previsto.fecha} (sugerido)` : "—")}</td><td>{previsto ? `${previsto.desde} al ${previsto.hasta}` : "Sin plazo"}</td><td>{dinero(f.cobrado)}</td><td>{dinero(f.retenido)}</td><td><input aria-label={`Retención calculada ${f.comprobante}`} type="number" min="0" step="0.01" max={calculada.saldo ?? 0} disabled={bloqueado || !puedeConciliar || !calculada.verificada || Number(calculada.saldo) <= 0} value={retencionActual(f)} onChange={e => cambiarRetencion(f, e.target.value)} />{sugerencia && <span> {sugerencia.porcentaje.toLocaleString("es-EC")} %</span>}</td><td>{dinero(calculada.saldo)}</td>
+        <tbody>{facturasOrdenadas.map(f => { const previsto = previsiones.get(f.comprobante), calculada = facturaSinIvaCobro(f), porcentaje = porcentajeActual(f); return <tr key={f.comprobante} className={f.verificada && f.saldo !== null && centavos(f.saldo) === 0 ? "cxc-conciliada" : undefined}>
+          <td>{f.fecha_emision}</td><td>{semanaEmisionCobro(f.fecha_emision)?.etiqueta ?? "—"}</td><td>{f.comprobante}</td><td>{f.cliente}</td><td>{dinero(f.subtotal_importado)}</td><td>{dinero(calculada.total)}{!f.verificada && calculada.verificada && " (IVA 0 %)"}</td><td>{f.vencimiento ?? (previsto ? `${previsto.fecha} (sugerido)` : "—")}</td><td>{previsto ? `${previsto.desde} al ${previsto.hasta}` : "Sin plazo"}</td><td>{dinero(f.cobrado)}</td><td>{dinero(f.retenido)}</td><td><input aria-label={`Retención calculada ${f.comprobante}`} type="number" min="0" step="0.01" max={calculada.saldo ?? 0} disabled={bloqueado || !puedeConciliar || !calculada.verificada || Number(calculada.saldo) <= 0} value={retencionActual(f)} onChange={e => cambiarRetencion(f, e.target.value)} /><span> {porcentaje === undefined ? "Manual" : `${porcentaje.toLocaleString("es-EC")} %`}</span></td><td>{dinero(calculada.saldo)}</td>
           <td>{!f.fuente_valida ? "Revisar cliente / fecha en Ventas" : !f.verificada ? calculada.verificada ? "Total propuesto sin IVA" : "Por verificar total" : Number(f.saldo) === 0 ? "Saldada" : f.vencimiento && f.vencimiento < hoy() ? "Vencida" : "Pendiente"}</td>
           <td>{puedeEditar && <button disabled={bloqueado || !f.fuente_valida} onClick={() => { setHistoria(null); setEditar(f) }}>{f.verificada ? "Editar total" : "Verificar total"}</button>}{" "}<button disabled={bloqueado} onClick={() => void detalle(f)}>Detalle</button></td></tr> })}{!facturas.length && !cargando && <tr><td colSpan={14}>No hay facturas en este rango.</td></tr>}</tbody></TablaCobros></div>
       </>}
@@ -188,6 +204,10 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
           <td>{!d.anulado && puedeConciliar && <><button disabled={bloqueado || Number(d.disponible) <= 0} onClick={() => { setDeposito(d.id); setTab("Conciliar") }}>Conciliar</button>{" "}{Number(d.aplicado) === 0 && <button disabled={bloqueado} onClick={() => setAnular({ aplicacion: null, deposito: d.id })}>Anular</button>}</>}</td></tr>)}{!depositosVisibles.length && <tr><td colSpan={9}>{soloSemanas ? "No hay depósitos en las semanas previstas. Desmarca el filtro para ver todos." : "No hay depósitos registrados."}</td></tr>}</tbody></TablaCobros></div></>}
     {tab === "Conciliar" && puedeConciliar && <form className="cxc-panel" onSubmit={confirmar}><h2>Facturas del pago</h2>
       <p className="cxc-comparacion" role="status">{elegidas.length} facturas seleccionadas · Importe a buscar en el banco: <strong>USD {dinero(totalEfectivo / 100)}</strong></p>
+      {!!elegidas.length && <div className="fin-pagos-filtros" aria-label="Retención de facturas seleccionadas"><span>Aplicar a las seleccionadas:</span>{([1.75,2] as const).map(p => <button key={p} type="button" disabled={bloqueado} onClick={() => aplicarPorcentaje(elegidas,p)}>{p.toLocaleString("es-EC")} %</button>)}<span>Para porcentajes distintos, abre Detalle en cada factura.</span></div>}
+      {alternativas.length > 0 && <section aria-label="Alternativas de retención"><h3>Otros importes que coinciden al usar 1,75 % o 2 %</h3><p>Son propuestas de importe. Verifica cliente y referencia antes de usar una alternativa; después podrás revisar el desglose y confirmar.</p>
+        <div className="compras-sri-contenedor cxc-scroll cxc-compacta"><TablaCobros modo="alternativas-retencion" titulo="Depósitos con retención alternativa" columnas={["Retención propuesta","Neto a recibir","Depósito / fecha","Depositante","Acciones"]}><tbody>{alternativas.map(a => <tr key={a.deposito.id+":"+a.porcentaje}><td>{a.porcentaje.toLocaleString("es-EC")} % en todas las seleccionadas</td><td>{dinero(a.neto/100)}</td><td>{a.deposito.referencia} · {a.deposito.fecha}</td><td>{a.deposito.ordenante || "Sin identificar"}</td><td><button type="button" disabled={bloqueado} onClick={() => { aplicarPorcentaje(elegidas,a.porcentaje);setDeposito(a.deposito.id) }}>Usar {a.porcentaje.toLocaleString("es-EC")} % y depósito</button></td></tr>)}</tbody></TablaCobros></div>
+      </section>}
       {!!elegidas.length && <section aria-label="Depósitos coincidentes"><h3>Depósitos con el mismo importe</h3><p>La comparación usa el disponible del depósito y respeta el filtro de semanas. Elige el depósito después de identificar al cliente.</p>
         <div className="compras-sri-contenedor cxc-scroll cxc-compacta"><TablaCobros modo="coincidencias" titulo="Depósitos con el mismo importe" columnas={["Fecha", "Referencia", "Banco / cuenta", "Disponible", "Acciones"]}><tbody>
           {depositosVisibles.filter(d => !d.anulado && totalEfectivo > 0 && centavos(d.disponible) === totalEfectivo).map(d => <tr key={d.id}><td>{d.fecha}</td><td>{d.referencia}</td><td>{d.banco}</td><td>{dinero(d.disponible)}</td><td><button type="button" disabled={bloqueado} onClick={() => { setDeposito(d.id); setError("") }}>{deposito === d.id ? "Depósito elegido" : "Usar depósito"}</button></td></tr>)}
@@ -204,7 +224,9 @@ export default function CobrosConciliacion({ puedeEditar, puedeConciliar, tabIni
       <p>{historia.factura.cliente}</p>
       <dl className="cxc-desglose"><dt>Venta sin impuestos</dt><dd>{dinero(historia.factura.subtotal_importado)}</dd><dt>Total de factura</dt><dd>{dinero(facturaSinIvaCobro(historia.factura).total)}</dd><dt>Cobrado</dt><dd>{dinero(historia.factura.cobrado)}</dd><dt>Retención registrada</dt><dd>{dinero(historia.factura.retenido)}</dd><dt>Descuentos del cliente</dt><dd>{dinero(historia.factura.ajustado ?? 0)}</dd><dt>Saldo contable</dt><dd>{dinero(facturaSinIvaCobro(historia.factura).saldo)}</dd></dl>
       <label>Retención pendiente USD <input aria-label={`Retención ${historia.comprobante}`} type="number" min="0" step="0.01" max={facturaSinIvaCobro(historia.factura).saldo ?? 0} value={retencionActual(historia.factura)} disabled={bloqueado || !puedeConciliar || !facturaSinIvaCobro(historia.factura).verificada} onChange={e => cambiarRetencion(historia.factura, e.target.value)} /></label>
-      {sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))?.importe != null && <button type="button" disabled={bloqueado || !puedeConciliar} onClick={() => cambiarRetencion(historia.factura, sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))!.importe!)}>Usar retención sugerida</button>}
+      <p>Porcentaje de esta factura: <strong>{porcentajeActual(historia.factura) === undefined ? "Importe manual" : `${porcentajeActual(historia.factura)!.toLocaleString("es-EC")} %`}</strong>. La sugerencia usa primero una retención ya registrada compatible; en otro caso, la fecha de emisión como referencia.</p>
+      <div className="fin-pagos-filtros">{([1.75,2] as const).map(p => <button key={p} type="button" disabled={bloqueado || !puedeConciliar || Number(historia.factura.saldo ?? facturaSinIvaCobro(historia.factura).saldo) <= 0 || sugerirRetencionCobro(facturaSinIvaCobro(historia.factura),p)?.importe == null} onClick={() => aplicarPorcentaje([historia.factura],p)}>Aplicar {p.toLocaleString("es-EC")} %</button>)}</div>
+      {sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))?.importe != null && <button type="button" disabled={bloqueado || !puedeConciliar} onClick={() => cambiarRetencion(historia.factura, sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))!.importe!, sugerirRetencionCobro(facturaSinIvaCobro(historia.factura))!.porcentaje)}>Usar retención sugerida</button>}
       <p>Neto por cobrar: <strong>USD {dinero(netoPendienteCobro(historia.factura, retencionActual(historia.factura)))}</strong></p>
       {puedeEditar && <button type="button" disabled={bloqueado || !historia.factura.fuente_valida} onClick={() => { setEditar(historia.factura); setHistoria(null) }}>{historia.factura.verificada ? "Editar total" : "Verificar total"}</button>}
       <h3>Movimientos registrados</h3><div className="compras-sri-contenedor"><TablaCobros modo="detalle" titulo="Detalle de cobros" columnas={["Registro", "Responsable", "Depósito / fecha", "Cobro", "Retención", "Descuentos", "Soporte contable", "Estado", "Acciones"]}><tbody>

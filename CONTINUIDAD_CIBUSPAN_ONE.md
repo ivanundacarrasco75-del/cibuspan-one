@@ -1,5 +1,42 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Retenciones históricas 1,75 % / 2 % en conciliación de cobros**.
+Sobre main `eaa7eb7`. Iván indica que sus facturas pasaron de 1,75 % a 2 %
+con la reforma de marzo y que algunos depósitos no coinciden al conciliar ese mes.
+Fuente oficial verificada: resolución SRI NAC-DGERCGC26-00000009, art.2 numeral4
+literal i (bienes muebles,2 %), art.8 (pago o acreditación, lo primero) y disposición
+final (aplicable 01/03/2026). URL oficial:
+https://www.sri.gob.ec/o/sri-portlet-biblioteca-alfresco-internet/descargar?id=76ba02f0-718a-41b7-a54a-7e0f5615808a&nombre=NAC-DGERCGC26-00000009.pdf
+No afirmar que la emisión determina jurídicamente la tarifa: se usa únicamente
+como referencia operativa del negocio, con 1,75 % histórico informado por Iván
+antes del corte y 2 % posterior. Fechas ausentes/inválidas mantienen referencia2 %.
+Una retención ya registrada que coincide de forma inequívoca con uno de ambos
+porcentajes prevalece sobre fecha; solo se sugiere la parte pendiente. Esto evita
+sumar otra diferencia en facturas parcialmente cobradas a la tarifa anterior.
+Detalle incorpora Aplicar1,75 % y Aplicar2 %, manteniendo importe en USD editable
+y etiqueta Manual cuando se escribe directamente. Ajuste por factura permite
+mezclar porcentajes en un mismo depósito; también hay acciones sobre seleccionadas.
+El neto y la búsqueda bancaria se recalculan. Cambiar porcentaje conserva el
+importe manual de un cobro parcial, y recalcula automáticamente una liquidación
+completa. Alternativas bancarias con todos1,75 % o todos2 % se muestran solo si
+la selección liquida el saldo completo, hay coincidencia exacta y el depósito
+respeta el filtro semanal. Usar alternativa cambia propuesta/selector, requiere
+verificar cliente/referencia y confirmar después; no concilia automáticamente.
+No intenta deducir combinaciones arbitrarias de tarifas por el importe bancario.
+Importes reales de documentos de Favorita/Santa María siguen viniendo del archivo.
+Sin SQL ni migración, sin modificación de retenciones guardadas o conciliaciones
+reales. Solo propuestas de la pantalla; al confirmar se usa la RPC/auditoría
+existente, conservando número/fecha de soporte opcionales de Contabilidad.
+Ocho pruebas unitarias aprobadas: vigencia, manual, historial, netos mixtos,
+redondeo, fuente inválida, pagos parciales y retenciones previas sin duplicar.
+Chrome simulado verificó antes/después1marzo, grupo mixto1962,50, alternativas
+1965/1960, selección explícita, edición individual/manual, parcial conservado,
+conciliación explícita, filas azules, permisos y móvil. Regresión habitual2 %
+con reintento/anchos/semana correcta. npm run build correcto. Archivos:
+src/utils/retencionesCobros.ts, src/pages/CobrosConciliacion.tsx,
+pruebas/verificar_retenciones_cobros.mjs y esta guía. Dashboard intacto.
+Publicación pendiente en este estado; no afirmar publicada todavía.
+
 27/11/2026, **Monto elegido en nómina y nuevos abonos semanales**.
 Sobre main `ee855be`. Iván requiere que los USD 300 digitados en Roles se
 conserven como monto a pagar, separado del saldo total USD 1.200. Además un

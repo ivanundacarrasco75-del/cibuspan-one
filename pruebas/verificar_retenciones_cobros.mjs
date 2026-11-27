@@ -47,3 +47,19 @@ test('Neto usa el 2% y permite importes corregidos sin descontar retenciones dos
  for(const retencion of ['-1','116','1.001','NaN'])assert.equal(neto(factura('TUTI'),retencion),null)
  assert.equal(neto(factura('TUTI',{fuente_valida:false,verificada:false}),'2'),null)
 })
+
+const historico=module.exports.porcentajeHistoricoCobro
+test('Vigencia histórica distingue febrero y marzo de 2026; dato ausente o fecha inválida usa la referencia actual',()=>{
+ for(const f of ['2026-01-01','2026-02-28']){assert.equal(historico(f),1.75);assert.equal(sugerir(factura('Favorita',{fecha_emision:f,total:1000,saldo:1000})).importe,'17.50')}
+ for(const f of ['2026-03-01','2026-03-31','2026-11-27',undefined,'2026-02-30','fecha'])assert.equal(historico(f),2)
+})
+test('Porcentaje elegido y retención real registrada prevalecen sobre la sugerencia de emisión',()=>{
+ const marzo=factura('Favorita',{fecha_emision:'2026-03-03',total:1000,saldo:1000});assert.equal(sugerir(marzo,1.75).importe,'17.50');assert.equal(sugerir(marzo,2).importe,'20.00');assert.equal(sugerir(marzo,1.75).origen,'ELEGIDA')
+ const anterior={...marzo,retenido:17.5,saldo:382.5};assert.equal(sugerir(anterior).porcentaje,1.75);assert.equal(sugerir(anterior).importe,'0.00');assert.equal(sugerir(anterior).origen,'REGISTRADA');assert.equal(sugerir(anterior,2).importe,'2.50')
+ const febrero={...marzo,fecha_emision:'2026-02-20',retenido:20,saldo:980};assert.equal(sugerir(febrero).porcentaje,2);assert.equal(sugerir(febrero).importe,'0.00')
+})
+test('Un depósito puede agrupar netos con 1.75 y 2 sin repetir retenciones parciales ni ajustar cobros registrados',()=>{
+ const a=factura('Favorita',{fecha_emision:'2026-02-28',total:1000,saldo:1000}),b=factura('Favorita',{fecha_emision:'2026-03-01',total:1000,saldo:1000});assert.equal(neto(a,sugerir(a).importe)+neto(b,sugerir(b).importe),1962.5)
+ const parcial={...a,retenido:10,saldo:590};assert.equal(sugerir(parcial).importe,'7.50');assert.equal(neto(parcial,sugerir(parcial).importe),582.5)
+ const saldada={...a,retenido:17.5,saldo:0,cobrado:982.5};assert.equal(sugerir(saldada).importe,'0.00');assert.equal(neto(saldada,sugerir(saldada).importe),0);assert.equal(saldada.retenido,17.5)
+})
