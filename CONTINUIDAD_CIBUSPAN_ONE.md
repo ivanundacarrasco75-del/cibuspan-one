@@ -36,7 +36,9 @@ npm run build correcto. Archivos: src/pages/FinanzasPagosCompras.tsx,
 src/components/QuitarCuentaNomina.tsx, src/repositories/nominaRepository.ts,
 supabase/migrations/202611270001_quitar_cuenta_nomina.sql,
 pruebas/verificar_quitar_cuenta_nomina_sql.mjs y esta guía. Dashboard intacto.
-Publicación pendiente en este estado; no afirmar publicada todavía.
+Publicado desde `68e5e35`, despliegue `eb08c2b3`. Dominio principal comprobado
+por SHA-256 de 40 archivos. Supabase operativo, R2 y firma verificados.
+Código en main. Pendiente que Iván reabra la PWA y confirme el retiro y nueva carga.
 
 26/11/2026, **Documentos de pago de Favorita y Santa María en Conciliaciones**.
 Sobre main `c9df998`. Tarjeta dentro de Cobros y Conciliación > Conciliar >
