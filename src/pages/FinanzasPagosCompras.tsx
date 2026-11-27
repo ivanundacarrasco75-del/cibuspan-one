@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState, type FormEvent, type UIEvent } f
 import { createPortal } from "react-dom"
 import {
   listarComprasProgramadas, listarCuentasCompra, pagarCompra,
-  programarCompras, quitarCompraProgramada, type CompraProgramada, type CuentaCompra, type TipoCuentaCompra,
+  enviarComprasProgramadas, retirarPendienteProgramado, type EnvioCompras, type RetiroProgramado, type CompraProgramada, type CuentaCompra, type TipoCuentaCompra,
 } from "../repositories/finanzasComprasRepository"
 import { PANTALLA_ANTICIPOS, PANTALLA_CUENTAS_POR_PAGAR, PANTALLA_PAGOS_SEMANALES, PANTALLA_RETENCIONES } from "../utils/permisosAplicacion"
 import "./comprasSriTabla.css"
@@ -40,6 +40,7 @@ type Seleccion = { cuenta: CuentaCompra; monto: string; verificado: boolean }
 type Fila = { cuenta?: CuentaCompra; plan?: CompraProgramada }
 type FilaProgramada = Awaited<ReturnType<typeof listarComprasProgramadas>>[number]
 type Pago = { cuenta: CuentaCompra; operacion: string; abono: boolean; maximo: string; semana: string | null }
+type IntentoPlan = { tipo:"ENVIO"; datos:EnvioCompras } | { tipo:"RETIRO"; datos:RetiroProgramado }
 type Acciones = {
   quitarNomina?: (cuenta: CuentaCompra) => void
   corregirNomina?: (cuenta: CuentaCompra) => void
@@ -65,7 +66,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
     ...(modo === "cuentas" && acciones.seleccionar ? ["Elegir"] : []), "Emisión",
     ...(modo === "cuentas" ? ["Semana de emisión", "Semana de pago"] : []), "Tipo", "Documento", "Proveedor", "Descripción",
     "Subtotal", "IVA", "Retención", "Total", "Abonado", "Saldo",
-    ...(modo === "cuentas" ? [] : ["Monto a pagar"]), "Estado", "Pagos",
+    "Monto a pagar", "Estado", "Pagos",
   ]
   const columnas = titulos.length
   const anchos = useColumnasAjustables(modo, titulos, tabla)
@@ -103,8 +104,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
           if (!cuenta && plan) {
             return <tr key={plan.documento_id}>
               <td colSpan={columnas - 2}>Documento de origen no disponible. Revisa el documento antes de pagar.</td>
-              <td>{importe(plan.monto)}</td>
-              <td><button type="button" disabled={acciones.ocupado || plan.pagado > 0} onClick={() => acciones.quitar?.(plan.documento_id)}>Quitar</button></td>
+              <td>{importe(Number(plan.monto)-Number(plan.pagado))}</td>
+              <td><button type="button" disabled={acciones.ocupado || Number(plan.pagado) >= Number(plan.monto)} onClick={() => acciones.quitar?.(plan.documento_id)}>Quitar</button></td>
             </tr>
           }
           if (!cuenta) return null
@@ -137,7 +138,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
                   value={elegida?.monto ?? ""} required disabled={acciones.ocupado}
                   onChange={evento => acciones.cambiarMonto?.(cuenta.id, evento.target.value)} />
               </td>}
-              {modo === "semana" && <td className="compras-sri-monto">{plan ? importe(plan.monto) : "—"}</td>}
+              {modo === "cuentas" && <td className="compras-sri-monto">{importe(cuenta.monto_a_pagar ?? cuenta.saldo)}</td>}
+              {modo === "semana" && <td className="compras-sri-monto">{plan ? importe(monto(restante)) : "—"}</td>}
               {modo !== "semana" && <td>{modo === "seleccion" && historica(cuenta)
                 ? <label className="fin-pagos-verificar"><input type="checkbox" checked={elegida?.verificado ?? false}
                   disabled={acciones.ocupado} onChange={evento => acciones.verificar?.(cuenta.id, evento.target.checked)} /> Saldo verificado</label>
@@ -153,8 +155,8 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
                     title={Number(cuenta.pagado) > 0 || cuenta.pagos.length > 0 ? "Tiene pagos registrados; revisa el detalle" : cuenta.semana_activa ? "Quita primero esta cuenta de Pagos semanales" : "Retirar la cuenta para volver a cargarla con los datos correctos"}
                     onClick={() => acciones.quitarNomina?.(cuenta)}>Quitar cuenta de nómina</button>}
                 {(modo === "seleccion" || modo === "semana") &&
-                  <button type="button" disabled={acciones.ocupado || (modo === "semana" && (!plan || plan.pagado > 0))}
-                    title={modo === "semana" && plan && plan.pagado > 0 ? "El plan ya tiene pagos registrados" : undefined} onClick={() => acciones.quitar?.(cuenta.id)}>Quitar</button>}
+                  <button type="button" disabled={acciones.ocupado || (modo === "semana" && (!plan || restante <= 0))}
+                    title={modo === "semana" ? "Retirar solo el pendiente; conserva los abonos registrados" : undefined} onClick={() => acciones.quitar?.(cuenta.id)}>Quitar</button>}
               </div></td>
             </tr>
             {detalle === cuenta.id && <tr><td colSpan={columnas} className="compras-sri-detalle">
@@ -162,7 +164,7 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
               {modo === "semana" && <>
                 <p>Estado: {estado} · Subtotal: {importe(cuenta.subtotal)} · IVA: {importe(cuenta.iva)} · Retención: {importe(cuenta.retencion)} · Total: {importe(cuenta.total)}</p>
                 <p>Abonado al documento: {importe(cuenta.pagado)} · Saldo del documento: {importe(cuenta.saldo)}</p>
-                {plan && <p>Pago programado desde Cuentas por pagar: {importe(plan.monto)} · Pagado en plan: {importe(plan.pagado)} · Pendiente del plan: {importe(monto(restante))}</p>}
+                {plan && <p>Programado acumulado en la semana: {importe(plan.monto)} · Pagado en plan: {importe(plan.pagado)} · Pago pendiente: {importe(monto(restante))}</p>}
               </>}
               {cuenta.ruc && <p>RUC {cuenta.ruc}{cuenta.id.startsWith("sri:") ? " · Clave de acceso " + cuenta.id.slice(4) : ""}</p>}
               {historica(cuenta) && <p>Origen histórico en Clasificación de gastos. Verifica el saldo contra los pagos anteriores.</p>}
@@ -209,6 +211,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const [retiroNomina, setRetiroNomina] = useState<CuentaCompra | null>(null)
   const [correccionNomina, setCorreccionNomina] = useState<CuentaCompra | null>(null)
   const [intentoPago, setIntentoPago] = useState<Parameters<typeof pagarCompra>[0] | null>(null)
+  const [intentoPlan, setIntentoPlan] = useState<IntentoPlan | null>(null)
   const bloqueo = useRef(false)
   const consultaCuentas = useRef<{ pagina: number; enCurso: boolean; agotada: boolean } | null>(null)
   const dialogo = useRef<HTMLDialogElement>(null)
@@ -312,7 +315,7 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   function seleccionar(cuenta: CuentaCompra, marcada: boolean) {
     setSeleccion(anterior => {
       const lista = new Map(anterior)
-      if (marcada) lista.set(cuenta.id, { cuenta, monto: monto(centavos(cuenta.saldo)), verificado: false })
+      if (marcada) lista.set(cuenta.id, { cuenta, monto: monto(centavos(cuenta.monto_a_pagar ?? cuenta.saldo)), verificado: false })
       else lista.delete(cuenta.id)
       return lista
     })
@@ -367,19 +370,36 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   function enviarSeleccion(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
     const filas = Array.from(seleccion.values(), fila => ({ id: fila.cuenta.id, monto: fila.monto, verificado: fila.verificado }))
+    procesarPlan({ tipo:"ENVIO", datos:{ operacion:crypto.randomUUID(), semana, filas } })
+  }
+
+  function procesarPlan(solicitud:IntentoPlan) {
     void guardar(async () => {
-      await programarCompras(semana, filas)
-      setSeleccion(new Map())
-      setAviso(`${filas.length} documento(s) enviado(s) a la semana del ${semana}.`)
-      if (puedeAbrirPagosSemanales) cambiarPantalla(PANTALLA_PAGOS_SEMANALES)
-      else setRevision(valor => valor + 1)
+      setIntentoPlan(solicitud)
+      try {
+        if (solicitud.tipo === "ENVIO") await enviarComprasProgramadas(solicitud.datos)
+        else await retirarPendienteProgramado(solicitud.datos)
+      } catch (e) {
+        if (e && typeof e === "object" && "rechazado" in e && e.rechazado) setIntentoPlan(null)
+        throw e
+      }
+      setIntentoPlan(null)
+      if (solicitud.tipo === "ENVIO") {
+        setSeleccion(new Map())
+        setAviso(`${solicitud.datos.filas.length} documento(s) enviado(s) a la semana del ${solicitud.datos.semana}.`)
+        if (puedeAbrirPagosSemanales) cambiarPantalla(PANTALLA_PAGOS_SEMANALES)
+        else setRevision(valor => valor + 1)
+      } else {
+        setAviso("Pendiente retirado. Los abonos y sus referencias se conservaron.")
+        setRevision(valor => valor + 1)
+      }
     })
   }
 
   const seleccionadas = Array.from(seleccion.values())
   const totalSeleccion = seleccionadas.reduce((total, fila) => total + (centavos(fila.monto) || 0), 0)
   const saldoSemana = programadas.reduce((total, { plan }) => total + centavos(plan.monto) - centavos(plan.pagado), 0)
-  const ocupado = guardando || cargando || pago !== null || retiroNomina !== null || correccionNomina !== null
+  const ocupado = guardando || cargando || pago !== null || retiroNomina !== null || correccionNomina !== null || intentoPlan !== null
   const acciones = { seleccion, abrirPago, ocupado, actualizarSemana: (id: string) => { setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setAviso("Semana de pago guardada con registro del responsable."); setRevision(v => v + 1) }, actualizarImportes: (id: string) => {
     setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(id); return siguiente })
     setAviso("Importes corregidos y registrados en la bitácora. Ya puedes seleccionar el documento si tiene saldo.")
@@ -396,53 +416,54 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
           {(semanal || puedeAbrirPagosSemanales) && <button type="button" disabled={ocupado} onClick={() => cambiarPantalla(semanal ? PANTALLA_CUENTAS_POR_PAGAR : PANTALLA_PAGOS_SEMANALES)}>
             {semanal ? "Cuentas por pagar" : "Ver pagos semanales"}
           </button>}
-          <button type="button" disabled={guardando || pago !== null} onClick={() => setRevision(valor => valor + 1)}>Actualizar</button>
+          <button type="button" disabled={guardando || pago !== null || intentoPlan !== null} onClick={() => setRevision(valor => valor + 1)}>Actualizar</button>
         </div>
       </header>
       {error && !pago && <p className="compras-sri-error" role="alert">{error}</p>}
+      {intentoPlan && <p role="status">Confirma el resultado antes de continuar. <button type="button" disabled={guardando} onClick={() => procesarPlan(intentoPlan)}>{intentoPlan.tipo === "ENVIO" ? "Reintentar envío" : "Reintentar retiro"}</button></p>}
       {aviso && <p role="status">{aviso}</p>}
       {!semanal && cargaNomina && <section className="fin-pagos-seleccion" aria-label="Resultado de carga de nómina">
-        <p role="status">Resultado de la carga: {cargaNomina.filas.filter(f => f.estado === "CREADA").length} creadas · {cargaNomina.filas.filter(f => f.estado === "ACTUALIZADA").length} actualizadas · {cargaNomina.filas.filter(f => f.estado === "YA_EXISTIA").length} ya existentes · {cargaNomina.filas.filter(f => f.estado === "YA_PAGADA").length} ya pagadas.</p>
+        <p role="status">Resultado de la carga: {cargaNomina.filas.filter(f => f.estado === "CREADA").length} creadas · {cargaNomina.filas.filter(f => f.estado === "PREPARADA").length} pagos preparados · {cargaNomina.filas.filter(f => f.estado === "ACTUALIZADA").length} actualizadas · {cargaNomina.filas.filter(f => f.estado === "YA_EXISTIA").length} ya existentes · {cargaNomina.filas.filter(f => f.estado === "YA_PAGADA").length} ya pagadas.</p>
         {cargaNomina.filas.some(f => f.estado === "YA_PAGADA") && <p>Estas cuentas ya estaban pagadas. Volver a cargar el mismo mes y concepto no genera otro pago; revisa el mes y concepto elegidos.</p>}
         {documentosCarga && <><p>Mostrando las cuentas de la última carga. Los demás pagos siguen disponibles al quitar este filtro.</p><button type="button" disabled={ocupado} onClick={() => { setDocumentosCarga(undefined); setTipo(""); setBuscar(""); setPendientes(false); setSinSemana(false); setSemanaPago("") }}>Ver todas las cuentas</button></>}
       </section>}
       {semanal ? (
         <>
           <div className="fin-pagos-filtros">
-            <label>Semana del <SelectorSemanaPago etiqueta="Semana del" required value={semana} disabled={guardando || pago !== null} onChange={setSemana} /></label>
+            <label>Semana del <SelectorSemanaPago etiqueta="Semana del" required value={semana} disabled={guardando || pago !== null || intentoPlan !== null} onChange={setSemana} /></label>
             {!cargando && <strong>Pendiente programado: {importe(monto(saldoSemana))}</strong>}
           </div>
           {cargando ? <p role="status">Cargando pagos semanales…</p> :
             <TablaCompras filas={programadas} modo="semana" titulo="Documentos programados" acciones={{
-              ...acciones, quitar: id => void guardar(async () => {
-                await quitarCompraProgramada(semana, id)
-                setRevision(valor => valor + 1)
-              }),
+              ...acciones, quitar: id => {
+                const plan = programadas.find(f => f.plan.documento_id === id)?.plan
+                if (plan) procesarPlan({ tipo:"RETIRO", datos:{ operacion:crypto.randomUUID(), semana, documento:id, monto:Number(plan.monto), pagado:Number(plan.pagado) } })
+              },
             }} />}
         </>
       ) : (
         <>
           <div className="fin-pagos-filtros">
-            <label>Tipo <select value={tipo} disabled={guardando || pago !== null}
+            <label>Tipo <select value={tipo} disabled={guardando || pago !== null || intentoPlan !== null}
               onChange={evento => setTipo(evento.target.value)}>
               <option value="">Todos</option>
               {Object.entries(tipos).map(([codigo, nombre]) => <option key={codigo} value={codigo}>{nombre}</option>)}
             </select></label>
-            <label>Año de la semana <select aria-label="Año de la semana" value={anioSemanaPago} disabled={guardando || pago !== null || sinSemana} onChange={e => {
+            <label>Año de la semana <select aria-label="Año de la semana" value={anioSemanaPago} disabled={guardando || pago !== null || intentoPlan !== null || sinSemana} onChange={e => {
               const anio = Number(e.target.value)
               const numero = semanasDelAnio(anioSemanaPago).find(s => s.desde === semanaPago)?.numero
               setAnioSemanaPago(anio)
               setSemanaPago(numero ? semanasDelAnio(anio)[numero - 1]?.desde ?? "" : "")
             }}>{Array.from({ length: 21 }, (_, i) => Number(hoy().slice(0, 4)) - 10 + i).map(anio => <option key={anio} value={anio}>{anio}</option>)}</select></label>
-            <label>Semana de pago <select aria-label="Filtrar semana de pago" value={semanaPago} disabled={guardando || pago !== null || sinSemana} onChange={e => setSemanaPago(e.target.value)}>
+            <label>Semana de pago <select aria-label="Filtrar semana de pago" value={semanaPago} disabled={guardando || pago !== null || intentoPlan !== null || sinSemana} onChange={e => setSemanaPago(e.target.value)}>
               <option value="">Sin filtro de semana</option>
               {semanasDelAnio(anioSemanaPago).map(s => <option key={s.numero} value={s.desde}>Semana {String(s.numero).padStart(2, "0")}</option>)}
             </select></label>
-            <label><input type="checkbox" checked={sinSemana} disabled={guardando || pago !== null} onChange={e => setSinSemana(e.target.checked)} /> Sin semana asignada</label>
-            <button type="button" disabled={guardando || pago !== null} onClick={() => { setSemanaPago(""); setSinSemana(false) }}>Todas las semanas</button>
-            <label>Buscar <input type="search" value={buscar} disabled={guardando || pago !== null}
+            <label><input type="checkbox" checked={sinSemana} disabled={guardando || pago !== null || intentoPlan !== null} onChange={e => setSinSemana(e.target.checked)} /> Sin semana asignada</label>
+            <button type="button" disabled={guardando || pago !== null || intentoPlan !== null} onClick={() => { setSemanaPago(""); setSinSemana(false) }}>Todas las semanas</button>
+            <label>Buscar <input type="search" value={buscar} disabled={guardando || pago !== null || intentoPlan !== null}
               placeholder="Proveedor, documento o descripción" onChange={evento => setBuscar(evento.target.value)} /></label>
-            <label><input type="checkbox" checked={pendientes} disabled={guardando || pago !== null}
+            <label><input type="checkbox" checked={pendientes} disabled={guardando || pago !== null || intentoPlan !== null}
               onChange={evento => setPendientes(evento.target.checked)} /> Solo con saldo</label>
           </div>
           <div aria-busy={cargando || cargandoMas}>

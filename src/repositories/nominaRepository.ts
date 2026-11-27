@@ -89,7 +89,7 @@ export type CargaNominaCuentas = {
   periodo: string; concepto: ConceptoPagoNomina
   filas: { empleado_id: string; monto: string }[]
 }
-export type ResultadoCargaNomina = { operacion:string; filas:{id:string;nombre:string;periodo:string;concepto:ConceptoPagoNomina;monto:number;estado:"CREADA"|"ACTUALIZADA"|"YA_PAGADA"|"YA_EXISTIA"}[] }
+export type ResultadoCargaNomina = { operacion:string; filas:{id:string;nombre:string;periodo:string;concepto:ConceptoPagoNomina;monto:number;total?:number;pagado?:number;saldo?:number;estado:"CREADA"|"ACTUALIZADA"|"YA_PAGADA"|"YA_EXISTIA"|"PREPARADA"}[] }
 export async function cargarNominaCuentas(datos: CargaNominaCuentas) {
   const { data, error, status } = await supabase.rpc("fin_cargar_nomina_verificada", {
     p_operacion: datos.operacion,

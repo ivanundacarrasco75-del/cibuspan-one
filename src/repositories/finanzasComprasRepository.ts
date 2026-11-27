@@ -19,6 +19,7 @@ export type CuentaCompra = {
   ruc: string | null
   observaciones: string | null
   semana_pago?: string | null
+  monto_a_pagar?: number | null
   semana_activa: string | null
   pagos: { id: string; valor: string | number; fecha: string; documento: string }[]
 }
@@ -65,7 +66,15 @@ export async function listarCuentasCompra(pagina: number, tipo: string, busqueda
   else if (semanaPago) consulta = consulta.eq("semana_pago", semanaPago)
   const { data, count, error } = await consulta
   if (error) throw error
-  return { cuentas: (data ?? []) as CuentaCompra[], total: count ?? 0 }
+  const cuentas = (data ?? []) as CuentaCompra[]
+  const ids = cuentas.filter(c => c.tipo === "NOMINA").map(c => c.id)
+  if (ids.length) {
+    const { data: montos, error: fallo } = await supabase.rpc("fin_consultar_montos_nomina", { p_documentos: ids })
+    if (fallo) throw fallo
+    const porId = new Map((montos as {documento_id:string;monto:number}[] ?? []).map(m => [m.documento_id, Number(m.monto)]))
+    for (const c of cuentas) if (porId.has(c.id)) c.monto_a_pagar = porId.get(c.id)!
+  }
+  return { cuentas, total: count ?? 0 }
 }
 
 export async function listarComprasProgramadas(semana: string) {
@@ -92,6 +101,16 @@ export async function listarComprasProgramadas(semana: string) {
 export async function programarCompras(semana: string, filas: SeleccionCompra[]) {
   const { error } = await supabase.rpc("fin_programar_compras", { p_semana: semana, p_filas: filas })
   if (error) throw error
+}
+export type EnvioCompras = { operacion:string; semana:string; filas:SeleccionCompra[] }
+export type RetiroProgramado = { operacion:string; semana:string; documento:string; monto:number; pagado:number }
+export async function enviarComprasProgramadas(d:EnvioCompras) {
+  const {error,status}=await supabase.rpc("fin_programar_compras_operacion",{p_operacion:d.operacion,p_semana:d.semana,p_filas:d.filas})
+  if(error)throw Object.assign(error,{rechazado:status>=400&&status<500})
+}
+export async function retirarPendienteProgramado(d:RetiroProgramado) {
+  const {error,status}=await supabase.rpc("fin_quitar_pendiente_programado",{p_operacion:d.operacion,p_semana:d.semana,p_documento:d.documento,p_monto:d.monto,p_pagado:d.pagado})
+  if(error)throw Object.assign(error,{rechazado:status>=400&&status<500})
 }
 
 export async function quitarCompraProgramada(semana: string, id: string) {

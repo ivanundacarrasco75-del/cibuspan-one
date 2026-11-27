@@ -59,6 +59,7 @@ export default function PagosNomina({ empleados, alCargar }: {
   }
   return <section className="nom-gestion">
     <h2>Pagos nómina</h2>
+    <p>Indica cuánto quieres pagar ahora. Si la cuenta ya existe, conservará su total y sus abonos; este monto será el propuesto en Cuentas por pagar.</p>
     <form onSubmit={cargar}>
       <div className="nom-gestion-filtros">
         <label>Mes <input type="month" value={mes} required disabled={bloqueado}
@@ -74,7 +75,7 @@ export default function PagosNomina({ empleados, alCargar }: {
           <th><input type="checkbox" aria-label="Seleccionar todo el personal" disabled={bloqueado || personas.length === 0}
             checked={personas.length > 0 && seleccionadas.length === personas.length}
             onChange={evento => cambiar(new Set(evento.target.checked ? personas.map(persona => persona.id) : []))} /></th>
-          <th>Nombre</th><th>Vínculo</th><th>Área</th><th>Monto USD</th>
+          <th>Nombre</th><th>Vínculo</th><th>Área</th><th>Monto a pagar USD</th>
         </tr></thead><tbody>{personas.map(persona => <tr key={persona.id}>
           <td><input type="checkbox" aria-label={`Seleccionar ${persona.nombre}`} checked={borrador.elegidos.has(persona.id)} disabled={bloqueado}
             onChange={evento => {

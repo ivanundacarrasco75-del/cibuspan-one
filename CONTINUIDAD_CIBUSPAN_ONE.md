@@ -1,5 +1,42 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Monto elegido en nómina y nuevos abonos semanales**.
+Sobre main `ee855be`. Iván requiere que los USD 300 digitados en Roles se
+conserven como monto a pagar, separado del saldo total USD 1.200. Además un
+abono anterior de 300 en semana 48 ya estaba ejecutado: el procedimiento
+antiguo devolvía éxito sin preparar otro si coincidía monto/semana/documento.
+Nueva fin_nomina_montos_pagar conserva la propuesta para cada obligación;
+fin_cargar_nomina_verificada mantiene el total y abonos de cuentas existentes,
+valida la propuesta contra saldo y devuelve estado PREPARADA. Una cuenta nueva
+conserva la creación habitual. Cuentas muestra columna Monto a pagar, recupera
+la propuesta al consultar/paginar y la usa al marcar la casilla. La edición en
+la tabla inferior define el importe exacto del envío; no se sustituye por saldo.
+Nuevo envío por operación reabre un plan totalmente ejecutado en la misma semana
+sumando solo el nuevo importe al acumulado, conservando pagado e historia. No
+confunde un nuevo envío con el reintento de uno previo. Bloquea otros planes
+pendientes y excesos. Nómina y documentos se bloquean en orden compatible con
+carga, corrección y retiro. API anterior de programación se conserva para otras
+pantallas; Cuentas usa nueva operación y registra responsable/selección.
+Pagos semanales sigue con siete columnas y Pagar/Detalle/Quitar; Pago programado
+muestra el importe pendiente, mientras Detalle conserva acumulado y abonado.
+Pagar registra únicamente el pendiente con fecha/referencia propia. Quitar retira
+solo lo pendiente, conservando los abonos; si no había abonos retira el plan.
+Envío y retiro congelan solicitud ante respuesta desconocida y reintentan la
+misma identidad, sin cancelar una programación posterior por un reintento viejo.
+SQL nuevo exclusivo 202611270003 instalado y registrado en eodcwkuexldsbomflthe,
+tras revisar historial/contratos. No cambia vistas ni pagos, ni elimina planes.
+Seis pruebas SQL correctas: recorrido total1500/pagado300/solicitado300/saldo1200,
+reapertura y nuevo pago300 fecha27 (saldo900), ediciones, cancelación pendiente,
+reintentos, permisos, excesos, atomicidad, nueva cuenta y cuenta ya pagada.
+Chrome simulado comprobó Roles300 -> Cuentas300 -> selección editable -> semanal
+pendiente300, reintentos de envío/retiro idénticos, retiro sin borrar abono previo,
+pago con nueva fecha/referencia, siete columnas y móvil. npm run build correcto.
+Archivos: pages/FinanzasPagosCompras.tsx, PagosNomina.tsx;
+repositories/finanzasComprasRepository.ts, nominaRepository.ts; SQL 202611270003,
+pruebas/verificar_nomina_abonos_semanales_sql.mjs y esta guía. Dashboard intacto.
+Publicación y recuperación de la selección real de Iván pendientes en este estado.
+No afirmar pago nuevo realizado: requiere fecha y referencia bancaria en la app.
+
 27/11/2026, **Iván: primera quincena de octubre, monto y búsqueda de nómina**.
 Sobre main `b82a80c`. Iván aclara que necesita el saldo de primera quincena de
 octubre y que su quincena completa es USD 1.500. La obligación existente estaba
