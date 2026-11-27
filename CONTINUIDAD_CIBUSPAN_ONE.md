@@ -1,5 +1,26 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Preparación del arranque de Producción y Despachos del 01/12**.
+Sobre main `57ee87e`, en árbol aislado codex/arranque-pt. Iván cargará el físico real
+ese día antes de operar. Consulta de sólo lectura al proyecto eodcwkuexldsbomflthe:
+sin cortes MP/PT, sin reservas activas, semi disponible 0, PT previo 13.260 unidades,
+24 pedidos INGRESADOS de agosto-octubre y 18 DESPACHADOS históricos. No se borró nada.
+BLANCO SANTA y SANDUCHERO BLANCO SANTA siguen sin fórmula vigente vinculada.
+Nuevo exportador de sólo definiciones y ensayo aislado del circuito actual,
+incluidas dependencias de Casa Masa: 5 pruebas correctas de pedido, planificación,
+consumo/entrada atómicos, reserva y despacho, con reintentos e insuficiencia.
+Regresión de apertura MP/PT y controles locales: 76 pruebas correctas. Build correcto.
+Preparada 202611270004_privadas_produccion_despachos: revoca accesos directos sobrantes
+de cinco tablas privadas de comprobantes, sin tocar sus filas ni cuerpos operativos.
+Probadas conservación, reaplicación y denegación de TRUNCATE. SQL NO instalado ni
+registrado, código NO publicado; esperar aprobación expresa de Iván.
+Pendientes: revisar antiguos pedidos, completar fórmulas necesarias, cargar físicos
+el 01/12 y validar documentos/interfaz con el primer caso real. Empaque al etiquetar
+y reposición de micros aún requieren movimientos manuales de Kardex.
+Detalle y límites del ensayo en docs/ARRANQUE_DICIEMBRE_2026.md. No ejecutar el
+historial completo de migraciones ni interpretar marcadores internos perdidos
+durante restauración como ausencia de funciones. Dashboard intacto.
+
 27/11/2026, **Carga masiva de documentos de pago Favorita/Santa María**.
 Sobre main `d0cab41`. Iván señala que el selector solo permitía un archivo.
 Ambas tarjetas ahora permiten selección múltiple: varios comprobantes PDF de
