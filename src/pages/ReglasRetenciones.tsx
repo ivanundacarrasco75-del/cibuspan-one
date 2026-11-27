@@ -46,8 +46,9 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
       const actual = filas.find(fila => fila.estado === "ACTIVA" && fila.tipo_registro === "CALCULADA")
       if (actual) {
         setCalculada(true); setFecha(actual.fecha); setRegimen(actual.regimen ?? ""); setEspecial(actual.proveedor_especial ?? false); setMotivo(actual.motivo)
-        setLineas(actual.lineas.flatMap(linea => linea.impuesto === "SEGUN_REPORTE" || !linea.id ? [] : [{ impuesto: linea.impuesto, regla: linea.id, base: Number(linea.base).toFixed(2),
-          ...(linea.ajuste_manual ? { valor: Number(linea.valor).toFixed(2) } : {}) }]))
+        const reglasActuales = actual.lineas.flatMap(linea => (linea.impuesto !== "RENTA" && linea.impuesto !== "IVA") || !linea.id ? [] : [{ impuesto: linea.impuesto, regla: linea.id, base: Number(linea.base).toFixed(2),
+          ...(linea.ajuste_manual ? { valor: Number(linea.valor).toFixed(2) } : {}) }])
+        if (reglasActuales.length > 0) setLineas(reglasActuales)
       }
     })
       .catch(fallo => { if (vigente) setError(textoError(fallo)) }).finally(() => { if (vigente) setCargando(false) })
@@ -94,6 +95,7 @@ function RetencionFactura({ cuenta, reglas, alActualizar, perfil }: {
       <p>Selecciona abajo la regla que corresponde al concepto y verifica la condición actual del proveedor. Renta no se infiere de este historial.</p>
     </div>}
     {activa?.tipo_registro === "CALCULADA" && <p role="status"><strong>Cálculo pendiente de emisión: USD {dinero(activa.total)}.</strong> Puedes corregirlo o registrar el comprobante emitido.</p>}
+    {activa?.lineas.some(linea => linea.impuesto === "TOTAL_RETENIDO") && <p>Total retenido confirmado al liquidar el anticipo: USD {dinero(activa.total)}. {activa.motivo} Para sustituirlo, completa las reglas y la condición del proveedor; el total actual permanece hasta guardar la corrección.</p>}
     {cargando ? <p>Cargando retenciones…</p> : activa && activa.tipo_registro !== "CALCULADA" ? <>
       <p><strong>Retención registrada: USD {dinero(activa.total)}</strong> · {activa.fecha} · Comprobante {activa.comprobante || "sin importe"}</p>
       <p>{activa.motivo}</p>

@@ -1,5 +1,26 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Liquidación de anticipos cuya diferencia es retención**.
+Sobre main `f59e4c4`. Iván confirma que el saldo de TRAMAR corresponde a retención.
+Consulta real: anticipo 224,83, desembolso/cruce 212,12 y factura
+001-500-000010890 por 224,83; ambos saldos 12,71 y sin retención activa.
+Preparada 202611270005_anticipos_retencion_pendiente: operación atómica y auditada
+que corrige el importe del anticipo al desembolso real y registra en la factura
+el total retenido confirmado como CALCULADA, pendiente de emisión. Conserva
+importe anterior, responsable, motivo, pago, referencia y cruce. No inventa
+régimen, desglose de impuestos ni comprobante. No emplear el borrador antiguo
+202611260001 del otro árbol: no está instalado ni es el contrato vigente.
+Exige un único cruce, mismo RUC, anticipo por el total de factura, pago totalmente
+aplicado y diferencia exacta; bloquea cambios concurrentes y retención distinta.
+Reintento por operación sin duplicados. Una anulación posterior reabre solo la
+factura; no vuelve a crear otra obligación en el anticipo. Ajusta solo planes
+pendientes; pagos y cruces originales quedan intactos. Botón Liquidar con
+retención en Anticipos y en Detalle del anticipo de Cuentas por pagar.
+Nueve pruebas SQL correctas, incluidas regresiones del reporte contable,
+permisos, anulación, emisión existente y reversión íntegra ante fallo.
+Instalación SQL, ajuste real de TRAMAR y publicación: pendientes de completar.
+Dashboard y contratos de otros módulos sin cambios.
+
 27/11/2026, **Preparación del arranque de Producción y Despachos del 01/12**.
 Sobre main `57ee87e`, en árbol aislado codex/arranque-pt. Iván cargará el físico real
 ese día antes de operar. Consulta de sólo lectura al proyecto eodcwkuexldsbomflthe:

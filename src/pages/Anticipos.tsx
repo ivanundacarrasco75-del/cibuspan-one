@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react"
 import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
 import SelectorSemanaPago from "../components/SelectorSemanaPago"
+import LiquidarAnticipoRetencion from "../components/LiquidarAnticipoRetencion"
 import { createPortal } from "react-dom"
 import { aplicarAnticipo, guardarAnticipo, listarAnticipos, type Anticipo, type CruceAnticipo, type DatosAnticipo } from "../repositories/anticiposRepository"
 import { CUENTAS_POR_PAGINA, listarCuentasCompra, programarCompras, type CuentaCompra } from "../repositories/finanzasComprasRepository"
@@ -201,6 +202,7 @@ export default function Anticipos({ alProgramar, puedeAbrirPagosSemanales }: {
             <td><SemanaPagoDocumento documento={"anticipo:" + fila.id} inicial={fila.semana_pago} nombre={fila.numero} disabled={bloqueado} alGuardar={semana_pago => setFilas(actuales => actuales.map(f => f.id === fila.id ? { ...f, semana_pago } : f))} /></td>
             <td><div className="anticipos-acciones">
               {fila.disponible > 0 && <button disabled={bloqueado} onClick={() => setCruce(fila)}>Cruzar con factura</button>}
+              {Number(fila.saldo) > 0 && Number(fila.aplicado) > 0 && <LiquidarAnticipoRetencion anticipoId={fila.id} disabled={bloqueado} alGuardar={() => setRevision(valor => valor + 1)} />}
               {fila.pagado === 0 && !fila.semana_activa && <button disabled={bloqueado} onClick={() => { setGuardarPendiente(null); setEdicion({ ...fila, semana_operacion: crypto.randomUUID(), monto: Number(fila.monto).toFixed(2) }) }}>Editar</button>}
               <button onClick={() => setDetalle(detalle === fila.id ? null : fila.id)}>Detalle</button>
             </div></td>

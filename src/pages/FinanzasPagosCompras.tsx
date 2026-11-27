@@ -11,6 +11,7 @@ import SemanaPagoDocumento from "../components/SemanaPagoDocumento"
 import SelectorSemanaPago from "../components/SelectorSemanaPago"
 import { semanasDelAnio } from "../utils/semanasPago"
 import CorreccionImportesExcel from "../components/CorreccionImportesExcel"
+import LiquidarAnticipoRetencion from "../components/LiquidarAnticipoRetencion"
 import QuitarCuentaNomina from "../components/QuitarCuentaNomina"
 import CorregirMontoNomina from "../components/CorregirMontoNomina"
 import type { ResultadoCargaNomina } from "../repositories/nominaRepository"
@@ -42,6 +43,7 @@ type FilaProgramada = Awaited<ReturnType<typeof listarComprasProgramadas>>[numbe
 type Pago = { cuenta: CuentaCompra; operacion: string; abono: boolean; maximo: string; semana: string | null }
 type IntentoPlan = { tipo:"ENVIO"; datos:EnvioCompras } | { tipo:"RETIRO"; datos:RetiroProgramado }
 type Acciones = {
+  actualizarAnticipo?: (id: string) => void
   quitarNomina?: (cuenta: CuentaCompra) => void
   corregirNomina?: (cuenta: CuentaCompra) => void
   actualizarSemana?: (id: string) => void
@@ -169,6 +171,9 @@ function TablaCompras({ filas, titulo, modo, acciones, alDesplazar }: {
               {cuenta.ruc && <p>RUC {cuenta.ruc}{cuenta.id.startsWith("sri:") ? " · Clave de acceso " + cuenta.id.slice(4) : ""}</p>}
               {historica(cuenta) && <p>Origen histórico en Clasificación de gastos. Verifica el saldo contra los pagos anteriores.</p>}
               {cuenta.observaciones && <p>{cuenta.observaciones}</p>}
+              {modo === "cuentas" && cuenta.tipo === "ANTICIPO" && Number(cuenta.saldo) > 0 && Number(cuenta.pagado) > 0 &&
+                <LiquidarAnticipoRetencion anticipoId={cuenta.id.slice("anticipo:".length)} disabled={acciones.ocupado}
+                  alGuardar={() => acciones.actualizarAnticipo?.(cuenta.id)} />}
               {modo === "cuentas" && cuenta.origen === "EXCEL" && <CorreccionImportesExcel cuenta={cuenta}
                 alGuardar={() => acciones.actualizarImportes?.(cuenta.id)} />}
               {cuenta.pagos.length > 0 ? <ul>{cuenta.pagos.map(pago =>
@@ -400,7 +405,9 @@ export default function FinanzasPagosCompras({ semanal, cambiarPantalla, puedeAb
   const totalSeleccion = seleccionadas.reduce((total, fila) => total + (centavos(fila.monto) || 0), 0)
   const saldoSemana = programadas.reduce((total, { plan }) => total + centavos(plan.monto) - centavos(plan.pagado), 0)
   const ocupado = guardando || cargando || pago !== null || retiroNomina !== null || correccionNomina !== null || intentoPlan !== null
-  const acciones = { seleccion, abrirPago, ocupado, actualizarSemana: (id: string) => { setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setAviso("Semana de pago guardada con registro del responsable."); setRevision(v => v + 1) }, actualizarImportes: (id: string) => {
+  const acciones = { seleccion, abrirPago, ocupado, actualizarAnticipo: (id: string) => {
+    setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setRevision(v => v + 1)
+  }, actualizarSemana: (id: string) => { setSeleccion(a => { const n = new Map(a); n.delete(id); return n }); setAviso("Semana de pago guardada con registro del responsable."); setRevision(v => v + 1) }, actualizarImportes: (id: string) => {
     setSeleccion(anterior => { const siguiente = new Map(anterior); siguiente.delete(id); return siguiente })
     setAviso("Importes corregidos y registrados en la bitácora. Ya puedes seleccionar el documento si tiene saldo.")
     setRevision(valor => valor + 1)

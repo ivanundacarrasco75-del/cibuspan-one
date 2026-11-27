@@ -18,7 +18,7 @@ export type ReglaRetencion = {
 export type RetencionDocumento = {
   id: string; documento_id: string; fecha: string; regimen: string | null; proveedor_especial: boolean | null; comprobante: string
   motivo: string; total: number; descuento: number; estado: "ACTIVA" | "ANULADA"; tipo_registro: "CALCULADA" | "EMITIDA"
-  lineas: { id?: string; impuesto: "RENTA" | "IVA" | "SEGUN_REPORTE"; concepto: string; porcentaje?: number; base: number; valor: number; valor_calculado?: number; ajuste_manual?: boolean }[]
+  lineas: { id?: string; impuesto: "RENTA" | "IVA" | "SEGUN_REPORTE" | "TOTAL_RETENIDO"; concepto: string; porcentaje?: number; base: number; valor: number; valor_calculado?: number; ajuste_manual?: boolean }[]
 }
 export type SolicitudRetencion = {
   id: string; documento: string; fecha: string; regimen: string; especial: boolean; comprobante: string; motivo: string

@@ -37,3 +37,19 @@ export async function aplicarAnticipo(datos: CruceAnticipo) {
   if (error) throw Object.assign(error, { rechazado: status >= 400 && status < 500 })
   return data as { factura_id: string; aplicado: number; saldo?: number }
 }
+
+export async function consultarAnticipo(id: string) {
+  const { data, error } = await supabase.rpc("fin_consultar_anticipos").select("*").eq("id", id).single()
+  if (error) throw error
+  return data as Anticipo
+}
+export type LiquidacionAnticipo = {
+  operacion: string; anticipo: string; factura: string; monto: number; pagado: number; retencion: string; motivo: string
+}
+export async function liquidarAnticipoRetencion(datos: LiquidacionAnticipo) {
+  const { error, status } = await supabase.rpc("fin_liquidar_anticipo_retencion", {
+    p_operacion: datos.operacion, p_anticipo: datos.anticipo, p_factura: datos.factura,
+    p_monto_anterior: datos.monto, p_pagado_anterior: datos.pagado, p_retencion: datos.retencion, p_motivo: datos.motivo,
+  })
+  if (error) throw Object.assign(error, { rechazado: status >= 400 && status < 500 })
+}
