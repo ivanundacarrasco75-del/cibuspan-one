@@ -46,7 +46,10 @@ DocumentosPagoClientes.tsx, cobrosConciliacion.css; components/TablasCobros.tsx;
 repositories/cobrosRepository.ts, documentosPagoClientesRepository.ts;
 utils/documentosPagoClientes.ts, documentosPagoClientesPdf.ts,
 retencionesCobros.ts; SQL nuevo y dos archivos de pruebas. Dashboard intacto.
-npm run build final correcto. Publicación pendiente en este estado; no afirmar publicada.
+npm run build final correcto. Publicado desde `8353f12`, despliegue `70f75300`.
+Dominio principal verificado por SHA-256 de 40 archivos, incluidos importadores
+y motor PDF. Supabase operativo, R2 y firma comprobados. Código en main.
+Pendiente que Iván reabra la PWA, revise la distribución y confirme cada cruce.
 
 26/11/2026, **Semana de pago por número también en columnas y formularios**.
 Sobre main `3f06071`. Iván señaló que la columna editable de Facturas SRI
