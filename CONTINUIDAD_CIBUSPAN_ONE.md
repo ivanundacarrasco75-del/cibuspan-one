@@ -18,7 +18,21 @@ pendientes; pagos y cruces originales quedan intactos. Botón Liquidar con
 retención en Anticipos y en Detalle del anticipo de Cuentas por pagar.
 Nueve pruebas SQL correctas, incluidas regresiones del reporte contable,
 permisos, anulación, emisión existente y reversión íntegra ante fallo.
-Instalación SQL, ajuste real de TRAMAR y publicación: pendientes de completar.
+Instalada únicamente 202611270005 y registrada después del éxito. Ajuste real
+autorizado de TRAMAR aplicado: anticipo corregido a 212,12, factura mantiene
+224,83 bruto y retención CALCULADA 12,71; ambos netos/pagados 212,12 y saldos cero.
+No existe comprobante emitido para este cálculo: su soporte contable sigue
+pendiente. Auditoría con actor, motivo y valores anteriores. Huellas de todos
+los pagos, cruces, XML y otros anticipos idénticas dentro de la transacción;
+relectura después del COMMIT confirma los saldos y todas las vistas públicas
+conservan su definición. No se registró ni anuló ningún pago bancario.
+Chrome local comprobó ambas entradas, importe editable, motivo/confirmación,
+reintento idéntico tras 503, refresco y diálogo móvil, con datos simulados.
+Build correcto. Fuente 0645331 en main; publicada en Cloudflare 432d536b.
+SHA-256 de 41 archivos públicos, proyecto operativo, R2 y firma comprobados.
+Archivos: Anticipos.tsx, FinanzasPagosCompras.tsx, ReglasRetenciones.tsx,
+LiquidarAnticipoRetencion.tsx, anticiposRepository.ts, retencionesRepository.ts,
+la migración nueva, verificar_anticipos_retencion_pendiente_sql.mjs y esta guía.
 Dashboard y contratos de otros módulos sin cambios.
 
 27/11/2026, **Preparación del arranque de Producción y Despachos del 01/12**.
