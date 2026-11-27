@@ -35,7 +35,10 @@ conciliación explícita, filas azules, permisos y móvil. Regresión habitual2 
 con reintento/anchos/semana correcta. npm run build correcto. Archivos:
 src/utils/retencionesCobros.ts, src/pages/CobrosConciliacion.tsx,
 pruebas/verificar_retenciones_cobros.mjs y esta guía. Dashboard intacto.
-Publicación pendiente en este estado; no afirmar publicada todavía.
+Publicado desde `521cf99`, despliegue `0d51f804`. Dominio principal verificado
+por SHA-256 de 40 archivos. Supabase operativo, R2 y firma comprobados.
+Código en main. Pendiente que Iván reabra la app y revise porcentajes por
+factura en marzo antes de confirmar sus conciliaciones.
 
 27/11/2026, **Monto elegido en nómina y nuevos abonos semanales**.
 Sobre main `ee855be`. Iván requiere que los USD 300 digitados en Roles se
