@@ -1,5 +1,35 @@
 # Continuidad de CIBUSPAN ONE
 
+27/11/2026, **Carga masiva de documentos de pago Favorita/Santa María**.
+Sobre main `d0cab41`. Iván señala que el selector solo permitía un archivo.
+Ambas tarjetas ahora permiten selección múltiple: varios comprobantes PDF de
+Favorita o varios CSV Control de pagos - Detalle de Santa María. Procesamiento
+secuencial por archivo para conservar el control de duplicados y los límites de
+lectura existentes, sin cargar todos los PDF simultáneamente en memoria.
+Resultado por archivo: pendiente, leyendo, importando, importado, ya existía,
+revisar archivo o sin confirmar. Incluye contadores de comprobantes nuevos y
+existentes, mensaje de error y avance. Un archivo inválido/rechazado no detiene
+los demás. Respuesta desconocida se marca Sin confirmar; reintentar vuelve a
+leer exactamente el archivo y usa su hash y la RPC idempotente existentes.
+Reintenta solo errores/sin confirmar, conservando resultados exitosos. Detener
+termina el archivo actual y deja los siguientes pendientes; Continuar pendientes
+los procesa sin repetir los anteriores. Al salir se deja de iniciar archivos
+nuevos; una petición ya enviada puede terminar y la reimportación es segura.
+El listado se filtra al cliente y al rango completo de fechas leído en el lote.
+Las importaciones quedan pendientes de revisión y conciliación; no se cruzan
+facturas ni se aplican depósitos por seleccionar archivos. Misma validación de
+PDF/CSV y misma protección de documentos ya conciliados. Sin SQL ni migración.
+Chrome con PDF y CSV reales enviados a servidor simulado verificó selección
+múltiple de ambos formatos, copia repetida, PDF inválido con continuidad, error
+503 y reintento selectivo, documentos conciliados intactos, CSV nuevo y repetido,
+fechas del lote, detener/continuar, ausencia de llamadas de cruce y móvil.
+Regresión de importación individual y conciliación completa correcta: detalle,
+confirmación/reintento, compensación sin banco, anulación, azul y anchos.
+npm run build correcto. No se importaron ni conciliaron documentos reales.
+Archivos: src/components/ImportarDocumentosPagoClientes.tsx,
+src/pages/DocumentosPagoClientes.tsx y esta guía. Dashboard intacto.
+Publicación pendiente en este estado; no afirmar publicada todavía.
+
 27/11/2026, **Retenciones históricas 1,75 % / 2 % en conciliación de cobros**.
 Sobre main `eaa7eb7`. Iván indica que sus facturas pasaron de 1,75 % a 2 %
 con la reforma de marzo y que algunos depósitos no coinciden al conciliar ese mes.
